@@ -30,7 +30,7 @@ jobs:
         include:
           - name: Linux
             os: ubuntu-latest
-            build_cmd: npx electron-builder --linux AppImage deb rpm --publish never
+            target_args: --linux AppImage deb rpm
             artifact_name: dist-linux
             artifact_glob: |
               dist/*.AppImage
@@ -40,7 +40,7 @@ jobs:
               dist/*.blockmap
           - name: Windows
             os: windows-latest
-            build_cmd: npx electron-builder --win nsis --publish never
+            target_args: --win nsis
             artifact_name: dist-windows
             artifact_glob: |
               dist/*.exe
@@ -64,11 +64,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Resolve app version
+        env:
+          RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
+        run: |
+          node -e "const fs=require('fs'); const ref=process.env.GITHUB_REF||''; const input=(process.env.RELEASE_TAG_INPUT||'').trim(); let version=''; if(/^v.+/.test(input)){version=input.slice(1);} else { const m=ref.match(/^refs\/tags\/v(.+)$/); if(m) version=m[1]; } if(!version){version=require('./package.json').version;} fs.appendFileSync(process.env.GITHUB_ENV, `APP_VERSION=${version}\n`); console.log(`Using app version: ${version}`);"
+
       - name: Build renderer/main
         run: npm run build
 
       - name: Package app
-        run: ${{ matrix.build_cmd }}
+        run: npx electron-builder ${{ matrix.target_args }} --publish never --config.extraMetadata.version=${{ env.APP_VERSION }}
 
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v4

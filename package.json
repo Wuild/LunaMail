@@ -1,0 +1,109 @@
+{
+  "name": "lunamail",
+  "version": "1.0.0",
+  "description": "",
+  "main": "build/main/index.js",
+  "maintainers": [
+    "Wuild"
+  ],
+  "scripts": {
+    "build:electron": "npm run build && electron-builder",
+    "dev:ui": "vite",
+    "dev:types": "tsc -w --preserveWatchOutput",
+    "dev:electron": "wait-on tcp:127.0.0.1:5174 file:build/main/index.js && nodemon --watch build/main --watch build/preload --ext js,mjs,cjs,json --exec \"electron .\"",
+    "dev": "concurrently -k -n TSC,VITE,ELECTRON -c yellow,blue,green \"tsc -w --preserveWatchOutput\" \"vite\" \"npm run dev:electron\"",
+    "rebuild:native": "npm rebuild better-sqlite3 --runtime=electron --target=41.1.1 --dist-url=https://electronjs.org/headers",
+    "postinstall": "npm run rebuild:native",
+    "build": "tsc && vite build",
+    "start": "electron .",
+    "drizzle:generate": "drizzle-kit generate --config=drizzle.config.ts",
+    "drizzle:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.4.27",
+    "concurrently": "^9.2.1",
+    "drizzle-kit": "^0.24.0",
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1",
+    "nodemon": "^3.1.14",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3",
+    "wait-on": "^9.0.4"
+  },
+  "dependencies": {
+    "@lexical/code": "^0.42.0",
+    "@lexical/history": "^0.42.0",
+    "@lexical/link": "^0.42.0",
+    "@lexical/list": "^0.42.0",
+    "@lexical/markdown": "^0.42.0",
+    "@lexical/react": "^0.42.0",
+    "@lexical/rich-text": "^0.42.0",
+    "@tanstack/react-query": "^5.96.1",
+    "better-sqlite3": "^12.8.0",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.33.0",
+    "imapflow": "^1.2.18",
+    "keytar": "^7.9.0",
+    "lexical": "^0.42.0",
+    "lucide-react": "^1.7.0",
+    "mailparser": "^3.9.6",
+    "nodemailer": "^8.0.4",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.5.0",
+    "zustand": "^5.0.12"
+  },
+  "build": {
+    "appId": "com.lunamail.app",
+    "productName": "LunaMail",
+    "beforeBuild": "./scripts/electron-builder-before-build.cjs",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "public/**/*",
+      "resources/**/*",
+      "build/**/*",
+      "preload.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules",
+        "to": "node_modules",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "rpm"
+      ],
+      "icon": "build/icons",
+      "desktop": {
+        "entry": {
+          "StartupWMClass": "lunamail"
+        }
+      },
+      "category": "Network"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  }
+}

@@ -10,6 +10,7 @@ build/
 # IDEs and Editors
 .vscode/
 .idea/
+.tmp/
 *.sublime-project
 *.sublime-workspace
 *.atom

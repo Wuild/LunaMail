@@ -283,6 +283,28 @@ export interface DebugLogEntry {
 
 export type AppSettingsPatch = Partial<AppSettings>;
 
+export type AutoUpdatePhase =
+    | 'disabled'
+    | 'idle'
+    | 'checking'
+    | 'available'
+    | 'not-available'
+    | 'downloading'
+    | 'downloaded'
+    | 'error';
+
+export interface AutoUpdateState {
+    enabled: boolean;
+    phase: AutoUpdatePhase;
+    currentVersion: string;
+    latestVersion: string | null;
+    downloadedVersion: string | null;
+    percent: number | null;
+    transferred: number | null;
+    total: number | null;
+    message: string | null;
+}
+
 const api = {
     getAccounts: (): Promise<PublicAccount[]> => ipcRenderer.invoke('get-accounts'),
     addAccount: (account: AddAccountPayload): Promise<{ id: number; email: string }> =>
@@ -372,6 +394,14 @@ const api = {
         ipcRenderer.invoke('update-app-settings', patch),
     pickComposeAttachments: (): Promise<PickedAttachment[]> =>
         ipcRenderer.invoke('pick-compose-attachments'),
+    getAutoUpdateState: (): Promise<AutoUpdateState> =>
+        ipcRenderer.invoke('get-auto-update-state'),
+    checkForUpdates: (): Promise<AutoUpdateState> =>
+        ipcRenderer.invoke('check-for-updates'),
+    downloadUpdate: (): Promise<AutoUpdateState> =>
+        ipcRenderer.invoke('download-update'),
+    quitAndInstallUpdate: (): Promise<{ ok: true }> =>
+        ipcRenderer.invoke('quit-and-install-update'),
     onAccountAdded: (callback: (payload: { id: number; email: string }) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: {
             id: number;
@@ -424,6 +454,11 @@ const api = {
         const listener = (_event: Electron.IpcRendererEvent, payload: DebugLogEntry) => callback(payload);
         ipcRenderer.on('debug-log', listener);
         return () => ipcRenderer.removeListener('debug-log', listener);
+    },
+    onAutoUpdateStatus: (callback: (payload: AutoUpdateState) => void): (() => void) => {
+        const listener = (_event: Electron.IpcRendererEvent, payload: AutoUpdateState) => callback(payload);
+        ipcRenderer.on('auto-update-status', listener);
+        return () => ipcRenderer.removeListener('auto-update-status', listener);
     },
 };
 

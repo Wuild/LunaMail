@@ -16,13 +16,16 @@ import {
     stopAccountAutoSync,
 } from './ipc/accounts.js';
 import {registerSettingsIpc} from './ipc/settings.js';
+import {broadcastAutoUpdateState, registerUpdaterIpc} from './ipc/updater.js';
 import {registerWindowIpc} from './ipc/windows.js';
 import {getAppSettings, getAppSettingsSync, getSpellCheckerLanguages} from './settings/store.js';
+import {initAutoUpdater, runStartupUpdateFlow} from './updater/autoUpdate.js';
 import type {ComposeDraftPayload} from './windows/composeWindow.js';
 import {openComposeWindow} from './windows/composeWindow.js';
 import {getAddAccountWindow, openAddAccountWindow} from './windows/addAccountWindow.js';
 import {openDebugWindow} from './windows/debugWindow.js';
 import {loadWindowContent} from './windows/loadWindowContent.js';
+import {closeSplashWindow, openSplashWindow} from './windows/splashWindow.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -34,6 +37,7 @@ let currentUnreadCount = 0;
 const pendingMailtoUrls: string[] = [];
 let stopDebugForwarding: (() => void) | null = null;
 const appIconPath = resolveAppIconPath();
+const trayIconPath = resolveTrayIconPath();
 const appIconPngBase64 = appIconPath && fs.existsSync(appIconPath) ? fs.readFileSync(appIconPath).toString('base64') : null;
 
 function createWindow() {
@@ -106,7 +110,7 @@ function createWindow() {
 
 function buildTrayIcon(unreadCount: number) {
     if (process.platform === 'linux') {
-        const trayPath = appIconPath || path.join(app.getAppPath(), 'build/icons/64x64.png');
+        const trayPath = trayIconPath || appIconPath || path.join(app.getAppPath(), 'build/icons/64x64.png');
         const image = nativeImage.createFromPath(trayPath);
         if (!image.isEmpty()) {
             return image.resize({width: 22, height: 22});
@@ -223,6 +227,20 @@ function resolveAppIconPath(): string | null {
         path.join(process.cwd(), 'build/icons/512x512.png'),
         path.join(process.cwd(), 'build/icon.png'),
         path.join(process.cwd(), 'src/resources/luna.png'),
+    ];
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) return candidate;
+    }
+    return null;
+}
+
+function resolveTrayIconPath(): string | null {
+    const candidates = [
+        path.join(app.getAppPath(), 'build/lunatray.png'),
+        path.join(app.getAppPath(), 'src/resources/lunatray.png'),
+        path.join(__dirname, '../resources/lunatray.png'),
+        path.join(process.cwd(), 'build/lunatray.png'),
+        path.join(process.cwd(), 'src/resources/lunatray.png'),
     ];
     for (const candidate of candidates) {
         if (fs.existsSync(candidate)) return candidate;
@@ -527,13 +545,24 @@ if (!gotSingleInstanceLock) {
         registerSettingsIpc(() => {
             applyRuntimeSettings();
         });
+        registerUpdaterIpc();
         registerWindowIpc();
         registerMailtoProtocolClient();
+        initAutoUpdater((state) => {
+            broadcastAutoUpdateState(state);
+        });
         stopDebugForwarding = onDebugLog((entry) => {
             for (const win of BrowserWindow.getAllWindows()) {
                 win.webContents.send('debug-log', entry);
             }
         });
+
+        openSplashWindow();
+        const startupUpdateResult = await runStartupUpdateFlow();
+        if (startupUpdateResult === 'installing') {
+            return;
+        }
+        closeSplashWindow();
 
         const accounts = await getAccounts();
         if (accounts.length === 0) {

@@ -39,6 +39,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   getSystemLocale: () => ipcRenderer.invoke('get-system-locale'),
   updateAppSettings: (patch) => ipcRenderer.invoke('update-app-settings', patch),
+  pickComposeAttachments: () => ipcRenderer.invoke('pick-compose-attachments'),
+  getAutoUpdateState: () => ipcRenderer.invoke('get-auto-update-state'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  quitAndInstallUpdate: () => ipcRenderer.invoke('quit-and-install-update'),
   onAccountAdded: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('account-added', listener);
@@ -88,6 +93,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('debug-log', listener);
     return () => ipcRenderer.removeListener('debug-log', listener);
+  },
+  onAutoUpdateStatus: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('auto-update-status', listener);
+    return () => ipcRenderer.removeListener('auto-update-status', listener);
   },
   // More to be added as we progress
 });

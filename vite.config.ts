@@ -24,6 +24,7 @@ export default defineConfig({
                 message: path.resolve(__dirname, 'src/renderer/message.html'),
                 support: path.resolve(__dirname, 'src/renderer/support.html'),
                 debug: path.resolve(__dirname, 'src/renderer/debug.html'),
+                splash: path.resolve(__dirname, 'src/renderer/splash.html'),
             },
         },
     },

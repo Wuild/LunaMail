@@ -25,10 +25,14 @@ export function openAddAccountWindow(parentWindow?: BrowserWindow): void {
         modal: true,
         width: Math.max(960, parentBounds?.width ?? 960),
         height: Math.max(700, parentBounds?.height ?? 700),
+        minWidth: 960,
+        minHeight: 700,
+        maxWidth: 1400,
+        maxHeight: 1000,
         minimizable: false,
         maximizable: false,
         autoHideMenuBar: true,
-        resizable: false,
+        resizable: true,
         title: 'Add Account',
         webPreferences: {
             preload: preloadPath,
@@ -36,6 +40,7 @@ export function openAddAccountWindow(parentWindow?: BrowserWindow): void {
             nodeIntegration: false,
         },
     });
+    addAccountWin.setMaximizable(false);
     addAccountWin.setMenuBarVisibility(false);
     addAccountWin.removeMenu();
     addAccountWin.webContents.on('before-input-event', (event, input) => {

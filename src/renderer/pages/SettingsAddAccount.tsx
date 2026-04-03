@@ -188,6 +188,41 @@ const SettingsAddAccount: React.FC = () => {
         setter((prev) => ({host: '', port: 0, secure: true, ...(prev ?? {}), ...patch}));
     }
 
+    const primaryActionDisabled =
+        loading ||
+        (step === 1 && !canGoStep1Next) ||
+        (step === 2 && !canVerifyManual);
+
+    const primaryActionLabel =
+        step === 1
+            ? (loading ? 'Checking account...' : 'Next')
+            : step === 2
+                ? (loading ? 'Verifying...' : 'Verify and Continue')
+                : (loading ? 'Saving...' : 'Add Account');
+
+    async function onPrimaryAction() {
+        if (step === 1) {
+            await onStep1Next();
+            return;
+        }
+        if (step === 2) {
+            await onVerifyManual();
+            return;
+        }
+        await onSave();
+    }
+
+    function onBack() {
+        resetMessages();
+        if (step === 2) {
+            setStep(1);
+            return;
+        }
+        if (step === 3) {
+            setStep(2);
+        }
+    }
+
     return (
         <div className="h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
             <div
@@ -207,8 +242,8 @@ const SettingsAddAccount: React.FC = () => {
                     </div>
                 </aside>
 
-                <main className="flex min-h-0 flex-1 flex-col overflow-auto p-8">
-                    <div className="mb-6">
+                <main className="flex min-h-0 flex-1 flex-col">
+                    <div className="border-b border-slate-200 px-8 py-6 dark:border-[#3a3d44]">
                         <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Step {step} of
                             3</p>
                         <h3 className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{stepMeta[step].title}</h3>
@@ -218,118 +253,95 @@ const SettingsAddAccount: React.FC = () => {
                         </div>
                     </div>
 
-                    {step === 1 && (
-                        <section className="space-y-5">
-                            <header>
-                                <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Enter your
-                                    account credentials</h3>
-                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">We will autodiscover your
-                                    server settings and verify authentication.</p>
-                            </header>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+                        {step === 1 && (
+                            <section className="space-y-5">
+                                <header>
+                                    <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Enter your
+                                        account credentials</h3>
+                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">We will autodiscover
+                                        your
+                                        server settings and verify authentication.</p>
+                                </header>
 
-                            <div
-                                className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-                                <Field label="Name (optional)" value={name} onChange={setName}
-                                       placeholder="Your display name"/>
-                                <Field label="Email" value={email} onChange={setEmail} placeholder="you@domain.com"
-                                       className="mt-4"/>
-                                <Field label="Password" value={password} onChange={setPassword} type="password"
-                                       className="mt-4"/>
-                            </div>
+                                <div
+                                    className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+                                    <Field label="Name (optional)" value={name} onChange={setName}
+                                           placeholder="Your display name"/>
+                                    <Field label="Email" value={email} onChange={setEmail} placeholder="you@domain.com"
+                                           className="mt-4"/>
+                                    <Field label="Password" value={password} onChange={setPassword} type="password"
+                                           className="mt-4"/>
+                                </div>
+                            </section>
+                        )}
 
-                            <div className="flex justify-end">
-                                <button
-                                    disabled={!canGoStep1Next || loading}
-                                    onClick={onStep1Next}
-                                    className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
-                                >
-                                    {loading ? 'Checking account...' : 'Next'}
-                                </button>
-                            </div>
-                        </section>
-                    )}
+                        {step === 2 && (
+                            <section className="space-y-5">
+                                <header>
+                                    <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Manual
+                                        server
+                                        setup</h3>
+                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Autodiscover did not
+                                        return complete settings. Enter IMAP and SMTP manually.</p>
+                                </header>
 
-                    {step === 2 && (
-                        <section className="space-y-5">
-                            <header>
-                                <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Manual server
-                                    setup</h3>
-                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Autodiscover did not
-                                    return complete settings. Enter IMAP and SMTP manually.</p>
-                            </header>
+                                <div className="grid gap-4">
+                                    <ServiceEditor title="IMAP Incoming" service={imap}
+                                                   onChange={(patch) => updateService(setImap, patch)} accent="sky"/>
+                                    <ServiceEditor title="SMTP Outgoing" service={smtp}
+                                                   onChange={(patch) => updateService(setSmtp, patch)} accent="cyan"/>
+                                </div>
+                            </section>
+                        )}
 
-                            <div className="grid gap-4">
-                                <ServiceEditor title="IMAP Incoming" service={imap}
-                                               onChange={(patch) => updateService(setImap, patch)} accent="sky"/>
-                                <ServiceEditor title="SMTP Outgoing" service={smtp}
-                                               onChange={(patch) => updateService(setSmtp, patch)} accent="cyan"/>
-                            </div>
+                        {step === 3 && (
+                            <section className="space-y-5">
+                                <header>
+                                    <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Confirm
+                                        account details</h3>
+                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Everything looks
+                                        good.
+                                        Save to add this mailbox.</p>
+                                </header>
 
-                            <div className="flex items-center justify-between">
-                                <button
-                                    disabled={loading}
-                                    onClick={() => {
-                                        resetMessages();
-                                        setStep(1);
-                                    }}
-                                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
-                                >
-                                    Back
-                                </button>
-                                <button
-                                    disabled={!canVerifyManual || loading}
-                                    onClick={onVerifyManual}
-                                    className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
-                                >
-                                    {loading ? 'Verifying...' : 'Verify and Continue'}
-                                </button>
-                            </div>
-                        </section>
-                    )}
+                                <div
+                                    className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+                                    <SummaryRow label="Email" value={email}/>
+                                    <SummaryRow label="Provider" value={provider ?? 'custom'}/>
+                                    <SummaryRow label="IMAP" value={`${imap?.host ?? '-'}:${imap?.port ?? '-'}`}/>
+                                    <SummaryRow label="SMTP" value={`${smtp?.host ?? '-'}:${smtp?.port ?? '-'}`}/>
+                                </div>
+                            </section>
+                        )}
 
-                    {step === 3 && (
-                        <section className="space-y-5">
-                            <header>
-                                <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Confirm
-                                    account details</h3>
-                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Everything looks good.
-                                    Save to add this mailbox.</p>
-                            </header>
+                        {error &&
+                            <p className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-900/20 dark:text-red-300">{error}</p>}
+                        {success &&
+                            <p className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-900/20 dark:text-emerald-300">{success}</p>}
+                    </div>
 
-                            <div
-                                className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-                                <SummaryRow label="Email" value={email}/>
-                                <SummaryRow label="Provider" value={provider ?? 'custom'}/>
-                                <SummaryRow label="IMAP" value={`${imap?.host ?? '-'}:${imap?.port ?? '-'}`}/>
-                                <SummaryRow label="SMTP" value={`${smtp?.host ?? '-'}:${smtp?.port ?? '-'}`}/>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                                <button
-                                    disabled={loading}
-                                    onClick={() => {
-                                        resetMessages();
-                                        setStep(2);
-                                    }}
-                                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
-                                >
-                                    Back
-                                </button>
-                                <button
-                                    disabled={loading}
-                                    onClick={onSave}
-                                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    {loading ? 'Saving...' : 'Add Account'}
-                                </button>
-                            </div>
-                        </section>
-                    )}
-
-                    {error &&
-                        <p className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-900/20 dark:text-red-300">{error}</p>}
-                    {success &&
-                        <p className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-900/20 dark:text-emerald-300">{success}</p>}
+                    <footer
+                        className="flex shrink-0 items-center justify-between border-t border-slate-200 px-8 py-4 dark:border-[#3a3d44]">
+                        <button
+                            disabled={step === 1 || loading}
+                            onClick={onBack}
+                            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                        >
+                            Back
+                        </button>
+                        <button
+                            disabled={primaryActionDisabled}
+                            onClick={onPrimaryAction}
+                            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${
+                                step === 3
+                                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                                    : 'bg-sky-600 hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]'
+                            }`}
+                        >
+                            {primaryActionLabel}
+                        </button>
+                    </footer>
                 </main>
             </div>
         </div>

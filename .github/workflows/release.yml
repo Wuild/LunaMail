@@ -65,10 +65,21 @@ jobs:
         run: npm ci
 
       - name: Resolve app version
+        shell: bash
         env:
-          RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
+          RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag || '' }}
         run: |
-          node -e "const fs=require('fs'); const ref=process.env.GITHUB_REF||''; const input=(process.env.RELEASE_TAG_INPUT||'').trim(); let version=''; if(/^v.+/.test(input)){version=input.slice(1);} else { const m=ref.match(/^refs\/tags\/v(.+)$/); if(m) version=m[1]; } if(!version){version=require('./package.json').version;} fs.appendFileSync(process.env.GITHUB_ENV, `APP_VERSION=${version}\n`); console.log(`Using app version: ${version}`);"
+          VERSION=""
+          if [[ -n "${RELEASE_TAG_INPUT}" && "${RELEASE_TAG_INPUT}" == v* ]]; then
+            VERSION="${RELEASE_TAG_INPUT#v}"
+          elif [[ "${GITHUB_REF:-}" =~ ^refs/tags/v(.+)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+          else
+            VERSION="$(node -p "require('./package.json').version")"
+          fi
+
+          echo "APP_VERSION=${VERSION}" >> "${GITHUB_ENV}"
+          echo "Using app version: ${VERSION}"
 
       - name: Build renderer/main
         run: npm run build

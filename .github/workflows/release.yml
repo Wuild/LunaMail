@@ -3,29 +3,55 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Tag to publish (e.g. v1.0.2). If empty, use package.json version."
+        required: false
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.ref_name || github.run_id }}
   cancel-in-progress: false
 
 jobs:
-  linux-release:
-    name: Build And Publish Linux Release
-    runs-on: ubuntu-latest
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-latest
+            build_cmd: npx electron-builder --linux AppImage deb rpm --publish never
+            artifact_name: dist-linux
+            artifact_glob: |
+              dist/*.AppImage
+              dist/*.deb
+              dist/*.rpm
+              dist/*.yml
+              dist/*.blockmap
+          - name: Windows
+            os: windows-latest
+            build_cmd: npx electron-builder --win nsis --publish never
+            artifact_name: dist-windows
+            artifact_glob: |
+              dist/*.exe
+              dist/*.nsis.7z
+              dist/*.yml
+              dist/*.blockmap
+
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -33,30 +59,60 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Sync Version From Tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          TAG_NAME: ${{ github.ref_name }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          VERSION="${TAG_NAME#v}"
-          echo "Tag version: ${VERSION}"
-          npm version "${VERSION}" --no-git-tag-version
-          if git diff --quiet -- package.json package-lock.json; then
-            echo "Version already synced."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          git commit -m "chore(release): sync version ${VERSION} [skip ci]"
-          git push origin "HEAD:${DEFAULT_BRANCH}"
-
-      - name: Build App
+      - name: Build renderer/main
         run: npm run build
 
-      - name: Publish AppImage Release
-        run: npx electron-builder --linux AppImage --publish always
+      - name: Package app
+        run: ${{ matrix.build_cmd }}
+
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ -n "${GITHUB_REF_NAME}" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          elif [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            TAG="${{ github.event.inputs.release_tag }}"
+          else
+            VERSION="$(node -p "require('./package.json').version")"
+            TAG="v${VERSION}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-linux
+          path: release-assets
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-windows
+          path: release-assets
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            release-assets/**

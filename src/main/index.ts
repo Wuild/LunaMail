@@ -139,12 +139,7 @@ function ensureTray(): void {
         {
             label: 'Show LunaMail',
             click: () => {
-                if (!mainWindow || mainWindow.isDestroyed()) {
-                    createWindow();
-                    return;
-                }
-                mainWindow.show();
-                mainWindow.focus();
+                showMainWindow();
             },
         },
         {
@@ -164,12 +159,7 @@ function ensureTray(): void {
     ]);
     tray.setContextMenu(contextMenu);
     tray.on('double-click', () => {
-        if (!mainWindow || mainWindow.isDestroyed()) {
-            createWindow();
-            return;
-        }
-        mainWindow.show();
-        mainWindow.focus();
+        showMainWindow();
     });
 }
 
@@ -214,7 +204,20 @@ function focusMainWindowAndOpenMessage(target: {
     } else {
         sendTarget();
     }
-    mainWindow.show();
+    showMainWindow();
+}
+
+function showMainWindow(): void {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        createWindow();
+    }
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+    }
+    if (!mainWindow.isVisible()) {
+        mainWindow.show();
+    }
     mainWindow.focus();
 }
 
@@ -277,11 +280,7 @@ function registerProtocolHandlers(): void {
         if (mailtoUrl) {
             queueMailtoUrl(mailtoUrl);
         } else {
-            const existingWindow = BrowserWindow.getAllWindows().find((win) => !win.isDestroyed());
-            if (existingWindow) {
-                existingWindow.show();
-                existingWindow.focus();
-            }
+            showMainWindow();
         }
     });
 }
@@ -580,14 +579,17 @@ if (!gotSingleInstanceLock) {
         startAccountAutoSync();
 
         app.on('activate', () => {
-            if (BrowserWindow.getAllWindows().length > 0) return;
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                showMainWindow();
+                return;
+            }
             void getAccounts().then((rows) => {
                 if (rows.length === 0) {
                     openAddAccountWindow(undefined);
                     attachAddAccountWindowCloseBehavior();
                     return;
                 }
-                createWindow();
+                showMainWindow();
             });
         });
     });

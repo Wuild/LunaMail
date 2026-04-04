@@ -1,15 +1,18 @@
-import React, {useEffect, useMemo, useState} from 'react';
-import type {AppSettings} from '../../preload';
+import React, {useMemo, useState} from 'react';
+import WindowTitleBar from '../components/WindowTitleBar';
+import ServiceSettingsCard, {type ServiceSecurityMode} from '../components/settings/ServiceSettingsCard';
+import {useAppTheme} from '../hooks/useAppTheme';
 
-type Service = { host: string; port: number; secure: boolean };
+type Service = { host: string; port: number; security: ServiceSecurityMode };
 type WizardStep = 1 | 2 | 3;
 type VerifyType = 'imap' | 'smtp';
+type DiscoverService = { host: string; port: number; secure: boolean };
 
 type DiscoverResult = {
     provider?: string | null;
-    imap?: Service;
-    pop3?: Service;
-    smtp?: Service;
+    imap?: DiscoverService;
+    pop3?: DiscoverService;
+    smtp?: DiscoverService;
 };
 
 type VerifyResult = {
@@ -24,6 +27,7 @@ const stepMeta: Record<WizardStep, { title: string; subtitle: string }> = {
 };
 
 const SettingsAddAccount: React.FC = () => {
+    useAppTheme();
     const [step, setStep] = useState<WizardStep>(1);
     const [email, setEmail] = useState('');
     const [name, setName] = useState('');
@@ -35,25 +39,6 @@ const SettingsAddAccount: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-
-    useEffect(() => {
-        const media = window.matchMedia('(prefers-color-scheme: dark)');
-        const applyTheme = (settings?: AppSettings | null) => {
-            const theme = settings?.theme ?? 'system';
-            const useDark = theme === 'dark' || (theme === 'system' && media.matches);
-            document.documentElement.classList.toggle('dark', useDark);
-            document.body.classList.toggle('dark', useDark);
-        };
-
-        window.electronAPI.getAppSettings().then((settings) => applyTheme(settings)).catch(() => applyTheme(null));
-        const off = window.electronAPI.onAppSettingsUpdated?.((settings) => applyTheme(settings));
-        const onChange = () => window.electronAPI.getAppSettings().then((settings) => applyTheme(settings)).catch(() => applyTheme(null));
-        media.addEventListener('change', onChange);
-        return () => {
-            if (typeof off === 'function') off();
-            media.removeEventListener('change', onChange);
-        };
-    }, []);
 
     const canGoStep1Next = useMemo(() => !!email.trim() && !!password.trim(), [email, password]);
     const canVerifyManual = useMemo(() => !!imap?.host && !!imap.port && !!smtp?.host && !!smtp.port, [imap, smtp]);
@@ -68,7 +53,7 @@ const SettingsAddAccount: React.FC = () => {
             type,
             host: svc.host,
             port: Number(svc.port),
-            secure: svc.secure,
+            secure: svc.security === 'ssl',
             user: email.trim(),
             password,
         });
@@ -106,21 +91,63 @@ const SettingsAddAccount: React.FC = () => {
             if (!hasAutoSettings) {
                 const [, domain] = email.trim().split('@');
                 setProvider(discovered?.provider ?? null);
-                setImap(discovered?.imap ?? {host: domain ? `imap.${domain}` : '', port: 993, secure: true});
-                setPop3(discovered?.pop3 ?? null);
-                setSmtp(discovered?.smtp ?? {host: domain ? `smtp.${domain}` : '', port: 465, secure: true});
+                setImap(discovered?.imap
+                    ? {
+                        host: discovered.imap.host,
+                        port: discovered.imap.port,
+                        security: discovered.imap.secure ? 'ssl' : 'starttls'
+                    }
+                    : {host: domain ? `imap.${domain}` : '', port: 993, security: 'ssl'});
+                setPop3(discovered?.pop3
+                    ? {
+                        host: discovered.pop3.host,
+                        port: discovered.pop3.port,
+                        security: discovered.pop3.secure ? 'ssl' : 'starttls'
+                    }
+                    : null);
+                setSmtp(discovered?.smtp
+                    ? {
+                        host: discovered.smtp.host,
+                        port: discovered.smtp.port,
+                        security: discovered.smtp.secure ? 'ssl' : 'starttls'
+                    }
+                    : {host: domain ? `smtp.${domain}` : '', port: 465, security: 'ssl'});
                 setStep(2);
                 setSuccess('Autodiscover did not return complete settings. Enter server settings manually.');
                 return;
             }
 
             setProvider(discovered.provider ?? null);
-            setImap(discovered.imap!);
-            setPop3(discovered.pop3 ?? null);
-            setSmtp(discovered.smtp!);
+            setImap({
+                host: discovered.imap!.host,
+                port: discovered.imap!.port,
+                security: discovered.imap!.secure ? 'ssl' : 'starttls',
+            });
+            setPop3(discovered.pop3
+                ? {
+                    host: discovered.pop3.host,
+                    port: discovered.pop3.port,
+                    security: discovered.pop3.secure ? 'ssl' : 'starttls'
+                }
+                : null);
+            setSmtp({
+                host: discovered.smtp!.host,
+                port: discovered.smtp!.port,
+                security: discovered.smtp!.secure ? 'ssl' : 'starttls',
+            });
+            const discoveredImap: Service = {
+                host: discovered.imap!.host,
+                port: discovered.imap!.port,
+                security: discovered.imap!.secure ? 'ssl' : 'starttls',
+            };
+            const discoveredSmtp: Service = {
+                host: discovered.smtp!.host,
+                port: discovered.smtp!.port,
+                security: discovered.smtp!.secure ? 'ssl' : 'starttls',
+            };
 
             try {
-                await verifyImapAndSmtp(discovered.imap!, discovered.smtp!);
+                await verifyImapAndSmtp(discoveredImap, discoveredSmtp);
                 setSuccess('Account verified successfully.');
                 setStep(3);
             } catch (verifyError: any) {
@@ -165,13 +192,13 @@ const SettingsAddAccount: React.FC = () => {
                 provider,
                 imap_host: imap.host,
                 imap_port: Number(imap.port),
-                imap_secure: imap.secure ? 1 : 0,
+                imap_secure: imap.security === 'ssl' ? 1 : 0,
                 pop3_host: pop3?.host ?? null,
                 pop3_port: pop3?.port ?? null,
-                pop3_secure: pop3 ? (pop3.secure ? 1 : 0) : null,
+                pop3_secure: pop3 ? (pop3.security === 'ssl' ? 1 : 0) : null,
                 smtp_host: smtp.host,
                 smtp_port: Number(smtp.port),
-                smtp_secure: smtp.secure ? 1 : 0,
+                smtp_secure: smtp.security === 'ssl' ? 1 : 0,
                 user: email.trim(),
                 password,
             });
@@ -185,7 +212,7 @@ const SettingsAddAccount: React.FC = () => {
     }
 
     function updateService(setter: React.Dispatch<React.SetStateAction<Service | null>>, patch: Partial<Service>) {
-        setter((prev) => ({host: '', port: 0, secure: true, ...(prev ?? {}), ...patch}));
+        setter((prev) => ({host: '', port: 0, security: 'ssl', ...(prev ?? {}), ...patch}));
     }
 
     const primaryActionDisabled =
@@ -226,7 +253,9 @@ const SettingsAddAccount: React.FC = () => {
     return (
         <div className="h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
             <div
-                className="flex h-full w-full overflow-hidden border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#313338]">
+                className="flex h-full w-full flex-col overflow-hidden border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#313338]">
+                <WindowTitleBar title="Add Account"/>
+                <div className="flex min-h-0 flex-1 overflow-hidden">
                 <aside
                     className="w-72 shrink-0 border-r border-slate-200 bg-slate-900 px-6 py-7 text-slate-100 dark:border-[#25272c] dark:bg-[#1f2125]">
                     <h2 className="text-lg font-semibold">New Account</h2>
@@ -287,10 +316,26 @@ const SettingsAddAccount: React.FC = () => {
                                 </header>
 
                                 <div className="grid gap-4">
-                                    <ServiceEditor title="IMAP Incoming" service={imap}
-                                                   onChange={(patch) => updateService(setImap, patch)} accent="sky"/>
-                                    <ServiceEditor title="SMTP Outgoing" service={smtp}
-                                                   onChange={(patch) => updateService(setSmtp, patch)} accent="cyan"/>
+                                    <ServiceSettingsCard
+                                        title="IMAP Incoming"
+                                        host={imap?.host ?? ''}
+                                        port={imap?.port ?? 0}
+                                        security={imap?.security ?? 'ssl'}
+                                        onHostChange={(host) => updateService(setImap, {host})}
+                                        onPortChange={(port) => updateService(setImap, {port})}
+                                        onSecurityChange={(security) => updateService(setImap, {security})}
+                                        tone="sky"
+                                    />
+                                    <ServiceSettingsCard
+                                        title="SMTP Outgoing"
+                                        host={smtp?.host ?? ''}
+                                        port={smtp?.port ?? 0}
+                                        security={smtp?.security ?? 'ssl'}
+                                        onHostChange={(host) => updateService(setSmtp, {host})}
+                                        onPortChange={(port) => updateService(setSmtp, {port})}
+                                        onSecurityChange={(security) => updateService(setSmtp, {security})}
+                                        tone="cyan"
+                                    />
                                 </div>
                             </section>
                         )}
@@ -343,6 +388,7 @@ const SettingsAddAccount: React.FC = () => {
                         </button>
                     </footer>
                 </main>
+                </div>
             </div>
         </div>
     );
@@ -387,44 +433,6 @@ const Field: React.FC<{
         />
     </label>
 );
-
-const ServiceEditor: React.FC<{
-    title: string;
-    service: Service | null;
-    onChange: (patch: Partial<Service>) => void;
-    accent: 'sky' | 'cyan';
-}> = ({title, service, onChange, accent}) => {
-    const accentClass =
-        accent === 'sky'
-            ? 'border-sky-200 bg-sky-50/40 dark:border-[#30455a] dark:bg-[#243240]'
-            : 'border-cyan-200 bg-cyan-50/40 dark:border-[#2a4e57] dark:bg-[#24373d]';
-
-    return (
-        <div className={`rounded-xl border p-4 ${accentClass}`}>
-            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</h4>
-            <div className="mt-3 grid gap-3">
-                <Field label="Host" value={service?.host ?? ''} onChange={(host) => onChange({host})}/>
-                <div className="grid grid-cols-2 gap-3">
-                    <Field
-                        label="Port"
-                        value={String(service?.port ?? 0)}
-                        onChange={(port) => onChange({port: Number(port)})}
-                        type="number"
-                    />
-                    <label
-                        className="mt-7 flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-200">
-                        <input
-                            type="checkbox"
-                            checked={!!service?.secure}
-                            onChange={(e) => onChange({secure: e.target.checked})}
-                        />
-                        TLS (SSL)
-                    </label>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 const SummaryRow: React.FC<{ label: string; value: string }> = ({label, value}) => (
     <div

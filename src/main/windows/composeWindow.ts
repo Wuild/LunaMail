@@ -18,6 +18,8 @@ export interface ComposeDraftPayload {
     bcc?: string | null;
     subject?: string | null;
     body?: string | null;
+    bodyHtml?: string | null;
+    bodyText?: string | null;
     inReplyTo?: string | null;
     references?: string[] | string | null;
 }
@@ -36,6 +38,8 @@ export function openComposeWindow(parentWindow?: BrowserWindow, draft?: ComposeD
     composeWin = new BrowserWindow({
         parent: parentWindow && !parentWindow.isDestroyed() ? parentWindow : undefined,
         modal: false,
+        frame: false,
+        titleBarStyle: 'hidden',
         width: 920,
         height: 760,
         minWidth: 760,

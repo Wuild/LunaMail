@@ -1,43 +1,13 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import type {AppSettings, DebugLogEntry} from '../../preload';
-
-const defaultSettings: AppSettings = {
-    language: 'system',
-    theme: 'system',
-    minimizeToTray: true,
-    syncIntervalMinutes: 2,
-    autoUpdateEnabled: true,
-};
+import type {DebugLogEntry} from '../../preload';
+import WindowTitleBar from '../components/WindowTitleBar';
+import {useAppTheme} from '../hooks/useAppTheme';
 
 export default function DebugConsolePage({embedded = false}: { embedded?: boolean }) {
-    const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+    useAppTheme();
     const [logs, setLogs] = useState<DebugLogEntry[]>([]);
     const [autoScroll, setAutoScroll] = useState(true);
     const listRef = useRef<HTMLDivElement | null>(null);
-
-    useEffect(() => {
-        const media = window.matchMedia('(prefers-color-scheme: dark)');
-        const applyTheme = (next: AppSettings) => {
-            const useDark = next.theme === 'dark' || (next.theme === 'system' && media.matches);
-            document.documentElement.classList.toggle('dark', useDark);
-            document.body.classList.toggle('dark', useDark);
-        };
-
-        window.electronAPI.getAppSettings().then((next) => {
-            setSettings(next);
-            applyTheme(next);
-        }).catch(() => applyTheme(defaultSettings));
-        const off = window.electronAPI.onAppSettingsUpdated?.((next) => {
-            setSettings(next);
-            applyTheme(next);
-        });
-        const onChange = () => applyTheme(settings);
-        media.addEventListener('change', onChange);
-        return () => {
-            if (typeof off === 'function') off();
-            media.removeEventListener('change', onChange);
-        };
-    }, [settings]);
 
     useEffect(() => {
         let active = true;
@@ -83,6 +53,7 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
     return (
         <div className="h-full w-full overflow-hidden bg-slate-100 dark:bg-[#23252b]">
             <div className="flex h-full flex-col">
+                {!embedded && <WindowTitleBar title="Debug Console"/>}
                 <header
                     className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 dark:border-[#3a3d44] dark:bg-[#1a1c21]">
                     <div>

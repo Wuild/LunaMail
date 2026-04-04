@@ -14,8 +14,9 @@ LunaMail is a modern, offline-first desktop email client for Linux built with:
 - Add-account wizard with autodiscovery + manual setup
 - Compose, reply, forward, attachments
 - Message viewer window
-- Account/App settings windows
-- Debug and support windows
+- Route-based settings/help/debug pages inside the main window shell
+- Unified App Settings page with account management sidebar
+- Custom title bar across app windows
 
 ## Requirements
 
@@ -71,6 +72,13 @@ src/
   main/
   preload/
   renderer/
+    entrypoints/
+    components/
+    features/
+    hooks/
+    layouts/
+    lib/
+    pages/
 ```
 
 ## License

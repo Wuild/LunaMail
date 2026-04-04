@@ -2,6 +2,7 @@ import {ImapFlow} from 'imapflow';
 import {simpleParser} from 'mailparser';
 import {createMailDebugLogger} from '../debug/debugLog.js';
 import {getAccountSyncCredentials} from '../db/repositories/accountsRepo.js';
+import {resolveImapSecurity} from './security.js';
 import {
     getMessageBody,
     getMessageContext,
@@ -58,7 +59,7 @@ export async function syncAccountMailbox(accountId: number, options?: AccountSyn
     const client = new ImapFlow({
         host: account.imap_host,
         port: account.imap_port,
-        secure: !!account.imap_secure,
+        ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
         logger: createMailDebugLogger('imap', `sync:account:${accountId}`),
     });
@@ -192,7 +193,7 @@ export async function syncMessageBody(messageId: number, options?: MessageBodySy
     const client = new ImapFlow({
         host: account.imap_host,
         port: account.imap_port,
-        secure: !!account.imap_secure,
+        ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
         logger: createMailDebugLogger('imap', `body:message:${messageId}`),
     });
@@ -249,7 +250,7 @@ export async function downloadMessageAttachment(
     const client = new ImapFlow({
         host: account.imap_host,
         port: account.imap_port,
-        secure: !!account.imap_secure,
+        ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
         logger: createMailDebugLogger('imap', `attachment:message:${messageId}`),
     });

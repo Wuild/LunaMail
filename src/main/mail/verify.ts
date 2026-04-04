@@ -44,6 +44,7 @@ async function verifyImap(p: VerifyPayload): Promise<void> {
         host: p.host,
         port: p.port,
         secure: p.secure,
+        doSTARTTLS: !p.secure,
         auth: {user: p.user, pass: p.password},
         logger: createMailDebugLogger('imap', `verify:${p.host}:${p.port}`),
     });
@@ -64,6 +65,7 @@ async function verifySmtp(p: VerifyPayload): Promise<void> {
         host: p.host,
         port: p.port,
         secure: p.secure, // true for 465, false for 587/25
+        requireTLS: !p.secure,
         auth: {user: p.user, pass: p.password},
         logger: createMailDebugLogger('smtp', `verify:${p.host}:${p.port}`),
         debug: true,

@@ -1,17 +1,25 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Forward, Paperclip, Reply, ReplyAll, Trash2} from 'lucide-react';
-import type {AppSettings, MessageBodyResult, MessageDetails} from '../../preload';
+import type {MessageBodyResult, MessageDetails} from '../../preload';
 import {formatSystemDateTime} from '../lib/dateTime';
-
-const defaultSettings: AppSettings = {
-    language: 'system',
-    theme: 'system',
-    minimizeToTray: true,
-    syncIntervalMinutes: 2,
-    autoUpdateEnabled: true,
-};
+import {
+    buildForwardQuoteHtml,
+    buildForwardQuoteText,
+    buildReferences,
+    buildReplyQuoteHtml,
+    buildReplyQuoteText,
+    ensurePrefixedSubject,
+    formatFromDisplay,
+    htmlToText,
+    inferReplyAddress,
+    normalizeMessageId,
+} from '../features/mail/composeDraft';
+import {clampToViewport, formatBytes} from '../lib/format';
+import WindowTitleBar from '../components/WindowTitleBar';
+import {useAppTheme} from '../hooks/useAppTheme';
 
 export default function MessageWindowPage() {
+    useAppTheme();
     const [systemLocale, setSystemLocale] = useState('en-US');
     const [messageId, setMessageId] = useState<number | null>(null);
     const [message, setMessage] = useState<MessageDetails | null>(null);
@@ -21,22 +29,7 @@ export default function MessageWindowPage() {
     const [showMessageDetails, setShowMessageDetails] = useState(false);
 
     useEffect(() => {
-        const media = window.matchMedia('(prefers-color-scheme: dark)');
-        const applyTheme = (next: AppSettings) => {
-            const useDark = next.theme === 'dark' || (next.theme === 'system' && media.matches);
-            document.documentElement.classList.toggle('dark', useDark);
-            document.body.classList.toggle('dark', useDark);
-        };
-
-        window.electronAPI.getAppSettings().then((next) => applyTheme(next)).catch(() => applyTheme(defaultSettings));
         window.electronAPI.getSystemLocale().then((locale) => setSystemLocale(locale || 'en-US')).catch(() => undefined);
-        const offSettings = window.electronAPI.onAppSettingsUpdated?.((next) => applyTheme(next));
-        const onChange = () => window.electronAPI.getAppSettings().then((next) => applyTheme(next)).catch(() => applyTheme(defaultSettings));
-        media.addEventListener('change', onChange);
-        return () => {
-            if (typeof offSettings === 'function') offSettings();
-            media.removeEventListener('change', onChange);
-        };
     }, []);
 
     useEffect(() => {
@@ -125,6 +118,8 @@ export default function MessageWindowPage() {
         cc?: string | null;
         subject?: string | null;
         body?: string | null;
+        bodyHtml?: string | null;
+        bodyText?: string | null;
         inReplyTo?: string | null;
         references?: string[] | string | null;
     }) {
@@ -134,18 +129,16 @@ export default function MessageWindowPage() {
     function onReply(): void {
         if (!message) return;
         const subject = ensurePrefixedSubject(message.subject, 'Re:');
-        const quote = buildReplyQuote(
-            message,
-            body?.text ?? htmlToText(body?.html),
-            systemLocale,
-        );
+        const quoteText = body?.text ?? htmlToText(body?.html);
+        const quoteHtml = buildReplyQuoteHtml(message, body?.html, quoteText, systemLocale);
         const replyTo = inferReplyAddress(message);
         const inReplyTo = normalizeMessageId(message.message_id);
         const references = buildReferences(message.references_text, message.message_id);
         composeWithDraft({
             to: replyTo,
             subject,
-            body: `\n\n${quote}`,
+            bodyHtml: quoteHtml,
+            bodyText: `\n\n${buildReplyQuoteText(message, quoteText, systemLocale)}`,
             inReplyTo,
             references,
         });
@@ -154,11 +147,8 @@ export default function MessageWindowPage() {
     function onReplyAll(): void {
         if (!message) return;
         const subject = ensurePrefixedSubject(message.subject, 'Re:');
-        const quote = buildReplyQuote(
-            message,
-            body?.text ?? htmlToText(body?.html),
-            systemLocale,
-        );
+        const quoteText = body?.text ?? htmlToText(body?.html);
+        const quoteHtml = buildReplyQuoteHtml(message, body?.html, quoteText, systemLocale);
         const replyTo = inferReplyAddress(message);
         const inReplyTo = normalizeMessageId(message.message_id);
         const references = buildReferences(message.references_text, message.message_id);
@@ -166,7 +156,8 @@ export default function MessageWindowPage() {
             to: replyTo,
             cc: message.to_address || '',
             subject,
-            body: `\n\n${quote}`,
+            bodyHtml: quoteHtml,
+            bodyText: `\n\n${buildReplyQuoteText(message, quoteText, systemLocale)}`,
             inReplyTo,
             references,
         });
@@ -175,23 +166,15 @@ export default function MessageWindowPage() {
     function onForward(): void {
         if (!message) return;
         const subject = ensurePrefixedSubject(message.subject, 'Fwd:');
-        const originalBody = body?.text ?? htmlToText(body?.html);
-        const metaDate = formatSystemDateTime(message.date, systemLocale);
-        const from = message.from_name || message.from_address || 'Unknown';
-        const to = message.to_address || '-';
-        const forwarded =
-            `---------- Forwarded message ----------\n` +
-            `From: ${from}\n` +
-            `Date: ${metaDate}\n` +
-            `Subject: ${message.subject || '(No subject)'}\n` +
-            `To: ${to}\n\n` +
-            `${originalBody || ''}`;
+        const originalText = body?.text ?? htmlToText(body?.html);
+        const forwarded = buildForwardQuoteText(message, originalText, systemLocale);
 
         composeWithDraft({
             to: '',
             cc: '',
             subject,
-            body: forwarded,
+            bodyHtml: buildForwardQuoteHtml(message, body?.html, originalText, systemLocale),
+            bodyText: forwarded,
         });
     }
 
@@ -207,6 +190,7 @@ export default function MessageWindowPage() {
     return (
         <div className="h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
             <div className="flex h-full flex-col">
+                <WindowTitleBar title={message?.subject || 'Message'}/>
                 <div
                     role="toolbar"
                     aria-label="Message actions"
@@ -394,95 +378,4 @@ export default function MessageWindowPage() {
             </div>
         </div>
     );
-}
-
-function formatFromDisplay(message: MessageDetails): string {
-    const name = (message.from_name || '').trim();
-    const address = (message.from_address || '').trim();
-    if (name && address) return `${name} <${address}>`;
-    if (address) return address;
-    if (name) return name;
-    return 'Unknown';
-}
-
-function formatBytes(bytes: number): string {
-    if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
-    if (bytes < 1024) return `${bytes} B`;
-    const units = ['KB', 'MB', 'GB'];
-    let value = bytes / 1024;
-    let unitIndex = 0;
-    while (value >= 1024 && unitIndex < units.length - 1) {
-        value /= 1024;
-        unitIndex += 1;
-    }
-    return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`;
-}
-
-function clampToViewport(value: number, size: number, limit: number): number {
-    const margin = 8;
-    return Math.min(Math.max(value, margin), Math.max(margin, limit - size - margin));
-}
-
-function ensurePrefixedSubject(subject: string | null, prefix: string): string {
-    const raw = (subject || '').trim();
-    if (!raw) return prefix;
-    const lower = raw.toLowerCase();
-    if (lower.startsWith(prefix.toLowerCase())) return raw;
-    return `${prefix} ${raw}`;
-}
-
-function buildReplyQuote(message: MessageDetails, text: string | null, systemLocale?: string): string {
-    const from = message.from_name || message.from_address || 'Unknown';
-    const date = formatSystemDateTime(message.date, systemLocale);
-    const body = (text || '')
-        .split(/\r?\n/)
-        .map((line) => `> ${line}`)
-        .join('\n');
-    return `On ${date}, ${from} wrote:\n${body}`;
-}
-
-function htmlToText(html: string | null | undefined): string {
-    if (!html) return '';
-    return String(html)
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, '\n')
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&#39;/g, '\'')
-        .replace(/&quot;/g, '"')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-}
-
-function inferReplyAddress(message: MessageDetails): string {
-    if (message.from_address?.trim()) return message.from_address.trim();
-    const raw = message.from_name || '';
-    const m = raw.match(/<([^>]+)>/);
-    if (m?.[1]) return m[1].trim();
-    return '';
-}
-
-function normalizeMessageId(value: string | null | undefined): string | null {
-    const raw = (value || '').trim();
-    if (!raw) return null;
-    if (raw.startsWith('<') && raw.endsWith('>')) return raw;
-    return `<${raw.replace(/^<|>$/g, '')}>`;
-}
-
-function buildReferences(existing: string | null | undefined, messageId: string | null | undefined): string[] {
-    const refs = (existing || '')
-        .split(/\s+/)
-        .map((token) => token.trim())
-        .filter(Boolean)
-        .map((token) => normalizeMessageId(token))
-        .filter((token): token is string => Boolean(token));
-    const unique = Array.from(new Set(refs));
-    const current = normalizeMessageId(messageId);
-    if (current && !unique.includes(current)) unique.push(current);
-    return unique;
 }

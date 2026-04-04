@@ -70,13 +70,13 @@ export interface AddAccountPayload {
     attach_vcard?: number;
     imap_host: string;
     imap_port: number;
-    imap_secure?: number; // 0/1
+    imap_secure?: number; // 1=SSL/TLS, 0=STARTTLS
     pop3_host?: string | null;
     pop3_port?: number | null;
-    pop3_secure?: number | null; // 0/1
+    pop3_secure?: number | null; // 1=SSL/TLS, 0=STARTTLS
     smtp_host: string;
     smtp_port: number;
-    smtp_secure?: number; // 0/1
+    smtp_secure?: number; // 1=SSL/TLS, 0=STARTTLS
     user: string;
     password: string;
 }
@@ -176,6 +176,9 @@ export interface AccountSyncCredentials {
 export interface AccountSendCredentials {
     id: number;
     email: string;
+    reply_to: string | null;
+    signature_text: string | null;
+    signature_is_html: number;
     smtp_host: string;
     smtp_port: number;
     smtp_secure: number;
@@ -213,6 +216,9 @@ export async function getAccountSendCredentials(accountId: number): Promise<Acco
     return {
         id: row.id,
         email: row.email,
+        reply_to: row.replyTo ?? null,
+        signature_text: row.signatureText ?? null,
+        signature_is_html: row.signatureIsHtml ?? 0,
         smtp_host: row.smtpHost,
         smtp_port: row.smtpPort,
         smtp_secure: row.smtpSecure ?? 1,

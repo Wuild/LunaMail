@@ -46,6 +46,12 @@ export interface MessageAttachmentRow {
     size: number | null;
 }
 
+export interface RecentRecipientRow {
+    email: string;
+    display_name: string | null;
+    last_used_at: string | null;
+}
+
 export interface MessageContextRow {
     messageId: number;
     accountId: number;
@@ -422,12 +428,117 @@ export function searchMessages(accountId: number, query: string, folderPath?: st
     return db.prepare(sql).all(...params) as MessageRow[];
 }
 
+export function listRecentRecipients(accountId: number, query?: string | null, limit: number = 20): RecentRecipientRow[] {
+    const db = getDb();
+    const normalizedLimit = Math.max(1, Math.min(100, Math.round(Number(limit) || 20)));
+    const rows = db.prepare(
+        `
+            SELECT m.to_address AS toAddress, m.date AS date
+            FROM messages m
+                     JOIN folders f ON f.id = m.folder_id
+            WHERE m.account_id = ?
+              AND m.to_address IS NOT NULL
+              AND trim(m.to_address) <> ''
+              AND (
+                lower(COALESCE(f.type, '')) = 'sent'
+                    OR lower(COALESCE(f.path, '')) LIKE '%sent%'
+                )
+            ORDER BY COALESCE(m.date, '') DESC, m.id DESC
+            LIMIT 800
+        `,
+    ).all(accountId) as Array<{ toAddress: string; date: string | null }>;
+
+    const queryValue = (query || '').trim().toLowerCase();
+    const byEmail = new Map<string, { email: string; displayName: string | null; lastUsedAt: string | null }>();
+
+    for (const row of rows) {
+        const parsed = parseRecipientHeaderList(row.toAddress || '');
+        for (const item of parsed) {
+            const email = item.email.toLowerCase();
+            if (!email) continue;
+            if (queryValue) {
+                const haystack = `${item.displayName || ''} ${email}`.toLowerCase();
+                if (!haystack.includes(queryValue)) continue;
+            }
+            const existing = byEmail.get(email);
+            if (!existing) {
+                byEmail.set(email, {
+                    email,
+                    displayName: item.displayName,
+                    lastUsedAt: row.date ?? null,
+                });
+                continue;
+            }
+            const existingDate = Date.parse(existing.lastUsedAt || '');
+            const nextDate = Date.parse(row.date || '');
+            if (Number.isFinite(nextDate) && (!Number.isFinite(existingDate) || nextDate > existingDate)) {
+                existing.lastUsedAt = row.date ?? null;
+                if (item.displayName) existing.displayName = item.displayName;
+            } else if (!existing.displayName && item.displayName) {
+                existing.displayName = item.displayName;
+            }
+        }
+    }
+
+    return Array.from(byEmail.values())
+        .sort((a, b) => {
+            const ad = Date.parse(a.lastUsedAt || '');
+            const bd = Date.parse(b.lastUsedAt || '');
+            if (Number.isFinite(ad) && Number.isFinite(bd) && ad !== bd) return bd - ad;
+            if (Number.isFinite(ad) && !Number.isFinite(bd)) return -1;
+            if (!Number.isFinite(ad) && Number.isFinite(bd)) return 1;
+            return a.email.localeCompare(b.email);
+        })
+        .slice(0, normalizedLimit)
+        .map((item) => ({
+            email: item.email,
+            display_name: item.displayName || null,
+            last_used_at: item.lastUsedAt ?? null,
+        }));
+}
+
 export function getTotalUnreadCount(): number {
     const db = getDb();
     const row = db.prepare('SELECT COALESCE(SUM(unread_count), 0) as unread FROM folders').get() as {
         unread: number
     } | undefined;
     return Number(row?.unread ?? 0);
+}
+
+function parseRecipientHeaderList(value: string): Array<{ email: string; displayName: string | null }> {
+    const out: Array<{ email: string; displayName: string | null }> = [];
+    const tokens = value.split(/[;,]+/);
+    for (const tokenRaw of tokens) {
+        const token = tokenRaw.trim();
+        if (!token) continue;
+        const angleMatch = token.match(/^(.*)<([^>]+)>$/);
+        if (angleMatch) {
+            const displayName = normalizeRecipientName(angleMatch[1] || '');
+            const email = normalizeRecipientEmail(angleMatch[2] || '');
+            if (email) out.push({email, displayName});
+            continue;
+        }
+        const email = normalizeRecipientEmail(token);
+        if (email) {
+            out.push({email, displayName: null});
+        }
+    }
+    return out;
+}
+
+function normalizeRecipientEmail(value: string): string {
+    const cleaned = String(value || '').trim().replace(/^<|>$/g, '').toLowerCase();
+    if (!cleaned) return '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned)) return '';
+    return cleaned;
+}
+
+function normalizeRecipientName(value: string): string | null {
+    const cleaned = String(value || '')
+        .trim()
+        .replace(/^"+|"+$/g, '')
+        .replace(/\s+/g, ' ');
+    return cleaned || null;
 }
 
 export function getMessageBody(messageId: number): MessageBodyRow | null {

@@ -1,12 +1,14 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {Bug, CalendarDays, CircleHelp, Copy, Mail, Minus, Settings, Square, Users, X} from 'lucide-react';
-import {HashRouter, Navigate, NavLink, Route, Routes} from 'react-router-dom';
-import MailPage from './App';
+import {Bug, CalendarDays, CircleHelp, Copy, Mail, Minus, RefreshCw, Settings, Square, Users, X} from 'lucide-react';
+import {HashRouter, Navigate, NavLink, Route, Routes, useLocation} from 'react-router-dom';
+import MailPage from './pages/MailPage';
 import AppSettingsPage from './pages/AppSettingsPage';
 import DebugConsolePage from './pages/DebugConsolePage';
 import SupportPage from './pages/SupportPage';
+import WorkspaceLayout from './layouts/WorkspaceLayout';
 import lunaLogo from '../resources/luna.png';
-import type {AddressBookItem, CalendarEventItem, ContactItem, PublicAccount} from '../preload';
+import type {AddressBookItem, CalendarEventItem, ContactItem, PublicAccount, SyncStatusEvent} from '../preload';
+import {getAccountAvatarColors, getAccountMonogram} from './lib/accountAvatar';
 import {formatSystemDateTime} from './lib/dateTime';
 import {cn} from './lib/utils';
 
@@ -167,9 +169,18 @@ function MainWindowShell() {
                     <Routes>
                         <Route path="/" element={<Navigate to="/mail" replace/>}/>
                         <Route path="/mail" element={<MailPage/>}/>
-                        <Route path="/contacts" element={<ContactsRoute accountId={selectedAccountId}/>}/>
+                        <Route
+                            path="/contacts"
+                            element={(
+                                <ContactsRoute
+                                    accountId={selectedAccountId}
+                                    accounts={accounts}
+                                    onSelectAccount={setSelectedAccountId}
+                                />
+                            )}
+                        />
                         <Route path="/calendar" element={<CalendarRoute accountId={selectedAccountId}/>}/>
-                        <Route path="/settings" element={<AppSettingsPage embedded/>}/>
+                        <Route path="/settings" element={<SettingsRoute/>}/>
                         <Route path="/debug" element={<DebugConsolePage embedded/>}/>
                         <Route path="/help" element={<SupportPage embedded/>}/>
                     </Routes>
@@ -177,6 +188,14 @@ function MainWindowShell() {
             </div>
         </div>
     );
+}
+
+function SettingsRoute() {
+    const location = useLocation();
+    const query = new URLSearchParams(location.search);
+    const rawTarget = Number(query.get('accountId'));
+    const targetAccountId = Number.isFinite(rawTarget) ? rawTarget : null;
+    return <AppSettingsPage embedded targetAccountId={targetAccountId}/>;
 }
 
 function NavRailItem({to, icon, label, badgeCount = 0}: {
@@ -210,7 +229,15 @@ function NavRailItem({to, icon, label, badgeCount = 0}: {
     );
 }
 
-function ContactsRoute({accountId}: { accountId: number | null }) {
+function ContactsRoute({
+                           accountId,
+                           accounts,
+                           onSelectAccount,
+                       }: {
+    accountId: number | null;
+    accounts: PublicAccount[];
+    onSelectAccount: (accountId: number | null) => void;
+}) {
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [contacts, setContacts] = useState<ContactItem[]>([]);
@@ -219,6 +246,9 @@ function ContactsRoute({accountId}: { accountId: number | null }) {
     const [newBookName, setNewBookName] = useState('');
     const [newContactName, setNewContactName] = useState('');
     const [newContactEmail, setNewContactEmail] = useState('');
+    const [showAddContactModal, setShowAddContactModal] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncStatusText, setSyncStatusText] = useState<string>('Ready');
     const [contactError, setContactError] = useState<string | null>(null);
 
     const loadContacts = React.useCallback(async (targetAccountId: number, q: string, bookId: number | null) => {
@@ -231,9 +261,13 @@ function ContactsRoute({accountId}: { accountId: number | null }) {
             setContacts([]);
             setAddressBooks([]);
             setSelectedBookId(null);
+            setShowAddContactModal(false);
+            setSyncing(false);
+            setSyncStatusText('No account selected.');
             setLoading(false);
             return;
         }
+        setSyncStatusText('Ready');
         let active = true;
         const load = async () => {
             setLoading(true);
@@ -258,6 +292,34 @@ function ContactsRoute({accountId}: { accountId: number | null }) {
             active = false;
         };
     }, [accountId, query, selectedBookId]);
+
+    useEffect(() => {
+        const offSync = window.electronAPI.onAccountSyncStatus?.((evt: SyncStatusEvent) => {
+            if (!accountId || evt.accountId !== accountId) return;
+            if (evt.status === 'syncing') {
+                setSyncing(true);
+                setSyncStatusText('Syncing mailbox + CardDAV/CalDAV...');
+                return;
+            }
+            if (evt.status === 'error') {
+                setSyncing(false);
+                setSyncStatusText(`Sync failed: ${evt.error ?? 'unknown error'}`);
+                return;
+            }
+            setSyncing(false);
+            const davSummary = evt.summary?.dav;
+            if (davSummary) {
+                setSyncStatusText(
+                    `Sync complete: ${davSummary.contacts.upserted} contacts, ${davSummary.events.upserted} events`,
+                );
+                return;
+            }
+            setSyncStatusText(`Sync complete: ${evt.summary?.messages ?? 0} messages`);
+        });
+        return () => {
+            if (typeof offSync === 'function') offSync();
+        };
+    }, [accountId]);
 
     async function onCreateAddressBook() {
         if (!accountId) return;
@@ -287,6 +349,7 @@ function ContactsRoute({accountId}: { accountId: number | null }) {
             });
             setNewContactName('');
             setNewContactEmail('');
+            setShowAddContactModal(false);
             await loadContacts(accountId, query, selectedBookId);
         } catch (error: any) {
             setContactError(error?.message || String(error));
@@ -304,70 +367,141 @@ function ContactsRoute({accountId}: { accountId: number | null }) {
         }
     }
 
+    async function onManualSync() {
+        if (!accountId || syncing) return;
+        setContactError(null);
+        setSyncing(true);
+        setSyncStatusText('Syncing mailbox + CardDAV/CalDAV...');
+        try {
+            await window.electronAPI.syncAccount(accountId);
+            const books = await window.electronAPI.getAddressBooks(accountId);
+            setAddressBooks(books);
+            const effectiveBookId = selectedBookId && books.some((book) => book.id === selectedBookId)
+                ? selectedBookId
+                : (books[0]?.id ?? null);
+            setSelectedBookId(effectiveBookId);
+            await loadContacts(accountId, query, effectiveBookId);
+        } catch (error: any) {
+            setSyncing(false);
+            const message = error?.message || String(error);
+            setSyncStatusText(`Sync failed: ${message}`);
+            setContactError(message);
+        }
+    }
+
+    const accountSidebar = (
+        <aside className="w-72 shrink-0 border-r border-slate-200 bg-white p-3 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+            <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Accounts</p>
+            <div className="space-y-1">
+                {accounts.map((account) => {
+                    const avatarColors = getAccountAvatarColors(account.email || account.display_name || String(account.id));
+                    return (
+                        <button
+                            key={account.id}
+                            type="button"
+                            onClick={() => onSelectAccount(account.id)}
+                            className={cn(
+                                'w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
+                                accountId === account.id
+                                    ? 'bg-sky-100 text-sky-900 dark:bg-[#3d4153] dark:text-slate-100'
+                                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
+                            )}
+                        >
+                            <div className="flex min-w-0 items-center gap-2">
+                                <span
+                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1 ring-black/10 dark:ring-white/10"
+                                    style={{
+                                        backgroundColor: avatarColors.background,
+                                        color: avatarColors.foreground,
+                                    }}
+                                >
+                                    {getAccountMonogram(account)}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span
+                                        className="block truncate">{account.display_name?.trim() || account.email}</span>
+                                    {account.display_name?.trim() && (
+                                        <span
+                                            className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">{account.email}</span>
+                                    )}
+                                </span>
+                            </div>
+                        </button>
+                    );
+                })}
+                {accounts.length === 0 && (
+                    <p className="px-2 py-2 text-sm text-slate-500 dark:text-slate-400">No accounts available.</p>
+                )}
+            </div>
+        </aside>
+    );
+
+    const contactsToolbar = (
+        <div className="grid gap-3 md:grid-cols-[220px_1fr_auto_auto]">
+            <select
+                value={selectedBookId ?? ''}
+                onChange={(event) => setSelectedBookId(event.target.value ? Number(event.target.value) : null)}
+                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+            >
+                {addressBooks.map((book) => (
+                    <option key={book.id} value={book.id}>
+                        {book.name}
+                    </option>
+                ))}
+            </select>
+            <div className="flex gap-2">
+                <input
+                    type="text"
+                    value={newBookName}
+                    onChange={(event) => setNewBookName(event.target.value)}
+                    placeholder="New address book name"
+                    className="h-10 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                />
+                <button
+                    type="button"
+                    className="h-10 rounded-md bg-sky-600 px-3 text-sm font-medium text-white hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                    onClick={() => void onCreateAddressBook()}
+                >
+                    Add Book
+                </button>
+            </div>
+            <button
+                type="button"
+                disabled={syncing}
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                onClick={() => void onManualSync()}
+            >
+                <RefreshCw size={14} className={cn(syncing && 'animate-spin')}/>
+                Sync now
+            </button>
+            <button
+                type="button"
+                className="h-10 rounded-md bg-sky-600 px-3 text-sm font-medium text-white hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                onClick={() => setShowAddContactModal(true)}
+            >
+                Add Contact
+            </button>
+        </div>
+    );
+
     return (
-        <section className="h-full overflow-auto bg-slate-50 p-5 dark:bg-[#26292f]">
+        <WorkspaceLayout
+            sidebar={accountSidebar}
+            menubar={contactsToolbar}
+            showMenuBar
+            statusText={syncStatusText}
+            statusBusy={syncing}
+        >
             <div className="mx-auto max-w-5xl">
                 {!accountId && <p className="text-sm text-slate-500 dark:text-slate-400">No account selected.</p>}
                 {accountId && (
                     <>
-                        <div className="grid gap-3 md:grid-cols-[220px_1fr]">
-                            <select
-                                value={selectedBookId ?? ''}
-                                onChange={(event) => setSelectedBookId(event.target.value ? Number(event.target.value) : null)}
-                                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                            >
-                                {addressBooks.map((book) => (
-                                    <option key={book.id} value={book.id}>
-                                        {book.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={newBookName}
-                                    onChange={(event) => setNewBookName(event.target.value)}
-                                    placeholder="New address book name"
-                                    className="h-10 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                />
-                                <button
-                                    type="button"
-                                    className="h-10 rounded-md bg-sky-600 px-3 text-sm font-medium text-white hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
-                                    onClick={() => void onCreateAddressBook()}
-                                >
-                                    Add Book
-                                </button>
-                            </div>
-                        </div>
-                        <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
-                            <input
-                                type="text"
-                                value={newContactName}
-                                onChange={(event) => setNewContactName(event.target.value)}
-                                placeholder="Full name"
-                                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                            />
-                            <input
-                                type="email"
-                                value={newContactEmail}
-                                onChange={(event) => setNewContactEmail(event.target.value)}
-                                placeholder="Email"
-                                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                            />
-                            <button
-                                type="button"
-                                className="h-10 rounded-md bg-sky-600 px-3 text-sm font-medium text-white hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
-                                onClick={() => void onAddContact()}
-                            >
-                                Add Contact
-                            </button>
-                        </div>
                         <input
                             type="text"
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
                             placeholder="Search contacts..."
-                            className="mt-3 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
                         />
                         {contactError && <p className="mt-3 text-sm text-red-600 dark:text-red-300">{contactError}</p>}
                         {loading &&
@@ -402,7 +536,63 @@ function ContactsRoute({accountId}: { accountId: number | null }) {
                     </>
                 )}
             </div>
-        </section>
+
+            {showAddContactModal && accountId && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+                    onClick={() => setShowAddContactModal(false)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Add Contact</h3>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Create a contact for the selected
+                            account.</p>
+                        <div className="mt-4 space-y-3">
+                            <label className="block text-sm">
+                                <span
+                                    className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Full name</span>
+                                <input
+                                    type="text"
+                                    value={newContactName}
+                                    onChange={(event) => setNewContactName(event.target.value)}
+                                    placeholder="Jane Doe"
+                                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                />
+                            </label>
+                            <label className="block text-sm">
+                                <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Email</span>
+                                <input
+                                    type="email"
+                                    value={newContactEmail}
+                                    onChange={(event) => setNewContactEmail(event.target.value)}
+                                    placeholder="jane@domain.com"
+                                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                />
+                            </label>
+                        </div>
+                        <div className="mt-4 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                onClick={() => setShowAddContactModal(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                onClick={() => void onAddContact()}
+                                disabled={!newContactEmail.trim()}
+                            >
+                                Save Contact
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </WorkspaceLayout>
     );
 }
 

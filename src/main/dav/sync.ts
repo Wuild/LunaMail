@@ -9,9 +9,11 @@ import {
     listContacts,
     updateLocalContact,
     upsertCalendarEvents,
+    upsertCardDavContact,
     upsertContacts,
     upsertDavSettings,
 } from '../db/repositories/davRepo.js';
+import {randomUUID} from 'node:crypto';
 
 type DavCredentials = {
     email: string;
@@ -97,12 +99,39 @@ export function addAddressBook(accountId: number, name: string) {
     return createAddressBook(accountId, name);
 }
 
-export function addContact(accountId: number, payload: {
+export async function addContact(accountId: number, payload: {
     addressBookId?: number | null;
     fullName?: string | null;
     email: string
 }) {
-    return createLocalContact(accountId, payload.addressBookId ?? null, payload.fullName ?? null, payload.email);
+    const discovered = await discoverDav(accountId).catch(() => ({
+        accountId,
+        carddavUrl: null,
+        caldavUrl: null,
+    }));
+    if (!discovered.carddavUrl) {
+        return createLocalContact(accountId, payload.addressBookId ?? null, payload.fullName ?? null, payload.email);
+    }
+
+    const creds = await resolveCredentials(accountId);
+    const books = await listCollections(creds, discovered.carddavUrl, 'addressbook').catch(() => []);
+    const targetBookUrl = books[0] ?? discovered.carddavUrl;
+    const sourceUid = randomUUID();
+    const cardUrl = resolveUrl(ensureTrailingSlash(targetBookUrl), `${encodeURIComponent(sourceUid)}.vcf`);
+    const cardBody = buildVCard({
+        uid: sourceUid,
+        fullName: payload.fullName ?? null,
+        email: payload.email,
+    });
+    const etag = await putCardDavContact(creds, cardUrl, cardBody);
+
+    return upsertCardDavContact(accountId, {
+        sourceUid,
+        fullName: payload.fullName ?? null,
+        email: payload.email,
+        etag,
+        addressBookId: payload.addressBookId ?? null,
+    });
 }
 
 export function editContact(contactId: number, payload: {
@@ -361,6 +390,27 @@ function authHeader(creds: DavCredentials): string {
     return `Basic ${Buffer.from(raw).toString('base64')}`;
 }
 
+async function putCardDavContact(
+    creds: DavCredentials,
+    url: string,
+    vcard: string,
+): Promise<string | null> {
+    const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+            Authorization: authHeader(creds),
+            'Content-Type': 'text/vcard; charset=utf-8',
+            Accept: '*/*',
+        },
+        body: vcard,
+    });
+    if (!response.ok && response.status !== 201 && response.status !== 204) {
+        throw new Error(`CardDAV PUT failed (${response.status}) for ${url}`);
+    }
+    const etag = response.headers.get('etag');
+    return etag ? etag.trim() : null;
+}
+
 function extractEmailDomain(email: string): string | null {
     const idx = email.indexOf('@');
     if (idx < 0) return null;
@@ -401,6 +451,10 @@ function resolveUrl(baseUrl: string, href: string): string {
     return new URL(href, baseUrl).toString();
 }
 
+function ensureTrailingSlash(url: string): string {
+    return url.endsWith('/') ? url : `${url}/`;
+}
+
 function decodeXmlEntities(value: string): string {
     return value
         .replace(/&lt;/g, '<')
@@ -408,6 +462,31 @@ function decodeXmlEntities(value: string): string {
         .replace(/&amp;/g, '&')
         .replace(/&quot;/g, '"')
         .replace(/&apos;/g, "'");
+}
+
+function escapeVCardValue(value: string): string {
+    return value
+        .replace(/\\/g, '\\\\')
+        .replace(/\n/g, '\\n')
+        .replace(/,/g, '\\,')
+        .replace(/;/g, '\\;');
+}
+
+function buildVCard(payload: { uid: string; fullName: string | null; email: string }): string {
+    const fullName = (payload.fullName || '').trim();
+    const displayName = fullName || payload.email.trim();
+    const safeName = escapeVCardValue(displayName);
+    const safeEmail = escapeVCardValue(payload.email.trim().toLowerCase());
+    return [
+        'BEGIN:VCARD',
+        'VERSION:3.0',
+        `UID:${escapeVCardValue(payload.uid)}`,
+        `FN:${safeName}`,
+        `N:${safeName};;;;`,
+        `EMAIL;TYPE=INTERNET:${safeEmail}`,
+        'END:VCARD',
+        '',
+    ].join('\r\n');
 }
 
 function parseVCard(rawCard: string, fallbackUid: string): { uid: string; fullName: string | null; emails: string[] } {

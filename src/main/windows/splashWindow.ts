@@ -20,6 +20,8 @@ export function openSplashWindow(): BrowserWindow {
     splashWin = new BrowserWindow({
         width: 520,
         height: 320,
+        frame: false,
+        titleBarStyle: 'hidden',
         resizable: false,
         minimizable: false,
         maximizable: false,

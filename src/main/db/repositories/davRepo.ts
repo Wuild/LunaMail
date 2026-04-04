@@ -293,6 +293,60 @@ export function createLocalContact(accountId: number, addressBookId: number | nu
     ).get() as ContactRow;
 }
 
+export function upsertCardDavContact(
+    accountId: number,
+    payload: {
+        sourceUid: string;
+        fullName: string | null;
+        email: string;
+        etag?: string | null;
+        addressBookId?: number | null;
+    },
+): ContactRow {
+    const db = getDb();
+    const normalizedEmail = normalizeEmail(payload.email);
+    if (!normalizedEmail) throw new Error('A valid email is required.');
+    const normalizedName = normalizeDisplayName(payload.fullName);
+    const seenAt = new Date().toISOString();
+    const bookId = typeof payload.addressBookId === 'number' && Number.isFinite(payload.addressBookId)
+        ? payload.addressBookId
+        : null;
+
+    db.prepare(
+        `
+            INSERT INTO contacts (
+                account_id, address_book_id, source, source_uid, full_name, email, etag, last_seen_sync, created_at, updated_at
+            )
+            VALUES (?, ?, 'carddav', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT(account_id, source, source_uid, email) DO
+            UPDATE SET address_book_id = excluded.address_book_id,
+                       full_name = excluded.full_name,
+                       etag = excluded.etag,
+                       last_seen_sync = excluded.last_seen_sync,
+                       updated_at = CURRENT_TIMESTAMP
+        `,
+    ).run(
+        accountId,
+        bookId,
+        payload.sourceUid,
+        normalizedName,
+        normalizedEmail,
+        payload.etag ?? null,
+        seenAt,
+    );
+
+    return db.prepare(
+        `
+            SELECT *
+            FROM contacts
+            WHERE account_id = ?
+              AND source = 'carddav'
+              AND source_uid = ?
+              AND email = ?
+            LIMIT 1
+        `,
+    ).get(accountId, payload.sourceUid, normalizedEmail) as ContactRow;
+}
+
 export function updateLocalContact(contactId: number, payload: {
     fullName?: string | null;
     email?: string;

@@ -26,6 +26,8 @@ export function openMessageWindow(parentWindow?: BrowserWindow, messageId?: numb
     messageWin = new BrowserWindow({
         parent,
         modal: false,
+        frame: false,
+        titleBarStyle: 'hidden',
         width: 980,
         height: 760,
         minWidth: 760,

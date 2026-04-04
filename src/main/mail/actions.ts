@@ -1,6 +1,7 @@
 import {ImapFlow} from 'imapflow';
 import {createMailDebugLogger} from '../debug/debugLog.js';
 import {getAccountSyncCredentials} from '../db/repositories/accountsRepo.js';
+import {resolveImapSecurity} from './security.js';
 import {
     getMessageContext,
     listFoldersByAccount,
@@ -116,7 +117,7 @@ export async function createServerFolder(accountId: number, folderPath: string):
     const client = new ImapFlow({
         host: account.imap_host,
         port: account.imap_port,
-        secure: !!account.imap_secure,
+        ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
         logger: createMailDebugLogger('imap', `folder:create:${accountId}`),
     });
@@ -147,7 +148,7 @@ export async function deleteServerFolder(accountId: number, folderPath: string):
     const client = new ImapFlow({
         host: account.imap_host,
         port: account.imap_port,
-        secure: !!account.imap_secure,
+        ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
         logger: createMailDebugLogger('imap', `folder:delete:${accountId}`),
     });
@@ -175,7 +176,7 @@ async function withImapLock(
     const client = new ImapFlow({
         host: account.imap_host,
         port: account.imap_port,
-        secure: !!account.imap_secure,
+        ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
         logger: createMailDebugLogger('imap', `message:action:${accountId}:${folderPath}`),
     });

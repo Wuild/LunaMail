@@ -12,8 +12,11 @@ import {
     PenSquare,
     SendHorizonal
 } from 'lucide-react';
-import type {AppSettings, ComposeDraftPayload, PublicAccount} from '../../preload/index';
+import type {ComposeDraftPayload, ContactItem, PublicAccount, RecentRecipientItem} from '../../preload/index';
 import MarkdownLexicalEditor from '../components/MarkdownLexicalEditor';
+import WindowTitleBar from '../components/WindowTitleBar';
+import {formatBytes} from '../lib/format';
+import {useAppTheme} from '../hooks/useAppTheme';
 
 type ComposeAttachment = {
     id: string;
@@ -23,7 +26,16 @@ type ComposeAttachment = {
     size: number | null;
 };
 
+type RecipientSuggestion = {
+    key: string;
+    email: string;
+    displayName: string | null;
+};
+
+const EMAIL_ADDRESS_REGEX = /^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/;
+
 function ComposeEmailPage() {
+    useAppTheme();
     const [accounts, setAccounts] = useState<PublicAccount[]>([]);
     const [fromAccountId, setFromAccountId] = useState<number | ''>('');
     const [toList, setToList] = useState<string[]>([]);
@@ -44,25 +56,6 @@ function ComposeEmailPage() {
     const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSavedSignatureRef = useRef<string>('');
     const draftSessionIdRef = useRef<string>(`draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
-
-    useEffect(() => {
-        const media = window.matchMedia('(prefers-color-scheme: dark)');
-        const applyTheme = (settings?: AppSettings | null) => {
-            const theme = settings?.theme ?? 'system';
-            const useDark = theme === 'dark' || (theme === 'system' && media.matches);
-            document.documentElement.classList.toggle('dark', useDark);
-            document.body.classList.toggle('dark', useDark);
-        };
-
-        window.electronAPI.getAppSettings().then((settings) => applyTheme(settings)).catch(() => applyTheme(null));
-        const off = window.electronAPI.onAppSettingsUpdated?.((settings) => applyTheme(settings));
-        const onChange = () => window.electronAPI.getAppSettings().then((settings) => applyTheme(settings)).catch(() => applyTheme(null));
-        media.addEventListener('change', onChange);
-        return () => {
-            if (typeof off === 'function') off();
-            media.removeEventListener('change', onChange);
-        };
-    }, []);
 
     useEffect(() => {
         let active = true;
@@ -100,8 +93,14 @@ function ComposeEmailPage() {
                 if (draft.bcc.trim()) setShowCcBcc(true);
             }
             if (typeof draft.subject === 'string') setSubject(draft.subject);
-            if (typeof draft.body === 'string') {
+            if (typeof draft.bodyHtml === 'string') {
+                setBody(draft.bodyHtml);
+            } else if (typeof draft.body === 'string') {
                 setBody(draft.body);
+            }
+            if (typeof draft.bodyText === 'string') {
+                setPlainBody(draft.bodyText);
+            } else if (typeof draft.body === 'string') {
                 setPlainBody(draft.body);
             }
             setThreadMeta({
@@ -185,6 +184,11 @@ function ComposeEmailPage() {
         }
         if (toList.length === 0) {
             setStatus('Recipient is required.');
+            return;
+        }
+        const invalidAddresses = [...toList, ...ccList, ...bccList].filter((entry) => !normalizeRecipientAddress(entry));
+        if (invalidAddresses.length > 0) {
+            setStatus(`Invalid address: ${invalidAddresses[0]}`);
             return;
         }
 
@@ -287,6 +291,7 @@ function ComposeEmailPage() {
     return (
         <div className="h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
             <div className="flex h-full flex-col">
+                <WindowTitleBar title="Compose Email"/>
                 <header
                     className="border-b border-slate-200 bg-white/90 px-5 py-3 backdrop-blur dark:border-[#3a3d44] dark:bg-[#1f2125]/95">
                     <div className="flex items-center justify-between gap-3">
@@ -337,6 +342,8 @@ function ComposeEmailPage() {
                                             placeholder="recipient@example.com"
                                             recipients={toList}
                                             onChange={setToList}
+                                            accountId={typeof fromAccountId === 'number' ? fromAccountId : null}
+                                            blockedRecipients={[...ccList, ...bccList]}
                                             className="min-h-10 min-w-0 flex-1"
                                         />
                                         <button
@@ -359,6 +366,8 @@ function ComposeEmailPage() {
                                             placeholder="optional"
                                             recipients={ccList}
                                             onChange={setCcList}
+                                            accountId={typeof fromAccountId === 'number' ? fromAccountId : null}
+                                            blockedRecipients={[...toList, ...bccList]}
                                         />
                                     </label>
 
@@ -369,6 +378,8 @@ function ComposeEmailPage() {
                                             placeholder="optional"
                                             recipients={bccList}
                                             onChange={setBccList}
+                                            accountId={typeof fromAccountId === 'number' ? fromAccountId : null}
+                                            blockedRecipients={[...toList, ...ccList]}
                                         />
                                     </label>
                                 </div>
@@ -452,27 +463,11 @@ function ComposeEmailPage() {
 export default ComposeEmailPage;
 
 function parseRecipients(raw: string): string[] {
-    return raw
-        .split(/[;,]+/)
-        .map((entry) => entry.trim())
-        .filter(Boolean);
+    return parseRecipientEntries(raw).valid;
 }
 
 function joinRecipients(recipients: string[]): string {
     return recipients.join(', ');
-}
-
-function formatBytes(bytes: number): string {
-    if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
-    if (bytes < 1024) return `${bytes} B`;
-    const units = ['KB', 'MB', 'GB'];
-    let value = bytes / 1024;
-    let unitIndex = 0;
-    while (value >= 1024 && unitIndex < units.length - 1) {
-        value /= 1024;
-        unitIndex += 1;
-    }
-    return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
 function AttachmentCard({
@@ -561,38 +556,116 @@ function RecipientsInput({
                              recipients,
                              onChange,
                              placeholder,
+                             accountId,
+                             blockedRecipients = [],
                              className = '',
                          }: {
     recipients: string[];
     onChange: (next: string[]) => void;
     placeholder?: string;
+    accountId?: number | null;
+    blockedRecipients?: string[];
     className?: string;
 }) {
     const [draft, setDraft] = useState('');
+    const [suggestions, setSuggestions] = useState<RecipientSuggestion[]>([]);
+    const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [invalidMessage, setInvalidMessage] = useState<string | null>(null);
+    const searchSeqRef = useRef(0);
+    const inputRef = useRef<HTMLInputElement | null>(null);
+
+    useEffect(() => {
+        const query = draft.trim();
+        if (!accountId || query.length < 1) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+            setActiveSuggestionIndex(0);
+            return;
+        }
+
+        const seq = ++searchSeqRef.current;
+        const timer = setTimeout(() => {
+            const recentRecipientsPromise = typeof window.electronAPI.getRecentRecipients === 'function'
+                ? window.electronAPI.getRecentRecipients(accountId, query, 12)
+                : Promise.resolve([]);
+            Promise.all([
+                window.electronAPI.getContacts(accountId, query, 12, null),
+                recentRecipientsPromise,
+            ]).then(([contacts, recentRecipients]) => {
+                if (seq !== searchSeqRef.current) return;
+                const existing = new Set(
+                    [...recipients, ...blockedRecipients]
+                        .map((entry) => normalizeRecipientAddress(entry))
+                        .filter((entry): entry is string => Boolean(entry)),
+                );
+                const merged = mergeRecipientSuggestions(contacts, recentRecipients, existing, 12);
+                setSuggestions(merged);
+                setShowSuggestions(merged.length > 0);
+                setActiveSuggestionIndex(0);
+            }).catch(() => {
+                if (seq !== searchSeqRef.current) return;
+                setSuggestions([]);
+                setShowSuggestions(false);
+                setActiveSuggestionIndex(0);
+            });
+        }, 120);
+
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [accountId, blockedRecipients, draft, recipients]);
 
     const commitDraft = () => {
-        const parsed = parseRecipients(draft);
-        if (parsed.length === 0) return;
-        const existing = new Set(recipients.map((r) => r.toLowerCase()));
+        const parsed = parseRecipientEntries(draft);
+        const existing = new Set(
+            [...recipients, ...blockedRecipients]
+                .map((entry) => normalizeRecipientAddress(entry))
+                .filter((entry): entry is string => Boolean(entry)),
+        );
         const next = [...recipients];
-        for (const item of parsed) {
-            const normalized = item.toLowerCase();
-            if (!existing.has(normalized)) {
+        for (const item of parsed.valid) {
+            if (!existing.has(item)) {
                 next.push(item);
-                existing.add(normalized);
+                existing.add(item);
             }
         }
-        onChange(next);
+        if (next.length !== recipients.length) {
+            onChange(next);
+        }
+        if (parsed.invalid.length > 0) {
+            setInvalidMessage(`Invalid address: ${parsed.invalid[0]}`);
+        } else {
+            setInvalidMessage(null);
+        }
         setDraft('');
+        setShowSuggestions(false);
     };
 
     const removeRecipient = (target: string) => {
         onChange(recipients.filter((r) => r !== target));
     };
 
+    const applySuggestion = (suggestion: RecipientSuggestion) => {
+        const email = normalizeRecipientAddress(suggestion.email);
+        if (!email) return;
+        if ([...recipients, ...blockedRecipients].some((entry) => normalizeRecipientAddress(entry) === email)) {
+            setDraft('');
+            setShowSuggestions(false);
+            return;
+        }
+        onChange([...recipients, email]);
+        setInvalidMessage(null);
+        setDraft('');
+        setShowSuggestions(false);
+        setSuggestions([]);
+        setActiveSuggestionIndex(0);
+        inputRef.current?.focus();
+    };
+
     return (
         <div
-            className={`flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 transition-colors focus-within:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100 ${className}`}
+            className={`relative flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 transition-colors focus-within:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100 ${className}`}
             onClick={(event) => {
                 const container = event.currentTarget;
                 const input = container.querySelector('input');
@@ -620,12 +693,38 @@ function RecipientsInput({
         </span>
             ))}
             <input
+                ref={inputRef}
                 placeholder={recipients.length === 0 ? placeholder : ''}
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={commitDraft}
+                onChange={(e) => {
+                    setDraft(e.target.value);
+                    if (invalidMessage) setInvalidMessage(null);
+                    if (!showSuggestions) setShowSuggestions(true);
+                }}
+                onBlur={() => {
+                    setTimeout(() => {
+                        commitDraft();
+                    }, 60);
+                }}
                 onKeyDown={(e) => {
                     const trimmedDraft = draft.trim();
+                    if (showSuggestions && suggestions.length > 0) {
+                        if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setActiveSuggestionIndex((prev) => (prev + 1) % suggestions.length);
+                            return;
+                        }
+                        if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setActiveSuggestionIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length);
+                            return;
+                        }
+                        if ((e.key === 'Enter' || e.key === 'Tab') && trimmedDraft.length > 0) {
+                            e.preventDefault();
+                            applySuggestion(suggestions[activeSuggestionIndex] ?? suggestions[0]);
+                            return;
+                        }
+                    }
                     if (e.key === 'Tab' && trimmedDraft.length === 0) {
                         return;
                     }
@@ -640,6 +739,96 @@ function RecipientsInput({
                 }}
                 className="h-7 min-w-[180px] flex-1 border-0 bg-transparent px-1 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
+            {invalidMessage && (
+                <div className="w-full pl-1 text-[11px] text-rose-600 dark:text-rose-400">{invalidMessage}</div>
+            )}
+            {showSuggestions && suggestions.length > 0 && (
+                <div
+                    className="absolute left-0 top-[calc(100%+4px)] z-20 max-h-56 w-full overflow-auto rounded-md border border-slate-300 bg-white py-1 shadow-lg dark:border-[#3a3d44] dark:bg-[#1f2125]"
+                >
+                    {suggestions.map((contact, index) => (
+                        <button
+                            key={contact.key}
+                            type="button"
+                            className={`block w-full px-2 py-1.5 text-left transition-colors ${
+                                index === activeSuggestionIndex
+                                    ? 'bg-sky-100 text-slate-900 dark:bg-[#3d4153] dark:text-slate-100'
+                                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]'
+                            }`}
+                            onMouseDown={(event) => {
+                                event.preventDefault();
+                                applySuggestion(contact);
+                            }}
+                        >
+                            <div className="truncate text-sm">{contact.displayName || contact.email}</div>
+                            {contact.displayName && (
+                                <div
+                                    className="truncate text-xs text-slate-500 dark:text-slate-400">{contact.email}</div>
+                            )}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
+}
+
+function parseRecipientEntries(raw: string): { valid: string[]; invalid: string[] } {
+    const valid: string[] = [];
+    const invalid: string[] = [];
+    const deduped = new Set<string>();
+    for (const chunk of raw.split(/[;,]+/)) {
+        const normalized = normalizeRecipientAddress(chunk);
+        if (!normalized) {
+            const trimmed = chunk.trim();
+            if (trimmed) invalid.push(trimmed);
+            continue;
+        }
+        if (deduped.has(normalized)) continue;
+        deduped.add(normalized);
+        valid.push(normalized);
+    }
+    return {valid, invalid};
+}
+
+function normalizeRecipientAddress(raw: string | null | undefined): string | null {
+    const trimmed = String(raw || '').trim();
+    if (!trimmed) return null;
+    const angleMatch = trimmed.match(/<([^<>]+)>/);
+    const candidate = (angleMatch?.[1] || trimmed).trim().replace(/^"+|"+$/g, '');
+    const normalized = candidate.toLowerCase();
+    return EMAIL_ADDRESS_REGEX.test(normalized) ? normalized : null;
+}
+
+function mergeRecipientSuggestions(
+    contacts: ContactItem[],
+    recentRecipients: RecentRecipientItem[],
+    existingEmails: Set<string>,
+    limit: number,
+): RecipientSuggestion[] {
+    const deduped = new Map<string, RecipientSuggestion>();
+
+    for (const contact of contacts) {
+        const email = normalizeRecipientAddress(contact.email);
+        if (!email || existingEmails.has(email) || deduped.has(email)) continue;
+        deduped.set(email, {
+            key: `contact:${contact.id}`,
+            email,
+            displayName: contact.full_name || null,
+        });
+        if (deduped.size >= limit) return Array.from(deduped.values());
+    }
+
+    for (const row of recentRecipients) {
+        const email = normalizeRecipientAddress(row.email);
+        if (!email || existingEmails.has(email) || deduped.has(email)) continue;
+        deduped.set(email, {
+            key: `recent:${email}`,
+            email,
+            displayName: row.display_name || null,
+        });
+        if (deduped.size >= limit) break;
+    }
+
+    return Array.from(deduped.values());
 }

@@ -3,7 +3,6 @@ import {
     Archive,
     Bug,
     CalendarDays,
-    ChevronDown,
     ChevronRight,
     CircleHelp,
     FileText,
@@ -27,8 +26,11 @@ import type {FolderItem, MessageItem, PublicAccount} from '../../preload/index';
 import {Badge} from '../components/ui/badge';
 import {Button} from '../components/ui/button';
 import {ScrollArea} from '../components/ui/scroll-area';
+import {isProtectedFolder} from '../features/mail/folders';
+import {getAccountAvatarColors, getAccountMonogram} from '../lib/accountAvatar';
 import {formatSystemDate} from '../lib/dateTime';
 import {cn} from '../lib/utils';
+import WorkspaceLayout from './WorkspaceLayout';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -500,9 +502,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     }
 
     return (
-        <div className="flex h-full w-full flex-col overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
-            {!hideHeader && (
-                <header className="h-14 shrink-0 bg-slate-700 text-white dark:bg-[#15161a]">
+        <>
+            <WorkspaceLayout
+                className="bg-slate-100 dark:bg-[#2f3136]"
+                showMenuBar={!hideHeader}
+                menubar={(
                     <div className="flex h-full items-center justify-between gap-3 px-4">
                         <div className="min-w-0 flex items-center gap-3">
                             <div className="flex items-center gap-2">
@@ -562,7 +566,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                             <Button
                                 variant="ghost"
                                 className="mr-1 h-9 w-9 rounded-md p-0 text-white/90 hover:bg-white/15 hover:text-white"
-                                onClick={() => void window.electronAPI.openAppSettingsWindow()}
+                                onClick={() => {
+                                    window.location.hash = '/settings';
+                                }}
                                 title="App settings"
                                 aria-label="App settings"
                             >
@@ -571,7 +577,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                             <Button
                                 variant="ghost"
                                 className="h-9 w-9 rounded-md p-0 text-white/90 hover:bg-white/15 hover:text-white"
-                                onClick={() => void window.electronAPI.openDebugWindow()}
+                                onClick={() => {
+                                    window.location.hash = '/debug';
+                                }}
                                 title="Debug console"
                                 aria-label="Debug console"
                             >
@@ -580,7 +588,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                             <Button
                                 variant="ghost"
                                 className="h-9 w-9 rounded-md p-0 text-white/90 hover:bg-white/15 hover:text-white"
-                                onClick={() => void window.electronAPI.openSupportWindow()}
+                                onClick={() => {
+                                    window.location.hash = '/help';
+                                }}
                                 title="Support"
                                 aria-label="Support"
                             >
@@ -588,16 +598,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                             </Button>
                         </div>
                     </div>
-                </header>
-            )}
+                )}
+                showStatusBar
+                statusText={syncStatusText || 'Ready'}
+                statusBusy={Boolean(syncInProgress)}
+                contentClassName="min-h-0 flex-1 overflow-hidden p-0"
+            >
 
-            <div className="min-h-0 flex flex-1 overflow-hidden">
+                <div className="min-h-0 flex h-full overflow-hidden">
                 {!hideFolderSidebar && (
                     <aside
                         className="flex min-h-0 w-80 shrink-0 flex-col border-r border-slate-200 bg-gradient-to-b from-slate-100 via-slate-50 to-white text-slate-800 dark:border-[#1b1c20] dark:bg-gradient-to-b dark:from-[#1f2125] dark:via-[#1f2125] dark:to-[#22242a] dark:text-slate-100">
                         <ScrollArea className="min-h-0 flex-1 px-2.5 py-3">
                             <nav className="space-y-2">
-                                <div className="mb-2">
+                                <div className="mb-2 pb-2 border-b border-slate-200 dark:border-[#1b1c20]">
                                     <button
                                         type="button"
                                         className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
@@ -609,61 +623,47 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                         <span>Compose</span>
                                     </button>
                                 </div>
-                                <div className="mb-2 flex items-center justify-between px-2.5">
-                                <span
-                                    className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Accounts</span>
-                            </div>
 
-                            {accounts.length === 0 && (
-                                <div
-                                    className="rounded-lg px-3 py-2.5 text-sm text-slate-500 dark:text-slate-400">No
-                                    accounts yet</div>
-                            )}
+                                {accounts.length === 0 && (
+                                    <div
+                                        className="rounded-lg px-3 py-2.5 text-sm text-slate-500 dark:text-slate-400">No
+                                        accounts yet</div>
+                                )}
 
                                 {accounts.map((account, accountIndex) => {
-                                const isSelectedAccount = account.id === selectedAccountId;
-                                const isSyncingAccount = (syncingAccountIds?.has(account.id) ?? false) || localSyncingAccountIds.has(account.id);
+                                    const isSelectedAccount = account.id === selectedAccountId;
+                                    const isSyncingAccount = (syncingAccountIds?.has(account.id) ?? false) || localSyncingAccountIds.has(account.id);
                                     const isExpanded = !collapsedAccountIds.has(account.id);
-                                const accountFolders = accountFoldersById[account.id] ?? [];
-                                const accountProtectedFolders = accountFolders.filter((folder) => isProtectedFolder(folder));
-                                const accountCustomFolders = accountFolders.filter((folder) => !isProtectedFolder(folder));
+                                    const accountFolders = accountFoldersById[account.id] ?? [];
+                                    const accountProtectedFolders = accountFolders.filter((folder) => isProtectedFolder(folder));
+                                    const accountCustomFolders = accountFolders.filter((folder) => !isProtectedFolder(folder));
                                     const avatarColors = getAccountAvatarColors(account.email || account.display_name || String(account.id));
-                                return (
-                                    <div key={account.id} className="space-y-1">
-                                        <div
-                                            className={cn(
-                                                'group flex items-center gap-1 rounded-lg px-1 py-0.5 transition-colors',
-                                                isSelectedAccount
-                                                    ? 'bg-gradient-to-r from-slate-200/90 to-slate-100/90 dark:from-[#3f434b] dark:to-[#373a42]'
-                                                    : 'bg-transparent hover:bg-gradient-to-r hover:from-slate-200/90 hover:to-slate-100/90 dark:hover:from-[#3f434b] dark:hover:to-[#373a42]',
-                                            )}>
-                                            <button
-                                                className="rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    toggleAccountExpanded(account.id);
-                                                }}
-                                                title={isExpanded ? 'Collapse account' : 'Expand account'}
-                                                aria-label={isExpanded ? 'Collapse account' : 'Expand account'}
-                                            >
-                                                {isExpanded ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
-                                            </button>
-                                            <button
+                                    return (
+                                        <div key={account.id} className="space-y-1">
+                                            <div
                                                 className={cn(
-                                                    'flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                                                    'group flex items-center gap-1 rounded-lg px-1 py-0.5 transition-colors',
                                                     isSelectedAccount
-                                                        ? 'font-semibold text-slate-900 dark:text-white'
-                                                        : 'text-slate-700 dark:text-slate-200',
-                                                )}
-                                                onClick={() => {
-                                                    ensureAccountExpanded(account.id);
-                                                    onSelectAccount(account.id);
-                                                }}
-                                                onContextMenu={(e) => {
-                                                    e.preventDefault();
-                                                    setAccountMenu({x: e.clientX, y: e.clientY, account});
-                                                }}
-                                            >
+                                                        ? 'bg-gradient-to-r from-slate-200/90 to-slate-100/90 dark:from-[#3f434b] dark:to-[#373a42]'
+                                                        : 'bg-transparent hover:bg-gradient-to-r hover:from-slate-200/90 hover:to-slate-100/90 dark:hover:from-[#3f434b] dark:hover:to-[#373a42]',
+                                                )}>
+
+                                                <button
+                                                    className={cn(
+                                                        'flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                                                        isSelectedAccount
+                                                            ? 'font-semibold text-slate-900 dark:text-white'
+                                                            : 'text-slate-700 dark:text-slate-200',
+                                                    )}
+                                                    onClick={() => {
+                                                        toggleAccountExpanded(account.id);
+                                                        onSelectAccount(account.id);
+                                                    }}
+                                                    onContextMenu={(e) => {
+                                                        e.preventDefault();
+                                                        setAccountMenu({x: e.clientX, y: e.clientY, account});
+                                                    }}
+                                                >
                                                 <span
                                                     className={cn(
                                                         'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1',
@@ -678,313 +678,313 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                 >
                                                     {getAccountMonogram(account)}
                                                 </span>
-                                                <span className="min-w-0 flex-1">
+                                                    <span className="min-w-0 flex-1">
                                                     <span className="block truncate">
                                                         {account.display_name?.trim() || account.email}
                                                     </span>
-                                                    {account.display_name?.trim() && (
-                                                        <span
-                                                            className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                                                        {account.display_name?.trim() && (
+                                                            <span
+                                                                className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
                                                             {account.email}
                                                         </span>
-                                                    )}
-                                                </span>
-                                            </button>
-                                            <div
-                                                className={cn('flex items-center gap-1 pr-1 transition-opacity', isSyncingAccount ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
-                                                <button
-                                                    className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        syncAccountNow(account.id);
-                                                    }}
-                                                    title="Sync account"
-                                                    aria-label="Sync account"
-                                                    disabled={isSyncingAccount}
-                                                >
-                                                    <RefreshCw size={13}
-                                                               className={cn(isSyncingAccount && 'animate-spin')}/>
-                                                </button>
-                                                <button
-                                                    className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        void window.electronAPI.openAccountSettingsWindow(account.id);
-                                                    }}
-                                                    title="Edit account"
-                                                    aria-label="Edit account"
-                                                >
-                                                    <Settings size={13}/>
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {isExpanded && (
-                                            <div
-                                                className="relative space-y-1 pl-7 before:absolute before:bottom-2 before:left-3.5 before:top-1 before:w-px before:bg-gradient-to-b before:from-slate-300 before:to-slate-200/30 before:content-[''] dark:before:from-[#4a4d55] dark:before:to-transparent">
-                                                {accountFolders.length === 0 ? (
-                                                    <div
-                                                        className="rounded-md px-2 py-1.5 text-xs text-slate-500 dark:text-slate-400">
-                                                        No folders yet
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        {accountProtectedFolders.map((folder) => (
-                                                            <FolderItemRow
-                                                                key={folder.id}
-                                                                icon={getFolderIcon(folder)}
-                                                                iconColorClassName={getFolderColorClass(folder.color)}
-                                                                label={folder.custom_name || folder.name}
-                                                                count={folder.unread_count}
-                                                                active={isSelectedAccount && selectedFolderPath === folder.path}
-                                                                dropActive={
-                                                                    dragTargetFolder?.accountId === folder.account_id
-                                                                    && dragTargetFolder.path === folder.path
-                                                                }
-                                                                onClick={() => {
-                                                                    if (!isSelectedAccount) onSelectAccount(account.id);
-                                                                    onSelectFolder(folder.path, account.id);
-                                                                }}
-                                                                onDragEnter={(e) => {
-                                                                    if (!isSelectedAccount) return;
-                                                                    if (!draggingMessage) return;
-                                                                    if (draggingMessage.accountId !== folder.account_id) return;
-                                                                    if (folder.path === selectedFolderPath) return;
-                                                                    e.preventDefault();
-                                                                    setDragTargetFolder({
-                                                                        accountId: folder.account_id,
-                                                                        path: folder.path
-                                                                    });
-                                                                }}
-                                                                onDragOver={(e) => {
-                                                                    if (!isSelectedAccount) return;
-                                                                    if (!draggingMessage) return;
-                                                                    if (draggingMessage.accountId !== folder.account_id) return;
-                                                                    if (folder.path === selectedFolderPath) return;
-                                                                    e.preventDefault();
-                                                                    e.dataTransfer.dropEffect = 'move';
-                                                                    if (dragTargetFolder?.accountId !== folder.account_id || dragTargetFolder.path !== folder.path) {
-                                                                        setDragTargetFolder({
-                                                                            accountId: folder.account_id,
-                                                                            path: folder.path
-                                                                        });
-                                                                    }
-                                                                }}
-                                                                onDragLeave={(e) => {
-                                                                    const related = e.relatedTarget as Node | null;
-                                                                    if (related && e.currentTarget.contains(related)) return;
-                                                                    if (dragTargetFolder?.accountId === folder.account_id && dragTargetFolder.path === folder.path) {
-                                                                        setDragTargetFolder(null);
-                                                                    }
-                                                                }}
-                                                                onDrop={(e) => {
-                                                                    if (!isSelectedAccount) return;
-                                                                    if (!draggingMessage) return;
-                                                                    if (draggingMessage.accountId !== folder.account_id) return;
-                                                                    if (folder.path === selectedFolderPath) return;
-                                                                    e.preventDefault();
-                                                                    const idRaw =
-                                                                        e.dataTransfer.getData('application/x-lunamail-message-id') ||
-                                                                        e.dataTransfer.getData('text/plain');
-                                                                    const droppedMessageId = Number(idRaw);
-                                                                    const droppedMessage = messages.find((m) => m.id === droppedMessageId);
-                                                                    if (droppedMessage && droppedMessage.account_id === folder.account_id) {
-                                                                        onMessageMove(droppedMessage, folder.path);
-                                                                    }
-                                                                    setDragTargetFolder(null);
-                                                                    setDraggingMessage(null);
-                                                                }}
-                                                                onContextMenu={(e) => {
-                                                                    e.preventDefault();
-                                                                    if (!isSelectedAccount) onSelectAccount(account.id);
-                                                                    setMenu({
-                                                                        kind: 'folder',
-                                                                        x: e.clientX,
-                                                                        y: e.clientY,
-                                                                        folder
-                                                                    });
-                                                                }}
-                                                            />
-                                                        ))}
-                                                        {accountProtectedFolders.length > 0 && accountCustomFolders.length > 0 && (
-                                                            <div
-                                                                className="my-1.5 h-px bg-gradient-to-r from-transparent via-slate-300/80 to-transparent dark:via-[#3a3d44]"/>
                                                         )}
-                                                        {accountCustomFolders.map((folder) => (
-                                                            <FolderItemRow
-                                                                key={folder.id}
-                                                                icon={getFolderIcon(folder)}
-                                                                iconColorClassName={getFolderColorClass(folder.color)}
-                                                                label={folder.custom_name || folder.name}
-                                                                count={folder.unread_count}
-                                                                active={isSelectedAccount && selectedFolderPath === folder.path}
-                                                                customDragActive={
-                                                                    customFolderDropTarget?.accountId === folder.account_id
-                                                                    && customFolderDropTarget.path === folder.path
-                                                                }
-                                                                customDragging={
-                                                                    draggingCustomFolder?.accountId === folder.account_id
-                                                                    && draggingCustomFolder.path === folder.path
-                                                                }
-                                                                draggableFolder
-                                                                onFolderDragStart={(e) => {
-                                                                    setDraggingCustomFolder({
-                                                                        accountId: folder.account_id,
-                                                                        path: folder.path
-                                                                    });
-                                                                    setCustomFolderDropTarget(null);
-                                                                    e.dataTransfer.effectAllowed = 'move';
-                                                                    e.dataTransfer.setData('application/x-lunamail-folder-path', folder.path);
-                                                                    e.dataTransfer.setData('application/x-lunamail-folder-account', String(folder.account_id));
-                                                                }}
-                                                                onFolderDragEnd={() => {
-                                                                    setDraggingCustomFolder(null);
-                                                                    setCustomFolderDropTarget(null);
-                                                                }}
-                                                                onFolderDragOver={(e) => {
-                                                                    if (!draggingCustomFolder) return;
-                                                                    if (draggingCustomFolder.accountId !== folder.account_id) return;
-                                                                    if (draggingCustomFolder.path === folder.path) return;
-                                                                    e.preventDefault();
-                                                                    e.dataTransfer.dropEffect = 'move';
-                                                                    if (customFolderDropTarget?.accountId !== folder.account_id || customFolderDropTarget.path !== folder.path) {
-                                                                        setCustomFolderDropTarget({
-                                                                            accountId: folder.account_id,
-                                                                            path: folder.path
-                                                                        });
+                                                </span>
+                                                </button>
+                                                <div
+                                                    className={cn('flex items-center gap-1 pr-1 transition-opacity', isSyncingAccount ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
+                                                    <button
+                                                        className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            syncAccountNow(account.id);
+                                                        }}
+                                                        title="Sync account"
+                                                        aria-label="Sync account"
+                                                        disabled={isSyncingAccount}
+                                                    >
+                                                        <RefreshCw size={13}
+                                                                   className={cn(isSyncingAccount && 'animate-spin')}/>
+                                                    </button>
+                                                    <button
+                                                        className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            window.location.hash = `/settings?accountId=${account.id}`;
+                                                        }}
+                                                        title="Edit account"
+                                                        aria-label="Edit account"
+                                                    >
+                                                        <Settings size={13}/>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {isExpanded && (
+                                                <div
+                                                    className="relative space-y-1 pl-7 before:absolute before:bottom-2 before:left-3.5 before:top-1 before:w-px before:bg-gradient-to-b before:from-slate-300 before:to-slate-200/30 before:content-[''] dark:before:from-[#4a4d55] dark:before:to-transparent">
+                                                    {accountFolders.length === 0 ? (
+                                                        <div
+                                                            className="rounded-md px-2 py-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                                            No folders yet
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            {accountProtectedFolders.map((folder) => (
+                                                                <FolderItemRow
+                                                                    key={folder.id}
+                                                                    icon={getFolderIcon(folder)}
+                                                                    iconColorClassName={getFolderColorClass(folder.color)}
+                                                                    label={folder.custom_name || folder.name}
+                                                                    count={folder.unread_count}
+                                                                    active={isSelectedAccount && selectedFolderPath === folder.path}
+                                                                    dropActive={
+                                                                        dragTargetFolder?.accountId === folder.account_id
+                                                                        && dragTargetFolder.path === folder.path
                                                                     }
-                                                                }}
-                                                                onFolderDrop={(e) => {
-                                                                    if (!draggingCustomFolder) return;
-                                                                    if (draggingCustomFolder.accountId !== folder.account_id) return;
-                                                                    if (draggingCustomFolder.path === folder.path) return;
-                                                                    e.preventDefault();
-                                                                    const accountId = folder.account_id;
-                                                                    const accountCustom = (accountFoldersById[accountId] ?? []).filter((f) => !isProtectedFolder(f));
-                                                                    const fromIndex = accountCustom.findIndex((f) => f.path === draggingCustomFolder.path);
-                                                                    const toIndex = accountCustom.findIndex((f) => f.path === folder.path);
-                                                                    if (fromIndex >= 0 && toIndex >= 0 && fromIndex !== toIndex) {
-                                                                        const next = [...accountCustom];
-                                                                        const [moved] = next.splice(fromIndex, 1);
-                                                                        next.splice(toIndex, 0, moved);
-                                                                        void onReorderCustomFolders(accountId, next.map((f) => f.path));
-                                                                    }
-                                                                    setDraggingCustomFolder(null);
-                                                                    setCustomFolderDropTarget(null);
-                                                                }}
-                                                                onEditFolder={() => {
-                                                                    setFolderEditor({
-                                                                        folder,
-                                                                        customName: folder.custom_name || folder.name,
-                                                                        type: folder.type || '',
-                                                                        color: folder.color || '',
-                                                                    });
-                                                                    setFolderEditorError(null);
-                                                                }}
-                                                                dropActive={
-                                                                    dragTargetFolder?.accountId === folder.account_id
-                                                                    && dragTargetFolder.path === folder.path
-                                                                }
-                                                                onClick={() => {
-                                                                    if (!isSelectedAccount) onSelectAccount(account.id);
-                                                                    onSelectFolder(folder.path, account.id);
-                                                                }}
-                                                                onDragEnter={(e) => {
-                                                                    if (!isSelectedAccount) return;
-                                                                    if (!draggingMessage) return;
-                                                                    if (draggingMessage.accountId !== folder.account_id) return;
-                                                                    if (folder.path === selectedFolderPath) return;
-                                                                    e.preventDefault();
-                                                                    setDragTargetFolder({
-                                                                        accountId: folder.account_id,
-                                                                        path: folder.path
-                                                                    });
-                                                                }}
-                                                                onDragOver={(e) => {
-                                                                    if (!isSelectedAccount) return;
-                                                                    if (!draggingMessage) return;
-                                                                    if (draggingMessage.accountId !== folder.account_id) return;
-                                                                    if (folder.path === selectedFolderPath) return;
-                                                                    e.preventDefault();
-                                                                    e.dataTransfer.dropEffect = 'move';
-                                                                    if (dragTargetFolder?.accountId !== folder.account_id || dragTargetFolder.path !== folder.path) {
+                                                                    onClick={() => {
+                                                                        if (!isSelectedAccount) onSelectAccount(account.id);
+                                                                        onSelectFolder(folder.path, account.id);
+                                                                    }}
+                                                                    onDragEnter={(e) => {
+                                                                        if (!isSelectedAccount) return;
+                                                                        if (!draggingMessage) return;
+                                                                        if (draggingMessage.accountId !== folder.account_id) return;
+                                                                        if (folder.path === selectedFolderPath) return;
+                                                                        e.preventDefault();
                                                                         setDragTargetFolder({
                                                                             accountId: folder.account_id,
                                                                             path: folder.path
                                                                         });
-                                                                    }
-                                                                }}
-                                                                onDragLeave={(e) => {
-                                                                    const related = e.relatedTarget as Node | null;
-                                                                    if (related && e.currentTarget.contains(related)) return;
-                                                                    if (dragTargetFolder?.accountId === folder.account_id && dragTargetFolder.path === folder.path) {
+                                                                    }}
+                                                                    onDragOver={(e) => {
+                                                                        if (!isSelectedAccount) return;
+                                                                        if (!draggingMessage) return;
+                                                                        if (draggingMessage.accountId !== folder.account_id) return;
+                                                                        if (folder.path === selectedFolderPath) return;
+                                                                        e.preventDefault();
+                                                                        e.dataTransfer.dropEffect = 'move';
+                                                                        if (dragTargetFolder?.accountId !== folder.account_id || dragTargetFolder.path !== folder.path) {
+                                                                            setDragTargetFolder({
+                                                                                accountId: folder.account_id,
+                                                                                path: folder.path
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    onDragLeave={(e) => {
+                                                                        const related = e.relatedTarget as Node | null;
+                                                                        if (related && e.currentTarget.contains(related)) return;
+                                                                        if (dragTargetFolder?.accountId === folder.account_id && dragTargetFolder.path === folder.path) {
+                                                                            setDragTargetFolder(null);
+                                                                        }
+                                                                    }}
+                                                                    onDrop={(e) => {
+                                                                        if (!isSelectedAccount) return;
+                                                                        if (!draggingMessage) return;
+                                                                        if (draggingMessage.accountId !== folder.account_id) return;
+                                                                        if (folder.path === selectedFolderPath) return;
+                                                                        e.preventDefault();
+                                                                        const idRaw =
+                                                                            e.dataTransfer.getData('application/x-lunamail-message-id') ||
+                                                                            e.dataTransfer.getData('text/plain');
+                                                                        const droppedMessageId = Number(idRaw);
+                                                                        const droppedMessage = messages.find((m) => m.id === droppedMessageId);
+                                                                        if (droppedMessage && droppedMessage.account_id === folder.account_id) {
+                                                                            onMessageMove(droppedMessage, folder.path);
+                                                                        }
                                                                         setDragTargetFolder(null);
+                                                                        setDraggingMessage(null);
+                                                                    }}
+                                                                    onContextMenu={(e) => {
+                                                                        e.preventDefault();
+                                                                        if (!isSelectedAccount) onSelectAccount(account.id);
+                                                                        setMenu({
+                                                                            kind: 'folder',
+                                                                            x: e.clientX,
+                                                                            y: e.clientY,
+                                                                            folder
+                                                                        });
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                            {accountProtectedFolders.length > 0 && accountCustomFolders.length > 0 && (
+                                                                <div
+                                                                    className="my-1.5 h-px bg-gradient-to-r from-transparent via-slate-300/80 to-transparent dark:via-[#3a3d44]"/>
+                                                            )}
+                                                            {accountCustomFolders.map((folder) => (
+                                                                <FolderItemRow
+                                                                    key={folder.id}
+                                                                    icon={getFolderIcon(folder)}
+                                                                    iconColorClassName={getFolderColorClass(folder.color)}
+                                                                    label={folder.custom_name || folder.name}
+                                                                    count={folder.unread_count}
+                                                                    active={isSelectedAccount && selectedFolderPath === folder.path}
+                                                                    customDragActive={
+                                                                        customFolderDropTarget?.accountId === folder.account_id
+                                                                        && customFolderDropTarget.path === folder.path
                                                                     }
-                                                                }}
-                                                                onDrop={(e) => {
-                                                                    if (!isSelectedAccount) return;
-                                                                    if (!draggingMessage) return;
-                                                                    if (draggingMessage.accountId !== folder.account_id) return;
-                                                                    if (folder.path === selectedFolderPath) return;
-                                                                    e.preventDefault();
-                                                                    const idRaw =
-                                                                        e.dataTransfer.getData('application/x-lunamail-message-id') ||
-                                                                        e.dataTransfer.getData('text/plain');
-                                                                    const droppedMessageId = Number(idRaw);
-                                                                    const droppedMessage = messages.find((m) => m.id === droppedMessageId);
-                                                                    if (droppedMessage && droppedMessage.account_id === folder.account_id) {
-                                                                        onMessageMove(droppedMessage, folder.path);
+                                                                    customDragging={
+                                                                        draggingCustomFolder?.accountId === folder.account_id
+                                                                        && draggingCustomFolder.path === folder.path
                                                                     }
-                                                                    setDragTargetFolder(null);
-                                                                    setDraggingMessage(null);
-                                                                }}
-                                                                onContextMenu={(e) => {
-                                                                    e.preventDefault();
-                                                                    if (!isSelectedAccount) onSelectAccount(account.id);
-                                                                    setMenu({
-                                                                        kind: 'folder',
-                                                                        x: e.clientX,
-                                                                        y: e.clientY,
-                                                                        folder
-                                                                    });
-                                                                }}
-                                                            />
-                                                        ))}
-                                                    </>
-                                                )}
-                                            </div>
-                                        )}
-                                        {accountIndex < accounts.length - 1 && (
-                                            <div
-                                                className="mx-2 my-1.5 h-px bg-gradient-to-r from-transparent via-slate-300/85 to-transparent dark:via-[#3b3e45]"/>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </nav>
+                                                                    draggableFolder
+                                                                    onFolderDragStart={(e) => {
+                                                                        setDraggingCustomFolder({
+                                                                            accountId: folder.account_id,
+                                                                            path: folder.path
+                                                                        });
+                                                                        setCustomFolderDropTarget(null);
+                                                                        e.dataTransfer.effectAllowed = 'move';
+                                                                        e.dataTransfer.setData('application/x-lunamail-folder-path', folder.path);
+                                                                        e.dataTransfer.setData('application/x-lunamail-folder-account', String(folder.account_id));
+                                                                    }}
+                                                                    onFolderDragEnd={() => {
+                                                                        setDraggingCustomFolder(null);
+                                                                        setCustomFolderDropTarget(null);
+                                                                    }}
+                                                                    onFolderDragOver={(e) => {
+                                                                        if (!draggingCustomFolder) return;
+                                                                        if (draggingCustomFolder.accountId !== folder.account_id) return;
+                                                                        if (draggingCustomFolder.path === folder.path) return;
+                                                                        e.preventDefault();
+                                                                        e.dataTransfer.dropEffect = 'move';
+                                                                        if (customFolderDropTarget?.accountId !== folder.account_id || customFolderDropTarget.path !== folder.path) {
+                                                                            setCustomFolderDropTarget({
+                                                                                accountId: folder.account_id,
+                                                                                path: folder.path
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    onFolderDrop={(e) => {
+                                                                        if (!draggingCustomFolder) return;
+                                                                        if (draggingCustomFolder.accountId !== folder.account_id) return;
+                                                                        if (draggingCustomFolder.path === folder.path) return;
+                                                                        e.preventDefault();
+                                                                        const accountId = folder.account_id;
+                                                                        const accountCustom = (accountFoldersById[accountId] ?? []).filter((f) => !isProtectedFolder(f));
+                                                                        const fromIndex = accountCustom.findIndex((f) => f.path === draggingCustomFolder.path);
+                                                                        const toIndex = accountCustom.findIndex((f) => f.path === folder.path);
+                                                                        if (fromIndex >= 0 && toIndex >= 0 && fromIndex !== toIndex) {
+                                                                            const next = [...accountCustom];
+                                                                            const [moved] = next.splice(fromIndex, 1);
+                                                                            next.splice(toIndex, 0, moved);
+                                                                            void onReorderCustomFolders(accountId, next.map((f) => f.path));
+                                                                        }
+                                                                        setDraggingCustomFolder(null);
+                                                                        setCustomFolderDropTarget(null);
+                                                                    }}
+                                                                    onEditFolder={() => {
+                                                                        setFolderEditor({
+                                                                            folder,
+                                                                            customName: folder.custom_name || folder.name,
+                                                                            type: folder.type || '',
+                                                                            color: folder.color || '',
+                                                                        });
+                                                                        setFolderEditorError(null);
+                                                                    }}
+                                                                    dropActive={
+                                                                        dragTargetFolder?.accountId === folder.account_id
+                                                                        && dragTargetFolder.path === folder.path
+                                                                    }
+                                                                    onClick={() => {
+                                                                        if (!isSelectedAccount) onSelectAccount(account.id);
+                                                                        onSelectFolder(folder.path, account.id);
+                                                                    }}
+                                                                    onDragEnter={(e) => {
+                                                                        if (!isSelectedAccount) return;
+                                                                        if (!draggingMessage) return;
+                                                                        if (draggingMessage.accountId !== folder.account_id) return;
+                                                                        if (folder.path === selectedFolderPath) return;
+                                                                        e.preventDefault();
+                                                                        setDragTargetFolder({
+                                                                            accountId: folder.account_id,
+                                                                            path: folder.path
+                                                                        });
+                                                                    }}
+                                                                    onDragOver={(e) => {
+                                                                        if (!isSelectedAccount) return;
+                                                                        if (!draggingMessage) return;
+                                                                        if (draggingMessage.accountId !== folder.account_id) return;
+                                                                        if (folder.path === selectedFolderPath) return;
+                                                                        e.preventDefault();
+                                                                        e.dataTransfer.dropEffect = 'move';
+                                                                        if (dragTargetFolder?.accountId !== folder.account_id || dragTargetFolder.path !== folder.path) {
+                                                                            setDragTargetFolder({
+                                                                                accountId: folder.account_id,
+                                                                                path: folder.path
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    onDragLeave={(e) => {
+                                                                        const related = e.relatedTarget as Node | null;
+                                                                        if (related && e.currentTarget.contains(related)) return;
+                                                                        if (dragTargetFolder?.accountId === folder.account_id && dragTargetFolder.path === folder.path) {
+                                                                            setDragTargetFolder(null);
+                                                                        }
+                                                                    }}
+                                                                    onDrop={(e) => {
+                                                                        if (!isSelectedAccount) return;
+                                                                        if (!draggingMessage) return;
+                                                                        if (draggingMessage.accountId !== folder.account_id) return;
+                                                                        if (folder.path === selectedFolderPath) return;
+                                                                        e.preventDefault();
+                                                                        const idRaw =
+                                                                            e.dataTransfer.getData('application/x-lunamail-message-id') ||
+                                                                            e.dataTransfer.getData('text/plain');
+                                                                        const droppedMessageId = Number(idRaw);
+                                                                        const droppedMessage = messages.find((m) => m.id === droppedMessageId);
+                                                                        if (droppedMessage && droppedMessage.account_id === folder.account_id) {
+                                                                            onMessageMove(droppedMessage, folder.path);
+                                                                        }
+                                                                        setDragTargetFolder(null);
+                                                                        setDraggingMessage(null);
+                                                                    }}
+                                                                    onContextMenu={(e) => {
+                                                                        e.preventDefault();
+                                                                        if (!isSelectedAccount) onSelectAccount(account.id);
+                                                                        setMenu({
+                                                                            kind: 'folder',
+                                                                            x: e.clientX,
+                                                                            y: e.clientY,
+                                                                            folder
+                                                                        });
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {accountIndex < accounts.length - 1 && (
+                                                <div
+                                                    className="mx-2 my-1.5 h-px bg-gradient-to-r from-transparent via-slate-300/85 to-transparent dark:via-[#3b3e45]"/>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </nav>
                         </ScrollArea>
                         <div className="shrink-0 border-t border-slate-200 px-2 py-2 dark:border-[#2f3138]">
-                        <div className="flex items-center gap-1">
-                            <button
-                                type="button"
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:bg-[#25272c] dark:text-slate-200 dark:hover:bg-[#34363d]"
-                                onClick={() => window.electronAPI.openAddAccountWindow()}
-                                title="Add account"
-                                aria-label="Add account"
-                            >
-                                <FolderPlus size={14}/>
-                            </button>
-                            <button
-                                type="button"
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#25272c] dark:text-slate-200 dark:hover:bg-[#34363d]"
-                                onClick={syncAllAccountsNow}
-                                title="Sync all accounts"
-                                aria-label="Sync all accounts"
-                                disabled={accounts.length === 0}
-                            >
-                                <RefreshCw size={14}/>
-                            </button>
-                        </div>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:bg-[#25272c] dark:text-slate-200 dark:hover:bg-[#34363d]"
+                                    onClick={() => window.electronAPI.openAddAccountWindow()}
+                                    title="Add account"
+                                    aria-label="Add account"
+                                >
+                                    <FolderPlus size={14}/>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#25272c] dark:text-slate-200 dark:hover:bg-[#34363d]"
+                                    onClick={syncAllAccountsNow}
+                                    title="Sync all accounts"
+                                    aria-label="Sync all accounts"
+                                    disabled={accounts.length === 0}
+                                >
+                                    <RefreshCw size={14}/>
+                                </button>
+                            </div>
                         </div>
 
                     </aside>
@@ -1129,18 +1129,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
                 <section className="flex min-w-0 flex-1 flex-col bg-white dark:bg-[#34373d]">{children}</section>
             </div>
-
-            <footer
-                className="h-8 shrink-0 border-t border-slate-200 bg-slate-50 px-3 dark:border-[#2a2d31] dark:bg-[#1b1c20]">
-                <div className="flex h-full items-center justify-between text-xs">
-          <span className="truncate text-slate-600 dark:text-slate-300">
-            {syncStatusText || 'Ready'}
-          </span>
-                    <span className="ml-3 shrink-0 text-slate-400 dark:text-slate-500">
-            LunaMail
-          </span>
-                </div>
-            </footer>
+            </WorkspaceLayout>
 
             {searchModalOpen && (
                 <div className="fixed inset-0 z-[1100] flex items-start justify-center bg-slate-950/45 p-4 pt-20"
@@ -1467,7 +1456,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                         label="Edit Account Settings"
                         icon={<Settings size={14}/>}
                         onClick={() => {
-                            void window.electronAPI.openAccountSettingsWindow(accountMenu.account.id);
+                            window.location.hash = `/settings?accountId=${accountMenu.account.id}`;
                             setAccountMenu(null);
                         }}
                     />
@@ -1661,7 +1650,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 };
 
@@ -1791,96 +1780,6 @@ const FolderItemRow: React.FC<{
     );
 };
 
-function getAccountMonogram(account: PublicAccount): string {
-    const base = (account.display_name?.trim() || account.email || '').trim();
-    if (!base) return '?';
-    const words = base.split(/[\s._-]+/).filter(Boolean);
-    if (words.length >= 2) {
-        return `${words[0][0] ?? ''}${words[1][0] ?? ''}`.toUpperCase();
-    }
-    return (words[0] || base).slice(0, 2).toUpperCase();
-}
-
-function getAccountAvatarColors(seed: string): { background: string; foreground: string } {
-    const hash = hashString(seed.trim().toLowerCase() || 'account');
-    const hue = hash % 360;
-    const saturation = 58 + (hash % 15); // 58-72
-    const lightness = 44 + (Math.floor(hash / 11) % 12); // 44-55
-    const background = `hsl(${hue} ${saturation}% ${lightness}%)`;
-
-    const [r, g, b] = hslToRgb(hue, saturation, lightness);
-    const whiteContrast = contrastRatio([r, g, b], [255, 255, 255]);
-    const darkContrast = contrastRatio([r, g, b], [15, 23, 42]);
-    const foreground = whiteContrast >= darkContrast ? '#ffffff' : '#0f172a';
-    return {background, foreground};
-}
-
-function hashString(value: string): number {
-    let hash = 2166136261;
-    for (let i = 0; i < value.length; i += 1) {
-        hash ^= value.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-}
-
-function hslToRgb(h: number, s: number, l: number): [number, number, number] {
-    const sat = s / 100;
-    const light = l / 100;
-    const c = (1 - Math.abs(2 * light - 1)) * sat;
-    const hp = ((h % 360) + 360) % 360 / 60;
-    const x = c * (1 - Math.abs((hp % 2) - 1));
-
-    let r1 = 0;
-    let g1 = 0;
-    let b1 = 0;
-    if (hp >= 0 && hp < 1) {
-        r1 = c;
-        g1 = x;
-    } else if (hp < 2) {
-        r1 = x;
-        g1 = c;
-    } else if (hp < 3) {
-        g1 = c;
-        b1 = x;
-    } else if (hp < 4) {
-        g1 = x;
-        b1 = c;
-    } else if (hp < 5) {
-        r1 = x;
-        b1 = c;
-    } else {
-        r1 = c;
-        b1 = x;
-    }
-
-    const m = light - c / 2;
-    return [
-        Math.round((r1 + m) * 255),
-        Math.round((g1 + m) * 255),
-        Math.round((b1 + m) * 255),
-    ];
-}
-
-function relativeLuminance([r, g, b]: [number, number, number]): number {
-    const toLinear = (channel: number) => {
-        const c = channel / 255;
-        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    };
-    const rl = toLinear(r);
-    const gl = toLinear(g);
-    const bl = toLinear(b);
-    return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
-}
-
-function contrastRatio(a: [number, number, number], b: [number, number, number]): number {
-    const la = relativeLuminance(a);
-    const lb = relativeLuminance(b);
-    const lighter = Math.max(la, lb);
-    const darker = Math.min(la, lb);
-    return (lighter + 0.05) / (darker + 0.05);
-}
-
 const ContextItem: React.FC<{
     label: string;
     onClick: () => void;
@@ -1955,18 +1854,6 @@ function getFolderSwatchClass(color: string): string {
         default:
             return 'bg-transparent ring-1 ring-dashed ring-slate-400 dark:ring-slate-500';
     }
-}
-
-function isProtectedFolder(folder: FolderItem): boolean {
-    const type = (folder.type || '').toLowerCase();
-    const path = folder.path.toLowerCase();
-    if (type === 'inbox' || path === 'inbox') return true;
-    if (type === 'sent' || path.includes('sent')) return true;
-    if (type === 'drafts' || path.includes('draft')) return true;
-    if (type === 'archive' || path.includes('archive')) return true;
-    if (type === 'junk' || path.includes('spam') || path.includes('junk')) return true;
-    if (type === 'trash' || path.includes('trash') || path.includes('deleted')) return true;
-    return false;
 }
 
 function formatMessageSender(message: MessageItem): string {

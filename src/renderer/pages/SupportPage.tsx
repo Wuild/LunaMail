@@ -1,13 +1,6 @@
-import React, {useEffect, useState} from 'react';
-import type {AppSettings} from '../../preload';
-
-const defaultSettings: AppSettings = {
-    language: 'system',
-    theme: 'system',
-    minimizeToTray: true,
-    syncIntervalMinutes: 2,
-    autoUpdateEnabled: true,
-};
+import React from 'react';
+import WindowTitleBar from '../components/WindowTitleBar';
+import {useAppTheme} from '../hooks/useAppTheme';
 
 const shortcuts = [
     {action: 'Compose new email', keys: 'Ctrl/Cmd + N'},
@@ -19,35 +12,12 @@ const shortcuts = [
 ];
 
 export default function SupportPage({embedded = false}: { embedded?: boolean }) {
-    const [settings, setSettings] = useState<AppSettings>(defaultSettings);
-
-    useEffect(() => {
-        const media = window.matchMedia('(prefers-color-scheme: dark)');
-        const applyTheme = (next: AppSettings) => {
-            const useDark = next.theme === 'dark' || (next.theme === 'system' && media.matches);
-            document.documentElement.classList.toggle('dark', useDark);
-            document.body.classList.toggle('dark', useDark);
-        };
-
-        window.electronAPI.getAppSettings().then((next) => {
-            setSettings(next);
-            applyTheme(next);
-        }).catch(() => applyTheme(defaultSettings));
-        const off = window.electronAPI.onAppSettingsUpdated?.((next) => {
-            setSettings(next);
-            applyTheme(next);
-        });
-        const onChange = () => applyTheme(settings);
-        media.addEventListener('change', onChange);
-        return () => {
-            if (typeof off === 'function') off();
-            media.removeEventListener('change', onChange);
-        };
-    }, [settings]);
+    useAppTheme();
 
     return (
         <div className="h-full w-full overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
             <div className="flex h-full flex-col">
+                {!embedded && <WindowTitleBar title="Support"/>}
                 <header
                     className="border-b border-slate-200 bg-white px-5 py-4 dark:border-[#3a3d44] dark:bg-[#1f2125]">
                     <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Support</h1>

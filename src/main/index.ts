@@ -1,4 +1,15 @@
-import {app, BrowserWindow, clipboard, Menu, nativeImage, nativeTheme, Notification, shell, Tray} from 'electron';
+import {
+    app,
+    BrowserWindow,
+    clipboard,
+    Menu,
+    nativeImage,
+    nativeTheme,
+    Notification,
+    screen,
+    shell,
+    Tray
+} from 'electron';
 import fs from 'fs';
 import path from 'path';
 import {fileURLToPath} from 'url';
@@ -23,7 +34,6 @@ import {initAutoUpdater, runStartupUpdateFlow, setAutoUpdateEnabled} from './upd
 import type {ComposeDraftPayload} from './windows/composeWindow.js';
 import {openComposeWindow} from './windows/composeWindow.js';
 import {getAddAccountWindow, openAddAccountWindow} from './windows/addAccountWindow.js';
-import {openDebugWindow} from './windows/debugWindow.js';
 import {loadWindowContent} from './windows/loadWindowContent.js';
 import {closeSplashWindow, openSplashWindow} from './windows/splashWindow.js';
 
@@ -39,13 +49,27 @@ let stopDebugForwarding: (() => void) | null = null;
 const appIconPath = resolveAppIconPath();
 const trayIconPath = resolveTrayIconPath();
 const appIconPngBase64 = appIconPath && fs.existsSync(appIconPath) ? fs.readFileSync(appIconPath).toString('base64') : null;
+const mainWindowStatePath = path.join(app.getPath('userData'), 'main-window-state.json');
+
+type MainWindowState = {
+    width: number;
+    height: number;
+    x?: number;
+    y?: number;
+    isMaximized?: boolean;
+};
 
 function createWindow() {
     const preloadPath = path.join(app.getAppPath(), 'preload.cjs');
+    const restoredState = loadMainWindowState();
+    const normalizedState = normalizeWindowState(restoredState);
 
     const win = new BrowserWindow({
-        width: 1200,
-        height: 800,
+        width: normalizedState?.width ?? 1200,
+        height: normalizedState?.height ?? 800,
+        ...(typeof normalizedState?.x === 'number' && typeof normalizedState?.y === 'number'
+            ? {x: normalizedState.x, y: normalizedState.y}
+            : {}),
         frame: false,
         titleBarStyle: 'hidden',
         autoHideMenuBar: true,
@@ -59,6 +83,21 @@ function createWindow() {
     });
     win.setMenuBarVisibility(false);
     win.removeMenu();
+    if (normalizedState?.isMaximized) {
+        win.maximize();
+    }
+    let saveStateTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleSaveState = () => {
+        if (saveStateTimer) clearTimeout(saveStateTimer);
+        saveStateTimer = setTimeout(() => {
+            saveStateTimer = null;
+            saveMainWindowState(win);
+        }, 200);
+    };
+    win.on('move', scheduleSaveState);
+    win.on('resize', scheduleSaveState);
+    win.on('maximize', scheduleSaveState);
+    win.on('unmaximize', scheduleSaveState);
     const currentSettings = getAppSettingsSync();
     win.webContents.session.setSpellCheckerLanguages(getSpellCheckerLanguages(currentSettings.language));
     win.on('minimize', () => {
@@ -79,6 +118,11 @@ function createWindow() {
         ensureTray();
     });
     win.on('closed', () => {
+        if (saveStateTimer) {
+            clearTimeout(saveStateTimer);
+            saveStateTimer = null;
+        }
+        saveMainWindowState(win);
         if (mainWindow === win) {
             mainWindow = null;
         }
@@ -108,6 +152,73 @@ function createWindow() {
             console.error('Failed to load main window (prod):', error);
         });
     }
+}
+
+function loadMainWindowState(): MainWindowState | null {
+    try {
+        if (!fs.existsSync(mainWindowStatePath)) return null;
+        const raw = fs.readFileSync(mainWindowStatePath, 'utf8');
+        if (!raw.trim()) return null;
+        const parsed = JSON.parse(raw) as Partial<MainWindowState>;
+        if (!Number.isFinite(parsed.width) || !Number.isFinite(parsed.height)) return null;
+        return {
+            width: Math.max(900, Number(parsed.width)),
+            height: Math.max(600, Number(parsed.height)),
+            ...(Number.isFinite(parsed.x) ? {x: Number(parsed.x)} : {}),
+            ...(Number.isFinite(parsed.y) ? {y: Number(parsed.y)} : {}),
+            isMaximized: Boolean(parsed.isMaximized),
+        };
+    } catch {
+        return null;
+    }
+}
+
+function saveMainWindowState(win: BrowserWindow): void {
+    try {
+        if (win.isDestroyed()) return;
+        const bounds = win.getBounds();
+        const nextState: MainWindowState = {
+            width: bounds.width,
+            height: bounds.height,
+            x: bounds.x,
+            y: bounds.y,
+            isMaximized: win.isMaximized(),
+        };
+        fs.writeFileSync(mainWindowStatePath, JSON.stringify(nextState));
+    } catch {
+        // ignore state persistence failures
+    }
+}
+
+function normalizeWindowState(state: MainWindowState | null): MainWindowState | null {
+    if (!state) return null;
+    const displays = screen.getAllDisplays();
+    if (displays.length === 0) return state;
+
+    const width = Math.max(900, state.width);
+    const height = Math.max(600, state.height);
+    const x = typeof state.x === 'number' ? state.x : undefined;
+    const y = typeof state.y === 'number' ? state.y : undefined;
+    if (typeof x !== 'number' || typeof y !== 'number') {
+        return {width, height, isMaximized: state.isMaximized};
+    }
+
+    const windowRect = {x, y, width, height};
+    const visible = displays.some((display) => rectsIntersect(windowRect, display.workArea));
+    if (!visible) {
+        return {width, height, isMaximized: state.isMaximized};
+    }
+    return {x, y, width, height, isMaximized: state.isMaximized};
+}
+
+function rectsIntersect(
+    a: { x: number; y: number; width: number; height: number },
+    b: { x: number; y: number; width: number; height: number },
+): boolean {
+    return a.x < b.x + b.width
+        && a.x + a.width > b.x
+        && a.y < b.y + b.height
+        && a.y + a.height > b.y;
 }
 
 function buildTrayIcon(unreadCount: number) {
@@ -147,8 +258,9 @@ function ensureTray(): void {
         {
             label: 'Open Debug Console',
             click: () => {
-                const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
-                openDebugWindow(parent);
+                showMainWindow();
+                if (!mainWindow || mainWindow.isDestroyed()) return;
+                void mainWindow.webContents.executeJavaScript("window.location.hash = '/debug'");
             },
         },
         {

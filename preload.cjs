@@ -16,6 +16,7 @@ const api = {
     discoverDav: (accountId) => ipcRenderer.invoke('discover-dav', accountId),
     syncDav: (accountId) => ipcRenderer.invoke('sync-dav', accountId),
     getContacts: (accountId, query, limit, addressBookId) => ipcRenderer.invoke('get-contacts', accountId, query ?? null, limit, addressBookId ?? null),
+    getRecentRecipients: (accountId, query, limit) => ipcRenderer.invoke('get-recent-recipients', accountId, query ?? null, limit),
     getAddressBooks: (accountId) => ipcRenderer.invoke('get-address-books', accountId),
     addAddressBook: (accountId, name) => ipcRenderer.invoke('add-address-book', accountId, name),
     addContact: (accountId, payload) => ipcRenderer.invoke('add-contact', accountId, payload),

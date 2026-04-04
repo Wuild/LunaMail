@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import type {AutoUpdateState} from '../../preload';
+import WindowTitleBar from '../components/WindowTitleBar';
 
 const defaultState: AutoUpdateState = {
     enabled: false,
@@ -39,7 +40,14 @@ export default function SplashScreenPage() {
 
     return (
         <div className="h-screen w-screen overflow-hidden bg-slate-900">
-            <div className="flex h-full flex-col items-center justify-center px-8 text-slate-100">
+            <div className="flex h-full flex-col text-slate-100">
+                <WindowTitleBar
+                    title="LunaMail Updater"
+                    className="border-slate-700 bg-slate-900/95 text-slate-200 dark:border-slate-700 dark:bg-slate-900/95"
+                    showMinimize={false}
+                    showClose={false}
+                />
+                <div className="flex min-h-0 flex-1 items-center justify-center px-8">
                 <div className="w-full max-w-md rounded-2xl border border-slate-700/80 bg-slate-800/70 p-8 shadow-2xl">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">LunaMail</p>
                     <h1 className="mt-2 text-2xl font-semibold text-white">Starting up</h1>
@@ -54,6 +62,7 @@ export default function SplashScreenPage() {
                         <span>Version {state.currentVersion}</span>
                         <span>{progressText}</span>
                     </div>
+                </div>
                 </div>
             </div>
         </div>

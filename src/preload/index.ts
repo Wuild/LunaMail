@@ -12,13 +12,13 @@ export interface AddAccountPayload {
     attach_vcard?: number;
     imap_host: string;
     imap_port: number;
-    imap_secure?: number; // 0/1
+    imap_secure?: number; // 1=SSL/TLS, 0=STARTTLS
     pop3_host?: string | null;
     pop3_port?: number | null;
-    pop3_secure?: number | null; // 0/1
+    pop3_secure?: number | null; // 1=SSL/TLS, 0=STARTTLS
     smtp_host: string;
     smtp_port: number;
-    smtp_secure?: number; // 0/1
+    smtp_secure?: number; // 1=SSL/TLS, 0=STARTTLS
     user: string;
     password: string;
 }
@@ -185,6 +185,12 @@ export interface ContactItem {
     updated_at: string;
 }
 
+export interface RecentRecipientItem {
+    email: string;
+    display_name: string | null;
+    last_used_at: string | null;
+}
+
 export interface AddressBookItem {
     id: number;
     account_id: number;
@@ -311,6 +317,8 @@ export interface ComposeDraftPayload {
     bcc?: string | null;
     subject?: string | null;
     body?: string | null;
+    bodyHtml?: string | null;
+    bodyText?: string | null;
     inReplyTo?: string | null;
     references?: string[] | string | null;
 }
@@ -405,6 +413,8 @@ const api = {
         ipcRenderer.invoke('sync-dav', accountId),
     getContacts: (accountId: number, query?: string | null, limit?: number, addressBookId?: number | null): Promise<ContactItem[]> =>
         ipcRenderer.invoke('get-contacts', accountId, query ?? null, limit, addressBookId ?? null),
+    getRecentRecipients: (accountId: number, query?: string | null, limit?: number): Promise<RecentRecipientItem[]> =>
+        ipcRenderer.invoke('get-recent-recipients', accountId, query ?? null, limit),
     getAddressBooks: (accountId: number): Promise<AddressBookItem[]> =>
         ipcRenderer.invoke('get-address-books', accountId),
     addAddressBook: (accountId: number, name: string): Promise<AddressBookItem> =>
@@ -464,12 +474,6 @@ const api = {
         ipcRenderer.invoke('open-add-account-window'),
     openComposeWindow: (draft?: ComposeDraftPayload | null): Promise<{ ok: true }> =>
         ipcRenderer.invoke('open-compose-window', draft ?? null),
-    openAppSettingsWindow: (): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('open-app-settings-window'),
-    openSupportWindow: (): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('open-support-window'),
-    openDebugWindow: (): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('open-debug-window'),
     minimizeWindow: (): Promise<{ ok: true }> =>
         ipcRenderer.invoke('window-minimize'),
     toggleMaximizeWindow: (): Promise<{ ok: true; isMaximized: boolean }> =>
@@ -488,10 +492,6 @@ const api = {
         ipcRenderer.invoke('get-compose-draft'),
     getMessageWindowTarget: (): Promise<number | null> =>
         ipcRenderer.invoke('get-message-window-target'),
-    openAccountSettingsWindow: (accountId?: number | null): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('open-account-settings-window', accountId ?? null),
-    getAccountSettingsTarget: (): Promise<number | null> =>
-        ipcRenderer.invoke('get-account-settings-target'),
     getAppSettings: (): Promise<AppSettings> =>
         ipcRenderer.invoke('get-app-settings'),
     getSystemLocale: (): Promise<string> =>
@@ -550,11 +550,6 @@ const api = {
         const listener = (_event: Electron.IpcRendererEvent, payload: OpenMessageTargetEvent) => callback(payload);
         ipcRenderer.on('open-message-target', listener);
         return () => ipcRenderer.removeListener('open-message-target', listener);
-    },
-    onAccountSettingsTarget: (callback: (payload: number | null) => void): (() => void) => {
-        const listener = (_event: Electron.IpcRendererEvent, payload: number | null) => callback(payload);
-        ipcRenderer.on('account-settings-target', listener);
-        return () => ipcRenderer.removeListener('account-settings-target', listener);
     },
     onMessageWindowTarget: (callback: (payload: number | null) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: number | null) => callback(payload);

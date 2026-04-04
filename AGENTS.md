@@ -89,11 +89,27 @@ src/
   preload/
   renderer/
     components/
+    entrypoints/
     features/
+    hooks/
     layouts/
-    stores/
     pages/
+    lib/
 ```
+
+---
+
+## 🧭 Renderer Structure Rules
+
+- Keep a single `MainWindowApp` route shell for core app pages (`/mail`, `/settings`, `/debug`, `/help`, etc.).
+- Only use dedicated windows for flows that must be separate top-level windows (for example compose and message view).
+- If a view is reachable as a route in the main app shell, do not create a separate Electron window for it.
+- Window bootstraps must live under `src/renderer/entrypoints/` and mount through shared helpers.
+- Prefer shared hooks/components over page-local copies when logic/UI appears in more than one page.
+- Required shared primitives currently in use:
+    - Theme synchronization: `src/renderer/hooks/useAppTheme.ts`
+    - Reusable grouped server settings card: `src/renderer/components/settings/ServiceSettingsCard.tsx`
+    - Reusable data-driven sidebar: `src/renderer/components/navigation/DynamicSidebar.tsx`
 
 ---
 
@@ -255,6 +271,9 @@ Use electron-builder:
 - FORMAT code by default using PhpStorm-style formatting conventions (consistent spacing, wrapping, and brace style as
   the project/codebase expects)
 - WRITE modular, testable code
+- FAVOR route consolidation over adding more windows for settings/help/debug style pages
+- WHEN refactoring renderer code, remove dead files/imports and fold duplicated page logic into reusable modules
+- RUN `npm run build` after structural refactors and before handoff
 
 ---
 

@@ -5,6 +5,7 @@ import path from 'node:path';
 import {getAccountSendCredentials, getAccountSyncCredentials} from '../db/repositories/accountsRepo.js';
 import {createMailDebugLogger} from '../debug/debugLog.js';
 import {markdownToEmailHtml} from './markdown.js';
+import {resolveImapSecurity, resolveSmtpSecurity} from './security.js';
 
 const DRAFT_SESSION_HEADER = 'X-LunaMail-Draft-Session';
 
@@ -61,15 +62,21 @@ export async function sendEmail(payload: SendEmailPayload): Promise<SendEmailRes
     const transporter = nodemailer.createTransport({
         host: account.smtp_host,
         port: account.smtp_port,
-        secure: !!account.smtp_secure,
+        ...resolveSmtpSecurity(account.smtp_secure),
         auth: {user: account.user, pass: account.password},
         logger: createMailDebugLogger('smtp', `send:${account.email}`),
         debug: true,
     });
 
     const markdown = payload.markdown?.trim() ?? '';
-    const text = payload.text?.trim() ?? '';
-    const html = payload.html?.trim() || (markdown ? markdownToEmailHtml(markdown) : undefined);
+    const inputText = payload.text?.trim() ?? '';
+    const inputHtml = payload.html?.trim() || (markdown ? markdownToEmailHtml(markdown) : undefined);
+    const signedBodies = appendAccountSignature(
+        inputText,
+        inputHtml ?? null,
+        account.signature_text,
+        account.signature_is_html,
+    );
     const attachments = normalizeAttachments(payload.attachments);
     const messageId = `<${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}@lunamail.local>`;
     const date = new Date();
@@ -79,8 +86,9 @@ export async function sendEmail(payload: SendEmailPayload): Promise<SendEmailRes
         cc: normalizeRecipients(payload.cc),
         bcc: normalizeRecipients(payload.bcc),
         subject: payload.subject?.trim() || '(No subject)',
-        text: text || undefined,
-        html: html ?? (text ? textToHtml(text) : undefined),
+        replyTo: normalizeRecipients(account.reply_to),
+        text: signedBodies.text || undefined,
+        html: signedBodies.html || (signedBodies.text ? textToHtml(signedBodies.text) : undefined),
         inReplyTo: normalizeMessageId(payload.inReplyTo),
         references: normalizeReferences(payload.references),
         attachments: attachments.map((attachment) => ({
@@ -109,6 +117,49 @@ export async function sendEmail(payload: SendEmailPayload): Promise<SendEmailRes
         ok: true,
         messageId: info.messageId,
     };
+}
+
+function appendAccountSignature(
+    text: string,
+    html: string | null,
+    signatureText: string | null,
+    signatureIsHtml: number,
+): { text: string; html: string | null } {
+    const signatureRaw = (signatureText || '').trim();
+    if (!signatureRaw) return {text, html};
+
+    const signatureTextPart = signatureIsHtml ? htmlToText(signatureRaw).trim() : signatureRaw;
+    const nextText = [text.trim(), signatureTextPart].filter(Boolean).join('\n\n');
+
+    const signatureHtml = signatureIsHtml
+        ? signatureRaw
+        : signatureRaw
+            .split(/\r?\n/)
+            .map((line) => escapeHtml(line))
+            .join('<br/>');
+    const bodyHtml = (html || '').trim();
+    const nextHtml = [bodyHtml, signatureHtml].filter(Boolean).join('<br/><br/>');
+    return {
+        text: nextText,
+        html: nextHtml || null,
+    };
+}
+
+function htmlToText(html: string): string {
+    return String(html)
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, '\n')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#39;/g, '\'')
+        .replace(/&quot;/g, '"')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
 }
 
 export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDraftResult> {
@@ -147,7 +198,7 @@ export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDra
     const client = new ImapFlow({
         host: account.imap_host,
         port: account.imap_port,
-        secure: !!account.imap_secure,
+        ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
         logger: createMailDebugLogger('imap', `draft:${payload.accountId}`),
     });
@@ -290,7 +341,7 @@ async function appendToSentMailbox(accountId: number, raw: Buffer, date: Date): 
     const client = new ImapFlow({
         host: account.imap_host,
         port: account.imap_port,
-        secure: !!account.imap_secure,
+        ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
         logger: createMailDebugLogger('imap', `sent-append:${accountId}`),
     });
@@ -342,7 +393,7 @@ async function deleteDraftsBySession(accountId: number, draftSessionId: string):
     const client = new ImapFlow({
         host: account.imap_host,
         port: account.imap_port,
-        secure: !!account.imap_secure,
+        ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
         logger: createMailDebugLogger('imap', `draft-cleanup:${accountId}`),
     });

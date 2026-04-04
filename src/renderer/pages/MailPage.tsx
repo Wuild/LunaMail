@@ -1,7 +1,24 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Forward, Paperclip, Reply, ReplyAll, SquareArrowOutUpRight, Trash2} from 'lucide-react';
-import MainLayout from './layouts/MainLayout';
-import {formatSystemDateTime} from './lib/dateTime';
+import MainLayout from '../layouts/MainLayout';
+import {formatSystemDateTime} from '../lib/dateTime';
+import {
+    buildForwardQuoteHtml,
+    buildForwardQuoteText,
+    buildReferences,
+    buildReplyQuoteHtml,
+    buildReplyQuoteText,
+    ensurePrefixedSubject,
+    formatFromDisplay,
+    htmlToText,
+    inferReplyAddress,
+    normalizeMessageId,
+} from '../features/mail/composeDraft';
+import {isProtectedFolder} from '../features/mail/folders';
+import {buildSpoofHints} from '../features/mail/spoof';
+import ToolboxButton from '../features/mail/ToolboxButton';
+import {isEditableTarget} from '../lib/dom';
+import {clampToViewport, formatBytes} from '../lib/format';
 import type {
     AppSettings,
     CalendarEventItem,
@@ -11,12 +28,12 @@ import type {
     MessageItem,
     PublicAccount,
     SyncStatusEvent
-} from '../preload/index';
+} from '../../preload/index';
 
 const MESSAGE_PAGE_SIZE = 100;
 type Workspace = 'mail' | 'calendar' | 'contacts';
 
-function App() {
+function MailPage() {
     const [accounts, setAccounts] = useState<PublicAccount[]>([]);
     const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
     const [folders, setFolders] = useState<FolderItem[]>([]);
@@ -689,6 +706,8 @@ function App() {
         cc?: string | null;
         subject?: string | null;
         body?: string | null;
+        bodyHtml?: string | null;
+        bodyText?: string | null;
         inReplyTo?: string | null;
         references?: string[] | string | null;
     }) {
@@ -701,18 +720,16 @@ function App() {
     function onReply(): void {
         if (!selectedMessage) return;
         const subject = ensurePrefixedSubject(selectedMessage.subject, 'Re:');
-        const quote = buildReplyQuote(
-            selectedMessage,
-            selectedMessageBody?.text ?? htmlToText(selectedMessageBody?.html),
-            systemLocale,
-        );
+        const quoteText = selectedMessageBody?.text ?? htmlToText(selectedMessageBody?.html);
+        const quoteHtml = buildReplyQuoteHtml(selectedMessage, selectedMessageBody?.html, quoteText, systemLocale);
         const replyTo = inferReplyAddress(selectedMessage);
         const inReplyTo = normalizeMessageId(selectedMessage.message_id);
         const references = buildReferences(selectedMessage.references_text, selectedMessage.message_id);
         composeWithDraft({
             to: replyTo,
             subject,
-            body: `\n\n${quote}`,
+            bodyHtml: quoteHtml,
+            bodyText: `\n\n${buildReplyQuoteText(selectedMessage, quoteText, systemLocale)}`,
             inReplyTo,
             references,
         });
@@ -721,11 +738,8 @@ function App() {
     function onReplyAll(): void {
         if (!selectedMessage) return;
         const subject = ensurePrefixedSubject(selectedMessage.subject, 'Re:');
-        const quote = buildReplyQuote(
-            selectedMessage,
-            selectedMessageBody?.text ?? htmlToText(selectedMessageBody?.html),
-            systemLocale,
-        );
+        const quoteText = selectedMessageBody?.text ?? htmlToText(selectedMessageBody?.html);
+        const quoteHtml = buildReplyQuoteHtml(selectedMessage, selectedMessageBody?.html, quoteText, systemLocale);
         const replyTo = inferReplyAddress(selectedMessage);
         const inReplyTo = normalizeMessageId(selectedMessage.message_id);
         const references = buildReferences(selectedMessage.references_text, selectedMessage.message_id);
@@ -733,7 +747,8 @@ function App() {
             to: replyTo,
             cc: selectedMessage.to_address || '',
             subject,
-            body: `\n\n${quote}`,
+            bodyHtml: quoteHtml,
+            bodyText: `\n\n${buildReplyQuoteText(selectedMessage, quoteText, systemLocale)}`,
             inReplyTo,
             references,
         });
@@ -742,23 +757,15 @@ function App() {
     function onForward(): void {
         if (!selectedMessage) return;
         const subject = ensurePrefixedSubject(selectedMessage.subject, 'Fwd:');
-        const originalBody = selectedMessageBody?.text ?? htmlToText(selectedMessageBody?.html);
-        const metaDate = formatSystemDateTime(selectedMessage.date, systemLocale);
-        const from = selectedMessage.from_name || selectedMessage.from_address || 'Unknown';
-        const to = selectedMessage.to_address || '-';
-        const forwarded =
-            `---------- Forwarded message ----------\n` +
-            `From: ${from}\n` +
-            `Date: ${metaDate}\n` +
-            `Subject: ${selectedMessage.subject || '(No subject)'}\n` +
-            `To: ${to}\n\n` +
-            `${originalBody || ''}`;
+        const originalText = selectedMessageBody?.text ?? htmlToText(selectedMessageBody?.html);
+        const forwarded = buildForwardQuoteText(selectedMessage, originalText, systemLocale);
 
         composeWithDraft({
             to: '',
             cc: '',
             subject,
-            body: forwarded,
+            bodyHtml: buildForwardQuoteHtml(selectedMessage, selectedMessageBody?.html, originalText, systemLocale),
+            bodyText: forwarded,
         });
     }
 
@@ -1510,217 +1517,4 @@ function App() {
     );
 }
 
-export default App;
-
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function ensurePrefixedSubject(subject: string | null, prefix: string): string {
-    const raw = (subject || '').trim();
-    if (!raw) return prefix;
-    const lower = raw.toLowerCase();
-    if (lower.startsWith(prefix.toLowerCase())) return raw;
-    return `${prefix} ${raw}`;
-}
-
-function buildReplyQuote(message: MessageItem, text: string | null, systemLocale?: string): string {
-    const from = message.from_name || message.from_address || 'Unknown';
-    const date = formatSystemDateTime(message.date, systemLocale);
-    const body = (text || '')
-        .split(/\r?\n/)
-        .map((line) => `> ${line}`)
-        .join('\n');
-    return `On ${date}, ${from} wrote:\n${body}`;
-}
-
-function htmlToText(html: string | null | undefined): string {
-    if (!html) return '';
-    return String(html)
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/p>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/\r\n/g, '\n');
-}
-
-function inferReplyAddress(message: MessageItem): string {
-    if (message.from_address?.trim()) return message.from_address.trim();
-    const raw = message.from_name || '';
-    const match = raw.match(/<([^>]+)>/);
-    if (match?.[1]) return match[1].trim();
-    return '';
-}
-
-function normalizeMessageId(value: string | null | undefined): string | null {
-    const raw = (value || '').trim();
-    if (!raw) return null;
-    if (raw.startsWith('<') && raw.endsWith('>')) return raw;
-    return `<${raw.replace(/^<|>$/g, '')}>`;
-}
-
-function buildReferences(existing: string | null | undefined, messageId: string | null | undefined): string[] {
-    const refs: string[] = [];
-    if (existing) {
-        const existingMatches = existing.match(/<[^>]+>/g);
-        if (existingMatches?.length) {
-            refs.push(...existingMatches);
-        } else {
-            existing
-                .split(/\s+/g)
-                .map((v) => normalizeMessageId(v))
-                .filter((v): v is string => Boolean(v))
-                .forEach((v) => refs.push(v));
-        }
-    }
-    const current = normalizeMessageId(messageId);
-    if (current) refs.push(current);
-    return Array.from(new Set(refs));
-}
-
-function formatBytes(bytes: number): string {
-    if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
-    if (bytes < 1024) return `${bytes} B`;
-    const units = ['KB', 'MB', 'GB'];
-    let value = bytes / 1024;
-    let unitIndex = 0;
-    while (value >= 1024 && unitIndex < units.length - 1) {
-        value /= 1024;
-        unitIndex += 1;
-    }
-    return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`;
-}
-
-function clampToViewport(value: number, size: number, limit: number): number {
-    const margin = 8;
-    return Math.min(Math.max(value, margin), Math.max(margin, limit - size - margin));
-}
-
-function ToolboxButton({
-                           label,
-                           icon,
-                           onClick,
-                           primary = false,
-                           danger = false,
-                       }: {
-    label: string;
-    icon: React.ReactNode;
-    onClick: () => void;
-    primary?: boolean;
-    danger?: boolean;
-}) {
-    const className = primary
-        ? 'bg-sky-600 text-white hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]'
-        : danger
-            ? 'text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/30'
-            : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3d44]';
-
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors ${className}`}
-        >
-            {icon}
-            <span>{label}</span>
-        </button>
-    );
-}
-
-function isProtectedFolder(folder: FolderItem): boolean {
-    const type = (folder.type || '').toLowerCase();
-    const path = folder.path.toLowerCase();
-    if (type === 'inbox' || path === 'inbox') return true;
-    if (type === 'sent' || path.includes('sent')) return true;
-    if (type === 'drafts' || path.includes('draft')) return true;
-    if (type === 'trash' || path.includes('trash') || path.includes('deleted')) return true;
-    if (type === 'junk' || path.includes('spam') || path.includes('junk')) return true;
-    if (type === 'archive' || path.includes('archive')) return true;
-    return false;
-}
-
-function formatFromDisplay(message: MessageItem): string {
-    const name = (message.from_name || '').trim();
-    const address = (message.from_address || '').trim();
-    if (name && address) return `${name} <${address}>`;
-    if (address) return address;
-    if (name) return name;
-    return 'Unknown';
-}
-
-function buildSpoofHints(message: MessageItem): string[] {
-    const hints: string[] = [];
-    const fromAddress = (message.from_address || '').trim().toLowerCase();
-    const embeddedFrom = extractEmailFromText(message.from_name || '');
-    if (embeddedFrom && fromAddress && embeddedFrom.toLowerCase() !== fromAddress) {
-        hints.push(`Display name contains a different email (${embeddedFrom}) than the actual sender (${fromAddress}).`);
-    }
-
-    const fromDomain = extractDomain(fromAddress);
-    const messageIdDomain = extractDomainFromMessageId(message.message_id || '');
-    if (
-        fromDomain &&
-        messageIdDomain &&
-        toBaseDomain(fromDomain) !== toBaseDomain(messageIdDomain)
-    ) {
-        hints.push(`Message-ID domain (${messageIdDomain}) differs from sender domain (${fromDomain}).`);
-    }
-    return hints;
-}
-
-function extractEmailFromText(value: string): string | null {
-    const match = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-    return match?.[0] ?? null;
-}
-
-function extractDomain(address: string): string | null {
-    const email = (address || '').trim();
-    const idx = email.lastIndexOf('@');
-    if (idx <= 0 || idx >= email.length - 1) return null;
-    return email.slice(idx + 1).toLowerCase();
-}
-
-function extractDomainFromMessageId(messageId: string): string | null {
-    const normalized = normalizeMessageId(messageId);
-    if (!normalized) return null;
-    const inner = normalized.replace(/^<|>$/g, '');
-    const idx = inner.lastIndexOf('@');
-    if (idx <= 0 || idx >= inner.length - 1) return null;
-    return inner.slice(idx + 1).toLowerCase();
-}
-
-function toBaseDomain(domain: string): string {
-    const value = (domain || '').toLowerCase().trim().replace(/\.+$/, '');
-    if (!value) return '';
-    const parts = value.split('.').filter(Boolean);
-    if (parts.length <= 2) return value;
-    return parts.slice(-2).join('.');
-}
-
-function senderInitials(message: MessageItem): string {
-    const raw = (message.from_name || message.from_address || '?').trim();
-    if (!raw) return '?';
-    const parts = raw.split(/\s+/).filter(Boolean);
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
-}
-
-function isEditableTarget(target: HTMLElement | null): boolean {
-    if (!target) return false;
-    if (target.isContentEditable) return true;
-    const tag = target.tagName.toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
-    if (target.closest('[contenteditable="true"]')) return true;
-    if (target.closest('input,textarea,select')) return true;
-    return false;
-}
+export default MailPage;

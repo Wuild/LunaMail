@@ -21,11 +21,13 @@ import {
     getTotalUnreadCount,
     listFoldersByAccount,
     listMessagesByFolder,
+    listRecentRecipients,
     reorderCustomFolders,
     searchMessages,
     updateFolderSettings
 } from '../db/repositories/mailRepo.js';
 import {autodiscover, autodiscoverBasic} from '../mail/autodiscover.js';
+import {resolveImapSecurity} from '../mail/security.js';
 import {
     createServerFolder,
     deleteServerFolder,
@@ -244,6 +246,10 @@ export function registerAccountIpc(): void {
 
     ipcMain.handle('get-contacts', async (_event, accountId: number, query?: string | null, limit?: number, addressBookId?: number | null) => {
         return getContacts(accountId, query ?? null, limit ?? 200, addressBookId ?? null);
+    });
+
+    ipcMain.handle('get-recent-recipients', async (_event, accountId: number, query?: string | null, limit?: number) => {
+        return listRecentRecipients(accountId, query ?? null, limit ?? 20);
     });
 
     ipcMain.handle('get-address-books', async (_event, accountId: number) => {
@@ -742,7 +748,7 @@ async function connectIdleWatcher(state: IdleWatcherState): Promise<void> {
         const probeClient = new ImapFlow({
             host: account.imap_host,
             port: account.imap_port,
-            secure: !!account.imap_secure,
+            ...resolveImapSecurity(account.imap_secure),
             auth: {user: account.user, pass: account.password},
             logger: createMailDebugLogger('imap', `idle-probe:${state.accountId}`),
         });
@@ -814,7 +820,7 @@ async function connectFolderIdleWatcher(state: IdleWatcherState, folder: FolderI
         const client = new ImapFlow({
             host: account.imap_host,
             port: account.imap_port,
-            secure: !!account.imap_secure,
+            ...resolveImapSecurity(account.imap_secure),
             auth: {user: account.user, pass: account.password},
             logger: createMailDebugLogger('imap', `idle:${state.accountId}:${folder.mailboxPath}`),
         });

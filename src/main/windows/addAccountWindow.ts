@@ -23,6 +23,8 @@ export function openAddAccountWindow(parentWindow?: BrowserWindow): void {
     addAccountWin = new BrowserWindow({
         parent,
         modal: true,
+        frame: false,
+        titleBarStyle: 'hidden',
         width: Math.max(960, parentBounds?.width ?? 960),
         height: Math.max(700, parentBounds?.height ?? 700),
         minWidth: 960,

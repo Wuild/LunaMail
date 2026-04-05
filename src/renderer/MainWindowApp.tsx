@@ -158,6 +158,14 @@ function MainWindowShell() {
                 ? 'Update downloading. Open settings for details.'
                 : 'Update available. Open settings for details.'
     );
+    const showUpdateBanner = hasUpdateIndicator;
+    const updateBannerText = autoUpdateMessage || (
+        autoUpdatePhase === 'downloaded'
+            ? 'An update has been downloaded and is ready to install.'
+            : autoUpdatePhase === 'downloading'
+                ? 'A new update is downloading in the background.'
+                : 'A new update is available.'
+    );
 
     useEffect(() => {
         let active = true;
@@ -242,6 +250,21 @@ function MainWindowShell() {
                     </button>
                 </div>
             </header>
+            {showUpdateBanner && (
+                <div
+                    className="shrink-0 border-b border-amber-300 bg-amber-100 px-3 py-2 text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/40 dark:text-amber-100">
+                    <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-3">
+                        <span className="text-sm font-medium">{updateBannerText}</span>
+                        <button
+                            type="button"
+                            className="shrink-0 rounded-md border border-amber-500/60 bg-amber-200/70 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200 dark:border-amber-500/70 dark:bg-amber-700/40 dark:text-amber-100 dark:hover:bg-amber-700/60"
+                            onClick={() => navigate('/settings/application')}
+                        >
+                            Open update settings
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="flex min-h-0 flex-1 overflow-hidden">
                 <aside

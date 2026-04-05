@@ -49,7 +49,8 @@ let stopDebugForwarding: (() => void) | null = null;
 let backgroundUpdateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let initialBackgroundUpdateCheckTimer: ReturnType<typeof setTimeout> | null = null;
 const appIconPath = resolveAppIconPath();
-const trayIconPath = resolveTrayIconPath();
+const linuxTrayIconPath = resolveLinuxTrayIconPath();
+const windowsTrayIconPath = resolveWindowsTrayIconPath();
 const appIconPngBase64 = appIconPath && fs.existsSync(appIconPath) ? fs.readFileSync(appIconPath).toString('base64') : null;
 const mainWindowStatePath = path.join(app.getPath('userData'), 'main-window-state.json');
 
@@ -253,7 +254,7 @@ function rectsIntersect(
 
 function buildTrayIcon(unreadCount: number) {
     if (process.platform === 'win32') {
-        const trayPath = resolveWindowsTrayIconPath() || trayIconPath || appIconPath;
+        const trayPath = windowsTrayIconPath || appIconPath;
         if (trayPath) {
             const image = nativeImage.createFromPath(trayPath);
             if (!image.isEmpty()) {
@@ -263,7 +264,7 @@ function buildTrayIcon(unreadCount: number) {
     }
 
     if (process.platform === 'linux') {
-        const trayPath = trayIconPath || appIconPath || path.join(app.getAppPath(), 'build/icons/64x64.png');
+        const trayPath = linuxTrayIconPath || appIconPath || path.join(app.getAppPath(), 'build/icons/64x64.png');
         const image = nativeImage.createFromPath(trayPath);
         if (!image.isEmpty()) {
             return image.resize({width: 22, height: 22});
@@ -322,6 +323,21 @@ function buildTrayTooltip(unreadCount: number): string {
     return `LunaMail (${unreadCount} unread)`;
 }
 
+function buildTaskbarOverlayIcon(unreadCount: number) {
+    if (unreadCount <= 0) return null;
+    const badgeText = unreadCount > 99 ? '99+' : String(unreadCount);
+    const fontSize = badgeText.length > 2 ? 8 : 10;
+    const badge = `<circle cx="24" cy="8" r="7" fill="#ef4444"/><text x="24" y="11" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="#fff">${badgeText}</text>`;
+    const baseIcon = appIconPngBase64
+        ? `<image href="data:image/png;base64,${appIconPngBase64}" x="0" y="0" width="32" height="32"/>`
+        : `<rect x="3" y="3" width="26" height="26" rx="7" fill="#5865f2"/><path d="M8 11h16v10H8z" fill="#fff" opacity="0.96"/><path d="M8 11l8 6 8-6" fill="none" stroke="#5865f2" stroke-width="2"/>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">${baseIcon}${badge}</svg>`;
+    const encoded = Buffer.from(svg).toString('base64');
+    const image = nativeImage.createFromDataURL(`data:image/svg+xml;base64,${encoded}`);
+    if (image.isEmpty()) return null;
+    return image.resize({width: 16, height: 16});
+}
+
 function updateUnreadIndicators(unreadCount: number): void {
     currentUnreadCount = Math.max(0, Number(unreadCount) || 0);
     ensureTray();
@@ -332,10 +348,19 @@ function updateUnreadIndicators(unreadCount: number): void {
     }
 
     const label = currentUnreadCount > 0 ? String(currentUnreadCount) : '';
+    try {
+        app.setBadgeCount(currentUnreadCount);
+    } catch {
+        // ignore unsupported badge count APIs
+    }
     if (process.platform === 'darwin' && app.dock) {
         app.dock.setBadge(label);
     }
+    const overlayIcon = process.platform === 'win32' ? buildTaskbarOverlayIcon(currentUnreadCount) : null;
     for (const win of BrowserWindow.getAllWindows()) {
+        if (process.platform === 'win32') {
+            win.setOverlayIcon(overlayIcon, label ? `${label} unread` : '');
+        }
         win.setTitle(currentUnreadCount > 0 ? `LunaMail (${currentUnreadCount})` : 'LunaMail');
     }
 }
@@ -418,17 +443,12 @@ function resolveAppIconPath(): string | null {
     return null;
 }
 
-function resolveTrayIconPath(): string | null {
+function resolveLinuxTrayIconPath(): string | null {
     const candidates = [
-        path.join(app.getAppPath(), 'build/lunatray.ico'),
         path.join(app.getAppPath(), 'build/lunatray.png'),
-        path.join(app.getAppPath(), 'src/resources/lunatray.ico'),
         path.join(app.getAppPath(), 'src/resources/lunatray.png'),
-        path.join(__dirname, '../resources/lunatray.ico'),
         path.join(__dirname, '../resources/lunatray.png'),
-        path.join(process.cwd(), 'build/lunatray.ico'),
         path.join(process.cwd(), 'build/lunatray.png'),
-        path.join(process.cwd(), 'src/resources/lunatray.ico'),
         path.join(process.cwd(), 'src/resources/lunatray.png'),
     ];
     for (const candidate of candidates) {
@@ -710,6 +730,10 @@ const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
     app.quit();
 } else {
+    if (process.platform === 'linux') {
+        // Ensure Linux launcher badge APIs target the packaged desktop entry.
+        (app as any).setDesktopName?.(`${app.getName()}.desktop`);
+    }
     registerProtocolHandlers();
     installExternalNavigationPolicy();
 

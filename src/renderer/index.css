@@ -70,4 +70,8 @@
     .dark *::-webkit-scrollbar-thumb:hover {
         background: #7a7e87;
     }
+
+    body.is-resizing-sidebar iframe {
+        pointer-events: none !important;
+    }
 }

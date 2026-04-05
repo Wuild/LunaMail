@@ -131,5 +131,34 @@ export const calendarEvents = sqliteTable('calendar_events', {
     updatedAt: text('updated_at').default('CURRENT_TIMESTAMP').notNull(),
 });
 
+export const mailFilters = sqliteTable('mail_filters', {
+    id: integer('id').primaryKey({autoIncrement: true}),
+    accountId: integer('account_id').notNull(),
+    name: text('name').notNull(),
+    enabled: integer('enabled').notNull().default(1),
+    runOnIncoming: integer('run_on_incoming').notNull().default(1),
+    matchMode: text('match_mode').notNull().default('all'),
+    stopProcessing: integer('stop_processing').notNull().default(1),
+    createdAt: text('created_at').default('CURRENT_TIMESTAMP').notNull(),
+    updatedAt: text('updated_at').default('CURRENT_TIMESTAMP').notNull(),
+});
+
+export const mailFilterConditions = sqliteTable('mail_filter_conditions', {
+    id: integer('id').primaryKey({autoIncrement: true}),
+    filterId: integer('filter_id').notNull(),
+    field: text('field').notNull(),
+    operator: text('operator').notNull(),
+    value: text('value').notNull().default(''),
+    sortOrder: integer('sort_order').notNull().default(0),
+});
+
+export const mailFilterActions = sqliteTable('mail_filter_actions', {
+    id: integer('id').primaryKey({autoIncrement: true}),
+    filterId: integer('filter_id').notNull(),
+    type: text('type').notNull(),
+    value: text('value').notNull().default(''),
+    sortOrder: integer('sort_order').notNull().default(0),
+});
+
 export type AccountRow = typeof accounts.$inferSelect;
 export type InsertAccount = typeof accounts.$inferInsert;

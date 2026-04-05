@@ -27,6 +27,7 @@ import {
     updateFolderSettings
 } from '../db/repositories/mailRepo.js';
 import {autodiscover, autodiscoverBasic} from '../mail/autodiscover.js';
+import {deleteMailFilter, listMailFilters, runMailFiltersForMessages, upsertMailFilter} from '../mail/filterRules.js';
 import {resolveImapSecurity} from '../mail/security.js';
 import {
     createServerFolder,
@@ -196,7 +197,9 @@ export function registerAccountIpc(): void {
             win.webContents.send('account-added', created);
         }
         notifyAccountCountChanged();
-        void runSyncAndBroadcast(created.id, 'new-account');
+        void runSyncAndBroadcast(created.id, 'new-account').catch((error) => {
+            console.warn('Initial sync after account add failed:', (error as any)?.message || String(error));
+        });
         void ensureIdleWatcher(created.id);
         return created;
     });
@@ -240,7 +243,9 @@ export function registerAccountIpc(): void {
 
     ipcMain.handle('send-email', async (_event, payload: SendEmailPayload) => {
         const result = await sendEmail(payload);
-        void runSyncAndBroadcast(payload.accountId, 'send');
+        void runSyncAndBroadcast(payload.accountId, 'send').catch((error) => {
+            console.warn('Post-send sync failed:', (error as any)?.message || String(error));
+        });
         return result;
     });
 
@@ -293,6 +298,67 @@ export function registerAccountIpc(): void {
     ipcMain.handle('get-folder-messages', async (_event, accountId: number, folderPath: string, limit?: number) => {
         return listMessagesByFolder(accountId, folderPath, limit ?? 100);
     });
+
+    ipcMain.handle('get-mail-filters', async (_event, accountId: number) => {
+        return listMailFilters(accountId);
+    });
+
+    ipcMain.handle(
+        'save-mail-filter',
+        async (_event, accountId: number, payload: {
+            id?: number;
+            name: string;
+            enabled?: number;
+            run_on_incoming?: number;
+            match_mode?: 'all' | 'any' | 'all_messages';
+            stop_processing?: number;
+            conditions?: Array<{
+                field?: 'subject' | 'from' | 'to' | 'body';
+                operator?: 'contains' | 'not_contains' | 'equals' | 'starts_with' | 'ends_with';
+                value?: string | null;
+            }>;
+            actions?: Array<{
+                type?: 'move_to_folder' | 'mark_read' | 'mark_unread' | 'star' | 'unstar';
+                value?: string | null;
+            }>;
+        }) => {
+            return upsertMailFilter(accountId, payload ?? {name: 'New filter'});
+        },
+    );
+
+    ipcMain.handle('delete-mail-filter', async (_event, accountId: number, filterId: number) => {
+        return deleteMailFilter(accountId, filterId);
+    });
+
+    ipcMain.handle(
+        'run-mail-filters',
+        async (_event, accountId: number, payload?: {
+            filterId?: number;
+            folderPath?: string | null;
+            limit?: number
+        }) => {
+            const folders = listFoldersByAccount(accountId);
+            const requestedFolder = String(payload?.folderPath || '').trim();
+            const fallbackInbox = folders.find((folder) => (folder.type || '').toLowerCase() === 'inbox')
+                || folders.find((folder) => folder.path.toLowerCase() === 'inbox')
+                || folders[0];
+            if (!fallbackInbox) {
+                return {
+                    accountId,
+                    trigger: 'manual' as const,
+                    processed: 0,
+                    matched: 0,
+                    actionsApplied: 0,
+                    errors: 0,
+                };
+            }
+            const selectedFolderPath = requestedFolder || fallbackInbox.path;
+            const limit = Math.max(1, Math.min(1000, Number(payload?.limit || 300)));
+            const messageIds = listMessagesByFolder(accountId, selectedFolderPath, limit).map((message) => message.id);
+            const filterIds = Number.isFinite(Number(payload?.filterId)) ? [Number(payload?.filterId)] : undefined;
+            return runMailFiltersForMessages(accountId, messageIds, 'manual', {filterIds});
+        },
+    );
 
     ipcMain.handle('get-message', async (_event, messageId: number) => {
         return getMessageById(messageId);
@@ -543,16 +609,42 @@ export function registerAccountIpc(): void {
     ipcMain.handle('set-message-read', async (_event, messageId: number, isRead: number) => {
         const result = await setServerMessageRead(messageId, isRead);
         notifyUnreadCountChanged();
+        broadcastMessageReadUpdated(result);
+        return result;
+    });
+
+    ipcMain.handle('mark-message-read', async (_event, messageId: number) => {
+        const result = await setServerMessageRead(messageId, 1);
+        notifyUnreadCountChanged();
+        broadcastMessageReadUpdated(result);
+        return result;
+    });
+
+    ipcMain.handle('mark-message-unread', async (_event, messageId: number) => {
+        const result = await setServerMessageRead(messageId, 0);
+        notifyUnreadCountChanged();
+        broadcastMessageReadUpdated(result);
         return result;
     });
 
     ipcMain.handle('set-message-flagged', async (_event, messageId: number, isFlagged: number) => {
-        const {accountId} = await setServerMessageFlagged(messageId, isFlagged);
-        return await runSyncAndBroadcast(accountId, 'flag-change');
+        const result = await setServerMessageFlagged(messageId, isFlagged);
+        void runSyncAndBroadcast(result.accountId, 'flag-change').catch((error) => {
+            console.warn('Post-flag sync failed:', (error as any)?.message || String(error));
+        });
+        return result;
     });
 
     ipcMain.handle('move-message', async (_event, messageId: number, targetFolderPath: string) => {
         return await moveServerMessage(messageId, targetFolderPath);
+    });
+
+    ipcMain.handle('archive-message', async (_event, messageId: number) => {
+        const ctx = getMessageContext(messageId);
+        if (!ctx) throw new Error(`Message ${messageId} not found`);
+        const archivePath = resolveArchiveFolderPath(ctx.accountId, ctx.folderPath);
+        if (!archivePath) throw new Error('No archive folder available for this account.');
+        return await moveServerMessage(messageId, archivePath);
     });
 
     ipcMain.handle('delete-message', async (_event, messageId: number) => {
@@ -588,6 +680,19 @@ export function startAccountAutoSync(): void {
     autoSyncTimer = setInterval(() => {
         void runAutoSyncCycle('interval');
     }, autoSyncIntervalMs);
+}
+
+function resolveArchiveFolderPath(accountId: number, currentFolderPath: string | null): string | null {
+    const folders = listFoldersByAccount(accountId);
+    if (folders.length === 0) return null;
+    const current = String(currentFolderPath || '').toLowerCase();
+    const byType = folders.find((folder) => (folder.type || '').toLowerCase() === 'archive');
+    if (byType?.path && byType.path.toLowerCase() !== current) return byType.path;
+
+    const byPath = folders.find((folder) => /archive|all mail/.test(folder.path.toLowerCase()));
+    if (byPath?.path && byPath.path.toLowerCase() !== current) return byPath.path;
+
+    return null;
 }
 
 export function stopAccountAutoSync(): void {
@@ -719,6 +824,17 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
             });
             if (cancelled && state.queued) continue;
 
+            if (source !== 'manual' && mailSummary.newMessageIds.length > 0) {
+                try {
+                    await runMailFiltersForMessages(accountId, mailSummary.newMessageIds, 'incoming');
+                } catch (filterError) {
+                    console.warn(
+                        `Mail filter run failed for account ${accountId}:`,
+                        (filterError as any)?.message || String(filterError),
+                    );
+                }
+            }
+
             let davSummary: DavSyncSummary | undefined;
             try {
                 davSummary = await syncDav(accountId);
@@ -823,6 +939,20 @@ function notifyUnreadCountChanged(): void {
     }
     if (!unreadCountListener) return;
     unreadCountListener(count);
+}
+
+function broadcastMessageReadUpdated(payload: {
+    messageId: number;
+    accountId: number;
+    folderId: number;
+    folderPath: string;
+    unreadCount: number;
+    totalCount: number;
+    isRead: number;
+}): void {
+    for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('message-read-updated', payload);
+    }
 }
 
 function notifyAccountCountChanged(): void {
@@ -970,7 +1100,13 @@ async function connectFolderIdleWatcher(state: IdleWatcherState, folder: FolderI
 
         client.on('exists', () => {
             if (state.stopped) return;
-            void runSyncAndBroadcast(state.accountId, 'push');
+            void runSyncAndBroadcast(state.accountId, 'push').catch((error) => {
+                if (state.stopped) return;
+                console.warn(
+                    `Push-triggered sync failed for account ${state.accountId}:`,
+                    (error as any)?.message || String(error),
+                );
+            });
         });
 
         client.on('close', () => {

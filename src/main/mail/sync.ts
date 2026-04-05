@@ -22,6 +22,7 @@ export interface SyncSummary {
     folders: number;
     messages: number;
     newMessages: number;
+    newMessageIds: number[];
     newestMessageTarget: { accountId: number; folderPath: string; messageId: number } | null;
 }
 
@@ -67,6 +68,7 @@ export async function syncAccountMailbox(accountId: number, options?: AccountSyn
 
     let totalMessages = 0;
     let newMessages = 0;
+    const newMessageIds: number[] = [];
     let newestMessageTarget: { accountId: number; folderPath: string; messageId: number } | null = null;
     try {
         if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
@@ -129,16 +131,16 @@ export async function syncAccountMailbox(accountId: number, options?: AccountSyn
                         size: msg.size ?? null,
                     });
                     if (!existed && isInboxFolder && !isRead) {
+                        const messageId = getMessageIdByFolderAndUid(folderId, msg.uid);
+                        if (!messageId) continue;
                         newMessages += 1;
+                        newMessageIds.push(messageId);
                         if (!newestMessageTarget) {
-                            const messageId = getMessageIdByFolderAndUid(folderId, msg.uid);
-                            if (messageId) {
-                                newestMessageTarget = {
-                                    accountId,
-                                    folderPath: box.path,
-                                    messageId,
-                                };
-                            }
+                            newestMessageTarget = {
+                                accountId,
+                                folderPath: box.path,
+                                messageId,
+                            };
                         }
                     }
                 }
@@ -155,7 +157,7 @@ export async function syncAccountMailbox(accountId: number, options?: AccountSyn
     }
 
     const folders = listFoldersByAccount(accountId).length;
-    return {accountId, folders, messages: totalMessages, newMessages, newestMessageTarget};
+    return {accountId, folders, messages: totalMessages, newMessages, newMessageIds, newestMessageTarget};
 }
 
 function inferFolderType(path: string): string | null {

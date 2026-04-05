@@ -27,14 +27,21 @@ const api = {
     getCalendarEvents: (accountId, startIso, endIso, limit) => ipcRenderer.invoke('get-calendar-events', accountId, startIso ?? null, endIso ?? null, limit),
     addCalendarEvent: (accountId, payload) => ipcRenderer.invoke('add-calendar-event', accountId, payload),
     getFolderMessages: (accountId, folderPath, limit) => ipcRenderer.invoke('get-folder-messages', accountId, folderPath, limit),
+    getMailFilters: (accountId) => ipcRenderer.invoke('get-mail-filters', accountId),
+    saveMailFilter: (accountId, payload) => ipcRenderer.invoke('save-mail-filter', accountId, payload),
+    deleteMailFilter: (accountId, filterId) => ipcRenderer.invoke('delete-mail-filter', accountId, filterId),
+    runMailFilters: (accountId, payload) => ipcRenderer.invoke('run-mail-filters', accountId, payload ?? null),
     searchMessages: (accountId, query, folderPath, limit) => ipcRenderer.invoke('search-messages', accountId, query, folderPath ?? null, limit),
     getMessage: (messageId) => ipcRenderer.invoke('get-message', messageId),
     getMessageBody: (messageId, requestId) => ipcRenderer.invoke('get-message-body', messageId, requestId),
     openMessageAttachment: (messageId, attachmentIndex, action) => ipcRenderer.invoke('open-message-attachment', messageId, attachmentIndex, action ?? 'prompt'),
     cancelMessageBody: (requestId) => ipcRenderer.invoke('cancel-message-body', requestId),
     setMessageRead: (messageId, isRead) => ipcRenderer.invoke('set-message-read', messageId, isRead),
+    markMessageRead: (messageId) => ipcRenderer.invoke('mark-message-read', messageId),
+    markMessageUnread: (messageId) => ipcRenderer.invoke('mark-message-unread', messageId),
     setMessageFlagged: (messageId, isFlagged) => ipcRenderer.invoke('set-message-flagged', messageId, isFlagged),
     moveMessage: (messageId, targetFolderPath) => ipcRenderer.invoke('move-message', messageId, targetFolderPath),
+    archiveMessage: (messageId) => ipcRenderer.invoke('archive-message', messageId),
     deleteMessage: (messageId) => ipcRenderer.invoke('delete-message', messageId),
     sendEmail: (payload) => ipcRenderer.invoke('send-email', payload),
     saveDraft: (payload) => ipcRenderer.invoke('save-draft', payload),
@@ -80,6 +87,11 @@ const api = {
         const listener = (_event, payload) => callback(payload);
         ipcRenderer.on('unread-count-updated', listener);
         return () => ipcRenderer.removeListener('unread-count-updated', listener);
+    },
+    onMessageReadUpdated: (callback) => {
+        const listener = (_event, payload) => callback(payload);
+        ipcRenderer.on('message-read-updated', listener);
+        return () => ipcRenderer.removeListener('message-read-updated', listener);
     },
     onAccountSyncStatus: (callback) => {
         const listener = (_event, payload) => callback(payload);

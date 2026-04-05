@@ -697,9 +697,21 @@ export function moveMessageToFolder(messageId: number, targetFolderPath: string,
 
     const current = db.prepare('SELECT uid FROM messages WHERE id = ?').get(messageId) as { uid: number } | undefined;
     if (!current) throw new Error(`Message ${messageId} not found`);
-    const uidToStore = typeof nextUid === 'number' && Number.isFinite(nextUid) ? nextUid : current.uid;
+    const requestedUid = typeof nextUid === 'number' && Number.isFinite(nextUid) ? nextUid : current.uid;
 
     const tx = db.transaction(() => {
+        let uidToStore = requestedUid;
+        const conflict = db.prepare(
+            'SELECT id FROM messages WHERE folder_id = ? AND uid = ? AND id != ? LIMIT 1',
+        ).get(targetFolder.id, uidToStore, messageId) as { id: number } | undefined;
+        if (conflict?.id) {
+            // Keep local operations resilient when target folder already has this UID.
+            const maxUidRow = db.prepare('SELECT MAX(uid) AS maxUid FROM messages WHERE folder_id = ?')
+                .get(targetFolder.id) as { maxUid: number | null } | undefined;
+            const maxUid = Number(maxUidRow?.maxUid ?? 0);
+            uidToStore = Math.max(uidToStore, maxUid + 1);
+        }
+
         db.prepare('UPDATE messages SET folder_id = ?, uid = ? WHERE id = ?')
             .run(targetFolder.id, uidToStore, messageId);
 

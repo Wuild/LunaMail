@@ -474,6 +474,141 @@ export function initDb(): void {
             uid
         )
             );
+
+        CREATE TABLE IF NOT EXISTS mail_filters
+        (
+            id
+            INTEGER
+            PRIMARY
+            KEY
+            AUTOINCREMENT,
+            account_id
+            INTEGER
+            NOT
+            NULL,
+            name
+            TEXT
+            NOT
+            NULL,
+            enabled
+            INTEGER
+            NOT
+            NULL
+            DEFAULT
+            1,
+            run_on_incoming
+            INTEGER
+            NOT
+            NULL
+            DEFAULT
+            1,
+            match_mode
+            TEXT
+            NOT
+            NULL
+            DEFAULT
+            'all',
+            stop_processing
+            INTEGER
+            NOT
+            NULL
+            DEFAULT
+            1,
+            created_at
+            DATETIME
+            DEFAULT
+            CURRENT_TIMESTAMP,
+            updated_at
+            DATETIME
+            DEFAULT
+            CURRENT_TIMESTAMP,
+            FOREIGN
+            KEY
+        (
+            account_id
+        ) REFERENCES accounts
+        (
+            id
+        ) ON DELETE CASCADE
+            );
+
+        CREATE TABLE IF NOT EXISTS mail_filter_conditions
+        (
+            id
+            INTEGER
+            PRIMARY
+            KEY
+            AUTOINCREMENT,
+            filter_id
+            INTEGER
+            NOT
+            NULL,
+            field
+            TEXT
+            NOT
+            NULL,
+            operator
+            TEXT
+            NOT
+            NULL,
+            value
+            TEXT
+            NOT
+            NULL
+            DEFAULT
+            '',
+            sort_order
+            INTEGER
+            NOT
+            NULL
+            DEFAULT
+            0,
+            FOREIGN
+            KEY
+        (
+            filter_id
+        ) REFERENCES mail_filters
+        (
+            id
+        ) ON DELETE CASCADE
+            );
+
+        CREATE TABLE IF NOT EXISTS mail_filter_actions
+        (
+            id
+            INTEGER
+            PRIMARY
+            KEY
+            AUTOINCREMENT,
+            filter_id
+            INTEGER
+            NOT
+            NULL,
+            type
+            TEXT
+            NOT
+            NULL,
+            value
+            TEXT
+            NOT
+            NULL
+            DEFAULT
+            '',
+            sort_order
+            INTEGER
+            NOT
+            NULL
+            DEFAULT
+            0,
+            FOREIGN
+            KEY
+        (
+            filter_id
+        ) REFERENCES mail_filters
+        (
+            id
+        ) ON DELETE CASCADE
+            );
     `);
 
     // Ensure POP3 columns exist for older DBs created before POP3 support

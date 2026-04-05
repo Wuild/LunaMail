@@ -19,6 +19,11 @@ function main() {
     }
     const source = fs.readFileSync(builtPreloadPath, 'utf8');
     const normalized = normalizePreloadSource(source);
+  const existing = fs.existsSync(targetPreloadPath) ? fs.readFileSync(targetPreloadPath, 'utf8') : null;
+  if (existing === normalized) {
+    console.log(`Preload bridge already up to date: ${targetPreloadPath}`);
+    return;
+  }
     fs.writeFileSync(targetPreloadPath, normalized);
     console.log(`Synced preload bridge: ${targetPreloadPath}`);
 }

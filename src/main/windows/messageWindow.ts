@@ -32,6 +32,7 @@ export function openMessageWindow(parentWindow?: BrowserWindow, messageId?: numb
         height: 760,
         minWidth: 760,
         minHeight: 560,
+        maximizable: true,
         autoHideMenuBar: true,
         title: 'Message',
         webPreferences: {

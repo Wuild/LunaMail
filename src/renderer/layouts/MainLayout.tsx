@@ -20,6 +20,7 @@ import {
     Settings,
     ShieldAlert,
     SquareArrowOutUpRight,
+    Star,
     Trash2,
     Users,
     X
@@ -30,7 +31,7 @@ import {Button} from '../components/ui/button';
 import {ScrollArea} from '../components/ui/scroll-area';
 import {isProtectedFolder} from '../features/mail/folders';
 import {getAccountAvatarColors, getAccountMonogram} from '../lib/accountAvatar';
-import {formatSystemDate} from '../lib/dateTime';
+import {formatSystemDateTime} from '../lib/dateTime';
 import {useResizableSidebar} from '../hooks/useResizableSidebar';
 import {cn} from '../lib/utils';
 import WorkspaceLayout from './WorkspaceLayout';
@@ -77,6 +78,7 @@ interface MainLayoutProps {
     onBulkDelete: (messageIds: number[]) => void;
     onClearMessageSelection: () => void;
     onMessageFlagToggle: (message: MessageItem) => void;
+    onMessageArchive: (message: MessageItem) => void;
     onMessageDelete: (message: MessageItem) => void;
     onMessageMove: (message: MessageItem, targetFolderPath: string) => void;
     onFolderSync: () => void;
@@ -155,6 +157,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                    onBulkDelete,
                                                    onClearMessageSelection,
                                                    onMessageFlagToggle,
+                                                   onMessageArchive,
                                                    onMessageDelete,
                                                    onMessageMove,
                                                    onFolderSync,
@@ -674,6 +677,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                     const isSyncingAccount = (syncingAccountIds?.has(account.id) ?? false) || localSyncingAccountIds.has(account.id);
                                     const isExpanded = !collapsedAccountIds.has(account.id);
                                     const accountFolders = accountFoldersById[account.id] ?? [];
+                                    const accountInboxUnread = accountFolders
+                                        .filter((folder) => isInboxFolderPath(folder))
+                                        .reduce((sum, folder) => sum + Math.max(0, Number(folder.unread_count) || 0), 0);
                                     const accountProtectedFolders = accountFolders.filter((folder) => isProtectedFolder(folder));
                                     const accountCustomFolders = accountFolders.filter((folder) => !isProtectedFolder(folder));
                                     const accountDefaultFolder = accountFolders[0] ?? null;
@@ -731,8 +737,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                         )}
                                                 </span>
                                                 </Link>
-                                                <div
-                                                    className={cn('flex items-center gap-1 pr-1 transition-opacity', isSyncingAccount ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
+                                                <div className="flex items-center gap-1 pr-1">
+                                                    {accountInboxUnread > 0 && (
+                                                        <Badge
+                                                            className="h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-red-600 px-2.5 text-xs font-bold leading-none text-white dark:bg-red-500"
+                                                            title={`${accountInboxUnread} unread in inbox`}
+                                                        >
+                                                            {accountInboxUnread}
+                                                        </Badge>
+                                                    )}
+                                                    <div
+                                                        className={cn('flex items-center gap-1 transition-opacity', isSyncingAccount ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
                                                     <button
                                                         className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
                                                         onClick={(e) => {
@@ -757,6 +772,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                     >
                                                         <Settings size={13}/>
                                                     </button>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -1178,9 +1194,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                     <p className="truncate text-xs text-slate-500 dark:text-slate-400">{formatMessageSender(message)}</p>
                                     <span
                                         className="ml-3 inline-flex items-center gap-2 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+                    {Boolean(message.is_flagged) && (
+                        <span className="inline-flex items-center text-amber-500 dark:text-amber-300"
+                              title="Starred">
+                          <Star size={12} className="fill-current"/>
+                        </span>
+                    )}
                     {!message.is_read &&
                         <span className="inline-block h-2 w-2 rounded-full bg-sky-600 dark:bg-[#8ea1ff]"/>}
-                                        <span>{formatSystemDate(message.date, dateLocale)}</span>
+                                        <span>{formatSystemDateTime(message.date, dateLocale)}</span>
                   </span>
                                 </div>
                             </Link>
@@ -1325,10 +1347,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                         className="truncate text-xs text-slate-500 dark:text-slate-400">
                                                         {formatMessageSender(message)}
                                                     </span>
-                                                    <span
-                                                        className="shrink-0 text-xs text-slate-400 dark:text-slate-500">
-                                                        {formatSystemDate(message.date, dateLocale)}
-                                                    </span>
+                                                    <div className="ml-2 flex shrink-0 items-center gap-2">
+                                                        {Boolean(message.is_flagged) && (
+                                                            <span
+                                                                className="inline-flex items-center text-amber-500 dark:text-amber-300"
+                                                                title="Starred"
+                                                            >
+                                                                <Star size={12} className="fill-current"/>
+                                                            </span>
+                                                        )}
+                                                        <span
+                                                            className="text-xs text-slate-400 dark:text-slate-500">
+                                                            {formatSystemDateTime(message.date, dateLocale)}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 <div
                                                     className="mt-1 flex items-center justify-between gap-2 text-[11px] text-slate-400 dark:text-slate-500">
@@ -1372,6 +1404,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                 icon={menu.message.is_read ? <Mail size={14}/> : <MailOpen size={14}/>}
                                 onClick={() => {
                                     onMessageMarkReadToggle(menu.message);
+                                    setMenu(null);
+                                }}
+                            />
+                            <ContextItem
+                                label={menu.message.is_flagged ? 'Remove star' : 'Star message'}
+                                icon={<Star size={14}/>}
+                                onClick={() => {
+                                    onMessageFlagToggle(menu.message);
+                                    setMenu(null);
+                                }}
+                            />
+                            <ContextItem
+                                label="Archive"
+                                icon={<Archive size={14}/>}
+                                onClick={() => {
+                                    onMessageArchive(menu.message);
                                     setMenu(null);
                                 }}
                             />
@@ -1824,8 +1872,8 @@ const FolderItemRow: React.FC<{
                                 'inline-flex rounded-md px-1.5 py-0.5 text-[11px] transition-opacity',
                                 onEditFolder && 'group-hover:opacity-0',
                                 active
-                                    ? 'bg-slate-900 text-white dark:bg-white/85 dark:text-slate-900'
-                                    : 'bg-slate-300/70 text-slate-700 dark:bg-white/15 dark:text-slate-100',
+                                    ? 'bg-red-700 text-white dark:bg-red-500 dark:text-white'
+                                    : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
                             )}
                         >
                             {count}
@@ -1950,3 +1998,9 @@ function constrainToViewport(x: number, y: number, width: number, height: number
 }
 
 export default MainLayout;
+
+function isInboxFolderPath(folder: FolderItem): boolean {
+    const type = String(folder.type || '').toLowerCase();
+    const path = String(folder.path || '').toLowerCase();
+    return type === 'inbox' || path === 'inbox' || path.endsWith('/inbox') || path.endsWith('.inbox');
+}

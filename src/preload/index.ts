@@ -415,6 +415,69 @@ export interface DevShowNotificationResult {
     hasTarget: boolean;
 }
 
+export type MailFilterMatchMode = 'all' | 'any' | 'all_messages';
+export type MailFilterField = 'subject' | 'from' | 'to' | 'body';
+export type MailFilterOperator = 'contains' | 'not_contains' | 'equals' | 'starts_with' | 'ends_with';
+export type MailFilterActionType = 'move_to_folder' | 'mark_read' | 'mark_unread' | 'star' | 'unstar';
+
+export interface MailFilterCondition {
+    id: number;
+    filter_id: number;
+    field: MailFilterField;
+    operator: MailFilterOperator;
+    value: string;
+    sort_order: number;
+}
+
+export interface MailFilterAction {
+    id: number;
+    filter_id: number;
+    type: MailFilterActionType;
+    value: string;
+    sort_order: number;
+}
+
+export interface MailFilter {
+    id: number;
+    account_id: number;
+    name: string;
+    enabled: number;
+    run_on_incoming: number;
+    match_mode: MailFilterMatchMode;
+    stop_processing: number;
+    created_at: string;
+    updated_at: string;
+    conditions: MailFilterCondition[];
+    actions: MailFilterAction[];
+}
+
+export interface UpsertMailFilterPayload {
+    id?: number;
+    name: string;
+    enabled?: number;
+    run_on_incoming?: number;
+    match_mode?: MailFilterMatchMode;
+    stop_processing?: number;
+    conditions?: Array<{
+        field?: MailFilterField;
+        operator?: MailFilterOperator;
+        value?: string | null;
+    }>;
+    actions?: Array<{
+        type?: MailFilterActionType;
+        value?: string | null;
+    }>;
+}
+
+export interface MailFilterRunSummary {
+    accountId: number;
+    trigger: 'incoming' | 'manual';
+    processed: number;
+    matched: number;
+    actionsApplied: number;
+    errors: number;
+}
+
 const api = {
     getAccounts: (): Promise<PublicAccount[]> => ipcRenderer.invoke('get-accounts'),
     addAccount: (account: AddAccountPayload): Promise<{ id: number; email: string }> =>
@@ -491,6 +554,17 @@ const api = {
         ipcRenderer.invoke('add-calendar-event', accountId, payload),
     getFolderMessages: (accountId: number, folderPath: string, limit?: number): Promise<MessageItem[]> =>
         ipcRenderer.invoke('get-folder-messages', accountId, folderPath, limit),
+    getMailFilters: (accountId: number): Promise<MailFilter[]> =>
+        ipcRenderer.invoke('get-mail-filters', accountId),
+    saveMailFilter: (accountId: number, payload: UpsertMailFilterPayload): Promise<MailFilter> =>
+        ipcRenderer.invoke('save-mail-filter', accountId, payload),
+    deleteMailFilter: (accountId: number, filterId: number): Promise<{ removed: boolean }> =>
+        ipcRenderer.invoke('delete-mail-filter', accountId, filterId),
+    runMailFilters: (
+        accountId: number,
+        payload?: { filterId?: number; folderPath?: string | null; limit?: number },
+    ): Promise<MailFilterRunSummary> =>
+        ipcRenderer.invoke('run-mail-filters', accountId, payload ?? null),
     searchMessages: (accountId: number, query: string, folderPath?: string | null, limit?: number): Promise<MessageItem[]> =>
         ipcRenderer.invoke('search-messages', accountId, query, folderPath ?? null, limit),
     getMessage: (messageId: number): Promise<MessageDetails | null> =>
@@ -507,14 +581,18 @@ const api = {
         ipcRenderer.invoke('cancel-message-body', requestId),
     setMessageRead: (messageId: number, isRead: number): Promise<SetMessageReadResult> =>
         ipcRenderer.invoke('set-message-read', messageId, isRead),
+    markMessageRead: (messageId: number): Promise<SetMessageReadResult> =>
+        ipcRenderer.invoke('mark-message-read', messageId),
+    markMessageUnread: (messageId: number): Promise<SetMessageReadResult> =>
+        ipcRenderer.invoke('mark-message-unread', messageId),
     setMessageFlagged: (messageId: number, isFlagged: number): Promise<{
         accountId: number;
-        folders: number;
-        messages: number
     }> =>
         ipcRenderer.invoke('set-message-flagged', messageId, isFlagged),
     moveMessage: (messageId: number, targetFolderPath: string): Promise<MoveMessageResult> =>
         ipcRenderer.invoke('move-message', messageId, targetFolderPath),
+    archiveMessage: (messageId: number): Promise<MoveMessageResult> =>
+        ipcRenderer.invoke('archive-message', messageId),
     deleteMessage: (messageId: number): Promise<{ accountId: number; folders: number; messages: number }> =>
         ipcRenderer.invoke('delete-message', messageId),
     sendEmail: (payload: SendEmailPayload): Promise<SendEmailResult> =>
@@ -589,6 +667,11 @@ const api = {
         const listener = (_event: Electron.IpcRendererEvent, payload: number) => callback(payload);
         ipcRenderer.on('unread-count-updated', listener);
         return () => ipcRenderer.removeListener('unread-count-updated', listener);
+    },
+    onMessageReadUpdated: (callback: (payload: SetMessageReadResult) => void): (() => void) => {
+        const listener = (_event: Electron.IpcRendererEvent, payload: SetMessageReadResult) => callback(payload);
+        ipcRenderer.on('message-read-updated', listener);
+        return () => ipcRenderer.removeListener('message-read-updated', listener);
     },
     onAccountSyncStatus: (callback: (payload: SyncStatusEvent) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: SyncStatusEvent) => callback(payload);

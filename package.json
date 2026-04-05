@@ -22,7 +22,7 @@
     "sync:preload": "node scripts/sync-preload.cjs",
     "dev:ui": "vite",
     "dev:types": "tsc -w --preserveWatchOutput",
-    "dev:electron": "wait-on tcp:127.0.0.1:5174 file:build/main/index.js file:build/preload/index.js && nodemon --watch build/main --watch build/preload --watch preload.cjs --ext js,mjs,cjs,json --exec \"npm run sync:preload && electron .\"",
+    "dev:electron": "wait-on tcp:127.0.0.1:5174 file:build/main/index.js file:build/preload/index.js && nodemon --watch build/main --watch build/preload --ext js,mjs,cjs,json --exec \"npm run sync:preload && electron .\"",
     "dev": "concurrently -k -n TSC,VITE,ELECTRON -c yellow,blue,green \"tsc -w --preserveWatchOutput\" \"vite\" \"npm run dev:electron\"",
     "rebuild:native": "npm rebuild better-sqlite3 --runtime=electron --target=41.1.1 --dist-url=https://electronjs.org/headers",
     "generate:icons": "node scripts/generate-icons.cjs",

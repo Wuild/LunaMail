@@ -80,6 +80,18 @@ export default function MessageWindowPage() {
         };
     }, [messageId]);
 
+    useEffect(() => {
+        if (!messageId || !message || message.is_read) return;
+        let active = true;
+        void window.electronAPI.markMessageRead(messageId).then((result) => {
+            if (!active) return;
+            setMessage((prev) => (prev && prev.id === messageId ? {...prev, is_read: result.isRead} : prev));
+        }).catch(() => undefined);
+        return () => {
+            active = false;
+        };
+    }, [messageId, message]);
+
     const iframeSrcDoc = useMemo(() => {
         if (!body?.html) return null;
         return `<!doctype html>
@@ -190,7 +202,7 @@ export default function MessageWindowPage() {
     return (
         <div className="h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
             <div className="flex h-full flex-col">
-                <WindowTitleBar title={message?.subject || 'Message'}/>
+                <WindowTitleBar title={message?.subject || 'Message'} showMaximize/>
                 <div
                     role="toolbar"
                     aria-label="Message actions"

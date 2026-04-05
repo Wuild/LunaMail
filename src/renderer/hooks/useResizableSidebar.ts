@@ -43,6 +43,7 @@ export function useResizableSidebar(options: ResizableSidebarOptions = {}) {
     const [sidebarWidth, setSidebarWidth] = useState<number>(() => readSavedWidth(storageKey, minWidth, maxWidth, defaultWidth));
     const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
     const widthRef = useRef(sidebarWidth);
+    const draggingClass = 'is-resizing-sidebar';
 
     const onResizeStart = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
         event.preventDefault();
@@ -50,6 +51,7 @@ export function useResizableSidebar(options: ResizableSidebarOptions = {}) {
             startX: event.clientX,
             startWidth: sidebarWidth,
         };
+        document.body.classList.add(draggingClass);
 
         const onMouseMove = (moveEvent: MouseEvent) => {
             const drag = dragRef.current;
@@ -63,6 +65,7 @@ export function useResizableSidebar(options: ResizableSidebarOptions = {}) {
                 writeSavedWidth(widthRef.current, storageKey, minWidth, maxWidth, defaultWidth);
             }
             dragRef.current = null;
+            document.body.classList.remove(draggingClass);
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
         };
@@ -75,6 +78,12 @@ export function useResizableSidebar(options: ResizableSidebarOptions = {}) {
         widthRef.current = sidebarWidth;
         writeSavedWidth(sidebarWidth, storageKey, minWidth, maxWidth, defaultWidth);
     }, [defaultWidth, maxWidth, minWidth, sidebarWidth, storageKey]);
+
+    useEffect(() => {
+        return () => {
+            document.body.classList.remove(draggingClass);
+        };
+    }, []);
 
     return {
         sidebarWidth,

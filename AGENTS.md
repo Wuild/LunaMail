@@ -175,13 +175,20 @@ Update UX (main window):
     - `updateFolderSettings(accountId, folderPath, payload)`
     - `reorderCustomFolders(accountId, orderedFolderPaths)`
     - `getFolderMessages(accountId, folderPath, limit?)`
+  - `getMailFilters(accountId)`
+  - `saveMailFilter(accountId, payload)`
+  - `deleteMailFilter(accountId, filterId)`
+  - `runMailFilters(accountId, payload?)`
     - `searchMessages(accountId, query, folderPath?, limit?)`
     - `getMessage(messageId)`
     - `getMessageBody(messageId, requestId?)`
     - `cancelMessageBody(requestId)`
     - `setMessageRead(messageId, isRead)`
+  - `markMessageRead(messageId)`
+  - `markMessageUnread(messageId)`
     - `setMessageFlagged(messageId, isFlagged)`
     - `moveMessage(messageId, targetFolderPath)`
+  - `archiveMessage(messageId)`
     - `deleteMessage(messageId)`
     - `openMessageAttachment(messageId, attachmentIndex, action?)`
 - Compose/windows:
@@ -229,6 +236,7 @@ Update UX (main window):
     - `onAccountUpdated(cb)`
     - `onAccountDeleted(cb)`
     - `onUnreadCountUpdated(cb)`
+  - `onMessageReadUpdated(cb)`
     - `onAccountSyncStatus(cb)`
     - `onComposeDraft(cb)`
     - `onAppSettingsUpdated(cb)`

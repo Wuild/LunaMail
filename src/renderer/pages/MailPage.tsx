@@ -264,6 +264,29 @@ function MailPage() {
                 }
             }
         });
+        const offReadUpdated = window.electronAPI.onMessageReadUpdated?.((evt) => {
+            setMessages((prev) =>
+                prev.map((message) => (message.id === evt.messageId ? {...message, is_read: evt.isRead} : message)),
+            );
+            setFolders((prev) =>
+                prev.map((folder) =>
+                    folder.id === evt.folderId
+                        ? {...folder, unread_count: evt.unreadCount, total_count: evt.totalCount}
+                        : folder,
+                ),
+            );
+            setAccountFoldersById((prev) => {
+                const accountFolders = prev[evt.accountId] ?? [];
+                return {
+                    ...prev,
+                    [evt.accountId]: accountFolders.map((folder) =>
+                        folder.id === evt.folderId
+                            ? {...folder, unread_count: evt.unreadCount, total_count: evt.totalCount}
+                            : folder,
+                    ),
+                };
+            });
+        });
         const offSettings = window.electronAPI.onAppSettingsUpdated?.((settings) => {
             setAppSettings(settings);
         });
@@ -292,6 +315,7 @@ function MailPage() {
             if (typeof offUpdated === 'function') offUpdated();
             if (typeof offDeleted === 'function') offDeleted();
             if (typeof offSync === 'function') offSync();
+            if (typeof offReadUpdated === 'function') offReadUpdated();
             if (typeof offSettings === 'function') offSettings();
             if (typeof offOpenMessageTarget === 'function') offOpenMessageTarget();
         };
@@ -1275,6 +1299,41 @@ function MailPage() {
                         selectedFolderPath,
                         keepSelected,
                     );
+                })()
+            }
+            onMessageArchive={(message) =>
+                void (async () => {
+                    if (!selectedAccountId) return;
+                    setSyncStatusText('Archiving message...');
+                    try {
+                        const res = await window.electronAPI.archiveMessage(message.id);
+                        setMessages((prev) => prev.filter((row) => row.id !== message.id));
+                        setSelectedMessageIds((prev) => prev.filter((id) => id !== message.id));
+                        setSelectedMessageId((prev) => (prev === message.id ? null : prev));
+                        setFolders((prev) =>
+                            prev.map((folder) => {
+                                if (folder.id === res.sourceFolderId) {
+                                    return {
+                                        ...folder,
+                                        unread_count: res.sourceUnreadCount,
+                                        total_count: res.sourceTotalCount,
+                                    };
+                                }
+                                if (folder.id === res.targetFolderId) {
+                                    return {
+                                        ...folder,
+                                        unread_count: res.targetUnreadCount,
+                                        total_count: res.targetTotalCount,
+                                    };
+                                }
+                                return folder;
+                            }),
+                        );
+                        setSyncStatusText('Message archived');
+                    } catch (e: any) {
+                        setSyncStatusText(`Archive failed: ${e?.message || String(e)}`);
+                        await reloadAccountData(selectedAccountId, selectedFolderPath, null);
+                    }
                 })()
             }
             onMessageMove={(message, targetFolderPath) =>

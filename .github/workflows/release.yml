@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 concurrency:
   group: release-${{ github.ref_name || github.run_id }}
   cancel-in-progress: false
@@ -36,8 +39,10 @@ jobs:
             artifact_name: dist-windows
             artifact_glob: |
               dist/*.exe
+              dist/*.exe.blockmap
               dist/*.nsis.7z
-              dist/*.yml
+              dist/*.nsis.7z.blockmap
+              dist/latest*.yml
               dist/*.blockmap
 
     env:
@@ -74,6 +79,37 @@ jobs:
 
       - name: Package app
         run: npx electron-builder ${{ matrix.target_args }} --publish never --config.extraMetadata.version=${{ env.APP_VERSION }}
+
+      - name: List packaged files
+        shell: bash
+        run: |
+          echo "Dist files:"
+          find dist -maxdepth 2 -type f | sort
+
+      - name: Verify Windows update assets
+        if: matrix.name == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          blockmaps=(dist/*.blockmap dist/*.exe.blockmap dist/*.nsis.7z.blockmap)
+          ymls=(dist/latest*.yml)
+          exes=(dist/*.exe)
+          echo "Found EXE files: ${#exes[@]}"
+          echo "Found blockmaps: ${#blockmaps[@]}"
+          echo "Found latest*.yml: ${#ymls[@]}"
+          if [ ${#exes[@]} -eq 0 ]; then
+            echo "No Windows installer (.exe) generated in dist/"
+            exit 1
+          fi
+          if [ ${#ymls[@]} -eq 0 ]; then
+            echo "No latest*.yml generated in dist/"
+            exit 1
+          fi
+          if [ ${#blockmaps[@]} -eq 0 ]; then
+            echo "No blockmap files generated in dist/ (delta updates will not work)"
+            exit 1
+          fi
 
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v4

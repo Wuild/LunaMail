@@ -1,5 +1,23 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {Bug, CalendarDays, CircleHelp, Copy, Mail, Minus, RefreshCw, Settings, Square, Users, X} from 'lucide-react';
+import {
+    Bug,
+    CalendarDays,
+    ChevronLeft,
+    ChevronRight,
+    CircleHelp,
+    Copy,
+    Download,
+    Mail,
+    Minus,
+    Pencil,
+    Plus,
+    RefreshCw,
+    Settings,
+    Square,
+    Trash2,
+    Users,
+    X,
+} from 'lucide-react';
 import {HashRouter, Navigate, NavLink, Route, Routes, useLocation} from 'react-router-dom';
 import MailPage from './pages/MailPage';
 import AppSettingsPage from './pages/AppSettingsPage';
@@ -7,9 +25,17 @@ import DebugConsolePage from './pages/DebugConsolePage';
 import SupportPage from './pages/SupportPage';
 import WorkspaceLayout from './layouts/WorkspaceLayout';
 import lunaLogo from '../resources/luna.png';
-import type {AddressBookItem, CalendarEventItem, ContactItem, PublicAccount, SyncStatusEvent} from '../preload';
+import type {
+    AddressBookItem,
+    AppSettings,
+    CalendarEventItem,
+    ContactItem,
+    PublicAccount,
+    SyncStatusEvent
+} from '../preload';
 import {getAccountAvatarColors, getAccountMonogram} from './lib/accountAvatar';
 import {formatSystemDateTime} from './lib/dateTime';
+import {useResizableSidebar} from './hooks/useResizableSidebar';
 import {cn} from './lib/utils';
 
 export default function MainWindowApp() {
@@ -21,11 +47,13 @@ export default function MainWindowApp() {
 }
 
 function MainWindowShell() {
+    const location = useLocation();
     const [accounts, setAccounts] = useState<PublicAccount[]>([]);
     const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
     const [totalUnreadCount, setTotalUnreadCount] = useState(0);
     const [isMaximized, setIsMaximized] = useState(false);
     const [appVersion, setAppVersion] = useState('unknown');
+    const [developerMode, setDeveloperMode] = useState(false);
 
     useEffect(() => {
         let active = true;
@@ -65,6 +93,20 @@ function MainWindowShell() {
         };
     }, []);
 
+    const pageTitle = useMemo(() => {
+        const path = location.pathname || '/';
+        if (path.startsWith('/contacts')) return 'Contacts';
+        if (path.startsWith('/calendar')) return 'Calendar';
+        if (path.startsWith('/settings')) return 'Settings';
+        if (path.startsWith('/debug')) return 'Debug';
+        if (path.startsWith('/help')) return 'Help';
+        return 'Mail';
+    }, [location.pathname]);
+
+    useEffect(() => {
+        document.title = pageTitle;
+    }, [pageTitle]);
+
     useEffect(() => {
         let active = true;
         void window.electronAPI.isWindowMaximized().then((value) => {
@@ -95,6 +137,21 @@ function MainWindowShell() {
         };
     }, []);
 
+    useEffect(() => {
+        let active = true;
+        void window.electronAPI.getAppSettings().then((settings: AppSettings) => {
+            if (!active) return;
+            setDeveloperMode(Boolean(settings.developerMode));
+        }).catch(() => undefined);
+        const offSettings = window.electronAPI.onAppSettingsUpdated?.((settings: AppSettings) => {
+            setDeveloperMode(Boolean(settings.developerMode));
+        });
+        return () => {
+            active = false;
+            if (typeof offSettings === 'function') offSettings();
+        };
+    }, []);
+
     return (
         <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
             <header
@@ -104,15 +161,17 @@ function MainWindowShell() {
                     void window.electronAPI.toggleMaximizeWindow().then((res) => setIsMaximized(!!res?.isMaximized)).catch(() => undefined);
                 }}
             >
-                <div className="w-48 shrink-0"/>
-                <div
-                    className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center justify-center">
+                <div className="pointer-events-none flex items-center justify-start">
                     <div className="flex items-center gap-2 text-xs font-medium text-white/80">
                         <img src={lunaLogo} alt="" className="h-4 w-4 rounded-sm object-contain" draggable={false}/>
                         <span>LunaMail</span>
                         <span
                             className="text-[10px] font-semibold uppercase tracking-wide text-white/55">v{appVersion}</span>
                     </div>
+                </div>
+                <div
+                    className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center justify-center">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-white/80">{pageTitle}</span>
                 </div>
                 <div
                     className="flex w-24 shrink-0 items-center justify-end gap-1"
@@ -154,7 +213,7 @@ function MainWindowShell() {
                 <aside
                     className="flex h-full w-16 shrink-0 flex-col items-center justify-between bg-slate-800 py-3 dark:bg-[#111216]">
                     <div className="flex flex-col items-center gap-2">
-                        <NavRailItem to="/mail" icon={<Mail size={18}/>} label="Mail" badgeCount={totalUnreadCount}/>
+                        <NavRailItem to="/email" icon={<Mail size={18}/>} label="Mail" badgeCount={totalUnreadCount}/>
                         <NavRailItem to="/contacts" icon={<Users size={18}/>} label="Contacts"/>
                         <NavRailItem to="/calendar" icon={<CalendarDays size={18}/>} label="Calendar"/>
                     </div>
@@ -167,8 +226,12 @@ function MainWindowShell() {
 
                 <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
                     <Routes>
-                        <Route path="/" element={<Navigate to="/mail" replace/>}/>
-                        <Route path="/mail" element={<MailPage/>}/>
+                        <Route path="/" element={<Navigate to="/email" replace/>}/>
+                        <Route path="/email" element={<MailPage/>}/>
+                        <Route path="/email/:accountId" element={<MailPage/>}/>
+                        <Route path="/email/:accountId/:folderId" element={<MailPage/>}/>
+                        <Route path="/email/:accountId/:folderId/:emailId" element={<MailPage/>}/>
+                        <Route path="/mail/*" element={<Navigate to="/email" replace/>}/>
                         <Route
                             path="/contacts"
                             element={(
@@ -179,13 +242,28 @@ function MainWindowShell() {
                                 />
                             )}
                         />
-                        <Route path="/calendar" element={<CalendarRoute accountId={selectedAccountId}/>}/>
+                        <Route
+                            path="/calendar"
+                            element={(
+                                <CalendarRoute
+                                    accountId={selectedAccountId}
+                                    accounts={accounts}
+                                    onSelectAccount={setSelectedAccountId}
+                                />
+                            )}
+                        />
                         <Route path="/settings" element={<SettingsRoute/>}/>
                         <Route path="/debug" element={<DebugConsolePage embedded/>}/>
                         <Route path="/help" element={<SupportPage embedded/>}/>
                     </Routes>
                 </main>
             </div>
+            {developerMode && (
+                <div
+                    className="pointer-events-none fixed bottom-3 right-3 z-[1200] rounded-md border border-slate-300/80 bg-white/95 px-2.5 py-1.5 font-mono text-[11px] text-slate-700 shadow-sm dark:border-[#4a4d55] dark:bg-[#1e1f22]/95 dark:text-slate-200">
+                    {`#${location.pathname}${location.search || ''}`}
+                </div>
+            )}
         </div>
     );
 }
@@ -243,13 +321,30 @@ function ContactsRoute({
     const [contacts, setContacts] = useState<ContactItem[]>([]);
     const [addressBooks, setAddressBooks] = useState<AddressBookItem[]>([]);
     const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
-    const [newBookName, setNewBookName] = useState('');
     const [newContactName, setNewContactName] = useState('');
     const [newContactEmail, setNewContactEmail] = useState('');
+    const [newContactPhone, setNewContactPhone] = useState('');
+    const [newContactOrganization, setNewContactOrganization] = useState('');
+    const [newContactTitle, setNewContactTitle] = useState('');
+    const [newContactNote, setNewContactNote] = useState('');
     const [showAddContactModal, setShowAddContactModal] = useState(false);
+    const [showExportContactsModal, setShowExportContactsModal] = useState(false);
+    const [exportFormat, setExportFormat] = useState<'csv' | 'vcf'>('csv');
+    const [exportBookMode, setExportBookMode] = useState<'all' | 'selected'>('selected');
+    const [exportingContacts, setExportingContacts] = useState(false);
+    const [editingContact, setEditingContact] = useState<ContactItem | null>(null);
+    const [editContactName, setEditContactName] = useState('');
+    const [editContactEmail, setEditContactEmail] = useState('');
+    const [editContactPhone, setEditContactPhone] = useState('');
+    const [editContactOrganization, setEditContactOrganization] = useState('');
+    const [editContactTitle, setEditContactTitle] = useState('');
+    const [editContactNote, setEditContactNote] = useState('');
+    const [editContactBookId, setEditContactBookId] = useState<number | null>(null);
+    const [savingEditContact, setSavingEditContact] = useState(false);
     const [syncing, setSyncing] = useState(false);
-    const [syncStatusText, setSyncStatusText] = useState<string>('Ready');
+    const [syncStatusText, setSyncStatusText] = useState<string>('Contacts ready');
     const [contactError, setContactError] = useState<string | null>(null);
+    const {sidebarWidth, onResizeStart} = useResizableSidebar();
 
     const loadContacts = React.useCallback(async (targetAccountId: number, q: string, bookId: number | null) => {
         const rows = await window.electronAPI.getContacts(targetAccountId, q.trim() || null, 600, bookId ?? null);
@@ -262,12 +357,14 @@ function ContactsRoute({
             setAddressBooks([]);
             setSelectedBookId(null);
             setShowAddContactModal(false);
+            setShowExportContactsModal(false);
+            setEditingContact(null);
             setSyncing(false);
             setSyncStatusText('No account selected.');
             setLoading(false);
             return;
         }
-        setSyncStatusText('Ready');
+        setSyncStatusText('Contacts ready');
         let active = true;
         const load = async () => {
             setLoading(true);
@@ -298,7 +395,7 @@ function ContactsRoute({
             if (!accountId || evt.accountId !== accountId) return;
             if (evt.status === 'syncing') {
                 setSyncing(true);
-                setSyncStatusText('Syncing mailbox + CardDAV/CalDAV...');
+                setSyncStatusText('Syncing...');
                 return;
             }
             if (evt.status === 'error') {
@@ -321,20 +418,35 @@ function ContactsRoute({
         };
     }, [accountId]);
 
-    async function onCreateAddressBook() {
+    useEffect(() => {
         if (!accountId) return;
-        const name = newBookName.trim();
-        if (!name) return;
+        let active = true;
+        setSyncing(true);
+        setSyncStatusText('Syncing...');
         setContactError(null);
-        try {
-            const created = await window.electronAPI.addAddressBook(accountId, name);
-            setAddressBooks((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-            setSelectedBookId(created.id);
-            setNewBookName('');
-        } catch (error: any) {
+        void window.electronAPI.syncDav(accountId).then(async () => {
+            if (!active) return;
+            const books = await window.electronAPI.getAddressBooks(accountId);
+            if (!active) return;
+            setAddressBooks(books);
+            const effectiveBookId = selectedBookId && books.some((book) => book.id === selectedBookId)
+                ? selectedBookId
+                : (books[0]?.id ?? null);
+            setSelectedBookId(effectiveBookId);
+            await loadContacts(accountId, query, effectiveBookId);
+            if (!active) return;
+            setSyncing(false);
+            setSyncStatusText('Contacts synced');
+        }).catch((error: any) => {
+            if (!active) return;
+            setSyncing(false);
             setContactError(error?.message || String(error));
-        }
-    }
+            setSyncStatusText(`Auto-sync failed: ${error?.message || String(error)}`);
+        });
+        return () => {
+            active = false;
+        };
+    }, [accountId]);
 
     async function onAddContact() {
         if (!accountId) return;
@@ -346,9 +458,17 @@ function ContactsRoute({
                 addressBookId: selectedBookId,
                 fullName: newContactName.trim() || null,
                 email,
+                phone: newContactPhone.trim() || null,
+                organization: newContactOrganization.trim() || null,
+                title: newContactTitle.trim() || null,
+                note: newContactNote.trim() || null,
             });
             setNewContactName('');
             setNewContactEmail('');
+            setNewContactPhone('');
+            setNewContactOrganization('');
+            setNewContactTitle('');
+            setNewContactNote('');
             setShowAddContactModal(false);
             await loadContacts(accountId, query, selectedBookId);
         } catch (error: any) {
@@ -367,11 +487,98 @@ function ContactsRoute({
         }
     }
 
+    function openEditContact(contact: ContactItem) {
+        setEditingContact(contact);
+        setEditContactName(contact.full_name || '');
+        setEditContactEmail(contact.email || '');
+        setEditContactPhone(contact.phone || '');
+        setEditContactOrganization(contact.organization || '');
+        setEditContactTitle(contact.title || '');
+        setEditContactNote(contact.note || '');
+        setEditContactBookId(contact.address_book_id ?? selectedBookId ?? null);
+        setContactError(null);
+    }
+
+    async function onSaveEditedContact() {
+        if (!accountId || !editingContact) return;
+        const email = editContactEmail.trim();
+        if (!email) return;
+        setSavingEditContact(true);
+        setContactError(null);
+        try {
+            await window.electronAPI.updateContact(editingContact.id, {
+                addressBookId: editContactBookId,
+                fullName: editContactName.trim() || null,
+                email,
+                phone: editContactPhone.trim() || null,
+                organization: editContactOrganization.trim() || null,
+                title: editContactTitle.trim() || null,
+                note: editContactNote.trim() || null,
+            });
+            setEditingContact(null);
+            await loadContacts(accountId, query, selectedBookId);
+        } catch (error: any) {
+            setContactError(error?.message || String(error));
+        } finally {
+            setSavingEditContact(false);
+        }
+    }
+
+    async function onExportContacts() {
+        if (!accountId || exportingContacts) return;
+        setExportingContacts(true);
+        setContactError(null);
+        try {
+            const result = await window.electronAPI.exportContacts(accountId, {
+                format: exportFormat,
+                addressBookId: exportBookMode === 'selected' ? selectedBookId : null,
+            });
+            if (result.canceled) {
+                setSyncStatusText('Export cancelled');
+            } else {
+                setSyncStatusText(`Exported ${result.count} contacts`);
+                setShowExportContactsModal(false);
+            }
+        } catch (error: any) {
+            setContactError(error?.message || String(error));
+        } finally {
+            setExportingContacts(false);
+        }
+    }
+
+    async function onDeleteSelectedAddressBook() {
+        if (!accountId || !selectedBookId) return;
+        const targetBook = addressBooks.find((book) => book.id === selectedBookId);
+        if (!targetBook) return;
+        if (targetBook.source !== 'local') {
+            setContactError('Only local address books can be deleted.');
+            return;
+        }
+        const deleteAddressBookFn = (window.electronAPI as any).deleteAddressBook;
+        if (typeof deleteAddressBookFn !== 'function') {
+            setContactError('Delete address book is unavailable in this session. Please restart LunaMail once.');
+            return;
+        }
+        const shouldDelete = window.confirm(`Delete address book "${targetBook.name}"?`);
+        if (!shouldDelete) return;
+        setContactError(null);
+        try {
+            await deleteAddressBookFn(accountId, selectedBookId);
+            const books = await window.electronAPI.getAddressBooks(accountId);
+            setAddressBooks(books);
+            const nextBookId = books[0]?.id ?? null;
+            setSelectedBookId(nextBookId);
+            await loadContacts(accountId, query, nextBookId);
+        } catch (error: any) {
+            setContactError(error?.message || String(error));
+        }
+    }
+
     async function onManualSync() {
         if (!accountId || syncing) return;
         setContactError(null);
         setSyncing(true);
-        setSyncStatusText('Syncing mailbox + CardDAV/CalDAV...');
+        setSyncStatusText('Syncing...');
         try {
             await window.electronAPI.syncAccount(accountId);
             const books = await window.electronAPI.getAddressBooks(accountId);
@@ -390,58 +597,75 @@ function ContactsRoute({
     }
 
     const accountSidebar = (
-        <aside className="w-72 shrink-0 border-r border-slate-200 bg-white p-3 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-            <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Accounts</p>
-            <div className="space-y-1">
-                {accounts.map((account) => {
-                    const avatarColors = getAccountAvatarColors(account.email || account.display_name || String(account.id));
-                    return (
-                        <button
-                            key={account.id}
-                            type="button"
-                            onClick={() => onSelectAccount(account.id)}
-                            className={cn(
-                                'w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
-                                accountId === account.id
-                                    ? 'bg-sky-100 text-sky-900 dark:bg-[#3d4153] dark:text-slate-100'
-                                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
-                            )}
-                        >
-                            <div className="flex min-w-0 items-center gap-2">
-                                <span
-                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1 ring-black/10 dark:ring-white/10"
-                                    style={{
-                                        backgroundColor: avatarColors.background,
-                                        color: avatarColors.foreground,
-                                    }}
-                                >
-                                    {getAccountMonogram(account)}
-                                </span>
-                                <span className="min-w-0 flex-1">
+        <aside
+            className="flex h-full min-h-0 shrink-0 flex-col justify-between border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Accounts</p>
+                <div className="space-y-1">
+                    {accounts.map((account) => {
+                        const avatarColors = getAccountAvatarColors(account.email || account.display_name || String(account.id));
+                        return (
+                            <button
+                                key={account.id}
+                                type="button"
+                                onClick={() => onSelectAccount(account.id)}
+                                className={cn(
+                                    'w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
+                                    accountId === account.id
+                                        ? 'bg-sky-100 text-sky-900 dark:bg-[#3d4153] dark:text-slate-100'
+                                        : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
+                                )}
+                            >
+                                <div className="flex min-w-0 items-center gap-2">
                                     <span
-                                        className="block truncate">{account.display_name?.trim() || account.email}</span>
-                                    {account.display_name?.trim() && (
+                                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1 ring-black/10 dark:ring-white/10"
+                                        style={{
+                                            backgroundColor: avatarColors.background,
+                                            color: avatarColors.foreground,
+                                        }}
+                                    >
+                                        {getAccountMonogram(account)}
+                                    </span>
+                                    <span className="min-w-0 flex-1">
                                         <span
-                                            className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">{account.email}</span>
-                                    )}
-                                </span>
-                            </div>
-                        </button>
-                    );
-                })}
-                {accounts.length === 0 && (
-                    <p className="px-2 py-2 text-sm text-slate-500 dark:text-slate-400">No accounts available.</p>
-                )}
+                                            className="block truncate">{account.display_name?.trim() || account.email}</span>
+                                        {account.display_name?.trim() && (
+                                            <span
+                                                className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">{account.email}</span>
+                                        )}
+                                    </span>
+                                </div>
+                            </button>
+                        );
+                    })}
+                    {accounts.length === 0 && (
+                        <p className="px-2 py-2 text-sm text-slate-500 dark:text-slate-400">No accounts available.</p>
+                    )}
+                </div>
+            </div>
+            <div className="shrink-0 border-t border-slate-200 px-2 py-3 dark:border-[#3a3d44]">
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        disabled={syncing}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                        onClick={() => void onManualSync()}
+                        title="Sync now"
+                        aria-label="Sync now"
+                    >
+                        <RefreshCw size={14} className={cn(syncing && 'animate-spin')}/>
+                    </button>
+                </div>
             </div>
         </aside>
     );
-
     const contactsToolbar = (
-        <div className="grid gap-3 md:grid-cols-[220px_1fr_auto_auto]">
+        <div className="flex items-center gap-2">
             <select
                 value={selectedBookId ?? ''}
                 onChange={(event) => setSelectedBookId(event.target.value ? Number(event.target.value) : null)}
-                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                className="h-10 min-w-52 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                disabled={!accountId}
             >
                 {addressBooks.map((book) => (
                     <option key={book.id} value={book.id}>
@@ -449,37 +673,45 @@ function ContactsRoute({
                     </option>
                 ))}
             </select>
-            <div className="flex gap-2">
-                <input
-                    type="text"
-                    value={newBookName}
-                    onChange={(event) => setNewBookName(event.target.value)}
-                    placeholder="New address book name"
-                    className="h-10 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                />
-                <button
-                    type="button"
-                    className="h-10 rounded-md bg-sky-600 px-3 text-sm font-medium text-white hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
-                    onClick={() => void onCreateAddressBook()}
-                >
-                    Add Book
-                </button>
-            </div>
             <button
                 type="button"
-                disabled={syncing}
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
-                onClick={() => void onManualSync()}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                disabled={!accountId || !selectedBookId || (addressBooks.find((book) => book.id === selectedBookId)?.source !== 'local')}
+                onClick={() => void onDeleteSelectedAddressBook()}
+                title="Delete address book"
+                aria-label="Delete address book"
             >
-                <RefreshCw size={14} className={cn(syncing && 'animate-spin')}/>
-                Sync now
+                <Trash2 size={14}/>
+            </button>
+            <input
+                type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search contacts..."
+                className="h-10 w-full max-w-xl rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                disabled={!accountId}
+            />
+            <button
+                type="button"
+                className="ml-auto inline-flex h-10 items-center gap-2 rounded-md bg-sky-600 px-3 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-60 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                onClick={() => setShowAddContactModal(true)}
+                disabled={!accountId}
+                title="Add contact"
+                aria-label="Add contact"
+            >
+                <Plus size={14}/>
+                Add contact
             </button>
             <button
                 type="button"
-                className="h-10 rounded-md bg-sky-600 px-3 text-sm font-medium text-white hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
-                onClick={() => setShowAddContactModal(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                onClick={() => setShowExportContactsModal(true)}
+                disabled={!accountId}
+                title="Export contacts"
+                aria-label="Export contacts"
             >
-                Add Contact
+                <Download size={14}/>
+                Export
             </button>
         </div>
     );
@@ -487,27 +719,22 @@ function ContactsRoute({
     return (
         <WorkspaceLayout
             sidebar={accountSidebar}
+            sidebarWidth={sidebarWidth}
+            onSidebarResizeStart={onResizeStart}
             menubar={contactsToolbar}
             showMenuBar
-            statusText={syncStatusText}
+            statusText={syncing && syncStatusText.toLowerCase().includes('ready') ? 'Syncing...' : syncStatusText}
             statusBusy={syncing}
         >
             <div className="mx-auto max-w-5xl">
                 {!accountId && <p className="text-sm text-slate-500 dark:text-slate-400">No account selected.</p>}
                 {accountId && (
                     <>
-                        <input
-                            type="text"
-                            value={query}
-                            onChange={(event) => setQuery(event.target.value)}
-                            placeholder="Search contacts..."
-                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                        />
-                        {contactError && <p className="mt-3 text-sm text-red-600 dark:text-red-300">{contactError}</p>}
+                        {contactError && <p className="mb-3 text-sm text-red-600 dark:text-red-300">{contactError}</p>}
                         {loading &&
-                            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Loading contacts...</p>}
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Loading contacts...</p>}
                         {!loading && contacts.length === 0 && (
-                            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No contacts found.</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">No contacts found.</p>
                         )}
                         {!loading && contacts.length > 0 && (
                             <div
@@ -519,14 +746,33 @@ function ContactsRoute({
                                                 <div>
                                                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{contact.full_name || '(No name)'}</p>
                                                     <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{contact.email}</p>
+                                                    {(contact.phone || contact.organization || contact.title) && (
+                                                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                                            {[contact.phone, contact.organization, contact.title].filter(Boolean).join(' • ')}
+                                                        </p>
+                                                    )}
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 dark:border-red-700/50 dark:text-red-300 dark:hover:bg-red-900/30"
-                                                    onClick={() => void onDeleteContact(contact.id)}
-                                                >
-                                                    Delete
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                                        onClick={() => openEditContact(contact)}
+                                                        disabled={!contact.source.startsWith('local:')}
+                                                        title={contact.source.startsWith('local:') ? 'Edit contact' : 'Only local contacts can be edited'}
+                                                    >
+                                                        <Pencil size={12} className="mr-1 inline-block"/>
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-700/50 dark:text-red-300 dark:hover:bg-red-900/30"
+                                                        onClick={() => void onDeleteContact(contact.id)}
+                                                        disabled={!contact.source.startsWith('local:')}
+                                                        title={contact.source.startsWith('local:') ? 'Delete contact' : 'Only local contacts can be deleted'}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
                                             </div>
                                         </li>
                                     ))}
@@ -546,47 +792,271 @@ function ContactsRoute({
                         className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Add Contact</h3>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Create a contact for the selected
-                            account.</p>
+                        <form
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                void onAddContact();
+                            }}
+                        >
+                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Add Contact</h3>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Create a contact for the
+                                selected
+                                account.</p>
+                            <div className="mt-4 space-y-3">
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Full name</span>
+                                    <input
+                                        type="text"
+                                        value={newContactName}
+                                        onChange={(event) => setNewContactName(event.target.value)}
+                                        placeholder="Jane Doe"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Email</span>
+                                    <input
+                                        type="email"
+                                        value={newContactEmail}
+                                        onChange={(event) => setNewContactEmail(event.target.value)}
+                                        placeholder="jane@domain.com"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        required
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Phone</span>
+                                    <input
+                                        type="text"
+                                        value={newContactPhone}
+                                        onChange={(event) => setNewContactPhone(event.target.value)}
+                                        placeholder="+46 70 123 45 67"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Organization</span>
+                                    <input
+                                        type="text"
+                                        value={newContactOrganization}
+                                        onChange={(event) => setNewContactOrganization(event.target.value)}
+                                        placeholder="Acme Inc."
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Title</span>
+                                    <input
+                                        type="text"
+                                        value={newContactTitle}
+                                        onChange={(event) => setNewContactTitle(event.target.value)}
+                                        placeholder="Sales Manager"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Notes</span>
+                                    <textarea
+                                        value={newContactNote}
+                                        onChange={(event) => setNewContactNote(event.target.value)}
+                                        rows={3}
+                                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                            </div>
+                            <div className="mt-4 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                    onClick={() => setShowAddContactModal(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                    disabled={!newContactEmail.trim()}
+                                >
+                                    Save Contact
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {editingContact && accountId && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+                    onClick={() => setEditingContact(null)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <form
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                void onSaveEditedContact();
+                            }}
+                        >
+                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Edit Contact</h3>
+                            <div className="mt-4 space-y-3">
+                                <label className="block text-sm">
+                                    <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Full name</span>
+                                    <input
+                                        type="text"
+                                        value={editContactName}
+                                        onChange={(event) => setEditContactName(event.target.value)}
+                                        placeholder="Jane Doe"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Email</span>
+                                    <input
+                                        type="email"
+                                        value={editContactEmail}
+                                        onChange={(event) => setEditContactEmail(event.target.value)}
+                                        placeholder="jane@domain.com"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        required
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Phone</span>
+                                    <input
+                                        type="text"
+                                        value={editContactPhone}
+                                        onChange={(event) => setEditContactPhone(event.target.value)}
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Organization</span>
+                                    <input
+                                        type="text"
+                                        value={editContactOrganization}
+                                        onChange={(event) => setEditContactOrganization(event.target.value)}
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Title</span>
+                                    <input
+                                        type="text"
+                                        value={editContactTitle}
+                                        onChange={(event) => setEditContactTitle(event.target.value)}
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Notes</span>
+                                    <textarea
+                                        value={editContactNote}
+                                        onChange={(event) => setEditContactNote(event.target.value)}
+                                        rows={3}
+                                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Address book</span>
+                                    <select
+                                        value={editContactBookId ?? ''}
+                                        onChange={(event) => setEditContactBookId(event.target.value ? Number(event.target.value) : null)}
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    >
+                                        {addressBooks.map((book) => (
+                                            <option key={book.id} value={book.id}>
+                                                {book.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
+                            <div className="mt-4 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                    onClick={() => setEditingContact(null)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                    disabled={savingEditContact || !editContactEmail.trim()}
+                                >
+                                    {savingEditContact ? 'Saving...' : 'Save changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {showExportContactsModal && accountId && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+                    onClick={() => setShowExportContactsModal(false)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Export Contacts</h3>
                         <div className="mt-4 space-y-3">
                             <label className="block text-sm">
                                 <span
-                                    className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Full name</span>
-                                <input
-                                    type="text"
-                                    value={newContactName}
-                                    onChange={(event) => setNewContactName(event.target.value)}
-                                    placeholder="Jane Doe"
+                                    className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Format</span>
+                                <select
+                                    value={exportFormat}
+                                    onChange={(event) => setExportFormat(event.target.value === 'vcf' ? 'vcf' : 'csv')}
                                     className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                />
+                                >
+                                    <option value="csv">CSV (.csv)</option>
+                                    <option value="vcf">vCard (.vcf)</option>
+                                </select>
                             </label>
                             <label className="block text-sm">
-                                <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Email</span>
-                                <input
-                                    type="email"
-                                    value={newContactEmail}
-                                    onChange={(event) => setNewContactEmail(event.target.value)}
-                                    placeholder="jane@domain.com"
+                                <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Scope</span>
+                                <select
+                                    value={exportBookMode}
+                                    onChange={(event) => setExportBookMode(event.target.value === 'all' ? 'all' : 'selected')}
                                     className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                />
+                                >
+                                    <option value="selected">Current book</option>
+                                    <option value="all">All books</option>
+                                </select>
                             </label>
                         </div>
                         <div className="mt-4 flex items-center justify-end gap-2">
                             <button
                                 type="button"
                                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
-                                onClick={() => setShowAddContactModal(false)}
+                                onClick={() => setShowExportContactsModal(false)}
                             >
                                 Cancel
                             </button>
                             <button
                                 type="button"
-                                className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
-                                onClick={() => void onAddContact()}
-                                disabled={!newContactEmail.trim()}
+                                className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                onClick={() => void onExportContacts()}
+                                disabled={exportingContacts}
                             >
-                                Save Contact
+                                <Download size={14}/>
+                                {exportingContacts ? 'Exporting...' : 'Export'}
                             </button>
                         </div>
                     </div>
@@ -596,10 +1066,33 @@ function ContactsRoute({
     );
 }
 
-function CalendarRoute({accountId}: { accountId: number | null }) {
+function CalendarRoute({
+                           accountId,
+                           accounts,
+                           onSelectAccount,
+                       }: {
+    accountId: number | null;
+    accounts: PublicAccount[];
+    onSelectAccount: (accountId: number | null) => void;
+}) {
     const [loading, setLoading] = useState(false);
+    const [savingEvent, setSavingEvent] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncStatusText, setSyncStatusText] = useState('Calendar ready');
     const [events, setEvents] = useState<CalendarEventItem[]>([]);
     const [systemLocale, setSystemLocale] = useState<string>('en-US');
+    const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
+    const [selectedEvent, setSelectedEvent] = useState<CalendarEventItem | null>(null);
+    const [selectedDayForModal, setSelectedDayForModal] = useState<string | null>(null);
+    const [dayContextMenu, setDayContextMenu] = useState<{ x: number; y: number; dayKey: string } | null>(null);
+    const [showAddEventModal, setShowAddEventModal] = useState(false);
+    const [calendarError, setCalendarError] = useState<string | null>(null);
+    const [eventTitle, setEventTitle] = useState('');
+    const [eventLocation, setEventLocation] = useState('');
+    const [eventDescription, setEventDescription] = useState('');
+    const [eventStart, setEventStart] = useState(() => toDatetimeLocal(nextRoundedHour()));
+    const [eventEnd, setEventEnd] = useState(() => toDatetimeLocal(addHours(nextRoundedHour(), 1)));
+    const {sidebarWidth, onResizeStart} = useResizableSidebar();
 
     useEffect(() => {
         void window.electronAPI.getSystemLocale().then((locale) => {
@@ -609,24 +1102,50 @@ function CalendarRoute({accountId}: { accountId: number | null }) {
         });
     }, []);
 
+    const calendarBounds = useMemo(() => {
+        const monthStart = startOfMonth(visibleMonth);
+        const monthEnd = endOfMonth(visibleMonth);
+        return {
+            monthStart,
+            monthEnd,
+            gridStart: startOfWeekMonday(monthStart),
+            gridEnd: endOfWeekMonday(monthEnd),
+        };
+    }, [visibleMonth]);
+
+    const calendarDays = useMemo(() => {
+        const days: Date[] = [];
+        const cursor = new Date(calendarBounds.gridStart);
+        while (cursor <= calendarBounds.gridEnd) {
+            days.push(new Date(cursor));
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        return days;
+    }, [calendarBounds]);
+
     useEffect(() => {
         if (!accountId) {
             setEvents([]);
             setLoading(false);
+            setSyncing(false);
+            setSyncStatusText('No account selected.');
             return;
         }
         let active = true;
         const load = async () => {
             setLoading(true);
+            setCalendarError(null);
             try {
-                const now = new Date();
-                const start = new Date(now);
-                start.setDate(start.getDate() - 30);
-                const end = new Date(now);
-                end.setDate(end.getDate() + 365);
-                const rows = await window.electronAPI.getCalendarEvents(accountId, start.toISOString(), end.toISOString(), 1000);
+                const start = new Date(calendarBounds.gridStart);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(calendarBounds.gridEnd);
+                end.setHours(23, 59, 59, 999);
+                const rows = await window.electronAPI.getCalendarEvents(accountId, start.toISOString(), end.toISOString(), 5000);
                 if (!active) return;
                 setEvents(rows);
+            } catch (error: any) {
+                if (!active) return;
+                setCalendarError(error?.message || String(error));
             } finally {
                 if (active) setLoading(false);
             }
@@ -635,44 +1154,589 @@ function CalendarRoute({accountId}: { accountId: number | null }) {
         return () => {
             active = false;
         };
+    }, [accountId, calendarBounds]);
+
+    useEffect(() => {
+        if (!accountId) return;
+        let active = true;
+        setSyncing(true);
+        setSyncStatusText('Syncing...');
+        setCalendarError(null);
+        void window.electronAPI.syncDav(accountId).then(async () => {
+            if (!active) return;
+            const start = new Date(calendarBounds.gridStart);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(calendarBounds.gridEnd);
+            end.setHours(23, 59, 59, 999);
+            const rows = await window.electronAPI.getCalendarEvents(accountId, start.toISOString(), end.toISOString(), 5000);
+            if (!active) return;
+            setEvents(rows);
+            setSyncing(false);
+            setSyncStatusText('Calendar synced');
+        }).catch((error: any) => {
+            if (!active) return;
+            setSyncing(false);
+            setCalendarError(error?.message || String(error));
+            setSyncStatusText(`Auto-sync failed: ${error?.message || String(error)}`);
+        });
+        return () => {
+            active = false;
+        };
     }, [accountId]);
 
-    const sortedEvents = useMemo(
-        () => [...events].sort((a, b) => (Date.parse(a.starts_at || '') || 0) - (Date.parse(b.starts_at || '') || 0)),
-        [events],
+    const eventsByDay = useMemo(() => {
+        const byDay = new Map<string, CalendarEventItem[]>();
+        for (const event of events) {
+            const startsAt = event.starts_at ? new Date(event.starts_at) : null;
+            if (!startsAt || Number.isNaN(startsAt.getTime())) continue;
+            const key = toDateKey(startsAt);
+            const bucket = byDay.get(key);
+            if (!bucket) byDay.set(key, [event]);
+            else bucket.push(event);
+        }
+        for (const bucket of byDay.values()) {
+            bucket.sort((a, b) => (Date.parse(a.starts_at || '') || 0) - (Date.parse(b.starts_at || '') || 0));
+        }
+        return byDay;
+    }, [events]);
+
+    async function onCreateEvent() {
+        if (!accountId) return;
+        setCalendarError(null);
+        setSavingEvent(true);
+        try {
+            const created = await window.electronAPI.addCalendarEvent(accountId, {
+                summary: eventTitle.trim() || null,
+                location: eventLocation.trim() || null,
+                description: eventDescription.trim() || null,
+                startsAt: new Date(eventStart).toISOString(),
+                endsAt: new Date(eventEnd).toISOString(),
+            });
+            setEvents((prev) => [...prev, created].sort((a, b) => (Date.parse(a.starts_at || '') || 0) - (Date.parse(b.starts_at || '') || 0)));
+            setShowAddEventModal(false);
+            setEventTitle('');
+            setEventLocation('');
+            setEventDescription('');
+            const rounded = nextRoundedHour();
+            setEventStart(toDatetimeLocal(rounded));
+            setEventEnd(toDatetimeLocal(addHours(rounded, 1)));
+        } catch (error: any) {
+            setCalendarError(error?.message || String(error));
+        } finally {
+            setSavingEvent(false);
+        }
+    }
+
+    async function onManualSync() {
+        if (!accountId || syncing) return;
+        setSyncing(true);
+        setSyncStatusText('Syncing...');
+        setCalendarError(null);
+        try {
+            await window.electronAPI.syncDav(accountId);
+            const start = new Date(calendarBounds.gridStart);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(calendarBounds.gridEnd);
+            end.setHours(23, 59, 59, 999);
+            const rows = await window.electronAPI.getCalendarEvents(accountId, start.toISOString(), end.toISOString(), 5000);
+            setEvents(rows);
+            setSyncStatusText('Calendar synced');
+        } catch (error: any) {
+            setCalendarError(error?.message || String(error));
+            setSyncStatusText(`Sync failed: ${error?.message || String(error)}`);
+        } finally {
+            setSyncing(false);
+        }
+    }
+
+    function openNewEventForDay(dayKey: string) {
+        const day = new Date(`${dayKey}T00:00:00`);
+        if (Number.isNaN(day.getTime())) return;
+        const start = new Date(day);
+        start.setHours(9, 0, 0, 0);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 1);
+        setEventStart(toDatetimeLocal(start));
+        setEventEnd(toDatetimeLocal(end));
+        setShowAddEventModal(true);
+    }
+
+    const accountSidebar = (
+        <aside
+            className="flex h-full min-h-0 shrink-0 flex-col justify-between border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Accounts</p>
+                <div className="space-y-1">
+                    {accounts.map((account) => {
+                        const avatarColors = getAccountAvatarColors(account.email || account.display_name || String(account.id));
+                        return (
+                            <button
+                                key={account.id}
+                                type="button"
+                                onClick={() => onSelectAccount(account.id)}
+                                className={cn(
+                                    'w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
+                                    accountId === account.id
+                                        ? 'bg-sky-100 text-sky-900 dark:bg-[#3d4153] dark:text-slate-100'
+                                        : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
+                                )}
+                            >
+                                <div className="flex min-w-0 items-center gap-2">
+                                    <span
+                                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1 ring-black/10 dark:ring-white/10"
+                                        style={{
+                                            backgroundColor: avatarColors.background,
+                                            color: avatarColors.foreground,
+                                        }}
+                                    >
+                                        {getAccountMonogram(account)}
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span
+                                            className="block truncate">{account.display_name?.trim() || account.email}</span>
+                                        {account.display_name?.trim() && (
+                                            <span
+                                                className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">{account.email}</span>
+                                        )}
+                                    </span>
+                                </div>
+                            </button>
+                        );
+                    })}
+                    {accounts.length === 0 && (
+                        <p className="px-2 py-2 text-sm text-slate-500 dark:text-slate-400">No accounts available.</p>
+                    )}
+                </div>
+            </div>
+            <div className="shrink-0 border-t border-slate-200 px-2 py-3 dark:border-[#3a3d44]">
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        disabled={!accountId || syncing}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                        onClick={() => void onManualSync()}
+                        title="Sync now"
+                        aria-label="Sync now"
+                    >
+                        <RefreshCw size={14} className={cn(syncing && 'animate-spin')}/>
+                    </button>
+                </div>
+            </div>
+        </aside>
+    );
+    const selectedDayEvents = selectedDayForModal ? (eventsByDay.get(selectedDayForModal) ?? []) : [];
+    const calendarToolbar = (
+        <div className="flex items-center gap-2">
+            <div
+                className="flex items-center rounded-md border border-slate-300 bg-white dark:border-[#3a3d44] dark:bg-[#1e1f22]">
+                <button
+                    type="button"
+                    className="inline-flex h-10 w-10 items-center justify-center text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
+                    onClick={() => setVisibleMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                    aria-label="Previous month"
+                >
+                    <ChevronLeft size={16}/>
+                </button>
+                <div className="min-w-44 px-2 text-center text-sm font-medium text-slate-800 dark:text-slate-100">
+                    {visibleMonth.toLocaleDateString(systemLocale, {month: 'long', year: 'numeric'})}
+                </div>
+                <button
+                    type="button"
+                    className="inline-flex h-10 w-10 items-center justify-center text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
+                    onClick={() => setVisibleMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                    aria-label="Next month"
+                >
+                    <ChevronRight size={16}/>
+                </button>
+            </div>
+            <button
+                type="button"
+                disabled={!accountId}
+                className="ml-auto inline-flex h-10 items-center gap-2 rounded-md bg-sky-600 px-3 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-60 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                onClick={() => setShowAddEventModal(true)}
+                title="Add event"
+                aria-label="Add event"
+            >
+                <Plus size={14}/>
+                Add event
+            </button>
+        </div>
     );
 
     return (
-        <section className="h-full overflow-auto bg-slate-50 p-5 dark:bg-[#26292f]">
-            <div className="mx-auto max-w-5xl">
+        <>
+            <WorkspaceLayout
+                sidebar={accountSidebar}
+                sidebarWidth={sidebarWidth}
+                onSidebarResizeStart={onResizeStart}
+                menubar={calendarToolbar}
+                showMenuBar
+                statusText={syncing && syncStatusText.toLowerCase().includes('ready') ? 'Syncing...' : syncStatusText}
+                statusBusy={syncing || loading}
+            >
+                <div className="mx-auto max-w-7xl">
+                    {calendarError && <p className="mb-3 text-sm text-red-600 dark:text-red-300">{calendarError}</p>}
                 {!accountId && <p className="text-sm text-slate-500 dark:text-slate-400">No account selected.</p>}
                 {accountId && (
-                    <>
-                        {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Loading events...</p>}
-                        {!loading && sortedEvents.length === 0 && (
-                            <p className="text-sm text-slate-500 dark:text-slate-400">No events found.</p>
-                        )}
-                        {!loading && sortedEvents.length > 0 && (
-                            <div
-                                className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-                                <ul className="divide-y divide-slate-200 dark:divide-[#3a3d44]">
-                                    {sortedEvents.map((event) => (
-                                        <li key={event.id} className="px-4 py-3">
-                                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{event.summary || '(No title)'}</p>
-                                            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
-                                                {formatSystemDateTime(event.starts_at, systemLocale)} - {formatSystemDateTime(event.ends_at, systemLocale)}
-                                            </p>
-                                            {event.location && (
-                                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{event.location}</p>
+                    <div
+                        className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+                        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-[#3a3d44]">
+                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                                <div key={day}
+                                     className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    {day}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7">
+                            {calendarDays.map((day) => {
+                                const key = toDateKey(day);
+                                const dayEvents = eventsByDay.get(key) ?? [];
+                                const isCurrentMonth = day.getMonth() === calendarBounds.monthStart.getMonth();
+                                const isToday = key === toDateKey(new Date());
+                                return (
+                                    <div
+                                        key={key}
+                                        className={cn(
+                                            'min-h-36 border-r border-b border-slate-200 p-2 last:border-r-0 dark:border-[#3a3d44]',
+                                            !isCurrentMonth && 'bg-slate-50 dark:bg-[#26292f]',
+                                        )}
+                                        onContextMenu={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            setDayContextMenu({x: event.clientX, y: event.clientY, dayKey: key});
+                                        }}
+                                    >
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <span
+                                                className={cn(
+                                                    'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs',
+                                                    isToday
+                                                        ? 'bg-sky-600 text-white dark:bg-[#5865f2]'
+                                                        : 'text-slate-700 dark:text-slate-200',
+                                                    !isCurrentMonth && 'text-slate-400 dark:text-slate-500',
+                                                )}
+                                            >
+                                                {day.getDate()}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {dayEvents.slice(0, 3).map((event) => (
+                                                <button
+                                                    key={event.id}
+                                                    type="button"
+                                                    className="block w-full truncate rounded bg-sky-100 px-2 py-1 text-left text-xs text-sky-800 hover:bg-sky-200 dark:bg-[#3d4153] dark:text-slate-100 dark:hover:bg-[#4b5064]"
+                                                    onClick={() => setSelectedEvent(event)}
+                                                    title={event.summary || '(No title)'}
+                                                >
+                                                    {formatEventTime(event.starts_at)} {event.summary || '(No title)'}
+                                                </button>
+                                            ))}
+                                            {dayEvents.length > 3 && (
+                                                <p className="px-1 text-xs text-slate-500 dark:text-slate-400">
+                                                    +{dayEvents.length - 3} more
+                                                </p>
                                             )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {loading && (
+                            <div
+                                className="border-t border-slate-200 px-3 py-2 text-sm text-slate-500 dark:border-[#3a3d44] dark:text-slate-400">
+                                Loading events...
+                            </div>
+                        )}
+                    </div>
+                )}
+                </div>
+            </WorkspaceLayout>
+
+            {dayContextMenu && (
+                <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setDayContextMenu(null)}
+                >
+                    <div
+                        className="absolute z-50 min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        style={{left: dayContextMenu.x, top: dayContextMenu.y}}
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            className="block w-full rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
+                            onClick={() => {
+                                setSelectedDayForModal(dayContextMenu.dayKey);
+                                setDayContextMenu(null);
+                            }}
+                        >
+                            View all events ({(eventsByDay.get(dayContextMenu.dayKey) ?? []).length})
+                        </button>
+                        <button
+                            type="button"
+                            className="block w-full rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
+                            onClick={() => {
+                                openNewEventForDay(dayContextMenu.dayKey);
+                                setDayContextMenu(null);
+                            }}
+                        >
+                            New event on this day
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {selectedEvent && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+                    onClick={() => setSelectedEvent(null)}
+                >
+                    <div
+                        className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{selectedEvent.summary || '(No title)'}</h3>
+                        <p className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+                            {formatSystemDateTime(selectedEvent.starts_at, systemLocale)} - {formatSystemDateTime(selectedEvent.ends_at, systemLocale)}
+                        </p>
+                        {selectedEvent.location && (
+                            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{selectedEvent.location}</p>
+                        )}
+                        {selectedEvent.description && (
+                            <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">{selectedEvent.description}</p>
+                        )}
+                        <div className="mt-4 flex justify-end">
+                            <button
+                                type="button"
+                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                onClick={() => setSelectedEvent(null)}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {selectedDayForModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+                    onClick={() => setSelectedDayForModal(null)}
+                >
+                    <div
+                        className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                            Events on {selectedDayForModal}
+                        </h3>
+                        <div className="mt-3">
+                            {selectedDayEvents.length === 0 && (
+                                <p className="text-sm text-slate-500 dark:text-slate-400">No events on this day.</p>
+                            )}
+                            {selectedDayEvents.length > 0 && (
+                                <ul className="space-y-2">
+                                    {selectedDayEvents.map((event) => (
+                                        <li key={event.id}>
+                                            <button
+                                                type="button"
+                                                className="w-full rounded border border-slate-200 px-3 py-2 text-left hover:bg-slate-50 dark:border-[#3a3d44] dark:hover:bg-[#35373c]"
+                                                onClick={() => {
+                                                    setSelectedEvent(event);
+                                                    setSelectedDayForModal(null);
+                                                }}
+                                            >
+                                                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                                                    {formatEventTime(event.starts_at)} {event.summary || '(No title)'}
+                                                </p>
+                                                {event.location && (
+                                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{event.location}</p>
+                                                )}
+                                            </button>
                                         </li>
                                     ))}
                                 </ul>
+                            )}
+                        </div>
+                        <div className="mt-4 flex justify-end gap-2">
+                            <button
+                                type="button"
+                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                onClick={() => {
+                                    openNewEventForDay(selectedDayForModal);
+                                    setSelectedDayForModal(null);
+                                }}
+                            >
+                                New event on this day
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                onClick={() => setSelectedDayForModal(null)}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showAddEventModal && accountId && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+                    onClick={() => setShowAddEventModal(false)}
+                >
+                    <div
+                        className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <form
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                void onCreateEvent();
+                            }}
+                        >
+                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Add Event</h3>
+                            <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                <label className="block text-sm md:col-span-2">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Title</span>
+                                    <input
+                                        type="text"
+                                        value={eventTitle}
+                                        onChange={(event) => setEventTitle(event.target.value)}
+                                        placeholder="Team sync"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Start</span>
+                                    <input
+                                        type="datetime-local"
+                                        value={eventStart}
+                                        onChange={(event) => setEventStart(event.target.value)}
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        required
+                                    />
+                                </label>
+                                <label className="block text-sm">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">End</span>
+                                    <input
+                                        type="datetime-local"
+                                        value={eventEnd}
+                                        onChange={(event) => setEventEnd(event.target.value)}
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        required
+                                    />
+                                </label>
+                                <label className="block text-sm md:col-span-2">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Location</span>
+                                    <input
+                                        type="text"
+                                        value={eventLocation}
+                                        onChange={(event) => setEventLocation(event.target.value)}
+                                        placeholder="Conference Room"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm md:col-span-2">
+                                    <span
+                                        className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Description</span>
+                                    <textarea
+                                        value={eventDescription}
+                                        onChange={(event) => setEventDescription(event.target.value)}
+                                        rows={4}
+                                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
                             </div>
-                        )}
-                    </>
-                )}
-            </div>
-        </section>
+                            <div className="mt-4 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                    onClick={() => setShowAddEventModal(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                    disabled={savingEvent}
+                                >
+                                    {savingEvent ? 'Saving...' : 'Save Event'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </>
     );
+}
+
+function startOfMonth(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function endOfMonth(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+function startOfWeekMonday(date: Date): Date {
+    const out = new Date(date);
+    const day = out.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    out.setDate(out.getDate() + diff);
+    out.setHours(0, 0, 0, 0);
+    return out;
+}
+
+function endOfWeekMonday(date: Date): Date {
+    const out = startOfWeekMonday(date);
+    out.setDate(out.getDate() + 6);
+    out.setHours(23, 59, 59, 999);
+    return out;
+}
+
+function toDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function nextRoundedHour(): Date {
+    const now = new Date();
+    const rounded = new Date(now);
+    rounded.setMinutes(0, 0, 0);
+    rounded.setHours(rounded.getHours() + 1);
+    return rounded;
+}
+
+function addHours(date: Date, hours: number): Date {
+    const out = new Date(date);
+    out.setHours(out.getHours() + hours);
+    return out;
+}
+
+function toDatetimeLocal(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    const hour = `${date.getHours()}`.padStart(2, '0');
+    const minute = `${date.getMinutes()}`.padStart(2, '0');
+    return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
+function formatEventTime(iso: string | null): string {
+    if (!iso) return '';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+    const hour = `${date.getHours()}`.padStart(2, '0');
+    const minute = `${date.getMinutes()}`.padStart(2, '0');
+    return `${hour}:${minute}`;
 }

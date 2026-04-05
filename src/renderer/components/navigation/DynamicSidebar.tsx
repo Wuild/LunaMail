@@ -30,8 +30,8 @@ export default function DynamicSidebar({
                                        }: DynamicSidebarProps) {
     return (
         <aside
-            className={cn('w-72 shrink-0 border-r border-slate-200 bg-white p-3 dark:border-[#3a3d44] dark:bg-[#2b2d31]', className)}>
-            <div className="space-y-2">
+            className={cn('h-full min-h-0 w-80 shrink-0 border-r border-slate-200 bg-white p-3 dark:border-[#3a3d44] dark:bg-[#2b2d31]', className)}>
+            <div className="h-full overflow-y-auto space-y-2">
                 {sections.map((section) => (
                     <div key={section.id}
                          className={cn(section.title && 'border-t border-slate-200 pt-2 dark:border-[#3a3d44]')}>

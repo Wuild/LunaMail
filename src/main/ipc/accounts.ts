@@ -41,6 +41,7 @@ import {downloadMessageAttachment, syncAccountMailbox, syncMessageBody, type Syn
 import {verifyConnection, type VerifyPayload} from '../mail/verify.js';
 import {
     addAddressBook,
+    addCalendarEvent,
     addContact,
     type DavSyncSummary,
     discoverDav,
@@ -48,6 +49,7 @@ import {
     getAddressBooks,
     getCalendarEvents,
     getContacts,
+    removeAddressBook,
     removeContact,
     syncDav
 } from '../dav/sync.js';
@@ -108,6 +110,73 @@ type FolderIdleState = {
 const IDLE_RECONNECT_MAX_MS = 60000;
 
 const idleWatchers = new Map<number, IdleWatcherState>();
+
+type ExportContactsPayload = {
+    format: 'csv' | 'vcf';
+    addressBookId?: number | null;
+};
+
+function escapeCsvValue(value: string): string {
+    if (!/[",\n\r]/.test(value)) return value;
+    return `"${value.replace(/"/g, '""')}"`;
+}
+
+function toCsv(contacts: Array<{
+    full_name: string | null;
+    email: string;
+    phone?: string | null;
+    organization?: string | null;
+    title?: string | null;
+    note?: string | null;
+}>): string {
+    const lines = ['full_name,email,phone,organization,title,note'];
+    for (const contact of contacts) {
+        lines.push([
+            escapeCsvValue(contact.full_name ?? ''),
+            escapeCsvValue(contact.email ?? ''),
+            escapeCsvValue(contact.phone ?? ''),
+            escapeCsvValue(contact.organization ?? ''),
+            escapeCsvValue(contact.title ?? ''),
+            escapeCsvValue(contact.note ?? ''),
+        ].join(','));
+    }
+    return `${lines.join('\n')}\n`;
+}
+
+function escapeVCardValue(value: string): string {
+    return value
+        .replace(/\\/g, '\\\\')
+        .replace(/\n/g, '\\n')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,');
+}
+
+function toVcf(contacts: Array<{
+    full_name: string | null;
+    email: string;
+    phone?: string | null;
+    organization?: string | null;
+    title?: string | null;
+    note?: string | null;
+}>): string {
+    return contacts.map((contact) => {
+        const fullName = (contact.full_name || contact.email || '').trim();
+        const safeName = escapeVCardValue(fullName);
+        const safeEmail = escapeVCardValue((contact.email || '').trim());
+        const lines = [
+            'BEGIN:VCARD',
+            'VERSION:3.0',
+            `FN:${safeName}`,
+            `EMAIL;TYPE=INTERNET:${safeEmail}`,
+        ];
+        if (contact.phone?.trim()) lines.push(`TEL;TYPE=CELL:${escapeVCardValue(contact.phone.trim())}`);
+        if (contact.organization?.trim()) lines.push(`ORG:${escapeVCardValue(contact.organization.trim())}`);
+        if (contact.title?.trim()) lines.push(`TITLE:${escapeVCardValue(contact.title.trim())}`);
+        if (contact.note?.trim()) lines.push(`NOTE:${escapeVCardValue(contact.note.trim())}`);
+        lines.push('END:VCARD');
+        return lines.join('\n');
+    }).join('\n') + '\n';
+}
 
 export function registerAccountIpc(): void {
     // Get all accounts (without passwords)
@@ -265,7 +334,11 @@ export function registerAccountIpc(): void {
         async (_event, accountId: number, payload: {
             addressBookId?: number | null;
             fullName?: string | null;
-            email: string
+            email: string;
+            phone?: string | null;
+            organization?: string | null;
+            title?: string | null;
+            note?: string | null;
         }) => {
             return addContact(accountId, payload);
         },
@@ -276,20 +349,82 @@ export function registerAccountIpc(): void {
         async (_event, contactId: number, payload: {
             addressBookId?: number | null;
             fullName?: string | null;
-            email?: string
+            email?: string;
+            phone?: string | null;
+            organization?: string | null;
+            title?: string | null;
+            note?: string | null;
         }) => {
             return editContact(contactId, payload);
         },
     );
+
+    ipcMain.handle('delete-address-book', async (_event, accountId: number, addressBookId: number) => {
+        return removeAddressBook(accountId, addressBookId);
+    });
 
     ipcMain.handle('delete-contact', async (_event, contactId: number) => {
         return removeContact(contactId);
     });
 
     ipcMain.handle(
+        'export-contacts',
+        async (event, accountId: number, payload: ExportContactsPayload) => {
+            const format = payload?.format === 'vcf' ? 'vcf' : 'csv';
+            const addressBookId = payload?.addressBookId ?? null;
+            const contacts = getContacts(accountId, null, 100000, addressBookId);
+            const content = format === 'vcf' ? toVcf(contacts) : toCsv(contacts);
+            const defaultName = `contacts-${new Date().toISOString().slice(0, 10)}.${format}`;
+            const parentWindow = BrowserWindow.fromWebContents(event.sender);
+            const dialogOptions = {
+                title: 'Export Contacts',
+                defaultPath: path.join(os.homedir(), defaultName),
+                filters: format === 'vcf'
+                    ? [{name: 'vCard', extensions: ['vcf']}]
+                    : [{name: 'CSV', extensions: ['csv']}],
+            };
+            const save = parentWindow
+                ? await dialog.showSaveDialog(parentWindow, dialogOptions)
+                : await dialog.showSaveDialog(dialogOptions);
+            if (save.canceled || !save.filePath) {
+                return {
+                    canceled: true,
+                    count: contacts.length,
+                    path: null,
+                    format,
+                };
+            }
+            await fs.writeFile(save.filePath, content, 'utf8');
+            return {
+                canceled: false,
+                count: contacts.length,
+                path: save.filePath,
+                format,
+            };
+        },
+    );
+
+    ipcMain.handle(
         'get-calendar-events',
         async (_event, accountId: number, startIso?: string | null, endIso?: string | null, limit?: number) => {
             return getCalendarEvents(accountId, startIso ?? null, endIso ?? null, limit ?? 500);
+        },
+    );
+
+    ipcMain.handle(
+        'add-calendar-event',
+        async (
+            _event,
+            accountId: number,
+            payload: {
+                summary?: string | null;
+                description?: string | null;
+                location?: string | null;
+                startsAt: string;
+                endsAt: string;
+            },
+        ) => {
+            return addCalendarEvent(accountId, payload);
         },
     );
 
@@ -588,6 +723,14 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
             try {
                 davSummary = await syncDav(accountId);
             } catch (davError: any) {
+                createMailDebugLogger('carddav', `sync:${accountId}`).error(
+                    'DAV sync skipped: %s',
+                    davError?.message || String(davError),
+                );
+                createMailDebugLogger('caldav', `sync:${accountId}`).error(
+                    'DAV sync skipped: %s',
+                    davError?.message || String(davError),
+                );
                 console.warn(
                     `DAV sync skipped for account ${accountId}:`,
                     davError?.message || String(davError),

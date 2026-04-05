@@ -57,32 +57,25 @@ export function openComposeWindow(parentWindow?: BrowserWindow, draft?: ComposeD
     composeWin.removeMenu();
     composeWin.webContents.session.setSpellCheckerLanguages(getSpellCheckerLanguages(getAppSettingsSync().language));
 
-    if (isDev) {
-        composeWin.webContents.on('before-input-event', (_event, input) => {
-            if (input.type === 'keyDown' && input.key === 'Escape') {
-                if (composeWin && !composeWin.isDestroyed()) {
-                    composeWin.close();
-                }
-                return;
+    composeWin.webContents.on('before-input-event', (event, input) => {
+        if (input.type !== 'keyDown') return;
+        const key = String(input.key || '').toLowerCase();
+        if (key === 'escape') {
+            event.preventDefault();
+            if (composeWin && !composeWin.isDestroyed()) {
+                composeWin.close();
             }
-            const isF12 = input.type === 'keyDown' && input.key === 'F12';
-            const isCtrlShiftI = input.type === 'keyDown' && input.control && input.shift && input.key.toLowerCase() === 'i';
-            const isCmdAltI = input.type === 'keyDown' && input.meta && input.alt && input.key.toLowerCase() === 'i';
-            if (isF12 || isCtrlShiftI || isCmdAltI) {
-                if (composeWin && !composeWin.isDestroyed()) {
-                    composeWin.webContents.openDevTools({mode: 'detach'});
-                }
-            }
-        });
-    } else {
-        composeWin.webContents.on('before-input-event', (_event, input) => {
-            if (input.type === 'keyDown' && input.key === 'Escape') {
-                if (composeWin && !composeWin.isDestroyed()) {
-                    composeWin.close();
-                }
-            }
-        });
-    }
+            return;
+        }
+        const isF12 = key === 'f12';
+        const isCtrlShiftI = input.control && input.shift && key === 'i';
+        const isCmdAltI = input.meta && input.alt && key === 'i';
+        if (!isF12 && !isCtrlShiftI && !isCmdAltI) return;
+        event.preventDefault();
+        if (composeWin && !composeWin.isDestroyed()) {
+            composeWin.webContents.openDevTools({mode: 'detach'});
+        }
+    });
 
     composeWin.on('closed', () => {
         composeWin = null;

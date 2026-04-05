@@ -329,6 +329,14 @@ export function initDb(): void {
             TEXT
             NOT
             NULL,
+            phone
+            TEXT,
+            organization
+            TEXT,
+            title
+            TEXT,
+            note
+            TEXT,
             etag
             TEXT,
             last_seen_sync
@@ -519,5 +527,17 @@ export function initDb(): void {
     const contactNames = new Set(contactCols.map((c) => c.name));
     if (!contactNames.has('address_book_id')) {
         db.exec("ALTER TABLE contacts ADD COLUMN address_book_id INTEGER");
+    }
+    if (!contactNames.has('phone')) {
+        db.exec("ALTER TABLE contacts ADD COLUMN phone TEXT");
+    }
+    if (!contactNames.has('organization')) {
+        db.exec("ALTER TABLE contacts ADD COLUMN organization TEXT");
+    }
+    if (!contactNames.has('title')) {
+        db.exec("ALTER TABLE contacts ADD COLUMN title TEXT");
+    }
+    if (!contactNames.has('note')) {
+        db.exec("ALTER TABLE contacts ADD COLUMN note TEXT");
     }
 }

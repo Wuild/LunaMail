@@ -1,8 +1,10 @@
 import React from 'react';
+import {Link} from 'react-router-dom';
 import {
     Archive,
     Bug,
     CalendarDays,
+    ChevronLeft,
     ChevronRight,
     CircleHelp,
     FileText,
@@ -29,6 +31,7 @@ import {ScrollArea} from '../components/ui/scroll-area';
 import {isProtectedFolder} from '../features/mail/folders';
 import {getAccountAvatarColors, getAccountMonogram} from '../lib/accountAvatar';
 import {formatSystemDate} from '../lib/dateTime';
+import {useResizableSidebar} from '../hooks/useResizableSidebar';
 import {cn} from '../lib/utils';
 import WorkspaceLayout from './WorkspaceLayout';
 
@@ -57,6 +60,10 @@ interface MainLayoutProps {
     hasMoreMessages: boolean;
     loadingMoreMessages: boolean;
     onRefresh: () => void;
+    canNavigateBack?: boolean;
+    canNavigateForward?: boolean;
+    onNavigateBack?: () => void;
+    onNavigateForward?: () => void;
     onOpenCalendar: () => void;
     onOpenContacts: () => void;
     activeWorkspace?: 'mail' | 'calendar' | 'contacts';
@@ -131,6 +138,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                    hasMoreMessages,
                                                    loadingMoreMessages,
                                                    onRefresh,
+                                                   canNavigateBack = false,
+                                                   canNavigateForward = false,
+                                                   onNavigateBack,
+                                                   onNavigateForward,
                                                    onOpenCalendar,
                                                    onOpenContacts,
                                                    activeWorkspace = 'mail',
@@ -220,6 +231,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     >(null);
     const [createFolderSaving, setCreateFolderSaving] = React.useState(false);
     const [createFolderError, setCreateFolderError] = React.useState<string | null>(null);
+    const {sidebarWidth, onResizeStart} = useResizableSidebar();
+    const {sidebarWidth: mailListWidth, onResizeStart: onMailListResizeStart} = useResizableSidebar({
+        storageKey: 'lunamail.mailList.width',
+        defaultWidth: 420,
+        minWidth: 300,
+        maxWidth: 760,
+    });
     const selectedFolder = React.useMemo(
         () => folders.find((folder) => folder.path === selectedFolderPath) ?? null,
         [folders, selectedFolderPath],
@@ -510,6 +528,26 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                     <div className="flex h-full items-center justify-between gap-3 px-4">
                         <div className="min-w-0 flex items-center gap-3">
                             <div className="flex items-center gap-2">
+                                <Button
+                                    variant="ghost"
+                                    className="h-9 w-9 rounded-md p-0 text-white/90 hover:bg-white/15 hover:text-white disabled:opacity-40"
+                                    onClick={() => onNavigateBack?.()}
+                                    title="Back"
+                                    aria-label="Back"
+                                    disabled={!canNavigateBack}
+                                >
+                                    <ChevronLeft size={16}/>
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    className="h-9 w-9 rounded-md p-0 text-white/90 hover:bg-white/15 hover:text-white disabled:opacity-40"
+                                    onClick={() => onNavigateForward?.()}
+                                    title="Forward"
+                                    aria-label="Forward"
+                                    disabled={!canNavigateForward}
+                                >
+                                    <ChevronRight size={16}/>
+                                </Button>
                                 <Mail size={18} className="opacity-90"/>
                                 <p className="truncate text-base font-semibold tracking-tight text-white">LunaMail</p>
                             </div>
@@ -607,8 +645,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
                 <div className="min-h-0 flex h-full overflow-hidden">
                 {!hideFolderSidebar && (
+                    <div className="relative min-h-0 shrink-0" style={{width: sidebarWidth}}>
                     <aside
-                        className="flex min-h-0 w-80 shrink-0 flex-col border-r border-slate-200 bg-gradient-to-b from-slate-100 via-slate-50 to-white text-slate-800 dark:border-[#1b1c20] dark:bg-gradient-to-b dark:from-[#1f2125] dark:via-[#1f2125] dark:to-[#22242a] dark:text-slate-100">
+                        className="flex h-full min-h-0 shrink-0 flex-col border-r border-slate-200 bg-white text-slate-800 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-100">
                         <ScrollArea className="min-h-0 flex-1 px-2.5 py-3">
                             <nav className="space-y-2">
                                 <div className="mb-2 pb-2 border-b border-slate-200 dark:border-[#1b1c20]">
@@ -637,6 +676,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                     const accountFolders = accountFoldersById[account.id] ?? [];
                                     const accountProtectedFolders = accountFolders.filter((folder) => isProtectedFolder(folder));
                                     const accountCustomFolders = accountFolders.filter((folder) => !isProtectedFolder(folder));
+                                    const accountDefaultFolder = accountFolders[0] ?? null;
+                                    const accountLinkTarget = accountDefaultFolder
+                                        ? `/email/${account.id}/${accountDefaultFolder.id}`
+                                        : `/email/${account.id}`;
                                     const avatarColors = getAccountAvatarColors(account.email || account.display_name || String(account.id));
                                     return (
                                         <div key={account.id} className="space-y-1">
@@ -648,21 +691,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                         : 'bg-transparent hover:bg-gradient-to-r hover:from-slate-200/90 hover:to-slate-100/90 dark:hover:from-[#3f434b] dark:hover:to-[#373a42]',
                                                 )}>
 
-                                                <button
+                                                <Link
+                                                    to={accountLinkTarget}
                                                     className={cn(
-                                                        'flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                                                        'flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm no-underline transition-colors',
                                                         isSelectedAccount
                                                             ? 'font-semibold text-slate-900 dark:text-white'
                                                             : 'text-slate-700 dark:text-slate-200',
                                                     )}
-                                                    onClick={() => {
-                                                        toggleAccountExpanded(account.id);
-                                                        onSelectAccount(account.id);
-                                                    }}
                                                     onContextMenu={(e) => {
                                                         e.preventDefault();
                                                         setAccountMenu({x: e.clientX, y: e.clientY, account});
                                                     }}
+                                                    style={{color: 'inherit'}}
                                                 >
                                                 <span
                                                     className={cn(
@@ -689,7 +730,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                         </span>
                                                         )}
                                                 </span>
-                                                </button>
+                                                </Link>
                                                 <div
                                                     className={cn('flex items-center gap-1 pr-1 transition-opacity', isSyncingAccount ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
                                                     <button
@@ -732,6 +773,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                             {accountProtectedFolders.map((folder) => (
                                                                 <FolderItemRow
                                                                     key={folder.id}
+                                                                    to={`/email/${account.id}/${folder.id}`}
                                                                     icon={getFolderIcon(folder)}
                                                                     iconColorClassName={getFolderColorClass(folder.color)}
                                                                     label={folder.custom_name || folder.name}
@@ -741,10 +783,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                                         dragTargetFolder?.accountId === folder.account_id
                                                                         && dragTargetFolder.path === folder.path
                                                                     }
-                                                                    onClick={() => {
-                                                                        if (!isSelectedAccount) onSelectAccount(account.id);
-                                                                        onSelectFolder(folder.path, account.id);
-                                                                    }}
                                                                     onDragEnter={(e) => {
                                                                         if (!isSelectedAccount) return;
                                                                         if (!draggingMessage) return;
@@ -813,6 +851,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                             {accountCustomFolders.map((folder) => (
                                                                 <FolderItemRow
                                                                     key={folder.id}
+                                                                    to={`/email/${account.id}/${folder.id}`}
                                                                     icon={getFolderIcon(folder)}
                                                                     iconColorClassName={getFolderColorClass(folder.color)}
                                                                     label={folder.custom_name || folder.name}
@@ -885,10 +924,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                                         dragTargetFolder?.accountId === folder.account_id
                                                                         && dragTargetFolder.path === folder.path
                                                                     }
-                                                                    onClick={() => {
-                                                                        if (!isSelectedAccount) onSelectAccount(account.id);
-                                                                        onSelectFolder(folder.path, account.id);
-                                                                    }}
                                                                     onDragEnter={(e) => {
                                                                         if (!isSelectedAccount) return;
                                                                         if (!draggingMessage) return;
@@ -963,20 +998,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                 })}
                             </nav>
                         </ScrollArea>
-                        <div className="shrink-0 border-t border-slate-200 px-2 py-2 dark:border-[#2f3138]">
-                            <div className="flex items-center gap-1">
+                        <div className="shrink-0 border-t border-slate-200 px-2 py-3 dark:border-[#3a3d44]">
+                            <div className="flex items-center gap-2">
                                 <button
                                     type="button"
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:bg-[#25272c] dark:text-slate-200 dark:hover:bg-[#34363d]"
-                                    onClick={() => window.electronAPI.openAddAccountWindow()}
-                                    title="Add account"
-                                    aria-label="Add account"
-                                >
-                                    <FolderPlus size={14}/>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#25272c] dark:text-slate-200 dark:hover:bg-[#34363d]"
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                     onClick={syncAllAccountsNow}
                                     title="Sync all accounts"
                                     aria-label="Sync all accounts"
@@ -984,14 +1010,55 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                 >
                                     <RefreshCw size={14}/>
                                 </button>
+                                <button
+                                    type="button"
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-sky-600 text-white transition-colors hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                    onClick={() => window.electronAPI.openAddAccountWindow()}
+                                    title="Add account"
+                                    aria-label="Add account"
+                                >
+                                    <FolderPlus size={14}/>
+                                </button>
                             </div>
                         </div>
 
                     </aside>
+                        <div
+                            role="separator"
+                            aria-orientation="vertical"
+                            className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize bg-transparent hover:bg-slate-300/70 dark:hover:bg-slate-500/70"
+                            onMouseDown={onResizeStart}
+                        />
+                    </div>
                 )}
 
                 <main
-                    className="relative flex min-h-0 w-[38vw] min-w-[15rem] max-w-[26rem] flex-col border-r border-slate-200 bg-white dark:border-[#2a2d31] dark:bg-[#2b2d31]">
+                    className="relative flex min-h-0 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                    style={{width: mailListWidth}}
+                >
+                    <div className="border-b border-slate-200 p-2 dark:border-[#3a3d44]">
+                        <div className="relative">
+                            <Search size={14}
+                                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"/>
+                            <input
+                                type="text"
+                                readOnly
+                                value=""
+                                placeholder="Search mail"
+                                className="h-10 w-full rounded-md border border-slate-300 bg-white pl-9 pr-14 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-500 hover:bg-slate-50 focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:placeholder:text-slate-400 dark:hover:bg-[#25272c] dark:focus:border-[#5865f2]"
+                                onClick={() => setSearchModalOpen(true)}
+                                onFocus={(event) => {
+                                    setSearchModalOpen(true);
+                                    event.currentTarget.blur();
+                                }}
+                                aria-label="Search mail"
+                            />
+                            <span
+                                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                                Ctrl+F
+                            </span>
+                        </div>
+                    </div>
                     {selectedMessageIds.length > 1 && (
                         <div className="pointer-events-none absolute bottom-4 left-4 right-4 z-20">
                             <div
@@ -1045,14 +1112,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                 yet.</div>
                         )}
                         {messages.map((message, messageIndex) => (
-                            <button
+                            <Link
                                 key={message.id}
+                                to={`/email/${message.account_id}/${message.folder_id}/${message.id}`}
                                 className={cn(
-                                    'w-full border-b border-slate-100 px-5 py-4 text-left transition-colors hover:bg-slate-50 dark:border-[#393c41] dark:hover:bg-[#32353b]',
+                                    'block w-full border-b border-slate-100 px-5 py-4 text-left no-underline transition-colors hover:bg-slate-50 dark:border-[#393c41] dark:hover:bg-[#32353b]',
                                     draggingMessage?.id === message.id && 'opacity-60',
                                     selectedMessageIds.includes(message.id) && 'bg-sky-50/70 dark:bg-[#3a3e52]',
                                     selectedMessageId === message.id && 'border-l-4 border-l-sky-600 dark:border-l-[#5865f2]',
                                 )}
+                                style={{color: 'inherit'}}
                                 onClick={(e) =>
                                     onSelectMessage(message.id, messageIndex, {
                                         shiftKey: e.shiftKey,
@@ -1114,7 +1183,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                         <span>{formatSystemDate(message.date, dateLocale)}</span>
                   </span>
                                 </div>
-                            </button>
+                            </Link>
                         ))}
                         {loadingMoreMessages && messages.length > 0 && (
                             <div className="px-5 py-3 text-center text-xs text-slate-500 dark:text-slate-400">Loading
@@ -1125,6 +1194,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                 list</div>
                         )}
                     </ScrollArea>
+                    <div
+                        role="separator"
+                        aria-orientation="vertical"
+                        className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize bg-transparent hover:bg-slate-300/70 dark:hover:bg-slate-500/70"
+                        onMouseDown={onMailListResizeStart}
+                    />
                 </main>
 
                 <section className="flex min-w-0 flex-1 flex-col bg-white dark:bg-[#34373d]">{children}</section>
@@ -1231,16 +1306,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                         const account = accounts.find((a) => a.id === message.account_id);
                                         const folder = (accountFoldersById[message.account_id] ?? []).find((f) => f.id === message.folder_id);
                                         return (
-                                            <button
+                                            <Link
                                                 key={message.id}
-                                                type="button"
-                                                className="w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-slate-200 hover:bg-slate-50 dark:hover:border-[#3a3d44] dark:hover:bg-[#30333a]"
+                                                to={`/email/${message.account_id}/${message.folder_id}/${message.id}`}
+                                                className="block w-full rounded-lg border border-transparent px-3 py-2 text-left no-underline transition-colors hover:border-slate-200 hover:bg-slate-50 dark:hover:border-[#3a3d44] dark:hover:bg-[#30333a]"
+                                                style={{color: 'inherit'}}
                                                 onClick={() => {
-                                                    const accountId = message.account_id;
-                                                    const accountFolders = accountFoldersById[accountId] ?? [];
-                                                    const targetFolder = accountFolders.find((f) => f.id === message.folder_id);
-                                                    if (accountId !== selectedAccountId) onSelectAccount(accountId);
-                                                    if (targetFolder) onSelectFolder(targetFolder.path, accountId);
                                                     onSelectMessage(message.id, idx);
                                                     setSearchModalOpen(false);
                                                 }}
@@ -1269,7 +1340,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                         {folder?.custom_name || folder?.name || folder?.path || 'Unknown folder'}
                                                     </span>
                                                 </div>
-                                            </button>
+                                            </Link>
                                         );
                                     })}
                                 </div>
@@ -1655,6 +1726,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 };
 
 const FolderItemRow: React.FC<{
+    to?: string;
     icon: React.ReactNode;
     iconColorClassName?: string;
     label: string;
@@ -1665,17 +1737,18 @@ const FolderItemRow: React.FC<{
     count?: number;
     onEditFolder?: () => void;
     draggableFolder?: boolean;
-    onFolderDragStart?: (e: React.DragEvent<HTMLButtonElement>) => void;
-    onFolderDragEnd?: (e: React.DragEvent<HTMLButtonElement>) => void;
-    onFolderDragOver?: (e: React.DragEvent<HTMLButtonElement>) => void;
-    onFolderDrop?: (e: React.DragEvent<HTMLButtonElement>) => void;
+    onFolderDragStart?: (e: React.DragEvent<HTMLElement>) => void;
+    onFolderDragEnd?: (e: React.DragEvent<HTMLElement>) => void;
+    onFolderDragOver?: (e: React.DragEvent<HTMLElement>) => void;
+    onFolderDrop?: (e: React.DragEvent<HTMLElement>) => void;
     onClick?: () => void;
-    onContextMenu?: (e: React.MouseEvent<HTMLButtonElement>) => void;
-    onDrop?: (e: React.DragEvent<HTMLButtonElement>) => void;
-    onDragOver?: (e: React.DragEvent<HTMLButtonElement>) => void;
-    onDragEnter?: (e: React.DragEvent<HTMLButtonElement>) => void;
-    onDragLeave?: (e: React.DragEvent<HTMLButtonElement>) => void;
+    onContextMenu?: (e: React.MouseEvent<HTMLElement>) => void;
+    onDrop?: (e: React.DragEvent<HTMLElement>) => void;
+    onDragOver?: (e: React.DragEvent<HTMLElement>) => void;
+    onDragEnter?: (e: React.DragEvent<HTMLElement>) => void;
+    onDragLeave?: (e: React.DragEvent<HTMLElement>) => void;
 }> = ({
+          to,
           icon,
           iconColorClassName,
           label,
@@ -1703,9 +1776,10 @@ const FolderItemRow: React.FC<{
                 "group relative ml-3 w-[calc(100%-0.75rem)] before:absolute before:left-[-0.75rem] before:top-1/2 before:h-px before:w-2 before:-translate-y-1/2 before:bg-slate-300/80 before:content-[''] dark:before:bg-[#4a4d55]",
             )}
         >
-            <button
+            <Link
+                to={to || '#'}
                 className={cn(
-                    'relative flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left transition-all',
+                    'relative flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left no-underline transition-all',
                     dropActive && 'bg-slate-200 text-slate-900 ring-1 ring-slate-300 shadow-sm dark:bg-[#404249] dark:text-slate-100 dark:ring-[#5b5e66]',
                     customDragging && 'opacity-45',
                     active
@@ -1728,6 +1802,7 @@ const FolderItemRow: React.FC<{
                 onContextMenu={onContextMenu}
                 onDragEnter={onDragEnter}
                 onDragLeave={onDragLeave}
+                style={{color: 'inherit'}}
             >
               <span className="flex min-w-0 items-center gap-2.5">
                   <span
@@ -1757,7 +1832,7 @@ const FolderItemRow: React.FC<{
                         </Badge>
                     )}
                 </span>
-            </button>
+            </Link>
             {onEditFolder && (
                 <button
                     type="button"

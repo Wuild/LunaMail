@@ -1,6 +1,6 @@
 import {format} from 'node:util';
 
-export type DebugLogSource = 'imap' | 'smtp' | 'app';
+export type DebugLogSource = 'imap' | 'smtp' | 'carddav' | 'caldav' | 'app';
 export type DebugLogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
 export interface DebugLogEntry {
@@ -68,12 +68,12 @@ interface StructuredLogger {
     child: (bindings?: Record<string, unknown>) => StructuredLogger;
 }
 
-export function createMailDebugLogger(source: 'imap' | 'smtp', scope: string): StructuredLogger {
+export function createMailDebugLogger(source: DebugLogSource, scope: string): StructuredLogger {
     return buildStructuredLogger(source, scope, null);
 }
 
 function buildStructuredLogger(
-    source: 'imap' | 'smtp',
+    source: DebugLogSource,
     scope: string,
     bindings: Record<string, unknown> | null,
 ): StructuredLogger {

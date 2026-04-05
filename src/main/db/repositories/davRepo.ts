@@ -9,6 +9,10 @@ export interface ContactRow {
     source_uid: string;
     full_name: string | null;
     email: string;
+    phone: string | null;
+    organization: string | null;
+    title: string | null;
+    note: string | null;
     etag: string | null;
     last_seen_sync: string;
     created_at: string;
@@ -77,7 +81,16 @@ export function upsertDavSettings(accountId: number, carddavUrl?: string | null,
 
 export function upsertContacts(
     accountId: number,
-    rows: Array<{ sourceUid: string; fullName: string | null; email: string; etag?: string | null }>,
+    rows: Array<{
+        sourceUid: string;
+        fullName: string | null;
+        email: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
+        etag?: string | null;
+    }>,
     source: string = 'carddav',
 ): { upserted: number; removed: number } {
     const db = getDb();
@@ -85,9 +98,15 @@ export function upsertContacts(
     const tx = db.transaction(() => {
         const upsert = db.prepare(
             `
-                INSERT INTO contacts (account_id, source, source_uid, full_name, email, etag, last_seen_sync, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(account_id, source, source_uid, email) DO
+                INSERT INTO contacts (
+                    account_id, source, source_uid, full_name, email, phone, organization, title, note, etag, last_seen_sync, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(account_id, source, source_uid, email) DO
                 UPDATE SET full_name      = excluded.full_name,
+                           phone          = excluded.phone,
+                           organization   = excluded.organization,
+                           title          = excluded.title,
+                           note           = excluded.note,
                            etag           = excluded.etag,
                            last_seen_sync = excluded.last_seen_sync,
                            updated_at     = CURRENT_TIMESTAMP
@@ -100,6 +119,10 @@ export function upsertContacts(
                 row.sourceUid,
                 row.fullName ?? null,
                 row.email,
+                normalizeContactText(row.phone),
+                normalizeContactText(row.organization),
+                normalizeContactText(row.title),
+                normalizeContactText(row.note, 4000),
                 row.etag ?? null,
                 seenAt,
             );
@@ -219,22 +242,36 @@ export function listContacts(accountId: number, query?: string | null, limit: nu
                 FROM contacts
                 WHERE account_id = ?
                   AND address_book_id = ?
-                  AND (lower(coalesce(full_name, '')) LIKE ? OR lower(email) LIKE ?)
+                  AND (
+                    lower(coalesce(full_name, '')) LIKE ?
+                    OR lower(email) LIKE ?
+                    OR lower(coalesce(phone, '')) LIKE ?
+                    OR lower(coalesce(organization, '')) LIKE ?
+                    OR lower(coalesce(title, '')) LIKE ?
+                    OR lower(coalesce(note, '')) LIKE ?
+                  )
                 ORDER BY lower(coalesce(full_name, '')), lower(email)
                 LIMIT ?
             `,
-        ).all(accountId, addressBookId, pattern, pattern, limit) as ContactRow[];
+        ).all(accountId, addressBookId, pattern, pattern, pattern, pattern, pattern, pattern, limit) as ContactRow[];
     }
     return db.prepare(
         `
             SELECT *
             FROM contacts
             WHERE account_id = ?
-              AND (lower(coalesce(full_name, '')) LIKE ? OR lower(email) LIKE ?)
+              AND (
+                lower(coalesce(full_name, '')) LIKE ?
+                OR lower(email) LIKE ?
+                OR lower(coalesce(phone, '')) LIKE ?
+                OR lower(coalesce(organization, '')) LIKE ?
+                OR lower(coalesce(title, '')) LIKE ?
+                OR lower(coalesce(note, '')) LIKE ?
+              )
             ORDER BY lower(coalesce(full_name, '')), lower(email)
             LIMIT ?
         `,
-    ).all(accountId, pattern, pattern, limit) as ContactRow[];
+    ).all(accountId, pattern, pattern, pattern, pattern, pattern, pattern, limit) as ContactRow[];
 }
 
 export function listAddressBooks(accountId: number): AddressBookRow[] {
@@ -269,7 +306,60 @@ export function createAddressBook(accountId: number, name: string): AddressBookR
     ).get() as AddressBookRow;
 }
 
-export function createLocalContact(accountId: number, addressBookId: number | null, fullName: string | null, email: string): ContactRow {
+export function deleteAddressBook(accountId: number, addressBookId: number): { removed: boolean } {
+    const db = getDb();
+    const existing = db.prepare(
+        `
+            SELECT *
+            FROM address_books
+            WHERE id = ?
+              AND account_id = ?
+            LIMIT 1
+        `,
+    ).get(addressBookId, accountId) as AddressBookRow | undefined;
+    if (!existing) return {removed: false};
+    if (existing.source !== 'local') {
+        throw new Error('Only local address books can be deleted.');
+    }
+
+    const tx = db.transaction(() => {
+        db.prepare(
+            `
+                DELETE FROM contacts
+                WHERE account_id = ?
+                  AND source = ?
+            `,
+        ).run(accountId, `local:${addressBookId}`);
+        db.prepare(
+            `
+                UPDATE contacts
+                SET address_book_id = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE account_id = ?
+                  AND address_book_id = ?
+            `,
+        ).run(accountId, addressBookId);
+        const res = db.prepare(
+            `
+                DELETE FROM address_books
+                WHERE id = ?
+                  AND account_id = ?
+            `,
+        ).run(addressBookId, accountId);
+        ensureDefaultLocalAddressBook(accountId);
+        return {removed: res.changes > 0};
+    });
+
+    return tx();
+}
+
+export function createLocalContact(
+    accountId: number,
+    addressBookId: number | null,
+    fullName: string | null,
+    email: string,
+    fields?: { phone?: string | null; organization?: string | null; title?: string | null; note?: string | null },
+): ContactRow {
     const db = getDb();
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) throw new Error('A valid email is required.');
@@ -280,10 +370,24 @@ export function createLocalContact(accountId: number, addressBookId: number | nu
     const seenAt = new Date().toISOString();
     db.prepare(
         `
-            INSERT INTO contacts (account_id, address_book_id, source, source_uid, full_name, email, etag, last_seen_sync, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, NULL, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO contacts (
+                account_id, address_book_id, source, source_uid, full_name, email, phone, organization, title, note, etag, last_seen_sync, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `,
-    ).run(accountId, bookId, source, sourceUid, normalizedName, normalizedEmail, seenAt);
+    ).run(
+        accountId,
+        bookId,
+        source,
+        sourceUid,
+        normalizedName,
+        normalizedEmail,
+        normalizeContactText(fields?.phone),
+        normalizeContactText(fields?.organization),
+        normalizeContactText(fields?.title),
+        normalizeContactText(fields?.note, 4000),
+        seenAt,
+    );
     return db.prepare(
         `
             SELECT *
@@ -299,6 +403,10 @@ export function upsertCardDavContact(
         sourceUid: string;
         fullName: string | null;
         email: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
         etag?: string | null;
         addressBookId?: number | null;
     },
@@ -315,11 +423,15 @@ export function upsertCardDavContact(
     db.prepare(
         `
             INSERT INTO contacts (
-                account_id, address_book_id, source, source_uid, full_name, email, etag, last_seen_sync, created_at, updated_at
+                account_id, address_book_id, source, source_uid, full_name, email, phone, organization, title, note, etag, last_seen_sync, created_at, updated_at
             )
-            VALUES (?, ?, 'carddav', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT(account_id, source, source_uid, email) DO
+            VALUES (?, ?, 'carddav', ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT(account_id, source, source_uid, email) DO
             UPDATE SET address_book_id = excluded.address_book_id,
                        full_name = excluded.full_name,
+                       phone = excluded.phone,
+                       organization = excluded.organization,
+                       title = excluded.title,
+                       note = excluded.note,
                        etag = excluded.etag,
                        last_seen_sync = excluded.last_seen_sync,
                        updated_at = CURRENT_TIMESTAMP
@@ -330,6 +442,10 @@ export function upsertCardDavContact(
         payload.sourceUid,
         normalizedName,
         normalizedEmail,
+        normalizeContactText(payload.phone),
+        normalizeContactText(payload.organization),
+        normalizeContactText(payload.title),
+        normalizeContactText(payload.note, 4000),
         payload.etag ?? null,
         seenAt,
     );
@@ -350,6 +466,10 @@ export function upsertCardDavContact(
 export function updateLocalContact(contactId: number, payload: {
     fullName?: string | null;
     email?: string;
+    phone?: string | null;
+    organization?: string | null;
+    title?: string | null;
+    note?: string | null;
     addressBookId?: number | null;
 }): ContactRow {
     const db = getDb();
@@ -372,6 +492,10 @@ export function updateLocalContact(contactId: number, payload: {
     const nextEmail = payload.email === undefined ? current.email : normalizeEmail(payload.email);
     if (!nextEmail) throw new Error('A valid email is required.');
     const nextName = payload.fullName === undefined ? current.full_name : normalizeDisplayName(payload.fullName);
+    const nextPhone = payload.phone === undefined ? current.phone : normalizeContactText(payload.phone);
+    const nextOrganization = payload.organization === undefined ? current.organization : normalizeContactText(payload.organization);
+    const nextTitle = payload.title === undefined ? current.title : normalizeContactText(payload.title);
+    const nextNote = payload.note === undefined ? current.note : normalizeContactText(payload.note, 4000);
 
     db.prepare(
         `
@@ -380,10 +504,14 @@ export function updateLocalContact(contactId: number, payload: {
                 source = ?,
                 full_name = ?,
                 email = ?,
+                phone = ?,
+                organization = ?,
+                title = ?,
+                note = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         `,
-    ).run(nextBookId, nextSource, nextName, nextEmail, contactId);
+    ).run(nextBookId, nextSource, nextName, nextEmail, nextPhone, nextOrganization, nextTitle, nextNote, contactId);
 
     return db.prepare('SELECT * FROM contacts WHERE id = ?').get(contactId) as ContactRow;
 }
@@ -427,6 +555,56 @@ export function listCalendarEvents(accountId: number, startIso?: string | null, 
             LIMIT ?
         `,
     ).all(accountId, limit) as CalendarEventRow[];
+}
+
+export function createLocalCalendarEvent(accountId: number, payload: {
+    summary?: string | null;
+    description?: string | null;
+    location?: string | null;
+    startsAt: string;
+    endsAt: string;
+}): CalendarEventRow {
+    const db = getDb();
+    const startsAt = String(payload.startsAt || '').trim();
+    const endsAt = String(payload.endsAt || '').trim();
+    if (!startsAt || Number.isNaN(Date.parse(startsAt))) {
+        throw new Error('Event start date/time is required.');
+    }
+    if (!endsAt || Number.isNaN(Date.parse(endsAt))) {
+        throw new Error('Event end date/time is required.');
+    }
+    if (Date.parse(endsAt) < Date.parse(startsAt)) {
+        throw new Error('Event end must be after start.');
+    }
+
+    const uid = randomUUID();
+    const seenAt = new Date().toISOString();
+    const summary = String(payload.summary || '').trim() || null;
+    const description = String(payload.description || '').trim() || null;
+    const location = String(payload.location || '').trim() || null;
+    const calendarUrl = `local://${accountId}/default`;
+
+    db.prepare(
+        `
+            INSERT INTO calendar_events (
+                account_id, source, calendar_url, uid, summary, description, location,
+                starts_at, ends_at, etag, raw_ics, last_seen_sync, created_at, updated_at
+            )
+            VALUES (?, 'local', ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `,
+    ).run(
+        accountId,
+        calendarUrl,
+        uid,
+        summary,
+        description,
+        location,
+        startsAt,
+        endsAt,
+        seenAt,
+    );
+
+    return db.prepare('SELECT * FROM calendar_events WHERE id = last_insert_rowid()').get() as CalendarEventRow;
 }
 
 function ensureDefaultLocalAddressBook(accountId: number): number {
@@ -475,6 +653,11 @@ function normalizeBookName(value: string): string {
 
 function normalizeDisplayName(value: string | null | undefined): string | null {
     const normalized = String(value || '').trim().replace(/\s+/g, ' ').slice(0, 180);
+    return normalized || null;
+}
+
+function normalizeContactText(value: string | null | undefined, maxLength: number = 240): string | null {
+    const normalized = String(value || '').trim().replace(/\s+/g, ' ').slice(0, maxLength);
     return normalized || null;
 }
 

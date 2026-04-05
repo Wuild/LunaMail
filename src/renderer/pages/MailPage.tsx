@@ -1,5 +1,6 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Forward, Paperclip, Reply, ReplyAll, SquareArrowOutUpRight, Trash2} from 'lucide-react';
+import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import {formatSystemDateTime} from '../lib/dateTime';
 import {
@@ -26,6 +27,7 @@ import type {
     FolderItem,
     MessageBodyResult,
     MessageItem,
+    OpenMessageTargetEvent,
     PublicAccount,
     SyncStatusEvent
 } from '../../preload/index';
@@ -34,6 +36,9 @@ const MESSAGE_PAGE_SIZE = 100;
 type Workspace = 'mail' | 'calendar' | 'contacts';
 
 function MailPage() {
+    const params = useParams<{ accountId?: string; folderId?: string; emailId?: string }>();
+    const navigate = useNavigate();
+    const location = useLocation();
     const [accounts, setAccounts] = useState<PublicAccount[]>([]);
     const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
     const [folders, setFolders] = useState<FolderItem[]>([]);
@@ -61,12 +66,14 @@ function MailPage() {
         minimizeToTray: true,
         syncIntervalMinutes: 2,
         autoUpdateEnabled: true,
+        developerMode: false,
     });
     const bodyRequestSeqRef = useRef(0);
     const activeBodyRequestIdRef = useRef<string | null>(null);
     const selectedFolderPathRef = useRef<string | null>(null);
     const selectedMessageIdRef = useRef<number | null>(null);
     const pendingDeleteMessageIdsRef = useRef<Set<number>>(new Set());
+    const pendingOpenMessageTargetRef = useRef<OpenMessageTargetEvent | null>(null);
     const selectionAnchorIndexRef = useRef<number | null>(null);
     const [systemLocale, setSystemLocale] = useState<string>('en-US');
     const [workspace, setWorkspace] = useState<Workspace>('mail');
@@ -75,6 +82,17 @@ function MailPage() {
     const [contactsLoading, setContactsLoading] = useState(false);
     const [calendarEvents, setCalendarEvents] = useState<CalendarEventItem[]>([]);
     const [calendarLoading, setCalendarLoading] = useState(false);
+    const routeAccountId = parseRouteNumber(params.accountId);
+    const routeFolderId = parseRouteNumber(params.folderId);
+    const routeEmailId = parseRouteNumber(params.emailId);
+    const [historyIndex, setHistoryIndex] = useState<number>(() => {
+        const idx = window.history.state?.idx;
+        return typeof idx === 'number' ? idx : 0;
+    });
+    const [historyMaxIndex, setHistoryMaxIndex] = useState<number>(() => {
+        const idx = window.history.state?.idx;
+        return typeof idx === 'number' ? idx : 0;
+    });
 
     const selectedMessage = useMemo(
         () => messages.find((m) => m.id === selectedMessageId) ?? null,
@@ -250,9 +268,22 @@ function MailPage() {
             setAppSettings(settings);
         });
         const offOpenMessageTarget = window.electronAPI.onOpenMessageTarget?.((target) => {
+            pendingOpenMessageTargetRef.current = target;
             setSelectedAccountId(target.accountId);
             setPendingAutoReadMessageId(target.messageId);
-            void reloadAccountData(target.accountId, target.folderPath, target.messageId);
+            const accountFolders = accountFoldersById[target.accountId] ?? [];
+            const matchedFolder = accountFolders.find((folder) => folder.path === target.folderPath) ?? null;
+            if (matchedFolder) {
+                const targetPath = `/email/${target.accountId}/${matchedFolder.id}/${target.messageId}`;
+                if (location.pathname !== targetPath) {
+                    navigate(targetPath);
+                }
+            } else {
+                const fallbackPath = `/email/${target.accountId}`;
+                if (location.pathname !== fallbackPath) {
+                    navigate(fallbackPath);
+                }
+            }
         });
 
         return () => {
@@ -264,7 +295,7 @@ function MailPage() {
             if (typeof offSettings === 'function') offSettings();
             if (typeof offOpenMessageTarget === 'function') offOpenMessageTarget();
         };
-    }, [selectedAccountId]);
+    }, [accountFoldersById, location.pathname, navigate, selectedAccountId]);
 
     useEffect(() => {
         if (!selectedAccountId) {
@@ -278,7 +309,11 @@ function MailPage() {
             return;
         }
 
-        void loadFoldersAndMessages(selectedAccountId);
+        void loadFoldersAndMessages(
+            selectedAccountId,
+            routeAccountId === selectedAccountId ? routeFolderId : null,
+            routeAccountId === selectedAccountId ? routeEmailId : null,
+        );
     }, [selectedAccountId]);
 
     useEffect(() => {
@@ -474,6 +509,89 @@ function MailPage() {
     }, [selectedMessageId]);
 
     useEffect(() => {
+        if (!routeAccountId) return;
+        if (!accounts.some((account) => account.id === routeAccountId)) return;
+        if (selectedAccountId === routeAccountId) return;
+        setSelectedAccountId(routeAccountId);
+    }, [accounts, routeAccountId, selectedAccountId]);
+
+    useEffect(() => {
+        const idx = window.history.state?.idx;
+        if (typeof idx !== 'number') return;
+        setHistoryIndex(idx);
+        setHistoryMaxIndex((prev) => Math.max(prev, idx));
+    }, [params.accountId, params.folderId, params.emailId]);
+
+    useEffect(() => {
+        if (!routeAccountId || selectedAccountId !== routeAccountId) return;
+
+        if (routeFolderId) {
+            const routedFolder = folders.find((folder) => folder.id === routeFolderId) ?? null;
+            if (routedFolder && selectedFolderPath !== routedFolder.path) {
+                setSelectedFolderPath(routedFolder.path);
+            }
+        }
+
+        if (routeEmailId) {
+            if (selectedMessageId !== routeEmailId) {
+                setSelectedMessageId(routeEmailId);
+                setSelectedMessageIds([routeEmailId]);
+            }
+        } else if (selectedMessageId !== null) {
+            setSelectedMessageId(null);
+            setSelectedMessageIds([]);
+            selectionAnchorIndexRef.current = null;
+        }
+    }, [
+        folders,
+        routeAccountId,
+        routeEmailId,
+        routeFolderId,
+        selectedAccountId,
+        selectedFolderPath,
+        selectedMessageId,
+    ]);
+
+    useEffect(() => {
+        if (!routeAccountId || !selectedAccountId) return;
+        if (routeAccountId !== selectedAccountId) return;
+        const accountFolders = accountFoldersById[selectedAccountId] ?? folders;
+        if (accountFolders.length === 0) return;
+        if (routeFolderId && accountFolders.some((folder) => folder.id === routeFolderId)) return;
+        const defaultFolder = accountFolders[0] ?? null;
+        if (!defaultFolder) return;
+        navigate(`/email/${selectedAccountId}/${defaultFolder.id}`, {replace: true});
+    }, [accountFoldersById, folders, navigate, routeAccountId, routeFolderId, selectedAccountId]);
+
+    useEffect(() => {
+        if (routeAccountId) return;
+        if (location.pathname !== '/email') return;
+        if (accounts.length === 0) return;
+        const firstAccount = accounts[0];
+        const firstAccountFolders = accountFoldersById[firstAccount.id] ?? [];
+        const firstFolder = firstAccountFolders[0] ?? null;
+        const target = firstFolder
+            ? `/email/${firstAccount.id}/${firstFolder.id}`
+            : `/email/${firstAccount.id}`;
+        if (location.pathname !== target) {
+            navigate(target, {replace: true});
+        }
+    }, [accountFoldersById, accounts, location.pathname, navigate, routeAccountId]);
+
+    useEffect(() => {
+        const pendingTarget = pendingOpenMessageTargetRef.current;
+        if (!pendingTarget) return;
+        const accountFolders = accountFoldersById[pendingTarget.accountId] ?? [];
+        if (accountFolders.length === 0) return;
+        const matchedFolder = accountFolders.find((folder) => folder.path === pendingTarget.folderPath) ?? accountFolders[0];
+        const targetPath = `/email/${pendingTarget.accountId}/${matchedFolder.id}/${pendingTarget.messageId}`;
+        pendingOpenMessageTargetRef.current = null;
+        if (location.pathname !== targetPath) {
+            navigate(targetPath, {replace: true});
+        }
+    }, [accountFoldersById, location.pathname, navigate]);
+
+    useEffect(() => {
         const validIds = new Set(messages.map((m) => m.id));
         setSelectedMessageIds((prev) => prev.filter((id) => validIds.has(id)));
     }, [messages]);
@@ -508,8 +626,8 @@ function MailPage() {
         return rows.filter((m) => !pending.has(m.id));
     }
 
-    async function loadFoldersAndMessages(accountId: number) {
-        await reloadAccountData(accountId, null, null);
+    async function loadFoldersAndMessages(accountId: number, preferredFolderId?: number | null, preferredMessageId?: number | null) {
+        await reloadAccountData(accountId, null, preferredMessageId ?? null, preferredFolderId ?? null);
     }
 
     async function onRefresh() {
@@ -531,7 +649,12 @@ function MailPage() {
         }
     }
 
-    async function reloadAccountData(accountId: number, preferredFolderPath: string | null, preferredMessageId: number | null) {
+    async function reloadAccountData(
+        accountId: number,
+        preferredFolderPath: string | null,
+        preferredMessageId: number | null,
+        preferredFolderId?: number | null,
+    ) {
         const folderRows = await window.electronAPI.getFolders(accountId);
         setFolders(folderRows);
         setAccountFoldersById((prev) => ({
@@ -541,6 +664,7 @@ function MailPage() {
         const currentFolderPath = selectedFolderPathRef.current;
 
         const chosenFolder =
+            (preferredFolderId && folderRows.find((f) => f.id === preferredFolderId)?.path) ||
             (preferredFolderPath && folderRows.some((f) => f.path === preferredFolderPath) && preferredFolderPath) ||
             (currentFolderPath && folderRows.some((f) => f.path === currentFolderPath) && currentFolderPath) ||
             folderRows.find((f) => f.type === 'inbox')?.path ||
@@ -815,7 +939,6 @@ function MailPage() {
             const end = Math.max(anchor, index);
             const rangeIds = messages.slice(start, end + 1).map((m) => m.id);
             setSelectedMessageIds(rangeIds);
-            setSelectedMessageId(id);
             setPendingAutoReadMessageId(id);
             setWorkspace('mail');
             return;
@@ -824,18 +947,15 @@ function MailPage() {
         if (toggleKey) {
             setSelectedMessageIds((prev) => {
                 const exists = prev.includes(id);
-                const next = exists ? prev.filter((x) => x !== id) : [...prev, id];
-                setSelectedMessageId(id);
-                setPendingAutoReadMessageId(id);
-                setWorkspace('mail');
-                return next;
+                return exists ? prev.filter((x) => x !== id) : [...prev, id];
             });
+            setPendingAutoReadMessageId(id);
+            setWorkspace('mail');
             selectionAnchorIndexRef.current = index;
             return;
         }
 
         setSelectedMessageIds([id]);
-        setSelectedMessageId(id);
         setPendingAutoReadMessageId(id);
         selectionAnchorIndexRef.current = index;
         setWorkspace('mail');
@@ -869,6 +989,16 @@ function MailPage() {
             }
 
             const mod = event.ctrlKey || event.metaKey;
+            if (!mod && event.altKey && key === 'arrowleft') {
+                event.preventDefault();
+                navigate(-1);
+                return;
+            }
+            if (!mod && event.altKey && key === 'arrowright') {
+                event.preventDefault();
+                navigate(1);
+                return;
+            }
             if (!mod) return;
 
             if (key === 'n' && !event.shiftKey && !event.altKey) {
@@ -909,15 +1039,49 @@ function MailPage() {
             accounts={accounts}
             selectedAccountId={selectedAccountId}
             accountFoldersById={accountFoldersById}
-            onSelectAccount={setSelectedAccountId}
+            onSelectAccount={(accountId) => {
+                const accountFolders = accountFoldersById[accountId] ?? [];
+                const defaultFolder = accountFolders[0] ?? null;
+                const target = defaultFolder ? `/email/${accountId}/${defaultFolder.id}` : `/email/${accountId}`;
+                if (location.pathname !== target) {
+                    navigate(target);
+                }
+            }}
+            canNavigateBack={historyIndex > 0}
+            canNavigateForward={historyIndex < historyMaxIndex}
+            onNavigateBack={() => {
+                navigate(-1);
+            }}
+            onNavigateForward={() => {
+                navigate(1);
+            }}
             dateLocale={systemLocale}
             folders={folders}
             selectedFolderPath={selectedFolderPath}
             onSelectFolder={(path, accountId) => {
-                if (typeof accountId === 'number' && accountId !== selectedAccountId) {
-                    setSelectedAccountId(accountId);
+                const nextAccountId =
+                    typeof accountId === 'number' && Number.isFinite(accountId)
+                        ? accountId
+                        : selectedAccountId;
+                if (nextAccountId) {
+                    const targetFolders = accountFoldersById[nextAccountId] ?? folders;
+                    const folderId = targetFolders.find((folder) => folder.path === path)?.id ?? null;
+                    if (folderId) {
+                        const target = `/email/${nextAccountId}/${folderId}`;
+                        if (location.pathname !== target) {
+                            navigate(target);
+                        }
+                    } else {
+                        const target = `/email/${nextAccountId}`;
+                        if (location.pathname !== target) {
+                            navigate(target);
+                        }
+                    }
+                } else {
+                    if (location.pathname !== '/email') {
+                        navigate('/email');
+                    }
                 }
-                setSelectedFolderPath(path);
                 setWorkspace('mail');
             }}
             messages={messages}
@@ -1518,3 +1682,10 @@ function MailPage() {
 }
 
 export default MailPage;
+
+function parseRouteNumber(value?: string): number | null {
+    if (!value) return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return null;
+    return parsed;
+}

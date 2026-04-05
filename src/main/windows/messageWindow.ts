@@ -43,11 +43,22 @@ export function openMessageWindow(parentWindow?: BrowserWindow, messageId?: numb
     messageWin.setMenuBarVisibility(false);
     messageWin.removeMenu();
     messageWin.webContents.on('before-input-event', (event, input) => {
-        if (input.type === 'keyDown' && input.key === 'Escape') {
+        if (input.type !== 'keyDown') return;
+        const key = String(input.key || '').toLowerCase();
+        if (key === 'escape') {
             event.preventDefault();
             if (messageWin && !messageWin.isDestroyed()) {
                 messageWin.close();
             }
+            return;
+        }
+        const isF12 = key === 'f12';
+        const isCtrlShiftI = input.control && input.shift && key === 'i';
+        const isCmdAltI = input.meta && input.alt && key === 'i';
+        if (!isF12 && !isCtrlShiftI && !isCmdAltI) return;
+        event.preventDefault();
+        if (messageWin && !messageWin.isDestroyed()) {
+            messageWin.webContents.openDevTools({mode: 'detach'});
         }
     });
 

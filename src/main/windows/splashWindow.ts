@@ -37,6 +37,18 @@ export function openSplashWindow(): BrowserWindow {
     });
     splashWin.setMenuBarVisibility(false);
     splashWin.removeMenu();
+    splashWin.webContents.on('before-input-event', (event, input) => {
+        if (input.type !== 'keyDown') return;
+        const key = String(input.key || '').toLowerCase();
+        const isF12 = key === 'f12';
+        const isCtrlShiftI = input.control && input.shift && key === 'i';
+        const isCmdAltI = input.meta && input.alt && key === 'i';
+        if (!isF12 && !isCtrlShiftI && !isCmdAltI) return;
+        event.preventDefault();
+        if (splashWin && !splashWin.isDestroyed()) {
+            splashWin.webContents.openDevTools({mode: 'detach'});
+        }
+    });
     splashWin.on('closed', () => {
         splashWin = null;
     });

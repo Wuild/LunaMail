@@ -11,6 +11,7 @@ export interface AppSettings {
     minimizeToTray: boolean;
     syncIntervalMinutes: number;
     autoUpdateEnabled: boolean;
+    developerMode: boolean;
 }
 
 export type AppSettingsPatch = Partial<AppSettings>;
@@ -21,6 +22,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
     minimizeToTray: true,
     syncIntervalMinutes: 2,
     autoUpdateEnabled: true,
+    developerMode: false,
 };
 
 let settingsCache: AppSettings = {...DEFAULT_APP_SETTINGS};
@@ -56,6 +58,10 @@ function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSe
         typeof input?.autoUpdateEnabled === 'boolean'
             ? input.autoUpdateEnabled
             : DEFAULT_APP_SETTINGS.autoUpdateEnabled;
+    const developerMode =
+        typeof input?.developerMode === 'boolean'
+            ? input.developerMode
+            : DEFAULT_APP_SETTINGS.developerMode;
 
     return {
         language,
@@ -63,6 +69,7 @@ function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSe
         minimizeToTray,
         syncIntervalMinutes,
         autoUpdateEnabled,
+        developerMode,
     };
 }
 

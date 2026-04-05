@@ -179,6 +179,10 @@ export interface ContactItem {
     source_uid: string;
     full_name: string | null;
     email: string;
+    phone: string | null;
+    organization: string | null;
+    title: string | null;
+    note: string | null;
     etag: string | null;
     last_seen_sync: string;
     created_at: string;
@@ -217,6 +221,26 @@ export interface CalendarEventItem {
     last_seen_sync: string;
     created_at: string;
     updated_at: string;
+}
+
+export interface AddCalendarEventPayload {
+    summary?: string | null;
+    description?: string | null;
+    location?: string | null;
+    startsAt: string;
+    endsAt: string;
+}
+
+export interface ExportContactsPayload {
+    format: 'csv' | 'vcf';
+    addressBookId?: number | null;
+}
+
+export interface ExportContactsResult {
+    canceled: boolean;
+    count: number;
+    path: string | null;
+    format: 'csv' | 'vcf';
 }
 
 export interface OpenMessageAttachmentResult {
@@ -332,6 +356,7 @@ export interface AppSettings {
     minimizeToTray: boolean;
     syncIntervalMinutes: number;
     autoUpdateEnabled: boolean;
+    developerMode: boolean;
 }
 
 export interface AccountDeletedEvent {
@@ -348,7 +373,7 @@ export interface OpenMessageTargetEvent {
 export interface DebugLogEntry {
     id: number;
     timestamp: string;
-    source: 'imap' | 'smtp' | 'app';
+    source: 'imap' | 'smtp' | 'carddav' | 'caldav' | 'app';
     level: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
     scope: string;
     message: string;
@@ -419,18 +444,30 @@ const api = {
         ipcRenderer.invoke('get-address-books', accountId),
     addAddressBook: (accountId: number, name: string): Promise<AddressBookItem> =>
         ipcRenderer.invoke('add-address-book', accountId, name),
+    deleteAddressBook: (accountId: number, addressBookId: number): Promise<{ removed: boolean }> =>
+        ipcRenderer.invoke('delete-address-book', accountId, addressBookId),
     addContact: (accountId: number, payload: {
         addressBookId?: number | null;
         fullName?: string | null;
         email: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
     }): Promise<ContactItem> => ipcRenderer.invoke('add-contact', accountId, payload),
     updateContact: (contactId: number, payload: {
         addressBookId?: number | null;
         fullName?: string | null;
         email?: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
     }): Promise<ContactItem> => ipcRenderer.invoke('update-contact', contactId, payload),
     deleteContact: (contactId: number): Promise<{ removed: boolean }> =>
         ipcRenderer.invoke('delete-contact', contactId),
+    exportContacts: (accountId: number, payload: ExportContactsPayload): Promise<ExportContactsResult> =>
+        ipcRenderer.invoke('export-contacts', accountId, payload),
     getCalendarEvents: (
         accountId: number,
         startIso?: string | null,
@@ -438,6 +475,8 @@ const api = {
         limit?: number,
     ): Promise<CalendarEventItem[]> =>
         ipcRenderer.invoke('get-calendar-events', accountId, startIso ?? null, endIso ?? null, limit),
+    addCalendarEvent: (accountId: number, payload: AddCalendarEventPayload): Promise<CalendarEventItem> =>
+        ipcRenderer.invoke('add-calendar-event', accountId, payload),
     getFolderMessages: (accountId: number, folderPath: string, limit?: number): Promise<MessageItem[]> =>
         ipcRenderer.invoke('get-folder-messages', accountId, folderPath, limit),
     searchMessages: (accountId: number, query: string, folderPath?: string | null, limit?: number): Promise<MessageItem[]> =>
@@ -482,6 +521,8 @@ const api = {
         ipcRenderer.invoke('window-close'),
     isWindowMaximized: (): Promise<boolean> =>
         ipcRenderer.invoke('window-is-maximized'),
+    openDevTools: (): Promise<{ ok: true }> =>
+        ipcRenderer.invoke('window-open-dev-tools'),
     openMessageWindow: (messageId?: number | null): Promise<{ ok: true }> =>
         ipcRenderer.invoke('open-message-window', messageId ?? null),
     getDebugLogs: (limit?: number): Promise<DebugLogEntry[]> =>

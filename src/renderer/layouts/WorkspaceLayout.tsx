@@ -5,6 +5,8 @@ type WorkspaceLayoutProps = {
     menubar?: React.ReactNode;
     showMenuBar?: boolean;
     sidebar?: React.ReactNode;
+    sidebarWidth?: number;
+    onSidebarResizeStart?: (event: React.MouseEvent<HTMLDivElement>) => void;
     children: React.ReactNode;
     footer?: React.ReactNode;
     showFooter?: boolean;
@@ -19,6 +21,8 @@ export default function WorkspaceLayout({
                                             menubar,
                                             showMenuBar = true,
                                             sidebar,
+                                            sidebarWidth,
+                                            onSidebarResizeStart,
                                             children,
                                             footer,
                                             showFooter = false,
@@ -41,7 +45,19 @@ export default function WorkspaceLayout({
                 </header>
             )}
             <div className="min-h-0 flex flex-1 overflow-hidden">
-                {sidebar}
+                {sidebar && (
+                    <div className="relative min-h-0 shrink-0" style={sidebarWidth ? {width: sidebarWidth} : undefined}>
+                        {sidebar}
+                        {onSidebarResizeStart && (
+                            <div
+                                role="separator"
+                                aria-orientation="vertical"
+                                className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize bg-transparent hover:bg-slate-300/70 dark:hover:bg-slate-500/70"
+                                onMouseDown={onSidebarResizeStart}
+                            />
+                        )}
+                    </div>
+                )}
                 <main className={cn('min-h-0 flex-1 overflow-auto p-5', contentClassName)}>{children}</main>
             </div>
             {shouldShowFooter && (

@@ -128,6 +128,16 @@ function createWindow() {
         }
     });
     mainWindow = win;
+    win.webContents.on('before-input-event', (event, input) => {
+        if (input.type !== 'keyDown') return;
+        const key = String(input.key || '').toLowerCase();
+        const isF12 = key === 'f12';
+        const isCtrlShiftI = input.control && input.shift && key === 'i';
+        const isCmdAltI = input.meta && input.alt && key === 'i';
+        if (!isF12 && !isCtrlShiftI && !isCmdAltI) return;
+        event.preventDefault();
+        win.webContents.openDevTools({mode: 'detach'});
+    });
 
     if (isDev) {
         void loadWindowContent(win, {

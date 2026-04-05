@@ -91,4 +91,12 @@ export function registerWindowIpc(): void {
         if (!win || win.isDestroyed()) return false;
         return win.isMaximized();
     });
+
+    ipcMain.handle('window-open-dev-tools', async (event) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (win && !win.isDestroyed()) {
+            win.webContents.openDevTools({mode: 'detach'});
+        }
+        return {ok: true} as const;
+    });
 }

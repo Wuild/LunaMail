@@ -46,11 +46,22 @@ export function openAddAccountWindow(parentWindow?: BrowserWindow): void {
     addAccountWin.setMenuBarVisibility(false);
     addAccountWin.removeMenu();
     addAccountWin.webContents.on('before-input-event', (event, input) => {
-        if (input.type === 'keyDown' && input.key === 'Escape') {
+        if (input.type !== 'keyDown') return;
+        const key = String(input.key || '').toLowerCase();
+        if (key === 'escape') {
             event.preventDefault();
             if (addAccountWin && !addAccountWin.isDestroyed()) {
                 addAccountWin.close();
             }
+            return;
+        }
+        const isF12 = key === 'f12';
+        const isCtrlShiftI = input.control && input.shift && key === 'i';
+        const isCmdAltI = input.meta && input.alt && key === 'i';
+        if (!isF12 && !isCtrlShiftI && !isCmdAltI) return;
+        event.preventDefault();
+        if (addAccountWin && !addAccountWin.isDestroyed()) {
+            addAccountWin.webContents.openDevTools({mode: 'detach'});
         }
     });
 

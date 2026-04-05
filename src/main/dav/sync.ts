@@ -1,7 +1,9 @@
 import {getAccountSyncCredentials} from '../db/repositories/accountsRepo.js';
 import {
     createAddressBook,
+    createLocalCalendarEvent,
     createLocalContact,
+    deleteAddressBook as deleteLocalAddressBook,
     deleteLocalContact,
     getDavSettings,
     listAddressBooks,
@@ -14,6 +16,7 @@ import {
     upsertDavSettings,
 } from '../db/repositories/davRepo.js';
 import {randomUUID} from 'node:crypto';
+import {createMailDebugLogger} from '../debug/debugLog.js';
 
 type DavCredentials = {
     email: string;
@@ -36,47 +39,111 @@ export interface DavSyncSummary {
 }
 
 export async function discoverDav(accountId: number): Promise<DavDiscoveryResult> {
+    const carddavLogger = createMailDebugLogger('carddav', `discover:${accountId}`);
+    const caldavLogger = createMailDebugLogger('caldav', `discover:${accountId}`);
     const creds = await resolveCredentials(accountId);
     const saved = getDavSettings(accountId);
+    carddavLogger.debug('Starting CardDAV discovery for account=%d email=%s', accountId, creds.email);
+    caldavLogger.debug('Starting CalDAV discovery for account=%d email=%s', accountId, creds.email);
 
     const carddavUrl = await discoverHomeUrl(
         creds,
         saved?.carddav_url || null,
         'carddav',
         'addressbook-home-set',
+        carddavLogger,
     );
     const caldavUrl = await discoverHomeUrl(
         creds,
         saved?.caldav_url || null,
         'caldav',
         'calendar-home-set',
+        caldavLogger,
     );
 
     if (carddavUrl || caldavUrl) {
         upsertDavSettings(accountId, carddavUrl, caldavUrl);
+        carddavLogger.info('DAV discovery saved urls carddav=%s caldav=%s', carddavUrl ?? 'null', caldavUrl ?? 'null');
+        caldavLogger.info('DAV discovery saved urls carddav=%s caldav=%s', carddavUrl ?? 'null', caldavUrl ?? 'null');
+    } else {
+        carddavLogger.warn('DAV discovery found no CardDAV/CalDAV home URL');
+        caldavLogger.warn('DAV discovery found no CardDAV/CalDAV home URL');
     }
 
     return {accountId, carddavUrl: carddavUrl ?? null, caldavUrl: caldavUrl ?? null};
 }
 
 export async function syncDav(accountId: number): Promise<DavSyncSummary> {
-    const discovered = await discoverDav(accountId);
+    const carddavLogger = createMailDebugLogger('carddav', `sync:${accountId}`);
+    const caldavLogger = createMailDebugLogger('caldav', `sync:${accountId}`);
+    carddavLogger.info('Starting CardDAV sync');
+    caldavLogger.info('Starting CalDAV sync');
+    const saved = getDavSettings(accountId);
+    const discovered = saved?.carddav_url || saved?.caldav_url
+        ? {
+            accountId,
+            carddavUrl: saved.carddav_url ?? null,
+            caldavUrl: saved.caldav_url ?? null,
+        }
+        : await discoverDav(accountId);
+    if (saved?.carddav_url || saved?.caldav_url) {
+        carddavLogger.info(
+            'Using saved DAV endpoints carddav=%s caldav=%s',
+            discovered.carddavUrl ?? 'null',
+            discovered.caldavUrl ?? 'null',
+        );
+        caldavLogger.info(
+            'Using saved DAV endpoints carddav=%s caldav=%s',
+            discovered.carddavUrl ?? 'null',
+            discovered.caldavUrl ?? 'null',
+        );
+    }
     const creds = await resolveCredentials(accountId);
+    carddavLogger.debug(
+        'Discovery result carddav=%s caldav=%s',
+        discovered.carddavUrl ?? 'null',
+        discovered.caldavUrl ?? 'null',
+    );
+    caldavLogger.debug(
+        'Discovery result carddav=%s caldav=%s',
+        discovered.carddavUrl ?? 'null',
+        discovered.caldavUrl ?? 'null',
+    );
 
     let contactsResult = {upserted: 0, removed: 0, books: 0};
     if (discovered.carddavUrl) {
-        const books = await listCollections(creds, discovered.carddavUrl, 'addressbook');
-        const contacts = await pullContacts(creds, books.length > 0 ? books : [discovered.carddavUrl]);
+        const books = await listCollections(creds, discovered.carddavUrl, 'addressbook', carddavLogger);
+        const sourceBooks = books.length > 0 ? books : [discovered.carddavUrl];
+        carddavLogger.debug('Using %d CardDAV address books', sourceBooks.length);
+        const contacts = await pullContacts(creds, sourceBooks, carddavLogger);
         const persisted = upsertContacts(accountId, contacts, 'carddav');
         contactsResult = {upserted: persisted.upserted, removed: persisted.removed, books: books.length || 1};
+        carddavLogger.info(
+            'CardDAV contacts persisted upserted=%d removed=%d books=%d',
+            contactsResult.upserted,
+            contactsResult.removed,
+            contactsResult.books,
+        );
+    } else {
+        carddavLogger.warn('Skipping CardDAV contacts sync because no carddavUrl was discovered');
     }
 
     let eventsResult = {upserted: 0, removed: 0, calendars: 0};
     if (discovered.caldavUrl) {
-        const calendars = await listCollections(creds, discovered.caldavUrl, 'calendar');
-        const events = await pullEvents(creds, calendars.length > 0 ? calendars : [discovered.caldavUrl]);
+        const calendars = await listCollections(creds, discovered.caldavUrl, 'calendar', caldavLogger);
+        const sourceCalendars = calendars.length > 0 ? calendars : [discovered.caldavUrl];
+        caldavLogger.debug('Using %d CalDAV calendars', sourceCalendars.length);
+        const events = await pullEvents(creds, sourceCalendars, caldavLogger);
         const persisted = upsertCalendarEvents(accountId, events, 'caldav');
         eventsResult = {upserted: persisted.upserted, removed: persisted.removed, calendars: calendars.length || 1};
+        caldavLogger.info(
+            'CalDAV events persisted upserted=%d removed=%d calendars=%d',
+            eventsResult.upserted,
+            eventsResult.removed,
+            eventsResult.calendars,
+        );
+    } else {
+        caldavLogger.debug('Skipping CalDAV sync because no caldavUrl was discovered');
     }
 
     return {
@@ -99,22 +166,44 @@ export function addAddressBook(accountId: number, name: string) {
     return createAddressBook(accountId, name);
 }
 
+export function removeAddressBook(accountId: number, addressBookId: number) {
+    return deleteLocalAddressBook(accountId, addressBookId);
+}
+
 export async function addContact(accountId: number, payload: {
     addressBookId?: number | null;
     fullName?: string | null;
-    email: string
+    email: string;
+    phone?: string | null;
+    organization?: string | null;
+    title?: string | null;
+    note?: string | null;
 }) {
-    const discovered = await discoverDav(accountId).catch(() => ({
-        accountId,
-        carddavUrl: null,
-        caldavUrl: null,
-    }));
+    const logger = createMailDebugLogger('carddav', `add-contact:${accountId}`);
+    const saved = getDavSettings(accountId);
+    const discovered = saved?.carddav_url
+        ? {
+            accountId,
+            carddavUrl: saved.carddav_url,
+            caldavUrl: saved.caldav_url ?? null,
+        }
+        : await discoverDav(accountId).catch(() => ({
+            accountId,
+            carddavUrl: null,
+            caldavUrl: null,
+        }));
     if (!discovered.carddavUrl) {
-        return createLocalContact(accountId, payload.addressBookId ?? null, payload.fullName ?? null, payload.email);
+        logger.warn('No CardDAV endpoint discovered; storing local contact for %s', payload.email);
+        return createLocalContact(accountId, payload.addressBookId ?? null, payload.fullName ?? null, payload.email, {
+            phone: payload.phone ?? null,
+            organization: payload.organization ?? null,
+            title: payload.title ?? null,
+            note: payload.note ?? null,
+        });
     }
 
     const creds = await resolveCredentials(accountId);
-    const books = await listCollections(creds, discovered.carddavUrl, 'addressbook').catch(() => []);
+    const books = await listCollections(creds, discovered.carddavUrl, 'addressbook', logger).catch(() => []);
     const targetBookUrl = books[0] ?? discovered.carddavUrl;
     const sourceUid = randomUUID();
     const cardUrl = resolveUrl(ensureTrailingSlash(targetBookUrl), `${encodeURIComponent(sourceUid)}.vcf`);
@@ -122,13 +211,22 @@ export async function addContact(accountId: number, payload: {
         uid: sourceUid,
         fullName: payload.fullName ?? null,
         email: payload.email,
+        phone: payload.phone ?? null,
+        organization: payload.organization ?? null,
+        title: payload.title ?? null,
+        note: payload.note ?? null,
     });
     const etag = await putCardDavContact(creds, cardUrl, cardBody);
+    logger.info('Pushed CardDAV contact email=%s target=%s', payload.email, targetBookUrl);
 
     return upsertCardDavContact(accountId, {
         sourceUid,
         fullName: payload.fullName ?? null,
         email: payload.email,
+        phone: payload.phone ?? null,
+        organization: payload.organization ?? null,
+        title: payload.title ?? null,
+        note: payload.note ?? null,
         etag,
         addressBookId: payload.addressBookId ?? null,
     });
@@ -137,7 +235,11 @@ export async function addContact(accountId: number, payload: {
 export function editContact(contactId: number, payload: {
     addressBookId?: number | null;
     fullName?: string | null;
-    email?: string
+    email?: string;
+    phone?: string | null;
+    organization?: string | null;
+    title?: string | null;
+    note?: string | null;
 }) {
     return updateLocalContact(contactId, payload);
 }
@@ -148,6 +250,16 @@ export function removeContact(contactId: number) {
 
 export function getCalendarEvents(accountId: number, startIso?: string | null, endIso?: string | null, limit: number = 500) {
     return listCalendarEvents(accountId, startIso, endIso, limit);
+}
+
+export function addCalendarEvent(accountId: number, payload: {
+    summary?: string | null;
+    description?: string | null;
+    location?: string | null;
+    startsAt: string;
+    endsAt: string;
+}) {
+    return createLocalCalendarEvent(accountId, payload);
 }
 
 async function resolveCredentials(accountId: number): Promise<DavCredentials> {
@@ -165,33 +277,126 @@ async function discoverHomeUrl(
     preferredUrl: string | null,
     wellKnownKind: 'carddav' | 'caldav',
     homeProperty: 'addressbook-home-set' | 'calendar-home-set',
+    logger?: ReturnType<typeof createMailDebugLogger>,
 ): Promise<string | null> {
     const candidates: string[] = [];
     if (preferredUrl) candidates.push(preferredUrl);
+    if (creds.imapHost) {
+        candidates.push(...buildRadicaleCandidates(creds.imapHost, creds.email));
+        candidates.push(`https://${creds.imapHost}/.well-known/${wellKnownKind}`);
+        for (const hostDomain of deriveHostDomains(creds.imapHost)) {
+            candidates.push(...buildRadicaleCandidates(hostDomain, creds.email));
+            candidates.push(`https://${hostDomain}/.well-known/${wellKnownKind}`);
+            candidates.push(`https://${wellKnownKind}.${hostDomain}/`);
+        }
+    }
     const domain = extractEmailDomain(creds.email);
     if (domain) {
+        candidates.push(...buildRadicaleCandidates(domain, creds.email));
         candidates.push(`https://${domain}/.well-known/${wellKnownKind}`);
         candidates.push(`https://${wellKnownKind}.${domain}/`);
     }
-    if (creds.imapHost) {
-        candidates.push(`https://${creds.imapHost}/.well-known/${wellKnownKind}`);
-    }
 
-    for (const candidate of dedupe(candidates)) {
+    const dedupedCandidates = dedupe(candidates);
+    logger?.debug('Discovery %s candidates=%s', wellKnownKind, JSON.stringify(dedupedCandidates));
+
+    for (const candidate of dedupedCandidates) {
         try {
-            const resolved = await resolveHomeFromEntry(creds, candidate, homeProperty);
-            if (resolved) return resolved;
-        } catch {
-            // try next
+            const resolved = await resolveHomeFromEntry(creds, candidate, homeProperty, logger);
+            if (resolved) {
+                logger?.info('Resolved %s home from %s -> %s', wellKnownKind, candidate, resolved);
+                return resolved;
+            }
+            if (isRadicaleCollectionCandidate(candidate)) {
+                const fallback = ensureTrailingSlash(candidate);
+                logger?.warn(
+                    'Using %s fallback home from DAV-capable Radicale candidate: %s',
+                    wellKnownKind,
+                    fallback,
+                );
+                return fallback;
+            }
+        } catch (error: any) {
+            logger?.warn(
+                'Failed %s candidate %s: %s',
+                wellKnownKind,
+                candidate,
+                error?.message || String(error),
+            );
+            if (isWellKnownCandidate(candidate)) {
+                const fallback = await tryHostRootFallback(creds, candidate, homeProperty, logger);
+                if (fallback) {
+                    logger?.info(
+                        'Resolved %s home via host-root fallback from %s -> %s',
+                        wellKnownKind,
+                        candidate,
+                        fallback,
+                    );
+                    return fallback;
+                }
+            }
         }
     }
+    logger?.warn('Unable to resolve %s home URL from candidates', wellKnownKind);
     return null;
+}
+
+function deriveHostDomains(host: string): string[] {
+    const normalized = host.trim().toLowerCase().replace(/\.$/, '');
+    if (!normalized || !normalized.includes('.')) return [];
+    const parts = normalized.split('.').filter(Boolean);
+    if (parts.length < 2) return [];
+
+    const out: string[] = [];
+    for (let i = 1; i <= parts.length - 2; i += 1) {
+        const candidate = parts.slice(i).join('.');
+        if (candidate.split('.').length >= 2) out.push(candidate);
+    }
+    return dedupe(out);
+}
+
+function buildRadicaleCandidates(host: string, email: string): string[] {
+    const normalizedHost = host.trim().toLowerCase().replace(/\.$/, '');
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedHost || !normalizedEmail) return [];
+    const encodedEmail = encodeURIComponent(normalizedEmail);
+    return dedupe([
+        `https://${normalizedHost}/radicale/${normalizedEmail}/`,
+        `https://${normalizedHost}/radicale/${encodedEmail}/`,
+    ]);
+}
+
+function isWellKnownCandidate(url: string): boolean {
+    return /\/\.well-known\/(?:carddav|caldav)\/?$/i.test(url);
+}
+
+function isRadicaleCollectionCandidate(url: string): boolean {
+    return /\/radicale\/.+\/?$/i.test(url);
+}
+
+async function tryHostRootFallback(
+    creds: DavCredentials,
+    candidate: string,
+    homeProperty: 'addressbook-home-set' | 'calendar-home-set',
+    logger?: ReturnType<typeof createMailDebugLogger>,
+): Promise<string | null> {
+    try {
+        const parsed = new URL(candidate);
+        const originRoot = `${parsed.origin}/`;
+        if (originRoot === candidate) return null;
+        logger?.debug('Trying host-root fallback %s', originRoot);
+        return await resolveHomeFromEntry(creds, originRoot, homeProperty, logger);
+    } catch (error: any) {
+        logger?.warn('Host-root fallback failed for %s: %s', candidate, error?.message || String(error));
+        return null;
+    }
 }
 
 async function resolveHomeFromEntry(
     creds: DavCredentials,
     entryUrl: string,
     homeProperty: 'addressbook-home-set' | 'calendar-home-set',
+    logger?: ReturnType<typeof createMailDebugLogger>,
 ): Promise<string | null> {
     const probe = await fetch(entryUrl, {
         method: 'GET',
@@ -201,6 +406,10 @@ async function resolveHomeFromEntry(
         },
     });
     const baseUrl = probe.url || entryUrl;
+    logger?.debug('Probe %s -> status=%d resolved=%s', entryUrl, probe.status, baseUrl);
+    if (isWellKnownCandidate(entryUrl) && probe.url === entryUrl && probe.status >= 400) {
+        throw new Error(`Well-known endpoint unavailable (${probe.status})`);
+    }
 
     const body = `<?xml version="1.0" encoding="utf-8" ?>
 <d:propfind xmlns:d="DAV:">
@@ -209,14 +418,14 @@ async function resolveHomeFromEntry(
     <d:${homeProperty} />
   </d:prop>
 </d:propfind>`;
-    const xml = await davRequest(creds, baseUrl, 'PROPFIND', body, '0');
+    const xml = await davRequest(creds, baseUrl, 'PROPFIND', body, '0', logger);
     const root = firstResponse(xml);
     if (!root) return null;
 
-    const directHome = extractTagValue(root, homeProperty);
+    const directHome = extractPropertyHref(root, homeProperty) ?? extractTagValue(root, homeProperty);
     if (directHome) return resolveUrl(baseUrl, directHome);
 
-    const principal = extractTagValue(root, 'current-user-principal');
+    const principal = extractPropertyHref(root, 'current-user-principal') ?? extractTagValue(root, 'current-user-principal');
     if (!principal) return null;
     const principalUrl = resolveUrl(baseUrl, principal);
     const principalBody = `<?xml version="1.0" encoding="utf-8" ?>
@@ -225,14 +434,19 @@ async function resolveHomeFromEntry(
     <d:${homeProperty} />
   </d:prop>
 </d:propfind>`;
-    const principalXml = await davRequest(creds, principalUrl, 'PROPFIND', principalBody, '0');
+    const principalXml = await davRequest(creds, principalUrl, 'PROPFIND', principalBody, '0', logger);
     const principalResp = firstResponse(principalXml);
     if (!principalResp) return null;
-    const home = extractTagValue(principalResp, homeProperty);
+    const home = extractPropertyHref(principalResp, homeProperty) ?? extractTagValue(principalResp, homeProperty);
     return home ? resolveUrl(principalUrl, home) : null;
 }
 
-async function listCollections(creds: DavCredentials, homeUrl: string, kind: 'addressbook' | 'calendar'): Promise<string[]> {
+async function listCollections(
+    creds: DavCredentials,
+    homeUrl: string,
+    kind: 'addressbook' | 'calendar',
+    logger?: ReturnType<typeof createMailDebugLogger>,
+): Promise<string[]> {
     const body = `<?xml version="1.0" encoding="utf-8" ?>
 <d:propfind xmlns:d="DAV:">
   <d:prop>
@@ -240,7 +454,7 @@ async function listCollections(creds: DavCredentials, homeUrl: string, kind: 'ad
     <d:displayname />
   </d:prop>
 </d:propfind>`;
-    const xml = await davRequest(creds, homeUrl, 'PROPFIND', body, '1');
+    const xml = await davRequest(creds, homeUrl, 'PROPFIND', body, '1', logger);
     const responses = extractResponses(xml);
     const out: string[] = [];
     for (const response of responses) {
@@ -250,14 +464,35 @@ async function listCollections(creds: DavCredentials, homeUrl: string, kind: 'ad
         const absolute = resolveUrl(homeUrl, href);
         out.push(absolute);
     }
-    return dedupe(out);
+    const deduped = dedupe(out);
+    logger?.debug('Collections kind=%s home=%s count=%d', kind, homeUrl, deduped.length);
+    return deduped;
 }
 
 async function pullContacts(
     creds: DavCredentials,
     addressBooks: string[],
-): Promise<Array<{ sourceUid: string; fullName: string | null; email: string; etag?: string | null }>> {
-    const out: Array<{ sourceUid: string; fullName: string | null; email: string; etag?: string | null }> = [];
+    logger?: ReturnType<typeof createMailDebugLogger>,
+): Promise<Array<{
+    sourceUid: string;
+    fullName: string | null;
+    email: string;
+    phone?: string | null;
+    organization?: string | null;
+    title?: string | null;
+    note?: string | null;
+    etag?: string | null;
+}>> {
+    const out: Array<{
+        sourceUid: string;
+        fullName: string | null;
+        email: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
+        etag?: string | null;
+    }> = [];
     const reportBody = `<?xml version="1.0" encoding="utf-8" ?>
 <c:addressbook-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:carddav">
   <d:prop>
@@ -267,8 +502,9 @@ async function pullContacts(
 </c:addressbook-query>`;
 
     for (const bookUrl of addressBooks) {
-        const xml = await davRequest(creds, bookUrl, 'REPORT', reportBody, '1');
+        const xml = await davRequest(creds, bookUrl, 'REPORT', reportBody, '1', logger);
         const responses = extractResponses(xml);
+        logger?.debug('CardDAV REPORT responses book=%s count=%d', bookUrl, responses.length);
         for (const response of responses) {
             const card = extractTagValue(response, 'address-data');
             if (!card) continue;
@@ -280,18 +516,25 @@ async function pullContacts(
                     sourceUid: parsed.uid,
                     fullName: parsed.fullName,
                     email,
+                    phone: parsed.phone ?? null,
+                    organization: parsed.organization ?? null,
+                    title: parsed.title ?? null,
+                    note: parsed.note ?? null,
                     etag,
                 });
             }
         }
     }
 
-    return dedupeBy(out, (row) => `${row.sourceUid}|${row.email.toLowerCase()}`);
+    const deduped = dedupeBy(out, (row) => `${row.sourceUid}|${row.email.toLowerCase()}`);
+    logger?.info('CardDAV pull collected contacts=%d (raw=%d)', deduped.length, out.length);
+    return deduped;
 }
 
 async function pullEvents(
     creds: DavCredentials,
     calendars: string[],
+    logger?: ReturnType<typeof createMailDebugLogger>,
 ): Promise<Array<{
     calendarUrl: string;
     uid: string;
@@ -323,6 +566,11 @@ async function pullEvents(
     </c:comp-filter>
   </c:filter>
 </c:calendar-query>`;
+    logger?.debug(
+        'CalDAV time-range start=%s end=%s',
+        toCalDavDate(past),
+        toCalDavDate(future),
+    );
 
     const out: Array<{
         calendarUrl: string;
@@ -337,13 +585,16 @@ async function pullEvents(
     }> = [];
 
     for (const calendarUrl of calendars) {
-        const xml = await davRequest(creds, calendarUrl, 'REPORT', reportBody, '1');
+        const xml = await davRequest(creds, calendarUrl, 'REPORT', reportBody, '1', logger);
         const responses = extractResponses(xml);
+        logger?.debug('CalDAV REPORT responses calendar=%s count=%d', calendarUrl, responses.length);
+        let eventsInCalendar = 0;
         for (const response of responses) {
             const ics = extractTagValue(response, 'calendar-data');
             if (!ics) continue;
             const etag = extractTagValue(response, 'getetag') || null;
             const events = parseIcsEvents(ics);
+            eventsInCalendar += events.length;
             for (const event of events) {
                 out.push({
                     calendarUrl,
@@ -358,8 +609,11 @@ async function pullEvents(
                 });
             }
         }
+        logger?.debug('CalDAV parsed events calendar=%s count=%d', calendarUrl, eventsInCalendar);
     }
-    return dedupeBy(out, (row) => `${row.calendarUrl}|${row.uid}`);
+    const deduped = dedupeBy(out, (row) => `${row.calendarUrl}|${row.uid}`);
+    logger?.info('CalDAV pull collected events=%d (raw=%d)', deduped.length, out.length);
+    return deduped;
 }
 
 async function davRequest(
@@ -368,6 +622,7 @@ async function davRequest(
     method: 'PROPFIND' | 'REPORT',
     body: string,
     depth: '0' | '1',
+    logger?: ReturnType<typeof createMailDebugLogger>,
 ): Promise<string> {
     const response = await fetch(url, {
         method,
@@ -380,8 +635,10 @@ async function davRequest(
         body,
     });
     if (!response.ok && response.status !== 207) {
+        logger?.error('DAV request failed method=%s status=%d url=%s', method, response.status, url);
         throw new Error(`DAV ${method} failed (${response.status}) for ${url}`);
     }
+    logger?.debug('DAV request ok method=%s status=%d depth=%s url=%s', method, response.status, depth, url);
     return await response.text();
 }
 
@@ -442,6 +699,15 @@ function extractTagValue(xmlFragment: string, tag: string): string | null {
     return decodeXmlEntities(m[1]).trim();
 }
 
+function extractPropertyHref(xmlFragment: string, propertyTag: string): string | null {
+    const propertyRe = new RegExp(`<${propertyTag}\\b[^>]*>([\\s\\S]*?)<\\/${propertyTag}>`, 'i');
+    const propertyMatch = xmlFragment.match(propertyRe);
+    if (!propertyMatch) return null;
+    const hrefMatch = propertyMatch[1].match(/<href\b[^>]*>([\s\S]*?)<\/href>/i);
+    if (!hrefMatch) return null;
+    return decodeXmlEntities(hrefMatch[1]).trim();
+}
+
 function hasTag(xmlFragment: string, tag: string): boolean {
     const re = new RegExp(`<${tag}(\\s|\\/|>)`, 'i');
     return re.test(xmlFragment);
@@ -472,27 +738,51 @@ function escapeVCardValue(value: string): string {
         .replace(/;/g, '\\;');
 }
 
-function buildVCard(payload: { uid: string; fullName: string | null; email: string }): string {
+function buildVCard(payload: {
+    uid: string;
+    fullName: string | null;
+    email: string;
+    phone?: string | null;
+    organization?: string | null;
+    title?: string | null;
+    note?: string | null;
+}): string {
     const fullName = (payload.fullName || '').trim();
     const displayName = fullName || payload.email.trim();
     const safeName = escapeVCardValue(displayName);
     const safeEmail = escapeVCardValue(payload.email.trim().toLowerCase());
-    return [
+    const lines = [
         'BEGIN:VCARD',
         'VERSION:3.0',
         `UID:${escapeVCardValue(payload.uid)}`,
         `FN:${safeName}`,
         `N:${safeName};;;;`,
         `EMAIL;TYPE=INTERNET:${safeEmail}`,
-        'END:VCARD',
-        '',
-    ].join('\r\n');
+    ];
+    if (payload.phone?.trim()) lines.push(`TEL;TYPE=CELL:${escapeVCardValue(payload.phone.trim())}`);
+    if (payload.organization?.trim()) lines.push(`ORG:${escapeVCardValue(payload.organization.trim())}`);
+    if (payload.title?.trim()) lines.push(`TITLE:${escapeVCardValue(payload.title.trim())}`);
+    if (payload.note?.trim()) lines.push(`NOTE:${escapeVCardValue(payload.note.trim())}`);
+    lines.push('END:VCARD', '');
+    return lines.join('\r\n');
 }
 
-function parseVCard(rawCard: string, fallbackUid: string): { uid: string; fullName: string | null; emails: string[] } {
+function parseVCard(rawCard: string, fallbackUid: string): {
+    uid: string;
+    fullName: string | null;
+    emails: string[];
+    phone: string | null;
+    organization: string | null;
+    title: string | null;
+    note: string | null;
+} {
     const lines = unfoldIcs(rawCard);
     let uid = '';
     let fullName: string | null = null;
+    let phone: string | null = null;
+    let organization: string | null = null;
+    let title: string | null = null;
+    let note: string | null = null;
     const emails: string[] = [];
     for (const line of lines) {
         const [keyRaw, ...rest] = line.split(':');
@@ -503,12 +793,30 @@ function parseVCard(rawCard: string, fallbackUid: string): { uid: string; fullNa
         if (key === 'UID') uid = value;
         if (key === 'FN') fullName = value;
         if (key === 'EMAIL') emails.push(value.toLowerCase());
+        if (key === 'TEL' && !phone) phone = value;
+        if (key === 'ORG' && !organization) organization = value;
+        if (key === 'TITLE' && !title) title = value;
+        if (key === 'NOTE' && !note) note = value;
     }
-    if (emails.length === 0) return {uid: uid || fallbackUid, fullName, emails: []};
+    if (emails.length === 0) {
+        return {
+            uid: uid || fallbackUid,
+            fullName,
+            emails: [],
+            phone,
+            organization,
+            title,
+            note,
+        };
+    }
     return {
         uid: uid || fallbackUid,
         fullName,
         emails: dedupe(emails),
+        phone,
+        organization,
+        title,
+        note,
     };
 }
 

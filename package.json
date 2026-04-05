@@ -96,7 +96,12 @@
       "resources/**/*",
       "build/**/*",
       "preload.cjs",
+      "node_modules/**/*",
       "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/keytar/**/*"
     ],
     "protocols": [
       {

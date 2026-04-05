@@ -1,6 +1,6 @@
 {
   "name": "lunamail",
-  "version": "1.0.4",
+  "version": "v1.0.18",
   "description": "Modern offline-first desktop email client for Linux.",
   "homepage": "https://github.com/Wuild/LunaMail",
   "repository": {
@@ -96,12 +96,13 @@
       "resources/**/*",
       "build/**/*",
       "preload.cjs",
-      "node_modules/**/*",
       "package.json"
     ],
-    "asarUnpack": [
-      "node_modules/better-sqlite3/**/*",
-      "node_modules/keytar/**/*"
+    "extraResources": [
+      {
+        "from": ".electron-builder-prod-node_modules/node_modules",
+        "to": "node_modules"
+      }
     ],
     "protocols": [
       {

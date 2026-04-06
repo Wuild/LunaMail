@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {FileText, Forward, Paperclip, Reply, ReplyAll, Trash2} from 'lucide-react';
+import {FileText, Forward, MailOpen, Paperclip, Reply, ReplyAll, Star, Tag, Trash2} from 'lucide-react';
 import type {AppSettings, MessageBodyResult, MessageDetails} from '../../preload';
 import {formatSystemDateTime} from '../lib/dateTime';
 import {
@@ -364,25 +364,59 @@ export default function MessageWindowPage() {
                     </button>
                 </div>
                 <header
-                    className="shrink-0 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-indigo-50/60 px-6 py-5 dark:border-[#393c41] dark:from-[#34373d] dark:via-[#34373d] dark:to-[#3a3550]">
-                    <h1 className="truncate text-2xl font-semibold text-slate-900 dark:text-slate-100">{message?.subject || 'Message'}</h1>
-                    {message && (
-                        <div className="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200">
-                            <div><span
-                                className="font-medium text-slate-500 dark:text-slate-400">From:</span> {formatFromDisplay(message)}
-                            </div>
-                            <div><span
-                                className="font-medium text-slate-500 dark:text-slate-400">To:</span> {message.to_address || '-'}
-                            </div>
-                            <div><span
-                                className="font-medium text-slate-500 dark:text-slate-400">Date:</span> {formatSystemDateTime(message.date, systemLocale)}
-                            </div>
-                        </div>
-                    )}
+                    className="shrink-0 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-indigo-50/40 px-4 py-3 dark:border-[#393c41] dark:from-[#34373d] dark:via-[#34373d] dark:to-[#3a3550]">
                     {message && (
                         <>
+                            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                                <span
+                                    className="inline-flex h-5 items-center rounded-md bg-slate-200/90 px-2 text-[11px] font-medium text-slate-700 dark:bg-[#2a2d31] dark:text-slate-200">
+                                    Message
+                                </span>
+                                {Boolean(message.is_flagged) && (
+                                    <span
+                                        className="inline-flex h-5 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 text-[11px] font-medium text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-300">
+                                        <Star size={11} className="fill-current"/>
+                                        Starred
+                                    </span>
+                                )}
+                                <span
+                                    className="inline-flex h-5 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
+                                    <MailOpen size={11}/>
+                                    {message.is_read ? 'Read' : 'Unread'}
+                                </span>
+                                {Boolean((message as MessageDetails & { tag?: string | null }).tag) && (
+                                    <span
+                                        className="inline-flex h-5 items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-800 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-300">
+                                        <Tag size={11}/>
+                                        {formatMessageTagLabel((message as MessageDetails & {
+                                            tag?: string | null
+                                        }).tag ?? null)}
+                                    </span>
+                                )}
+                                {attachments.length > 0 && (
+                                    <span
+                                        className="inline-flex h-5 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
+                                        <Paperclip size={11}/>
+                                        {attachments.length} attachment{attachments.length > 1 ? 's' : ''}
+                                    </span>
+                                )}
+                            </div>
+                            <h2 className="truncate text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">{message.subject || '(No subject)'}</h2>
+                            <div className="mt-2 grid gap-1 text-xs text-slate-700 dark:text-slate-200">
+                                <div className="select-text">
+                                    <span className="font-medium text-slate-500 dark:text-slate-400">From:</span>{' '}
+                                    <span className="select-text">{formatFromDisplay(message)}</span>
+                                </div>
+                                <div className="select-text">
+                                    <span className="font-medium text-slate-500 dark:text-slate-400">To:</span>{' '}
+                                    <span className="select-text">{message.to_address || '-'}</span>
+                                </div>
+                                <div><span
+                                    className="font-medium text-slate-500 dark:text-slate-400">Date:</span> {formatSystemDateTime(message.date, systemLocale)}
+                                </div>
+                            </div>
                             <button
-                                className="mt-3 inline-flex h-8 items-center rounded-md border border-slate-300 px-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+                                className="mt-2 inline-flex h-7 items-center rounded-md border border-slate-300 px-2 text-[11px] text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
                                 onClick={() => setShowMessageDetails((prev) => !prev)}
                             >
                                 {showMessageDetails ? 'Hide message details' : 'Show message details'}
@@ -587,4 +621,14 @@ export default function MessageWindowPage() {
             </div>
         </div>
     );
+}
+
+function formatMessageTagLabel(tag: string | null): string {
+    const normalized = String(tag || '').trim().toLowerCase();
+    if (!normalized) return '';
+    if (normalized === 'important') return 'Important';
+    if (normalized === 'work') return 'Work';
+    if (normalized === 'personal') return 'Personal';
+    if (normalized === 'todo') return 'To-do';
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }

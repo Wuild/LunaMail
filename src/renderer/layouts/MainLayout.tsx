@@ -26,9 +26,9 @@ import {
     X
 } from 'lucide-react';
 import type {FolderItem, MessageItem, PublicAccount} from '../../preload/index';
-import {Badge} from '../components/ui/badge';
 import {Button} from '../components/ui/button';
 import {ScrollArea} from '../components/ui/scroll-area';
+import NewEmailBadge from '../components/mail/NewEmailBadge';
 import {isProtectedFolder} from '../features/mail/folders';
 import {getAccountAvatarColors, getAccountMonogram} from '../lib/accountAvatar';
 import {formatSystemDateTime} from '../lib/dateTime';
@@ -81,6 +81,7 @@ interface MainLayoutProps {
     onBulkDelete: (messageIds: number[]) => void;
     onClearMessageSelection: () => void;
     onMessageFlagToggle: (message: MessageItem) => void;
+    onMessageTagChange: (message: MessageItem, tag: string | null) => void;
     onMessageArchive: (message: MessageItem) => void;
     onMessageDelete: (message: MessageItem) => void;
     onMessageMove: (message: MessageItem, targetFolderPath: string) => void;
@@ -123,16 +124,65 @@ const FOLDER_TYPE_OPTIONS = [
 
 const ACCOUNT_COLLAPSE_STORAGE_KEY = 'lunamail.accountCollapseState.v1';
 const MAIL_TABLE_COLUMNS_STORAGE_KEY = 'lunamail.mailTableColumns.v1';
+const MAIL_TABLE_COLUMN_WIDTHS_STORAGE_KEY = 'lunamail.mailTableColumnWidths.v1';
+const MAIL_TABLE_RESIZE_HANDLE_CLASS = 'absolute inset-y-0 right-[-8px] z-10 w-4 cursor-col-resize hover:bg-sky-400/20';
 
 type MailPaneLayoutMode = 'side-list' | 'top-table';
-type MailTableColumnKey = 'subject' | 'from' | 'date' | 'flagged' | 'size';
+type MailTableColumnKey =
+    | 'subject'
+    | 'from'
+    | 'recipient'
+    | 'date'
+    | 'read_status'
+    | 'flagged'
+    | 'tag'
+    | 'account'
+    | 'location'
+    | 'size';
 const DEFAULT_TABLE_COLUMNS: MailTableColumnKey[] = ['subject', 'from', 'date'];
+const DEFAULT_TABLE_COLUMN_WIDTHS: Record<MailTableColumnKey, number> = {
+    subject: 360,
+    from: 220,
+    recipient: 220,
+    date: 170,
+    read_status: 96,
+    flagged: 72,
+    tag: 120,
+    account: 180,
+    location: 180,
+    size: 92,
+};
+const MIN_TABLE_COLUMN_WIDTHS: Record<MailTableColumnKey, number> = {
+    subject: 16,
+    from: 16,
+    recipient: 16,
+    date: 16,
+    read_status: 16,
+    flagged: 16,
+    tag: 16,
+    account: 16,
+    location: 16,
+    size: 16,
+};
 const TABLE_COLUMN_OPTIONS: Array<{ key: MailTableColumnKey; label: string }> = [
     {key: 'subject', label: 'Subject'},
     {key: 'from', label: 'From'},
+    {key: 'recipient', label: 'Recipient'},
     {key: 'date', label: 'Date'},
+    {key: 'read_status', label: 'Read status'},
     {key: 'flagged', label: 'Starred'},
+    {key: 'tag', label: 'Tag'},
+    {key: 'account', label: 'Account'},
+    {key: 'location', label: 'Location'},
     {key: 'size', label: 'Size'},
+];
+
+const MESSAGE_TAG_OPTIONS: Array<{ value: string; label: string; dotClass: string }> = [
+    {value: 'important', label: 'Important', dotClass: 'bg-red-500'},
+    {value: 'work', label: 'Work', dotClass: 'bg-blue-500'},
+    {value: 'personal', label: 'Personal', dotClass: 'bg-emerald-500'},
+    {value: 'todo', label: 'To Do', dotClass: 'bg-amber-500'},
+    {value: 'later', label: 'Later', dotClass: 'bg-violet-500'},
 ];
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -176,6 +226,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                    onBulkDelete,
                                                    onClearMessageSelection,
                                                    onMessageFlagToggle,
+                                                   onMessageTagChange,
                                                    onMessageArchive,
                                                    onMessageDelete,
                                                    onMessageMove,
@@ -199,15 +250,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     const moveToTriggerRef = React.useRef<HTMLButtonElement | null>(null);
     const mailSearchModalInputRef = React.useRef<HTMLInputElement | null>(null);
     const [menuPosition, setMenuPosition] = React.useState<{ left: number; top: number }>({left: 0, top: 0});
+    const [menuReady, setMenuReady] = React.useState(false);
     const [accountMenuPosition, setAccountMenuPosition] = React.useState<{ left: number; top: number }>({
         left: 0,
         top: 0
     });
+    const [accountMenuReady, setAccountMenuReady] = React.useState(false);
     const [tableHeadMenu, setTableHeadMenu] = React.useState<{ x: number; y: number } | null>(null);
     const [tableHeadMenuPosition, setTableHeadMenuPosition] = React.useState<{ left: number; top: number }>({
         left: 0,
         top: 0
     });
+    const [tableHeadMenuReady, setTableHeadMenuReady] = React.useState(false);
     const [moveSubmenuLeft, setMoveSubmenuLeft] = React.useState(false);
     const [moveSubmenuOffsetY, setMoveSubmenuOffsetY] = React.useState(0);
     const [collapsedAccountIds, setCollapsedAccountIds] = React.useState<Set<number>>(() => {
@@ -277,8 +331,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             const next = parsed.filter((column) => (
                 column === 'subject'
                 || column === 'from'
+                || column === 'recipient'
                 || column === 'date'
+                || column === 'read_status'
                 || column === 'flagged'
+                || column === 'tag'
+                || column === 'account'
+                || column === 'location'
                 || column === 'size'
             )) as MailTableColumnKey[];
             return next.length > 0 ? next : DEFAULT_TABLE_COLUMNS;
@@ -292,7 +351,39 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         if (!Number.isFinite(stored)) return 300;
         return Math.max(220, Math.min(640, stored));
     });
+    const [tableColumnWidths, setTableColumnWidths] = React.useState<Record<MailTableColumnKey, number>>(() => {
+        if (typeof window === 'undefined') return DEFAULT_TABLE_COLUMN_WIDTHS;
+        try {
+            const raw = window.localStorage.getItem(MAIL_TABLE_COLUMN_WIDTHS_STORAGE_KEY);
+            if (!raw) return DEFAULT_TABLE_COLUMN_WIDTHS;
+            const parsed = JSON.parse(raw) as Partial<Record<MailTableColumnKey, number>>;
+            return {
+                subject: normalizeColumnWidth(parsed.subject, 'subject'),
+                from: normalizeColumnWidth(parsed.from, 'from'),
+                recipient: normalizeColumnWidth(parsed.recipient, 'recipient'),
+                date: normalizeColumnWidth(parsed.date, 'date'),
+                read_status: normalizeColumnWidth(parsed.read_status, 'read_status'),
+                flagged: normalizeColumnWidth(parsed.flagged, 'flagged'),
+                tag: normalizeColumnWidth(parsed.tag, 'tag'),
+                account: normalizeColumnWidth(parsed.account, 'account'),
+                location: normalizeColumnWidth(parsed.location, 'location'),
+                size: normalizeColumnWidth(parsed.size, 'size'),
+            };
+        } catch {
+            return DEFAULT_TABLE_COLUMN_WIDTHS;
+        }
+    });
+    const [draggingColumn, setDraggingColumn] = React.useState<MailTableColumnKey | null>(null);
+    const [dragPlaceholder, setDragPlaceholder] = React.useState<{
+        column: MailTableColumnKey;
+        side: 'before' | 'after';
+    } | null>(null);
     const topListResizeRef = React.useRef<{ startY: number; startHeight: number } | null>(null);
+    const tableColumnResizeRef = React.useRef<{
+        column: MailTableColumnKey;
+        startX: number;
+        startWidth: number;
+    } | null>(null);
     const {sidebarWidth, onResizeStart} = useResizableSidebar();
     const {sidebarWidth: mailListWidth, onResizeStart: onMailListResizeStart} = useResizableSidebar({
         storageKey: 'lunamail.mailList.width',
@@ -316,6 +407,26 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         () => folders.filter((f) => f.path !== selectedFolderPath).slice(0, 12),
         [folders, selectedFolderPath],
     );
+    const visibleTableColumns = React.useMemo(
+        () => tableColumns.filter((column) => TABLE_COLUMN_OPTIONS.some((item) => item.key === column)),
+        [tableColumns],
+    );
+    const lastVisibleTableColumn = visibleTableColumns[visibleTableColumns.length - 1] ?? null;
+    const effectiveTableColumnWidths = React.useMemo(() => {
+        return Object.fromEntries(
+            visibleTableColumns.map((column) => [
+                column,
+                tableColumnWidths[column] ?? DEFAULT_TABLE_COLUMN_WIDTHS[column],
+            ]),
+        ) as Record<MailTableColumnKey, number>;
+    }, [tableColumnWidths, visibleTableColumns]);
+    const tableMinWidth = React.useMemo(() => {
+        const columnsWidth = visibleTableColumns.reduce(
+            (sum, column) => sum + (effectiveTableColumnWidths[column] ?? DEFAULT_TABLE_COLUMN_WIDTHS[column]),
+            0,
+        );
+        return columnsWidth + 44;
+    }, [effectiveTableColumnWidths, visibleTableColumns]);
     const moveTargetsProtected = React.useMemo(
         () => moveTargets.filter((folder) => isProtectedFolder(folder)),
         [moveTargets],
@@ -489,6 +600,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
     React.useEffect(() => {
         try {
+            window.localStorage.setItem(MAIL_TABLE_COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(tableColumnWidths));
+        } catch {
+            // ignore storage failures
+        }
+    }, [tableColumnWidths]);
+
+    React.useEffect(() => {
+        try {
             window.localStorage.setItem('lunamail.mailTopList.height', String(topListHeight));
         } catch {
             // ignore storage failures
@@ -498,13 +617,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     React.useEffect(() => {
         const onMouseMove = (event: MouseEvent) => {
             const drag = topListResizeRef.current;
-            if (!drag) return;
-            const next = drag.startHeight + (event.clientY - drag.startY);
-            setTopListHeight(Math.max(220, Math.min(640, next)));
+            if (drag) {
+                const next = drag.startHeight + (event.clientY - drag.startY);
+                setTopListHeight(Math.max(220, Math.min(640, next)));
+            }
+            const resize = tableColumnResizeRef.current;
+            if (resize) {
+                const nextWidth = normalizeColumnWidth(
+                    resize.startWidth + (event.clientX - resize.startX),
+                    resize.column,
+                );
+                setTableColumnWidths((prev) => {
+                    if (prev[resize.column] === nextWidth) return prev;
+                    return {
+                        ...prev,
+                        [resize.column]: nextWidth,
+                    };
+                });
+            }
         };
         const onMouseUp = () => {
             topListResizeRef.current = null;
+            tableColumnResizeRef.current = null;
             document.body.classList.remove('is-resizing-mail-top-list');
+            document.body.classList.remove('is-resizing-mail-columns');
         };
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
@@ -512,6 +648,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
             document.body.classList.remove('is-resizing-mail-top-list');
+            document.body.classList.remove('is-resizing-mail-columns');
         };
     }, []);
 
@@ -523,9 +660,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         };
         window.addEventListener('click', close);
         window.addEventListener('keydown', close);
+        window.addEventListener('lunamail-close-overlays', close as EventListener);
         return () => {
             window.removeEventListener('click', close);
             window.removeEventListener('keydown', close);
+            window.removeEventListener('lunamail-close-overlays', close as EventListener);
         };
     }, []);
 
@@ -564,6 +703,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
     React.useEffect(() => {
         if (!menu) {
+            setMenuReady(false);
             setMoveSubmenuLeft(false);
             setMoveSubmenuOffsetY(0);
             return;
@@ -574,6 +714,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             const rect = el.getBoundingClientRect();
             const next = constrainToViewport(menu.x, menu.y, rect.width, rect.height);
             setMenuPosition((prev) => (prev.left === next.left && prev.top === next.top ? prev : next));
+            setMenuReady(true);
             if (menu.kind === 'message') {
                 const rightSpace = window.innerWidth - (next.left + rect.width) - 8;
                 setMoveSubmenuLeft(rightSpace < 236);
@@ -617,13 +758,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     }, [menu, menuPosition, moveTargets.length]);
 
     React.useEffect(() => {
-        if (!accountMenu) return;
+        if (!accountMenu) {
+            setAccountMenuReady(false);
+            return;
+        }
         const updatePosition = () => {
             const el = accountMenuRef.current;
             if (!el) return;
             const rect = el.getBoundingClientRect();
             const next = constrainToViewport(accountMenu.x, accountMenu.y, rect.width, rect.height);
             setAccountMenuPosition((prev) => (prev.left === next.left && prev.top === next.top ? prev : next));
+            setAccountMenuReady(true);
         };
         const raf = window.requestAnimationFrame(updatePosition);
         window.addEventListener('resize', updatePosition);
@@ -634,13 +779,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     }, [accountMenu]);
 
     React.useEffect(() => {
-        if (!tableHeadMenu) return;
+        if (!tableHeadMenu) {
+            setTableHeadMenuReady(false);
+            return;
+        }
         const updatePosition = () => {
             const el = tableHeadMenuRef.current;
             if (!el) return;
             const rect = el.getBoundingClientRect();
             const next = constrainToViewport(tableHeadMenu.x, tableHeadMenu.y, rect.width, rect.height);
             setTableHeadMenuPosition((prev) => (prev.left === next.left && prev.top === next.top ? prev : next));
+            setTableHeadMenuReady(true);
         };
         const raf = window.requestAnimationFrame(updatePosition);
         window.addEventListener('resize', updatePosition);
@@ -746,6 +895,81 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         setTableColumns(DEFAULT_TABLE_COLUMNS);
     }
 
+    function openTableHeadMenuAt(x: number, y: number): void {
+        setTableHeadMenu({x, y});
+    }
+
+    function beginTableColumnResize(event: React.MouseEvent, column: MailTableColumnKey): void {
+        event.preventDefault();
+        event.stopPropagation();
+        const startWidth = normalizeColumnWidth(
+            effectiveTableColumnWidths[column] ?? tableColumnWidths[column] ?? DEFAULT_TABLE_COLUMN_WIDTHS[column],
+            column,
+        );
+        setTableColumnWidths((prev) => ({
+            ...prev,
+            [column]: startWidth,
+        }));
+        tableColumnResizeRef.current = {
+            column,
+            startX: event.clientX,
+            startWidth,
+        };
+        document.body.classList.add('is-resizing-mail-columns');
+    }
+
+    function moveTableColumnBefore(dragged: MailTableColumnKey, target: MailTableColumnKey): void {
+        if (dragged === target) return;
+        setTableColumns((prev) => {
+            const fromIndex = prev.indexOf(dragged);
+            const targetIndex = prev.indexOf(target);
+            if (fromIndex < 0 || targetIndex < 0) return prev;
+            const next = prev.filter((column) => column !== dragged);
+            const insertAt = next.indexOf(target);
+            if (insertAt < 0) return prev;
+            next.splice(insertAt, 0, dragged);
+            return next;
+        });
+    }
+
+    function moveTableColumnAfter(dragged: MailTableColumnKey, target: MailTableColumnKey): void {
+        if (dragged === target) return;
+        setTableColumns((prev) => {
+            const fromIndex = prev.indexOf(dragged);
+            const targetIndex = prev.indexOf(target);
+            if (fromIndex < 0 || targetIndex < 0) return prev;
+            const next = prev.filter((column) => column !== dragged);
+            const insertAt = next.indexOf(target);
+            if (insertAt < 0) return prev;
+            next.splice(insertAt + 1, 0, dragged);
+            return next;
+        });
+    }
+
+    function onTableHeaderDragStart(event: React.DragEvent, column: MailTableColumnKey): void {
+        if (tableColumnResizeRef.current) {
+            event.preventDefault();
+            return;
+        }
+        setDraggingColumn(column);
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', column);
+    }
+
+    function onTableHeaderDrop(event: React.DragEvent, target: MailTableColumnKey): void {
+        event.preventDefault();
+        const dragged = draggingColumn || (event.dataTransfer.getData('text/plain') as MailTableColumnKey);
+        if (!dragged) return;
+        const side = dragPlaceholder?.column === target ? dragPlaceholder.side : 'before';
+        if (side === 'after') {
+            moveTableColumnAfter(dragged, target);
+        } else {
+            moveTableColumnBefore(dragged, target);
+        }
+        setDragPlaceholder(null);
+        setDraggingColumn(null);
+    }
+
     function navigateToMessage(message: MessageItem): void {
         window.location.hash = `#/email/${message.account_id}/${message.folder_id}/${message.id}`;
     }
@@ -807,6 +1031,95 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             startHeight: topListHeight,
         };
         document.body.classList.add('is-resizing-mail-top-list');
+    }
+
+    function renderTableCell(message: MessageItem, column: MailTableColumnKey): React.ReactNode {
+        const withBorder = lastVisibleTableColumn !== column;
+        const baseCell = cn(
+            'relative px-3 py-2 dark:border-r-[#3a3d44]',
+            withBorder && 'border-r border-r-slate-200',
+        );
+
+        switch (column) {
+            case 'subject':
+                return (
+                    <td key={`${message.id}-subject`}
+                        className={cn(baseCell, message.is_read ? 'font-medium text-slate-700 dark:text-slate-300' : 'font-semibold text-slate-950 dark:text-white')}>
+                        <div className="flex min-w-0 items-center gap-2">
+                            <span className="truncate">{message.subject || '(No subject)'}</span>
+                            {getThreadCount(message) > 1 && (
+                                <span
+                                    className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-200 px-1.5 text-[11px] font-semibold leading-none text-slate-700 dark:bg-[#454a55] dark:text-slate-100">
+                                    {getThreadCount(message)}
+                                </span>
+                            )}
+                        </div>
+                    </td>
+                );
+            case 'from':
+                return (
+                    <td key={`${message.id}-from`}
+                        className={cn(baseCell, 'truncate text-slate-600 dark:text-slate-300')}>
+                        {formatMessageSender(message)}
+                    </td>
+                );
+            case 'recipient':
+                return (
+                    <td key={`${message.id}-recipient`}
+                        className={cn(baseCell, 'truncate text-slate-600 dark:text-slate-300')}>
+                        {formatMessageRecipient(message)}
+                    </td>
+                );
+            case 'date':
+                return (
+                    <td key={`${message.id}-date`}
+                        className={cn(baseCell, 'truncate text-slate-600 dark:text-slate-300')}>
+                        {formatSystemDateTime(message.date, dateLocale)}
+                    </td>
+                );
+            case 'read_status':
+                return (
+                    <td key={`${message.id}-read-status`}
+                        className={cn(baseCell, 'text-slate-600 dark:text-slate-300')}>
+                        {message.is_read ? 'Read' : 'Unread'}
+                    </td>
+                );
+            case 'flagged':
+                return (
+                    <td key={`${message.id}-flagged`} className={cn(baseCell, 'text-slate-600 dark:text-slate-300')}>
+                        {Boolean(message.is_flagged) ? <Star size={12}
+                                                             className="fill-current text-amber-500 dark:text-amber-300"/> : ''}
+                    </td>
+                );
+            case 'tag':
+                return (
+                    <td key={`${message.id}-tag`} className={cn(baseCell, 'text-slate-600 dark:text-slate-300')}>
+                        {renderTagCell((message as MessageItem & { tag?: string | null }).tag ?? null)}
+                    </td>
+                );
+            case 'account':
+                return (
+                    <td key={`${message.id}-account`}
+                        className={cn(baseCell, 'truncate text-slate-600 dark:text-slate-300')}>
+                        {formatMessageAccount(message, accounts)}
+                    </td>
+                );
+            case 'location':
+                return (
+                    <td key={`${message.id}-location`}
+                        className={cn(baseCell, 'truncate text-slate-600 dark:text-slate-300')}>
+                        {formatMessageLocation(message, folders)}
+                    </td>
+                );
+            case 'size':
+                return (
+                    <td key={`${message.id}-size`} className={cn(baseCell, 'text-slate-600 dark:text-slate-300')}>
+                        {formatMessageSize(message.size)}
+                    </td>
+                );
+            default:
+                return null;
+        }
     }
 
     return (
@@ -1053,17 +1366,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                     </button>
                                                     </div>
                                                     {accountUnread > 0 && (
-                                                        <Badge
-                                                            className={cn(
-                                                                'inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-semibold leading-none',
-                                                                isSelectedAccount
-                                                                    ? 'bg-red-700 text-white dark:bg-red-500 dark:text-white'
-                                                                    : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-                                                            )}
+                                                        <NewEmailBadge
+                                                            count={accountUnread}
                                                             title={`${accountUnread} unread in account`}
-                                                        >
-                                                            {accountUnread}
-                                                        </Badge>
+                                                            className={cn(
+                                                                isSelectedAccount && 'border-red-400/90 from-red-500 to-red-700 dark:border-red-400/80',
+                                                            )}
+                                                        />
                                                     )}
                                                 </div>
                                             </div>
@@ -1345,7 +1654,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                     </div>
                                 )}
                                 <ScrollArea
-                                    className="min-h-0 flex-1"
+                                    className="min-h-0 flex-1 overflow-auto"
                                     onScroll={(e) => {
                                         if (!hasMoreMessages || loadingMoreMessages) return;
                                         const el = e.currentTarget;
@@ -1383,24 +1692,55 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                             }}
                                         >
                                             <div
-                                                className={`truncate text-sm ${message.is_read ? 'font-medium text-slate-700 dark:text-slate-300' : 'font-semibold text-slate-950 dark:text-white'}`}>
-                                                {message.subject || '(No subject)'}
-                                            </div>
-                                            <div className="mt-1.5 flex justify-between">
-                                                <p className="truncate text-xs text-slate-500 dark:text-slate-400">{formatMessageSender(message)}</p>
-                                                <span
-                                                    className="ml-3 inline-flex items-center gap-2 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
-                                                {Boolean(message.is_flagged) && (
+                                                className={`flex min-w-0 items-center gap-2 text-sm ${message.is_read ? 'font-medium text-slate-700 dark:text-slate-300' : 'font-semibold text-slate-950 dark:text-white'}`}>
+                                                <span className="truncate">{message.subject || '(No subject)'}</span>
+                                                {getThreadCount(message) > 1 && (
                                                     <span
-                                                        className="inline-flex items-center text-amber-500 dark:text-amber-300"
-                                                        title="Starred">
-                                                        <Star size={12} className="fill-current"/>
+                                                        className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-200 px-1.5 text-[11px] font-semibold leading-none text-slate-700 dark:bg-[#454a55] dark:text-slate-100">
+                                                        {getThreadCount(message)}
                                                     </span>
                                                 )}
-                                                    {!message.is_read && <span
-                                                        className="inline-block h-2 w-2 rounded-full bg-sky-600 dark:bg-[#8ea1ff]"/>}
+                                            </div>
+                                            <div className="mt-1.5 flex items-center justify-between gap-2">
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">{formatMessageSender(message)}</p>
+                                                    {Boolean((message as MessageItem & {
+                                                        tag?: string | null
+                                                    }).tag) && (
+                                                        <span
+                                                            className="inline-flex max-w-[10rem] items-center gap-1 rounded-md border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600 dark:border-[#4a4d55] dark:text-slate-200">
+                                                            <span
+                                                                className={cn(
+                                                                    'inline-flex h-1.5 w-1.5 shrink-0 rounded-full',
+                                                                    getTagDotClass((message as MessageItem & {
+                                                                        tag?: string | null
+                                                                    }).tag ?? null),
+                                                                )}
+                                                            />
+                                                            <span
+                                                                className="truncate">{getTagLabel((message as MessageItem & {
+                                                                tag?: string | null
+                                                            }).tag ?? null)}</span>
+                                                        </span>
+                                                    )}
+                                                    {!message.is_read && (
+                                                        <span
+                                                            className="inline-flex shrink-0 rounded-sm border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:border-[#4a6cbf] dark:bg-[#2e3e66] dark:text-[#c6d7ff]">
+                                                            Unread
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <span
+                                                    className="ml-3 inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+                                                    {Boolean(message.is_flagged) && (
+                                                        <span
+                                                            className="inline-flex items-center text-amber-500 dark:text-amber-300"
+                                                            title="Starred">
+                                                            <Star size={12} className="fill-current"/>
+                                                        </span>
+                                                    )}
                                                     <span>{formatSystemDateTime(message.date, dateLocale)}</span>
-                                            </span>
+                                                </span>
                                             </div>
                                         </div>
                                     ))}
@@ -1497,25 +1837,102 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                             this folder yet.</div>
                                     )}
                                     {messages.length > 0 && (
-                                        <table className="w-full table-fixed border-collapse text-sm">
+                                        <table
+                                            key={`mail-table-${visibleTableColumns.join('|')}`}
+                                            className="table-fixed border-collapse text-sm"
+                                            style={{width: `max(${tableMinWidth}px, 100%)`, minWidth: '100%'}}
+                                        >
+                                            <colgroup>
+                                                {visibleTableColumns.map((column) => (
+                                                    <col key={column}
+                                                         style={{width: `${effectiveTableColumnWidths[column]}px`}}/>
+                                                ))}
+                                                <col style={{width: '44px'}}/>
+                                            </colgroup>
                                             <thead
-                                                className="sticky top-0 z-10 bg-slate-100 dark:bg-[#2f3138]"
+                                                className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 shadow-[inset_0_-1px_0_0_rgb(226_232_240)] dark:border-[#3a3d44] dark:bg-[#2f3138] dark:shadow-[inset_0_-1px_0_0_#3a3d44]"
                                                 onContextMenu={(event) => {
                                                     event.preventDefault();
-                                                    setTableHeadMenu({x: event.clientX, y: event.clientY});
+                                                    openTableHeadMenuAt(event.clientX, event.clientY);
                                                 }}
                                             >
-                                            <tr className="text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                                                {tableColumns.includes('subject') &&
-                                                    <th className="border-b border-slate-200 px-3 py-2 dark:border-[#3a3d44]">Subject</th>}
-                                                {tableColumns.includes('from') &&
-                                                    <th className="border-b border-slate-200 px-3 py-2 dark:border-[#3a3d44]">From</th>}
-                                                {tableColumns.includes('date') &&
-                                                    <th className="border-b border-slate-200 px-3 py-2 dark:border-[#3a3d44]">Date</th>}
-                                                {tableColumns.includes('flagged') &&
-                                                    <th className="w-16 border-b border-slate-200 px-3 py-2 dark:border-[#3a3d44]">Star</th>}
-                                                {tableColumns.includes('size') &&
-                                                    <th className="w-20 border-b border-slate-200 px-3 py-2 dark:border-[#3a3d44]">Size</th>}
+                                            <tr className="group text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                                                {visibleTableColumns.map((column, index) => {
+                                                    const label = TABLE_COLUMN_OPTIONS.find((item) => item.key === column)?.label || column;
+                                                    return (
+                                                        <th
+                                                            key={column}
+                                                            className={cn(
+                                                                'relative border-b border-slate-200 px-3 py-2 select-none dark:border-[#3a3d44]',
+                                                                index < visibleTableColumns.length - 1 && 'border-r border-r-slate-200 dark:border-r-[#3a3d44]',
+                                                                draggingColumn === column && 'opacity-70',
+                                                                dragPlaceholder?.column === column && draggingColumn && draggingColumn !== column && 'bg-sky-100/50 dark:bg-[#3a4f72]/60',
+                                                            )}
+                                                            draggable
+                                                            onDragStart={(event) => onTableHeaderDragStart(event, column)}
+                                                            onDragOver={(event) => {
+                                                                event.preventDefault();
+                                                                if (draggingColumn && draggingColumn !== column) {
+                                                                    const rect = event.currentTarget.getBoundingClientRect();
+                                                                    const side = event.clientX >= rect.left + rect.width / 2 ? 'after' : 'before';
+                                                                    setDragPlaceholder((prev) => {
+                                                                        if (prev?.column === column && prev.side === side) return prev;
+                                                                        return {column, side};
+                                                                    });
+                                                                }
+                                                            }}
+                                                            onDragLeave={() => {
+                                                                setDragPlaceholder((prev) => (prev?.column === column ? null : prev));
+                                                            }}
+                                                            onDrop={(event) => onTableHeaderDrop(event, column)}
+                                                            onDragEnd={() => {
+                                                                setDraggingColumn(null);
+                                                                setDragPlaceholder(null);
+                                                            }}
+                                                        >
+                                                            {dragPlaceholder?.column === column && dragPlaceholder.side === 'before' && (
+                                                                <span
+                                                                    className="pointer-events-none absolute bottom-0 left-0 top-0 w-0.5 bg-sky-600 dark:bg-sky-400"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            )}
+                                                            <div className="truncate">
+                                                                <span className="truncate">{label}</span>
+                                                            </div>
+                                                            {dragPlaceholder?.column === column && dragPlaceholder.side === 'after' && (
+                                                                <span
+                                                                    className="pointer-events-none absolute bottom-0 right-0 top-0 w-0.5 bg-sky-600 dark:bg-sky-400"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            )}
+                                                            {index < visibleTableColumns.length - 1 && (
+                                                                <>
+                                                                    <div
+                                                                        role="separator"
+                                                                        aria-orientation="vertical"
+                                                                        className={MAIL_TABLE_RESIZE_HANDLE_CLASS}
+                                                                        onMouseDown={(event) => beginTableColumnResize(event, column)}
+                                                                    />
+                                                                </>
+                                                            )}
+                                                        </th>
+                                                    );
+                                                })}
+                                                <th className="border-b border-slate-200 px-1 py-1 text-right dark:border-[#3a3d44]">
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-[#3a3d44] dark:hover:text-slate-100"
+                                                        aria-label="Table column options"
+                                                        title="Table column options"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            const rect = event.currentTarget.getBoundingClientRect();
+                                                            openTableHeadMenuAt(rect.right - 8, rect.bottom + 6);
+                                                        }}
+                                                    >
+                                                        <Settings size={13}/>
+                                                    </button>
+                                                </th>
                                             </tr>
                                             </thead>
                                             <tbody>
@@ -1523,7 +1940,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                 <tr
                                                     key={message.id}
                                                     className={cn(
-                                                        'cursor-pointer border-b border-slate-100 hover:bg-slate-50 dark:border-[#393c41] dark:hover:bg-[#32353b]',
+                                                        'cursor-pointer border-t border-slate-100 first:border-t-0 hover:bg-slate-50 dark:border-[#393c41] dark:hover:bg-[#32353b]',
                                                         selectedMessageIds.includes(message.id) && 'bg-sky-50/70 dark:bg-[#3a3e52]',
                                                     )}
                                                     onClick={(event) => onMessageRowClick(event, message, messageIndex)}
@@ -1546,26 +1963,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                                         });
                                                     }}
                                                 >
-                                                    {tableColumns.includes('subject') && (
-                                                        <td className={cn('truncate px-3 py-2', message.is_read ? 'font-medium text-slate-700 dark:text-slate-300' : 'font-semibold text-slate-950 dark:text-white')}>
-                                                            {message.subject || '(No subject)'}
-                                                        </td>
-                                                    )}
-                                                    {tableColumns.includes('from') && (
-                                                        <td className="truncate px-3 py-2 text-slate-600 dark:text-slate-300">{formatMessageSender(message)}</td>
-                                                    )}
-                                                    {tableColumns.includes('date') && (
-                                                        <td className="truncate px-3 py-2 text-slate-600 dark:text-slate-300">{formatSystemDateTime(message.date, dateLocale)}</td>
-                                                    )}
-                                                    {tableColumns.includes('flagged') && (
-                                                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
-                                                            {Boolean(message.is_flagged) ? <Star size={12}
-                                                                                                 className="fill-current text-amber-500 dark:text-amber-300"/> : ''}
-                                                        </td>
-                                                    )}
-                                                    {tableColumns.includes('size') && (
-                                                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{formatMessageSize(message.size)}</td>
-                                                    )}
+                                                    {visibleTableColumns.map((column) => renderTableCell(message, column))}
+                                                    <td className="px-1 py-2"/>
                                                 </tr>
                                             ))}
                                             </tbody>
@@ -1590,11 +1989,32 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             </div>
             </WorkspaceLayout>
 
+            {(menu || accountMenu || tableHeadMenu) && (
+                <div
+                    className="fixed inset-0 z-[996]"
+                    onClick={() => {
+                        setMenu(null);
+                        setAccountMenu(null);
+                        setTableHeadMenu(null);
+                    }}
+                    onContextMenu={(event) => {
+                        event.preventDefault();
+                        setMenu(null);
+                        setAccountMenu(null);
+                        setTableHeadMenu(null);
+                    }}
+                />
+            )}
+
             {tableHeadMenu && (
                 <div
                     ref={tableHeadMenuRef}
                     className="fixed z-[1015] min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#313338]"
-                    style={{left: tableHeadMenuPosition.left, top: tableHeadMenuPosition.top}}
+                    style={{
+                        left: tableHeadMenuPosition.left,
+                        top: tableHeadMenuPosition.top,
+                        visibility: tableHeadMenuReady ? 'visible' : 'hidden',
+                    }}
                     onClick={(event) => event.stopPropagation()}
                 >
                     <div
@@ -1612,8 +2032,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                             >
                                 <span>{column.label}</span>
                                 <span
-                                    className={cn('text-xs', checked ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-400 dark:text-slate-500')}>
-                                    {checked ? 'On' : 'Off'}
+                                    className={cn(
+                                        'inline-flex h-4 w-4 items-center justify-center text-xs',
+                                        checked ? 'text-emerald-600 dark:text-emerald-300' : 'text-transparent',
+                                    )}
+                                    aria-hidden={!checked}
+                                >
+                                    ✓
                                 </span>
                             </button>
                         );
@@ -1885,7 +2310,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 <div
                     ref={contextMenuRef}
                     className="fixed z-[1000] min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#313338]"
-                    style={{left: menuPosition.left, top: menuPosition.top}}
+                    style={{
+                        left: menuPosition.left,
+                        top: menuPosition.top,
+                        visibility: menuReady ? 'visible' : 'hidden',
+                    }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     {menu.kind === 'message' && (
@@ -1914,6 +2343,69 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                     setMenu(null);
                                 }}
                             />
+                            <div className="group relative">
+                                <button
+                                    type="button"
+                                    className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <span
+                                            className={cn(
+                                                'inline-flex h-2.5 w-2.5 shrink-0 rounded-full',
+                                                getTagDotClass((menu.message as MessageItem & {
+                                                    tag?: string | null
+                                                }).tag ?? null),
+                                            )}
+                                        />
+                                        Tag
+                                    </span>
+                                    <ChevronRight size={14}/>
+                                </button>
+                                <div
+                                    className={cn(
+                                        'absolute top-0 z-[1010] hidden min-w-52 rounded-md border border-slate-200 bg-white p-1 shadow-xl group-hover:block group-focus-within:block dark:border-[#3a3d44] dark:bg-[#313338]',
+                                        moveSubmenuLeft ? 'right-full mr-1' : 'left-full ml-1',
+                                    )}
+                                    style={{
+                                        transform: `translateY(${moveSubmenuOffsetY}px)`,
+                                    }}
+                                >
+                                    {MESSAGE_TAG_OPTIONS.map((tag) => (
+                                        <button
+                                            key={tag.value}
+                                            type="button"
+                                            className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+                                            onClick={() => {
+                                                onMessageTagChange(menu.message, tag.value);
+                                                setMenu(null);
+                                            }}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <span
+                                                    className={cn('inline-flex h-2.5 w-2.5 rounded-full', tag.dotClass)}/>
+                                                {tag.label}
+                                            </span>
+                                            {((menu.message as MessageItem & {
+                                                tag?: string | null
+                                            }).tag || '') === tag.value && (
+                                                <span
+                                                    className="text-xs text-emerald-600 dark:text-emerald-300">On</span>
+                                            )}
+                                        </button>
+                                    ))}
+                                    <div className="my-1 h-px bg-slate-200 dark:bg-[#3a3d44]"/>
+                                    <button
+                                        type="button"
+                                        className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+                                        onClick={() => {
+                                            onMessageTagChange(menu.message, null);
+                                            setMenu(null);
+                                        }}
+                                    >
+                                        Clear tag
+                                    </button>
+                                </div>
+                            </div>
                             <ContextItem
                                 label="Archive"
                                 icon={<Archive size={14}/>}
@@ -2052,7 +2544,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 <div
                     ref={accountMenuRef}
                     className="fixed z-[1000] min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#313338]"
-                    style={{left: accountMenuPosition.left, top: accountMenuPosition.top}}
+                    style={{
+                        left: accountMenuPosition.left,
+                        top: accountMenuPosition.top,
+                        visibility: accountMenuReady ? 'visible' : 'hidden',
+                    }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     <ContextItem
@@ -2366,17 +2862,14 @@ const FolderItemRow: React.FC<{
               </span>
                 <span className="flex items-center">
                     {typeof count === 'number' && count > 0 && (
-                        <Badge
+                        <NewEmailBadge
+                            count={count}
                             className={cn(
-                                'inline-flex rounded-md px-1.5 py-0.5 text-[11px] transition-opacity',
+                                'transition-opacity',
                                 onEditFolder && 'group-hover:opacity-0',
-                                active
-                                    ? 'bg-red-700 text-white dark:bg-red-500 dark:text-white'
-                                    : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+                                active && 'border-red-400/90 from-red-500 to-red-700 dark:border-red-400/80',
                             )}
-                        >
-                            {count}
-                        </Badge>
+                        />
                     )}
                 </span>
             </Link>
@@ -2487,6 +2980,48 @@ function formatMessageSender(message: MessageItem): string {
     return 'Unknown sender';
 }
 
+function formatMessageRecipient(message: MessageItem): string {
+    const value = String(message.to_address || '').trim();
+    return value || 'Unknown recipient';
+}
+
+function formatMessageAccount(message: MessageItem, accounts: PublicAccount[]): string {
+    const account = accounts.find((item) => item.id === message.account_id);
+    if (!account) return `Account ${message.account_id}`;
+    return account.display_name?.trim() || account.email;
+}
+
+function formatMessageLocation(message: MessageItem, folders: FolderItem[]): string {
+    const folder = folders.find((item) => item.id === message.folder_id);
+    if (!folder) return `Folder ${message.folder_id}`;
+    return folder.custom_name || folder.name || folder.path;
+}
+
+function getTagLabel(tag: string | null): string {
+    const normalized = String(tag || '').trim().toLowerCase();
+    if (!normalized) return '';
+    const found = MESSAGE_TAG_OPTIONS.find((item) => item.value === normalized);
+    return found?.label || normalized;
+}
+
+function getTagDotClass(tag: string | null): string {
+    const normalized = String(tag || '').trim().toLowerCase();
+    const found = MESSAGE_TAG_OPTIONS.find((item) => item.value === normalized);
+    return found?.dotClass || 'bg-slate-400';
+}
+
+function renderTagCell(tag: string | null): React.ReactNode {
+    const label = getTagLabel(tag);
+    if (!label) return '';
+    return (
+        <span
+            className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-slate-200 px-2 py-0.5 text-[11px] text-slate-700 dark:border-[#4a4d55] dark:text-slate-200">
+            <span className={cn('inline-flex h-2 w-2 shrink-0 rounded-full', getTagDotClass(tag))}/>
+            <span className="truncate">{label}</span>
+        </span>
+    );
+}
+
 function formatAccountSearchLabel(account: PublicAccount | null): string {
     if (!account) return 'selected account';
     const displayName = (account.display_name || '').trim();
@@ -2494,11 +3029,25 @@ function formatAccountSearchLabel(account: PublicAccount | null): string {
     return `${displayName} <${account.email}>`;
 }
 
+function getThreadCount(message: MessageItem): number {
+    const raw = (message as MessageItem & { thread_count?: number }).thread_count;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 1) return 1;
+    return Math.round(parsed);
+}
+
 function formatMessageSize(size: number | null): string {
     if (!size || size <= 0) return '-';
     if (size < 1024) return `${size} B`;
     if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function normalizeColumnWidth(value: unknown, key: MailTableColumnKey): number {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return DEFAULT_TABLE_COLUMN_WIDTHS[key];
+    const min = MIN_TABLE_COLUMN_WIDTHS[key];
+    return Math.max(min, Math.round(numeric));
 }
 
 function constrainToViewport(x: number, y: number, width: number, height: number): { left: number; top: number } {

@@ -194,6 +194,8 @@ export function initDb(): void {
             INTEGER
             DEFAULT
             0,
+            tag
+            TEXT,
             size
             INTEGER,
             FOREIGN
@@ -656,6 +658,12 @@ export function initDb(): void {
     }
     if (!folderNames.has('sort_order')) {
         db.exec("ALTER TABLE folders ADD COLUMN sort_order INTEGER");
+    }
+
+    const messageCols = db.prepare("PRAGMA table_info('messages')").all() as { name: string }[];
+    const messageNames = new Set(messageCols.map((c) => c.name));
+    if (!messageNames.has('tag')) {
+        db.exec("ALTER TABLE messages ADD COLUMN tag TEXT");
     }
 
     const contactCols = db.prepare("PRAGMA table_info('contacts')").all() as { name: string }[];

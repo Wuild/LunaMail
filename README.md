@@ -10,13 +10,23 @@ LunaMail is a modern, offline-first desktop email client for Linux built with:
 ## Features
 
 - Multi-account IMAP/SMTP support
-- Local-first mail cache
-- Add-account wizard with autodiscovery + manual setup
-- Compose, reply, forward, attachments
-- Message viewer window
-- Route-based settings/help/debug pages inside the main window shell
-- Unified App Settings page with account management sidebar
-- Custom title bar across app windows
+- Local-first mail cache with fast folder/message browsing
+- Add-account wizard (autodiscovery + manual setup)
+- Compose, reply, reply all, forward, attachments
+- Message viewer window + full message source viewer
+- Optimistic message actions (read/unread, move, archive, delete, flag)
+- Multi-select message operations + keyboard navigation
+- Mail layout modes:
+  - side list view
+  - top table view with configurable columns
+- Advanced search filters (account, folder, read/starred, date, size, sender/subject/to)
+- Remote content privacy controls:
+  - block remote content by default
+  - load once
+  - allowlist sender/domain
+- Help and Debug pages routed inside the main shell
+- Live Debug Console with source filters (`imap`, `smtp`, `carddav`, `caldav`, `app`)
+- Custom title bar and update status indicator
 
 ## Requirements
 
@@ -24,7 +34,7 @@ LunaMail is a modern, offline-first desktop email client for Linux built with:
 - npm 10+
 - Linux desktop environment
 
-## Install
+## Setup (From Source)
 
 ```bash
 npm install
@@ -46,7 +56,7 @@ Build main/preload/renderer:
 npm run build
 ```
 
-## Linux Packaging
+## Package (Linux)
 
 Build all Linux targets (`AppImage`, `deb`, `rpm`, `flatpak`):
 
@@ -64,6 +74,29 @@ npm run build:linux:flatpak
 ```
 
 See [docs/PACKAGING.md](docs/PACKAGING.md) for host dependencies and packaging notes.
+
+## Install (Linux Packages)
+
+After packaging, artifacts are generated under `dist/`.
+
+Install a `.deb`:
+
+```bash
+sudo apt install ./dist/*.deb
+```
+
+Install an `.rpm`:
+
+```bash
+sudo dnf install ./dist/*.rpm
+```
+
+Run AppImage:
+
+```bash
+chmod +x ./dist/*.AppImage
+./dist/*.AppImage
+```
 
 ## Project Structure
 

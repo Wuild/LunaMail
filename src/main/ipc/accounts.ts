@@ -2,6 +2,7 @@ import {BrowserWindow, dialog, ipcMain, shell} from 'electron';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import {Worker} from 'node:worker_threads';
 import {ImapFlow} from 'imapflow';
 import {createAppLogger, createMailDebugLogger} from '../debug/debugLog.js';
 import {
@@ -22,8 +23,10 @@ import {
     listFoldersByAccount,
     listMessagesByFolder,
     listRecentRecipients,
+    listThreadMessagesByFolder,
     reorderCustomFolders,
     searchMessages,
+    setMessageTag,
     updateFolderSettings
 } from '../db/repositories/mailRepo.js';
 import {autodiscover, autodiscoverBasic} from '../mail/autodiscover.js';
@@ -38,13 +41,8 @@ import {
     setServerMessageRead
 } from '../mail/actions.js';
 import {saveDraftEmail, type SaveDraftPayload, sendEmail, type SendEmailPayload} from '../mail/send.js';
-import {
-    downloadMessageAttachment,
-    syncAccountMailbox,
-    syncMessageBody,
-    syncMessageSource,
-    type SyncSummary
-} from '../mail/sync.js';
+import {downloadMessageAttachment, syncMessageBody, syncMessageSource, type SyncSummary} from '../mail/sync.js';
+import {getSqlitePath} from '../db/drizzle.js';
 import {verifyConnection, type VerifyPayload} from '../mail/verify.js';
 import {
     addAddressBook,
@@ -318,6 +316,11 @@ export function registerAccountIpc(): void {
     ipcMain.handle('get-folder-messages', async (_event, accountId: number, folderPath: string, limit?: number) => {
         appLogger.debug('IPC get-folder-messages accountId=%d folderPath=%s limit=%s', accountId, folderPath, limit ?? '');
         return listMessagesByFolder(accountId, folderPath, limit ?? 100);
+    });
+
+    ipcMain.handle('get-folder-threads', async (_event, accountId: number, folderPath: string, limit?: number) => {
+        appLogger.debug('IPC get-folder-threads accountId=%d folderPath=%s limit=%s', accountId, folderPath, limit ?? '');
+        return listThreadMessagesByFolder(accountId, folderPath, limit ?? 100);
     });
 
     ipcMain.handle('get-mail-filters', async (_event, accountId: number) => {
@@ -682,6 +685,11 @@ export function registerAccountIpc(): void {
         return result;
     });
 
+    ipcMain.handle('set-message-tag', async (_event, messageId: number, tag: string | null) => {
+        appLogger.debug('IPC set-message-tag messageId=%d tag=%s', messageId, String(tag ?? ''));
+        return setMessageTag(messageId, tag ?? null);
+    });
+
     ipcMain.handle('move-message', async (_event, messageId: number, targetFolderPath: string) => {
         appLogger.info('IPC move-message messageId=%d targetFolderPath=%s', messageId, targetFolderPath);
         return await moveServerMessage(messageId, targetFolderPath);
@@ -852,19 +860,19 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
         state.queued = false;
         const source = state.latestSource;
         let cancelled = false;
-        let clientRef: any = null;
+        let activeWorker: Worker | null = null;
 
         state.cancelCurrent = () => {
             cancelled = true;
             try {
-                clientRef?.close?.();
+                activeWorker?.postMessage({type: 'cancel'});
             } catch {
-                // ignore close errors
+                // ignore post errors
             }
             try {
-                clientRef?.logout?.();
+                activeWorker?.terminate();
             } catch {
-                // ignore logout errors
+                // ignore termination errors
             }
         };
 
@@ -872,11 +880,8 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
         appLogger.info('Sync started accountId=%d source=%s', accountId, source);
 
         try {
-            const mailSummary = await syncAccountMailbox(accountId, {
-                isCancelled: () => cancelled,
-                onClient: (client) => {
-                    clientRef = client;
-                },
+            const mailSummary = await syncAccountMailboxInWorker(accountId, (worker) => {
+                activeWorker = worker;
             });
             if (cancelled && state.queued) continue;
 
@@ -963,6 +968,55 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
             state.cancelCurrent = null;
         }
     }
+}
+
+async function syncAccountMailboxInWorker(
+    accountId: number,
+    onWorkerReady?: (worker: Worker) => void,
+): Promise<SyncSummary> {
+    const credentials = await getAccountSyncCredentials(accountId);
+    const worker = new Worker(new URL('../workers/mailSyncWorker.js', import.meta.url), {
+        workerData: {
+            dbPath: getSqlitePath(),
+            credentials,
+        },
+    });
+    onWorkerReady?.(worker);
+
+    return await new Promise<SyncSummary>((resolve, reject) => {
+        let settled = false;
+        const finish = (fn: () => void) => {
+            if (settled) return;
+            settled = true;
+            worker.removeAllListeners();
+            fn();
+        };
+
+        worker.on('message', (payload: unknown) => {
+            if (!payload || typeof payload !== 'object') return;
+            const data = payload as { type?: string; summary?: SyncSummary; error?: string };
+            if (data.type === 'result' && data.summary) {
+                finish(() => resolve(data.summary as SyncSummary));
+                return;
+            }
+            if (data.type === 'error') {
+                finish(() => reject(new Error(data.error || 'Mailbox sync worker failed')));
+            }
+        });
+
+        worker.on('error', (error) => {
+            finish(() => reject(error));
+        });
+
+        worker.on('exit', (code) => {
+            if (settled) return;
+            if (code === 0) {
+                finish(() => reject(new Error('Mailbox sync worker exited without result')));
+                return;
+            }
+            finish(() => reject(new Error(`Mailbox sync worker exited with code ${code}`)));
+        });
+    });
 }
 
 function getAccountSyncState(accountId: number): AccountSyncState {

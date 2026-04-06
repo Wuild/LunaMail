@@ -38,6 +38,7 @@ import {getAccountAvatarColors, getAccountMonogram} from './lib/accountAvatar';
 import {formatSystemDateTime} from './lib/dateTime';
 import {useResizableSidebar} from './hooks/useResizableSidebar';
 import {cn} from './lib/utils';
+import NewEmailBadge from './components/mail/NewEmailBadge';
 
 export default function MainWindowApp() {
     return (
@@ -387,12 +388,11 @@ function NavRailItem({to, icon, label, badgeCount = 0}: {
         >
             <span className="relative inline-flex">
                 {icon}
-                {badgeCount > 0 && (
-                    <span
-                        className="absolute -right-2.5 -top-2 inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-5 text-white">
-                        {badgeCount > 99 ? '99+' : badgeCount}
-                    </span>
-                )}
+                <NewEmailBadge
+                    count={badgeCount}
+                    className="absolute -right-2.5 -top-2 min-h-5 min-w-5 px-1 text-[10px]"
+                    title={`${badgeCount} unread`}
+                />
             </span>
         </NavLink>
     );

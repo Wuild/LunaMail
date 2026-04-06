@@ -60,6 +60,7 @@ export const messages = sqliteTable('messages', {
     date: text('date'),
     isRead: integer('is_read').default(0).notNull(),
     isFlagged: integer('is_flagged').default(0).notNull(),
+    tag: text('tag'),
     size: integer('size'),
 });
 

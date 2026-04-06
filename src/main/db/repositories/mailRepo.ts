@@ -17,6 +17,7 @@ export interface MessageRow {
     id: number;
     account_id: number;
     folder_id: number;
+    thread_id: string | null;
     uid: number;
     seq: number;
     message_id: string | null;
@@ -29,7 +30,14 @@ export interface MessageRow {
     date: string | null;
     is_read: number;
     is_flagged: number;
+    tag: string | null;
     size: number | null;
+}
+
+export interface MessageThreadRow extends MessageRow {
+    thread_count: number;
+    thread_unread_count: number;
+    thread_latest_date: string | null;
 }
 
 export interface MessageBodyRow {
@@ -76,6 +84,14 @@ export interface SetMessageFlagResult {
     folderId: number;
     folderPath: string;
     isFlagged: number;
+}
+
+export interface SetMessageTagResult {
+    messageId: number;
+    accountId: number;
+    folderId: number;
+    folderPath: string;
+    tag: string | null;
 }
 
 export interface MoveMessageResult {
@@ -125,6 +141,7 @@ export interface UpsertMessageInput {
     date?: string | null;
     isRead?: number;
     isFlagged?: number;
+    tag?: string | null;
     size?: number | null;
 }
 
@@ -215,8 +232,8 @@ export function upsertMessage(input: UpsertMessageInput): void {
     db.prepare(
         `
             INSERT INTO messages (account_id, folder_id, uid, seq, thread_id, message_id, in_reply_to, references_text,
-                                  subject, from_name, from_address, to_address, date, is_read, is_flagged, size)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(folder_id, uid) DO
+                                  subject, from_name, from_address, to_address, date, is_read, is_flagged, tag, size)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(folder_id, uid) DO
             UPDATE SET
                 seq = excluded.seq,
                 thread_id = excluded.thread_id,
@@ -230,6 +247,7 @@ export function upsertMessage(input: UpsertMessageInput): void {
                 date = excluded.date,
                 is_read = excluded.is_read,
                 is_flagged = excluded.is_flagged,
+                tag = COALESCE(messages.tag, excluded.tag),
                 size = excluded.size
         `,
     ).run(
@@ -248,8 +266,25 @@ export function upsertMessage(input: UpsertMessageInput): void {
         input.date ?? null,
         input.isRead ?? 0,
         input.isFlagged ?? 0,
+        input.tag ?? null,
         input.size ?? null,
     );
+}
+
+export function upsertThread(threadId: string, subject: string | null, updatedAt: string): void {
+    const db = getDb();
+    db.prepare(
+        `
+            INSERT INTO threads (id, subject, updated_at)
+            VALUES (?, ?, ?) ON CONFLICT(id) DO
+            UPDATE SET
+                subject = COALESCE(excluded.subject, threads.subject),
+                updated_at = CASE
+                                 WHEN excluded.updated_at > threads.updated_at THEN excluded.updated_at
+                                 ELSE threads.updated_at
+                    END
+        `,
+    ).run(threadId, subject, updatedAt);
 }
 
 export function hasMessageByFolderAndUid(folderId: number, uid: number): boolean {
@@ -360,6 +395,71 @@ export function listMessagesByFolder(accountId: number, folderPath: string, limi
             ORDER BY COALESCE(date, '') DESC, id DESC LIMIT ?
         `,
     ).all(accountId, folder.id, limit) as MessageRow[];
+}
+
+export function listThreadMessagesByFolder(accountId: number, folderPath: string, limit: number = 100): MessageThreadRow[] {
+    const db = getDb();
+    const folder = db.prepare('SELECT id FROM folders WHERE account_id = ? AND path = ?').get(accountId, folderPath) as {
+        id: number
+    } | undefined;
+    if (!folder?.id) return [];
+
+    return db.prepare(
+        `
+            WITH base AS (
+                SELECT m.*,
+                       COALESCE(NULLIF(trim(m.thread_id), ''), printf('message-%d', m.id)) AS thread_group
+                FROM messages m
+                WHERE m.account_id = ?
+                  AND m.folder_id = ?
+            ),
+                 agg AS (
+                     SELECT thread_group,
+                            COUNT(*)                                     AS thread_count,
+                            SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) AS thread_unread_count,
+                            MAX(COALESCE(date, ''))                      AS thread_latest_date
+                     FROM base
+                     GROUP BY thread_group
+                 ),
+                 ranked AS (
+                     SELECT b.*,
+                            a.thread_count,
+                            a.thread_unread_count,
+                            a.thread_latest_date,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY b.thread_group
+                                ORDER BY COALESCE(b.date, '') DESC, b.id DESC
+                                ) AS rn
+                     FROM base b
+                              JOIN agg a ON a.thread_group = b.thread_group
+                 )
+            SELECT id,
+                   account_id,
+                   folder_id,
+                   thread_id,
+                   uid,
+                   seq,
+                   message_id,
+                   in_reply_to,
+                   references_text,
+                   subject,
+                   from_name,
+                   from_address,
+                   to_address,
+                   date,
+                   is_read,
+                   is_flagged,
+                   tag,
+                   size,
+                   thread_count,
+                   thread_unread_count,
+                   NULLIF(thread_latest_date, '') AS thread_latest_date
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY COALESCE(thread_latest_date, '') DESC, id DESC
+            LIMIT ?
+        `,
+    ).all(accountId, folder.id, limit) as MessageThreadRow[];
 }
 
 export function getMessageById(messageId: number): MessageRow | null {
@@ -660,6 +760,22 @@ export function setMessageFlagged(messageId: number, isFlagged: number): SetMess
         folderId: ctx.folderId,
         folderPath: ctx.folderPath,
         isFlagged: isFlagged ? 1 : 0,
+    };
+}
+
+export function setMessageTag(messageId: number, tag: string | null): SetMessageTagResult {
+    const db = getDb();
+    const ctx = getMessageContext(messageId);
+    if (!ctx) throw new Error(`Message ${messageId} not found`);
+
+    const normalized = String(tag || '').trim();
+    db.prepare('UPDATE messages SET tag = ? WHERE id = ?').run(normalized.length ? normalized : null, messageId);
+    return {
+        messageId,
+        accountId: ctx.accountId,
+        folderId: ctx.folderId,
+        folderPath: ctx.folderPath,
+        tag: normalized.length ? normalized : null,
     };
 }
 

@@ -1,5 +1,16 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {FileText, Forward, Paperclip, Reply, ReplyAll, SquareArrowOutUpRight, Trash2} from 'lucide-react';
+import {
+    FileText,
+    Forward,
+    MailOpen,
+    Paperclip,
+    Reply,
+    ReplyAll,
+    SquareArrowOutUpRight,
+    Star,
+    Tag,
+    Trash2
+} from 'lucide-react';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import {formatSystemDateTime} from '../lib/dateTime';
@@ -33,12 +44,15 @@ import type {
     FolderItem,
     MessageBodyResult,
     MessageItem,
+    MessageThreadItem,
     OpenMessageTargetEvent,
     PublicAccount,
     SyncStatusEvent
 } from '../../preload/index';
 
 const MESSAGE_PAGE_SIZE = 100;
+const MIN_INLINE_MAIL_BODY_WIDTH = 520;
+const MIN_INLINE_MAIL_BODY_HEIGHT = 260;
 type Workspace = 'mail' | 'calendar' | 'contacts';
 
 function MailPage() {
@@ -53,7 +67,7 @@ function MailPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<MessageItem[]>([]);
     const [searchLoading, setSearchLoading] = useState(false);
-    const [messages, setMessages] = useState<MessageItem[]>([]);
+    const [messages, setMessages] = useState<MessageThreadItem[]>([]);
     const [messageFetchLimit, setMessageFetchLimit] = useState<number>(MESSAGE_PAGE_SIZE);
     const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
     const [hasMoreMessages, setHasMoreMessages] = useState(false);
@@ -95,7 +109,10 @@ function MailPage() {
     const pendingOpenMessageTargetRef = useRef<OpenMessageTargetEvent | null>(null);
     const selectionAnchorIndexRef = useRef<number | null>(null);
     const sourceRequestSeqRef = useRef(0);
+    const mailBodyViewportRef = useRef<HTMLDivElement | null>(null);
+    const autoOpenedForSmallPreviewMessageIdRef = useRef<number | null>(null);
     const [systemLocale, setSystemLocale] = useState<string>('en-US');
+    const [mailBodyViewport, setMailBodyViewport] = useState<{ width: number; height: number }>({width: 0, height: 0});
     const [workspace, setWorkspace] = useState<Workspace>('mail');
     const [contacts, setContacts] = useState<ContactItem[]>([]);
     const [contactsQuery, setContactsQuery] = useState('');
@@ -122,6 +139,9 @@ function MailPage() {
     const senderWhitelisted = isSenderAllowed(selectedMessage?.from_address, appSettings.remoteContentAllowlist || []);
     const sessionAllowed = selectedMessageId ? sessionRemoteAllowedMessageIds.includes(selectedMessageId) : false;
     const allowRemoteForSelectedMessage = !appSettings.blockRemoteContent || senderWhitelisted || sessionAllowed;
+    const isMailBodyViewportTooSmall = mailBodyViewport.width > 0
+        && mailBodyViewport.height > 0
+        && (mailBodyViewport.width < MIN_INLINE_MAIL_BODY_WIDTH || mailBodyViewport.height < MIN_INLINE_MAIL_BODY_HEIGHT);
 
     function hasPendingReadForAccount(accountId: number): boolean {
         for (const pending of pendingReadStateRef.current.values()) {
@@ -136,13 +156,13 @@ function MailPage() {
         return Date.now() - lastAt < withinMs;
     }
 
-    function applyPendingReadOverrides(rows: MessageItem[]): MessageItem[] {
+    function applyPendingReadOverrides<T extends MessageItem>(rows: T[]): T[] {
         if (pendingReadStateRef.current.size === 0) return rows;
         return rows.map((row) => {
             const pending = pendingReadStateRef.current.get(row.id);
             if (!pending) return row;
             return {...row, is_read: pending.desiredRead};
-        });
+        }) as T[];
     }
 
     const renderedBodyHtml = useMemo(() => {
@@ -202,6 +222,35 @@ function MailPage() {
         media.addEventListener('change', onChange);
         return () => media.removeEventListener('change', onChange);
     }, [appSettings.theme]);
+
+    useEffect(() => {
+        if (!selectedMessageId) {
+            setMailBodyViewport({width: 0, height: 0});
+            return;
+        }
+        const rafId = window.requestAnimationFrame(() => {
+            const node = mailBodyViewportRef.current;
+            if (!node) return;
+            const rect = node.getBoundingClientRect();
+            const width = Math.round(rect.width);
+            const height = Math.round(rect.height);
+            setMailBodyViewport({width, height});
+            const tooSmall = width > 0
+                && height > 0
+                && (width < MIN_INLINE_MAIL_BODY_WIDTH || height < MIN_INLINE_MAIL_BODY_HEIGHT);
+            if (!tooSmall) {
+                if (autoOpenedForSmallPreviewMessageIdRef.current === selectedMessageId) {
+                    autoOpenedForSmallPreviewMessageIdRef.current = null;
+                }
+                return;
+            }
+            if (autoOpenedForSmallPreviewMessageIdRef.current === selectedMessageId) return;
+            autoOpenedForSmallPreviewMessageIdRef.current = selectedMessageId;
+            setSyncStatusText('Preview area is too small. Opened message in a separate window.');
+            void window.electronAPI.openMessageWindow(selectedMessageId);
+        });
+        return () => window.cancelAnimationFrame(rafId);
+    }, [selectedMessageId]);
 
     useEffect(() => {
         if (!selectedMessage) return;
@@ -415,7 +464,7 @@ function MailPage() {
         const loadMessages = async () => {
             setLoadingMoreMessages(true);
             try {
-                const rowsRaw = await window.electronAPI.getFolderMessages(selectedAccountId, selectedFolderPath, messageFetchLimit);
+                const rowsRaw = await window.electronAPI.getFolderThreads(selectedAccountId, selectedFolderPath, messageFetchLimit);
                 setHasMoreMessages(rowsRaw.length >= messageFetchLimit);
                 setMessages(applyPendingReadOverrides(filterOutPendingDeletes(rowsRaw)));
             } finally {
@@ -723,7 +772,7 @@ function MailPage() {
         });
     }, [accounts]);
 
-    function filterOutPendingDeletes(rows: MessageItem[]): MessageItem[] {
+    function filterOutPendingDeletes<T extends MessageItem>(rows: T[]): T[] {
         const pending = pendingDeleteMessageIdsRef.current;
         if (pending.size === 0) return rows;
         return rows.filter((m) => !pending.has(m.id));
@@ -792,7 +841,7 @@ function MailPage() {
             return;
         }
 
-        const msgRowsRaw = await window.electronAPI.getFolderMessages(accountId, chosenFolder, messageFetchLimit);
+        const msgRowsRaw = await window.electronAPI.getFolderThreads(accountId, chosenFolder, messageFetchLimit);
         const msgRows = applyPendingReadOverrides(filterOutPendingDeletes(msgRowsRaw));
         setHasMoreMessages(msgRowsRaw.length >= messageFetchLimit);
         setMessages(msgRows);
@@ -884,6 +933,12 @@ function MailPage() {
     function applyFlagOptimistic(messageId: number, nextFlag: number) {
         setMessages((prev) =>
             prev.map((m) => (m.id === messageId ? {...m, is_flagged: nextFlag} : m)),
+        );
+    }
+
+    function applyTagOptimistic(messageId: number, nextTag: string | null) {
+        setMessages((prev) =>
+            prev.map((m) => (m.id === messageId ? {...m, tag: nextTag} : m)),
         );
     }
 
@@ -1152,6 +1207,10 @@ function MailPage() {
             .catch((error: any) => {
                 setSyncStatusText(`Attachment failed: ${error?.message || String(error)}`);
             });
+    }
+
+    function requestCloseMainOverlays(): void {
+        window.dispatchEvent(new Event('lunamail-close-overlays'));
     }
 
     function allowRemoteContentOnceForSelected(): void {
@@ -1534,6 +1593,20 @@ function MailPage() {
                     );
                 })()
             }
+            onMessageTagChange={(message, tag) =>
+                void (() => {
+                    const previousTag = String((message as MessageItem & {
+                        tag?: string | null
+                    }).tag || '').trim().toLowerCase() || null;
+                    const nextTag = String(tag || '').trim().toLowerCase() || null;
+                    if (previousTag === nextTag) return;
+                    applyTagOptimistic(message.id, nextTag);
+                    void window.electronAPI.setMessageTag(message.id, nextTag).catch((error: any) => {
+                        applyTagOptimistic(message.id, previousTag);
+                        setSyncStatusText(`Tag update failed: ${error?.message || String(error)}`);
+                    });
+                })()
+            }
             onMessageArchive={(message) =>
                 void (async () => {
                     if (!selectedAccountId) return;
@@ -1837,25 +1910,53 @@ function MailPage() {
                             />
                         </div>
                         <div
-                            className="shrink-0 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-indigo-50/60 px-8 py-6 dark:border-[#393c41] dark:from-[#34373d] dark:via-[#34373d] dark:to-[#3a3550]">
+                            className="shrink-0 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-indigo-50/40 px-4 py-3 dark:border-[#393c41] dark:from-[#34373d] dark:via-[#34373d] dark:to-[#3a3550]">
                             <div className="flex items-start justify-between gap-5">
                                 <div className="min-w-0 flex-1">
-                                    <div className="mb-3 flex items-center gap-2">
+                                    <div className="mb-2 flex flex-wrap items-center gap-1.5">
                     <span
-                        className="inline-flex h-6 items-center rounded-full bg-slate-200/90 px-2.5 text-xs font-medium text-slate-700 dark:bg-[#2a2d31] dark:text-slate-200">
+                        className="inline-flex h-5 items-center rounded-md bg-slate-200/90 px-2 text-[11px] font-medium text-slate-700 dark:bg-[#2a2d31] dark:text-slate-200">
                       {selectedFolderPath || 'Message'}
                     </span>
+                                        {Boolean(selectedMessage.is_flagged) && (
+                                            <span
+                                                className="inline-flex h-5 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 text-[11px] font-medium text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-300">
+                                                <Star size={11} className="fill-current"/>
+                                                Starred
+                                            </span>
+                                        )}
+                                        <span
+                                            className="inline-flex h-5 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
+                                            <MailOpen size={11}/>
+                                            {selectedMessage.is_read ? 'Read' : 'Unread'}
+                                        </span>
+                                        {Boolean((selectedMessage as MessageItem & { tag?: string | null }).tag) && (
+                                            <span
+                                                className="inline-flex h-5 items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-800 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-300">
+                                                <Tag size={11}/>
+                                                {formatMessageTagLabel((selectedMessage as MessageItem & {
+                                                    tag?: string | null
+                                                }).tag ?? null)}
+                                            </span>
+                                        )}
+                                        {messageAttachments.length > 0 && (
+                                            <span
+                                                className="inline-flex h-5 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
+                                                <Paperclip size={11}/>
+                                                {messageAttachments.length} attachment{messageAttachments.length > 1 ? 's' : ''}
+                                            </span>
+                                        )}
                                         {buildSpoofHints(selectedMessage).length > 0 && (
                                             <span
-                                                className="inline-flex h-6 items-center rounded-full bg-amber-100 px-2.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                                                className="inline-flex h-5 items-center rounded-md bg-amber-100 px-2 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
                         Verify sender
                       </span>
                                         )}
                                     </div>
-                                    <h2 className="truncate text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">{selectedMessage.subject || '(No subject)'}</h2>
+                                    <h2 className="truncate text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">{selectedMessage.subject || '(No subject)'}</h2>
                                 </div>
                             </div>
-                            <div className="mt-4 grid gap-1.5 text-sm text-slate-700 dark:text-slate-200">
+                            <div className="mt-2 grid gap-1 text-xs text-slate-700 dark:text-slate-200">
                                 <div className="select-text">
                                     <span className="font-medium text-slate-500 dark:text-slate-400">From:</span>{' '}
                                     <span className="select-text">{formatFromDisplay(selectedMessage)}</span>
@@ -1869,7 +1970,7 @@ function MailPage() {
                                 </div>
                             </div>
                             <button
-                                className="mt-3 inline-flex h-8 items-center rounded-md border border-slate-300 px-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+                                className="mt-2 inline-flex h-7 items-center rounded-md border border-slate-300 px-2 text-[11px] text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
                                 onClick={() => setShowMessageDetails((prev) => !prev)}
                             >
                                 {showMessageDetails ? 'Hide message details' : 'Show message details'}
@@ -1932,18 +2033,40 @@ function MailPage() {
                                     </div>
                                 </div>
                             )}
-                            <div className="min-h-0 flex-1">
+                            <div ref={mailBodyViewportRef} className="min-h-0 flex-1">
+                                {isMailBodyViewportTooSmall && (
+                                    <div
+                                        className="flex h-full items-center justify-center bg-white px-4 text-center dark:bg-[#34373d]">
+                                        <div className="max-w-md text-sm text-slate-600 dark:text-slate-300">
+                                            <p>
+                                                Preview is too small ({mailBodyViewport.width}x{mailBodyViewport.height}).
+                                                Message opened in a separate window.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                className="mt-3 inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 px-3 text-xs text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+                                                onClick={onOpenInNewWindow}
+                                            >
+                                                <SquareArrowOutUpRight size={13}/>
+                                                Open message window
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                                 {bodyLoading && (
                                     <div
-                                        className="flex h-full items-center justify-center text-slate-500 dark:text-slate-400">Loading
+                                        className={isMailBodyViewportTooSmall ? 'hidden' : 'flex h-full items-center justify-center text-slate-500 dark:text-slate-400'}>Loading
                                         message body...</div>
                                 )}
-                                {!bodyLoading && iframeSrcDoc && (
+                                {!isMailBodyViewportTooSmall && !bodyLoading && iframeSrcDoc && (
                                     <iframe
                                         title={`message-body-${selectedMessage.id}`}
                                         srcDoc={iframeSrcDoc}
                                         sandbox="allow-popups allow-popups-to-escape-sandbox"
                                         className="h-full w-full border-0 bg-white"
+                                        onMouseDown={requestCloseMainOverlays}
+                                        onContextMenu={() => requestCloseMainOverlays()}
+                                        onFocus={requestCloseMainOverlays}
                                         onMouseEnter={() => setIsPointerOverMessageFrame(true)}
                                         onMouseLeave={() => {
                                             setIsPointerOverMessageFrame(false);
@@ -1951,7 +2074,7 @@ function MailPage() {
                                         }}
                                     />
                                 )}
-                                {!bodyLoading && !iframeSrcDoc && (
+                                {!isMailBodyViewportTooSmall && !bodyLoading && !iframeSrcDoc && (
                                     <div className="h-full overflow-auto bg-white p-4 text-slate-900">
                   <pre className="select-text whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">
                     {selectedMessageBody?.text || 'No body content available for this message.'}
@@ -2091,4 +2214,23 @@ function parseRouteNumber(value?: string): number | null {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return null;
     return parsed;
+}
+
+function formatMessageTagLabel(tag: string | null): string {
+    const normalized = String(tag || '').trim().toLowerCase();
+    if (!normalized) return '';
+    switch (normalized) {
+        case 'important':
+            return 'Important';
+        case 'work':
+            return 'Work';
+        case 'personal':
+            return 'Personal';
+        case 'todo':
+            return 'To Do';
+        case 'later':
+            return 'Later';
+        default:
+            return normalized;
+    }
 }

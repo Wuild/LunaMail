@@ -15,7 +15,9 @@ import {
     upsertFolder,
     upsertMessage,
     upsertMessageBody,
+    upsertThread,
 } from '../db/repositories/mailRepo.js';
+import {buildThreadId, stringifyReferences} from './threading.js';
 
 export interface SyncSummary {
     accountId: number;
@@ -62,6 +64,21 @@ export interface MessageAttachmentFile {
 
 export async function syncAccountMailbox(accountId: number, options?: AccountSyncOptions): Promise<SyncSummary> {
     const account = await getAccountSyncCredentials(accountId);
+    return syncAccountMailboxWithCredentials(account, options);
+}
+
+export async function syncAccountMailboxWithCredentials(
+    account: {
+        id: number;
+        imap_host: string;
+        imap_port: number;
+        imap_secure: number;
+        user: string;
+        password: string;
+    },
+    options?: AccountSyncOptions,
+): Promise<SyncSummary> {
+    const accountId = account.id;
     const client = new ImapFlow({
         host: account.imap_host,
         port: account.imap_port,
@@ -116,21 +133,32 @@ export async function syncAccountMailbox(accountId: number, options?: AccountSyn
                     totalMessages += 1;
                     const existed = hasMessageByFolderAndUid(folderId, msg.uid);
                     const isRead = msg.flags?.has('\\Seen') ? 1 : 0;
+                    const messageDate = msg.internalDate ? new Date(msg.internalDate).toISOString() : null;
+                    const envelopeWithRefs = msg.envelope as (typeof msg.envelope & {
+                        references?: unknown
+                    }) | undefined;
+                    const referencesText = stringifyReferences(envelopeWithRefs?.references);
+                    const threadId = buildThreadId({
+                        messageId: msg.envelope?.messageId ?? null,
+                        inReplyTo: msg.envelope?.inReplyTo ?? null,
+                        references: envelopeWithRefs?.references,
+                        subject: msg.envelope?.subject ?? null,
+                    });
+                    upsertThread(threadId, msg.envelope?.subject ?? null, messageDate ?? new Date().toISOString());
                     upsertMessage({
                         accountId,
                         folderId,
                         uid: msg.uid,
                         seq: (msg.seq as number) ?? 0,
-                        // We don't build thread records yet; keep FK-safe until thread model is implemented.
-                        threadId: null,
+                        threadId,
                         messageId: msg.envelope?.messageId ?? null,
                         inReplyTo: msg.envelope?.inReplyTo ?? null,
-                        referencesText: null,
+                        referencesText,
                         subject: msg.envelope?.subject ?? null,
                         fromName: msg.envelope?.from?.[0]?.name ?? null,
                         fromAddress: msg.envelope?.from?.[0]?.address ?? null,
                         toAddress: msg.envelope?.to?.map((a) => a.address).filter(Boolean).join(', ') ?? null,
-                        date: msg.internalDate ? new Date(msg.internalDate).toISOString() : null,
+                        date: messageDate,
                         isRead,
                         isFlagged: msg.flags?.has('\\Flagged') ? 1 : 0,
                         size: msg.size ?? null,

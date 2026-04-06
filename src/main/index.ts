@@ -530,6 +530,15 @@ function installExternalNavigationPolicy(): void {
     app.on('web-contents-created', (_event, contents) => {
         logger.debug('web-contents-created id=%d', contents.id);
         contents.on('context-menu', (_menuEvent, params) => {
+            const frameUrl = String((params as any)?.frameURL || '');
+            const pageUrl = String((params as any)?.pageURL || contents.getURL() || '');
+            const isIframeContext = Boolean(frameUrl) && frameUrl !== pageUrl;
+            const isMailContentFrame = isIframeContext && /^about:srcdoc/i.test(frameUrl);
+            if (!isMailContentFrame) {
+                // Renderer-level custom menus handle non-iframe contexts.
+                return;
+            }
+
             const template: Electron.MenuItemConstructorOptions[] = [];
             const hasSelection = Boolean((params.selectionText || '').trim());
             const linkUrl = String(params.linkURL || '').trim();
@@ -563,7 +572,6 @@ function installExternalNavigationPolicy(): void {
                 template.push({type: 'separator'});
             }
 
-            template.push({label: 'Select All', role: 'selectAll'});
             if (template.length === 0) return;
             const menu = Menu.buildFromTemplate(template);
             const owner = BrowserWindow.fromWebContents(contents) ?? undefined;

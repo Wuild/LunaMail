@@ -126,7 +126,14 @@ export interface MessageItem {
     date: string | null;
     is_read: number;
     is_flagged: number;
+    tag: string | null;
     size: number | null;
+}
+
+export interface MessageThreadItem extends MessageItem {
+    thread_count: number;
+    thread_unread_count: number;
+    thread_latest_date: string | null;
 }
 
 export type MessageDetails = MessageItem;
@@ -274,6 +281,14 @@ export interface SetMessageReadResult {
     unreadCount: number;
     totalCount: number;
     isRead: number;
+}
+
+export interface SetMessageTagResult {
+    messageId: number;
+    accountId: number;
+    folderId: number;
+    folderPath: string;
+    tag: string | null;
 }
 
 export interface MoveMessageResult {
@@ -563,6 +578,8 @@ const api = {
         ipcRenderer.invoke('add-calendar-event', accountId, payload),
     getFolderMessages: (accountId: number, folderPath: string, limit?: number): Promise<MessageItem[]> =>
         ipcRenderer.invoke('get-folder-messages', accountId, folderPath, limit),
+    getFolderThreads: (accountId: number, folderPath: string, limit?: number): Promise<MessageThreadItem[]> =>
+        ipcRenderer.invoke('get-folder-threads', accountId, folderPath, limit),
     getMailFilters: (accountId: number): Promise<MailFilter[]> =>
         ipcRenderer.invoke('get-mail-filters', accountId),
     saveMailFilter: (accountId: number, payload: UpsertMailFilterPayload): Promise<MailFilter> =>
@@ -600,6 +617,8 @@ const api = {
         accountId: number;
     }> =>
         ipcRenderer.invoke('set-message-flagged', messageId, isFlagged),
+    setMessageTag: (messageId: number, tag: string | null): Promise<SetMessageTagResult> =>
+        ipcRenderer.invoke('set-message-tag', messageId, tag ?? null),
     moveMessage: (messageId: number, targetFolderPath: string): Promise<MoveMessageResult> =>
         ipcRenderer.invoke('move-message', messageId, targetFolderPath),
     archiveMessage: (messageId: number): Promise<MoveMessageResult> =>

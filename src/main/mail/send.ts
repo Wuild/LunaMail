@@ -156,7 +156,7 @@ function htmlToText(html: string): string {
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
-        .replace(/&#39;/g, '\'')
+        .replace(/&#39;/g, "'")
         .replace(/&quot;/g, '"')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
@@ -190,9 +190,7 @@ export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDra
         attachments: await readAttachmentBodies(attachments),
         messageId: `<draft.${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}@lunamail.local>`,
         date: new Date(),
-        headers: payload.draftSessionId?.trim()
-            ? {[DRAFT_SESSION_HEADER]: payload.draftSessionId.trim()}
-            : undefined,
+        headers: payload.draftSessionId?.trim() ? {[DRAFT_SESSION_HEADER]: payload.draftSessionId.trim()} : undefined,
     };
     const raw = await buildRawMessage(message);
     const client = new ImapFlow({
@@ -404,10 +402,7 @@ async function deleteDraftsBySession(accountId: number, draftSessionId: string):
         if (!mailbox) return;
         const lock = await client.getMailboxLock(mailbox);
         try {
-            const uids = await client.search(
-                {header: {[DRAFT_SESSION_HEADER]: draftSessionId}},
-                {uid: true},
-            );
+            const uids = await client.search({header: {[DRAFT_SESSION_HEADER]: draftSessionId}}, {uid: true});
             if (!uids || uids.length === 0) return;
             await (client as any).messageDelete(uids, {uid: true});
         } finally {
@@ -446,9 +441,7 @@ function normalizeMessageId(value?: string | null): string | undefined {
 function normalizeReferences(value?: string[] | string | null): string[] | undefined {
     if (!value) return undefined;
     const list = Array.isArray(value) ? value : value.split(/\s+/g);
-    const refs = list
-        .map((v) => normalizeMessageId(v))
-        .filter((v): v is string => Boolean(v));
+    const refs = list.map((v) => normalizeMessageId(v)).filter((v): v is string => Boolean(v));
     return refs.length ? refs : undefined;
 }
 

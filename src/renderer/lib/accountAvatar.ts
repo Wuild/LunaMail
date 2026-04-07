@@ -37,7 +37,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
     const sat = s / 100;
     const light = l / 100;
     const c = (1 - Math.abs(2 * light - 1)) * sat;
-    const hp = ((h % 360) + 360) % 360 / 60;
+    const hp = (((h % 360) + 360) % 360) / 60;
     const x = c * (1 - Math.abs((hp % 2) - 1));
 
     let r1 = 0;
@@ -64,11 +64,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
     }
 
     const m = light - c / 2;
-    return [
-        Math.round((r1 + m) * 255),
-        Math.round((g1 + m) * 255),
-        Math.round((b1 + m) * 255),
-    ];
+    return [Math.round((r1 + m) * 255), Math.round((g1 + m) * 255), Math.round((b1 + m) * 255)];
 }
 
 function relativeLuminance([r, g, b]: [number, number, number]): number {

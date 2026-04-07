@@ -2,30 +2,11 @@ import {app} from 'electron';
 import type {ProgressInfo, UpdateDownloadedEvent, UpdateInfo} from 'electron-updater';
 import electronUpdater from 'electron-updater';
 import {createAppLogger} from '../debug/debugLog.js';
+import type {AutoUpdateState} from '../../shared/ipcTypes.js';
+
+export type {AutoUpdatePhase, AutoUpdateState} from '../../shared/ipcTypes.js';
 
 const {autoUpdater} = electronUpdater;
-
-export type AutoUpdatePhase =
-    | 'disabled'
-    | 'idle'
-    | 'checking'
-    | 'available'
-    | 'not-available'
-    | 'downloading'
-    | 'downloaded'
-    | 'error';
-
-export interface AutoUpdateState {
-    enabled: boolean;
-    phase: AutoUpdatePhase;
-    currentVersion: string;
-    latestVersion: string | null;
-    downloadedVersion: string | null;
-    percent: number | null;
-    transferred: number | null;
-    total: number | null;
-    message: string | null;
-}
 
 const updateState: AutoUpdateState = {
     enabled: false,
@@ -48,7 +29,12 @@ let lastProgressBucket = -1;
 
 function setState(patch: Partial<AutoUpdateState>): void {
     Object.assign(updateState, patch);
-    logger.debug('State update phase=%s enabled=%s message=%s', updateState.phase, updateState.enabled, updateState.message ?? '');
+    logger.debug(
+        'State update phase=%s enabled=%s message=%s',
+        updateState.phase,
+        updateState.enabled,
+        updateState.message ?? '',
+    );
     notifyRenderer?.({...updateState});
 }
 
@@ -302,10 +288,7 @@ export async function runStartupUpdateFlow(): Promise<'proceed' | 'installing'> 
     return 'proceed';
 }
 
-async function runWithTransientRetry<T>(
-    operation: 'check' | 'download',
-    fn: () => Promise<T>,
-): Promise<T> {
+async function runWithTransientRetry<T>(operation: 'check' | 'download', fn: () => Promise<T>): Promise<T> {
     try {
         return await fn();
     } catch (error) {
@@ -321,9 +304,7 @@ async function runWithTransientRetry<T>(
 
 function isTransientGatewayError(error: unknown): boolean {
     const message = String((error as any)?.message || error || '').toLowerCase();
-    return message.includes('status code 502')
-        || message.includes('status 502')
-        || message.includes('bad gateway');
+    return message.includes('status code 502') || message.includes('status 502') || message.includes('bad gateway');
 }
 
 function getUpdateErrorMessage(error: unknown, operation: 'check' | 'download'): string {

@@ -22,7 +22,7 @@ export default function NewEmailBadge({count, className, title, max = 99}: NewEm
             title={title}
             aria-label={`${normalized} unread`}
         >
-            {label}
-        </span>
+			{label}
+		</span>
     );
 }

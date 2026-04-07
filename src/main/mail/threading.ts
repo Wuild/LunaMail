@@ -19,9 +19,7 @@ export function normalizeMessageIdentifier(value: string | null | undefined): st
 export function parseReferenceIdentifiers(value: unknown): string[] {
     if (!value) return [];
 
-    const text = Array.isArray(value)
-        ? value.map((item) => String(item || '')).join(' ')
-        : String(value);
+    const text = Array.isArray(value) ? value.map((item) => String(item || '')).join(' ') : String(value);
 
     const matches = text.match(/<[^>]+>/g) || text.split(/\s+/g);
     const normalized = matches

@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 permissions:
   contents: write
@@ -43,7 +43,7 @@ jobs:
               dist/*.blockmap
 
     env:
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
     steps:
       - name: Checkout
@@ -67,7 +67,7 @@ jobs:
           else
             VERSION="$(node -p "require('./package.json').version")"
           fi
-
+          
           echo "APP_VERSION=${VERSION}" >> "${GITHUB_ENV}"
           echo "Using app version: ${VERSION}"
 

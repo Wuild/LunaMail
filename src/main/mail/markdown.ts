@@ -99,7 +99,9 @@ export function markdownToEmailHtml(markdown: string): string {
                 items.push((lines[i] ?? '').replace(/^\s*[-*+]\s+/, ''));
                 i += 1;
             }
-            parts.push(`<ul style="margin:0 0 10px 18px;padding:0;">${items.map((item) => `<li style="margin:2px 0;">${renderInline(item)}</li>`).join('')}</ul>`);
+            parts.push(
+                `<ul style="margin:0 0 10px 18px;padding:0;">${items.map((item) => `<li style="margin:2px 0;">${renderInline(item)}</li>`).join('')}</ul>`,
+            );
             continue;
         }
 
@@ -109,7 +111,9 @@ export function markdownToEmailHtml(markdown: string): string {
                 items.push((lines[i] ?? '').replace(/^\s*\d+\.\s+/, ''));
                 i += 1;
             }
-            parts.push(`<ol style="margin:0 0 10px 18px;padding:0;">${items.map((item) => `<li style="margin:2px 0;">${renderInline(item)}</li>`).join('')}</ol>`);
+            parts.push(
+                `<ol style="margin:0 0 10px 18px;padding:0;">${items.map((item) => `<li style="margin:2px 0;">${renderInline(item)}</li>`).join('')}</ol>`,
+            );
             continue;
         }
 
@@ -141,4 +145,3 @@ export function markdownToEmailHtml(markdown: string): string {
     const content = parts.join('');
     return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.55;color:#0f172a;word-break:break-word;overflow-wrap:anywhere;">${content}</div>`;
 }
-

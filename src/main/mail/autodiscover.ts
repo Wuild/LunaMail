@@ -180,7 +180,11 @@ async function tryMxHost(domain: string, settings: DiscoveredSettings) {
         settings.mxPrimaryHost = primaryMx;
 
         // Avoid clearly irrelevant providers where mailbox service does not match MX hostname.
-        if (primaryMx.includes('google.com') || primaryMx.includes('outlook.com') || primaryMx.includes('protection.outlook.com')) {
+        if (
+            primaryMx.includes('google.com') ||
+            primaryMx.includes('outlook.com') ||
+            primaryMx.includes('protection.outlook.com')
+        ) {
             return;
         }
 
@@ -222,7 +226,7 @@ async function fetchAutoconfig(domain: string, email: string): Promise<Partial<D
             const timeout = setTimeout(() => controller.abort(), 4000);
             const res = await fetch(url, {
                 signal: controller.signal,
-                headers: {Accept: 'application/xml,text/xml,*/*'}
+                headers: {Accept: 'application/xml,text/xml,*/*'},
             });
             clearTimeout(timeout);
             if (!res.ok) continue;
@@ -241,7 +245,8 @@ function parseConfigXml(xml: string): Partial<DiscoveredSettings> {
     const clean = xml.replace(/\r?\n/g, ' ');
     const result: Partial<DiscoveredSettings> = {};
 
-    const providerMatch = clean.match(/<displayName>([^<]+)<\/displayName>/i) || clean.match(/<domain>([^<]+)<\/domain>/i);
+    const providerMatch =
+        clean.match(/<displayName>([^<]+)<\/displayName>/i) || clean.match(/<domain>([^<]+)<\/domain>/i);
     if (providerMatch?.[1]) result.provider = providerMatch[1].trim().toLowerCase();
 
     const incoming = [...clean.matchAll(/<incomingServer[^>]*type="([^"]+)"[^>]*>([\s\S]*?)<\/incomingServer>/gi)];

@@ -79,13 +79,14 @@ export async function syncDav(accountId: number): Promise<DavSyncSummary> {
     carddavLogger.info('Starting CardDAV sync');
     caldavLogger.info('Starting CalDAV sync');
     const saved = getDavSettings(accountId);
-    const discovered = saved?.carddav_url || saved?.caldav_url
-        ? {
-            accountId,
-            carddavUrl: saved.carddav_url ?? null,
-            caldavUrl: saved.caldav_url ?? null,
-        }
-        : await discoverDav(accountId);
+    const discovered =
+        saved?.carddav_url || saved?.caldav_url
+            ? {
+                accountId,
+                carddavUrl: saved.carddav_url ?? null,
+                caldavUrl: saved.caldav_url ?? null,
+            }
+            : await discoverDav(accountId);
     if (saved?.carddav_url || saved?.caldav_url) {
         carddavLogger.info(
             'Using saved DAV endpoints carddav=%s caldav=%s',
@@ -154,7 +155,12 @@ export async function syncDav(accountId: number): Promise<DavSyncSummary> {
     };
 }
 
-export function getContacts(accountId: number, query?: string | null, limit: number = 200, addressBookId?: number | null) {
+export function getContacts(
+    accountId: number,
+    query?: string | null,
+    limit: number = 200,
+    addressBookId?: number | null,
+) {
     return listContacts(accountId, query, limit, addressBookId);
 }
 
@@ -170,15 +176,18 @@ export function removeAddressBook(accountId: number, addressBookId: number) {
     return deleteLocalAddressBook(accountId, addressBookId);
 }
 
-export async function addContact(accountId: number, payload: {
-    addressBookId?: number | null;
-    fullName?: string | null;
-    email: string;
-    phone?: string | null;
-    organization?: string | null;
-    title?: string | null;
-    note?: string | null;
-}) {
+export async function addContact(
+    accountId: number,
+    payload: {
+        addressBookId?: number | null;
+        fullName?: string | null;
+        email: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
+    },
+) {
     const logger = createMailDebugLogger('carddav', `add-contact:${accountId}`);
     const saved = getDavSettings(accountId);
     const discovered = saved?.carddav_url
@@ -232,15 +241,18 @@ export async function addContact(accountId: number, payload: {
     });
 }
 
-export function editContact(contactId: number, payload: {
-    addressBookId?: number | null;
-    fullName?: string | null;
-    email?: string;
-    phone?: string | null;
-    organization?: string | null;
-    title?: string | null;
-    note?: string | null;
-}) {
+export function editContact(
+    contactId: number,
+    payload: {
+        addressBookId?: number | null;
+        fullName?: string | null;
+        email?: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
+    },
+) {
     return updateLocalContact(contactId, payload);
 }
 
@@ -248,17 +260,25 @@ export function removeContact(contactId: number) {
     return deleteLocalContact(contactId);
 }
 
-export function getCalendarEvents(accountId: number, startIso?: string | null, endIso?: string | null, limit: number = 500) {
+export function getCalendarEvents(
+    accountId: number,
+    startIso?: string | null,
+    endIso?: string | null,
+    limit: number = 500,
+) {
     return listCalendarEvents(accountId, startIso, endIso, limit);
 }
 
-export function addCalendarEvent(accountId: number, payload: {
-    summary?: string | null;
-    description?: string | null;
-    location?: string | null;
-    startsAt: string;
-    endsAt: string;
-}) {
+export function addCalendarEvent(
+    accountId: number,
+    payload: {
+        summary?: string | null;
+        description?: string | null;
+        location?: string | null;
+        startsAt: string;
+        endsAt: string;
+    },
+) {
     return createLocalCalendarEvent(accountId, payload);
 }
 
@@ -309,20 +329,11 @@ async function discoverHomeUrl(
             }
             if (isRadicaleCollectionCandidate(candidate)) {
                 const fallback = ensureTrailingSlash(candidate);
-                logger?.warn(
-                    'Using %s fallback home from DAV-capable Radicale candidate: %s',
-                    wellKnownKind,
-                    fallback,
-                );
+                logger?.warn('Using %s fallback home from DAV-capable Radicale candidate: %s', wellKnownKind, fallback);
                 return fallback;
             }
         } catch (error: any) {
-            logger?.warn(
-                'Failed %s candidate %s: %s',
-                wellKnownKind,
-                candidate,
-                error?.message || String(error),
-            );
+            logger?.warn('Failed %s candidate %s: %s', wellKnownKind, candidate, error?.message || String(error));
             if (isWellKnownCandidate(candidate)) {
                 const fallback = await tryHostRootFallback(creds, candidate, homeProperty, logger);
                 if (fallback) {
@@ -365,7 +376,21 @@ function isLikelyPublicSuffixDomain(domain: string): boolean {
 
     const [left, right] = parts;
     const commonSecondLevelLabels = new Set([
-        'ac', 'co', 'com', 'edu', 'gov', 'ltd', 'me', 'mil', 'net', 'nhs', 'nic', 'nom', 'org', 'plc', 'police',
+        'ac',
+        'co',
+        'com',
+        'edu',
+        'gov',
+        'ltd',
+        'me',
+        'mil',
+        'net',
+        'nhs',
+        'nic',
+        'nom',
+        'org',
+        'plc',
+        'police',
         'sch',
     ]);
     return right.length === 2 && commonSecondLevelLabels.has(left);
@@ -441,7 +466,8 @@ async function resolveHomeFromEntry(
     const directHome = extractPropertyHref(root, homeProperty) ?? extractTagValue(root, homeProperty);
     if (directHome) return resolveUrl(baseUrl, directHome);
 
-    const principal = extractPropertyHref(root, 'current-user-principal') ?? extractTagValue(root, 'current-user-principal');
+    const principal =
+        extractPropertyHref(root, 'current-user-principal') ?? extractTagValue(root, 'current-user-principal');
     if (!principal) return null;
     const principalUrl = resolveUrl(baseUrl, principal);
     const principalBody = `<?xml version="1.0" encoding="utf-8" ?>
@@ -489,16 +515,18 @@ async function pullContacts(
     creds: DavCredentials,
     addressBooks: string[],
     logger?: ReturnType<typeof createMailDebugLogger>,
-): Promise<Array<{
-    sourceUid: string;
-    fullName: string | null;
-    email: string;
-    phone?: string | null;
-    organization?: string | null;
-    title?: string | null;
-    note?: string | null;
-    etag?: string | null;
-}>> {
+): Promise<
+    Array<{
+        sourceUid: string;
+        fullName: string | null;
+        email: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
+        etag?: string | null;
+    }>
+> {
     const out: Array<{
         sourceUid: string;
         fullName: string | null;
@@ -551,17 +579,19 @@ async function pullEvents(
     creds: DavCredentials,
     calendars: string[],
     logger?: ReturnType<typeof createMailDebugLogger>,
-): Promise<Array<{
-    calendarUrl: string;
-    uid: string;
-    summary?: string | null;
-    description?: string | null;
-    location?: string | null;
-    startsAt?: string | null;
-    endsAt?: string | null;
-    etag?: string | null;
-    rawIcs?: string | null;
-}>> {
+): Promise<
+    Array<{
+        calendarUrl: string;
+        uid: string;
+        summary?: string | null;
+        description?: string | null;
+        location?: string | null;
+        startsAt?: string | null;
+        endsAt?: string | null;
+        etag?: string | null;
+        rawIcs?: string | null;
+    }>
+> {
     const now = new Date();
     const past = new Date(now);
     past.setDate(now.getDate() - 30);
@@ -582,11 +612,7 @@ async function pullEvents(
     </c:comp-filter>
   </c:filter>
 </c:calendar-query>`;
-    logger?.debug(
-        'CalDAV time-range start=%s end=%s',
-        toCalDavDate(past),
-        toCalDavDate(future),
-    );
+    logger?.debug('CalDAV time-range start=%s end=%s', toCalDavDate(past), toCalDavDate(future));
 
     const out: Array<{
         calendarUrl: string;
@@ -663,11 +689,7 @@ function authHeader(creds: DavCredentials): string {
     return `Basic ${Buffer.from(raw).toString('base64')}`;
 }
 
-async function putCardDavContact(
-    creds: DavCredentials,
-    url: string,
-    vcard: string,
-): Promise<string | null> {
+async function putCardDavContact(creds: DavCredentials, url: string, vcard: string): Promise<string | null> {
     const response = await fetch(url, {
         method: 'PUT',
         headers: {
@@ -692,9 +714,7 @@ function extractEmailDomain(email: string): string | null {
 }
 
 function normalizeXml(xml: string): string {
-    return xml
-        .replace(/<\/?[A-Za-z0-9_-]+:/g, (m) => m.replace(/([<\/]?)[A-Za-z0-9_-]+:/, '$1'))
-        .replace(/\r/g, '');
+    return xml.replace(/<\/?[A-Za-z0-9_-]+:/g, (m) => m.replace(/([<\/]?)[A-Za-z0-9_-]+:/, '$1')).replace(/\r/g, '');
 }
 
 function extractResponses(xml: string): string[] {
@@ -747,11 +767,7 @@ function decodeXmlEntities(value: string): string {
 }
 
 function escapeVCardValue(value: string): string {
-    return value
-        .replace(/\\/g, '\\\\')
-        .replace(/\n/g, '\\n')
-        .replace(/,/g, '\\,')
-        .replace(/;/g, '\\;');
+    return value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
 }
 
 function buildVCard(payload: {
@@ -783,7 +799,10 @@ function buildVCard(payload: {
     return lines.join('\r\n');
 }
 
-function parseVCard(rawCard: string, fallbackUid: string): {
+function parseVCard(
+    rawCard: string,
+    fallbackUid: string,
+): {
     uid: string;
     fullName: string | null;
     emails: string[];

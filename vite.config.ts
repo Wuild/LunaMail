@@ -16,11 +16,7 @@ export default defineConfig({
         emptyOutDir: true,
         rollupOptions: {
             input: {
-                main: path.resolve(__dirname, 'src/renderer/index.html'),
-                addAccount: path.resolve(__dirname, 'src/renderer/add-account.html'),
-                compose: path.resolve(__dirname, 'src/renderer/compose.html'),
-                message: path.resolve(__dirname, 'src/renderer/message.html'),
-                splash: path.resolve(__dirname, 'src/renderer/splash.html'),
+                window: path.resolve(__dirname, 'src/renderer/window.html'),
             },
         },
     },

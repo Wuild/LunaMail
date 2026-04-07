@@ -16,9 +16,7 @@ type WorkerInput = {
     credentials: WorkerCredentials;
 };
 
-type WorkerMessage =
-    | { type: 'result'; summary: SyncSummary }
-    | { type: 'error'; error: string };
+type WorkerMessage = { type: 'result'; summary: SyncSummary } | { type: 'error'; error: string };
 
 let cancelled = false;
 

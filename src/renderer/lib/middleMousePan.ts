@@ -19,10 +19,12 @@ function isScrollableElement(element: HTMLElement): boolean {
     const style = window.getComputedStyle(element);
     const overflowX = style.overflowX;
     const overflowY = style.overflowY;
-    const canScrollX = (overflowX === 'auto' || overflowX === 'scroll' || overflowX === 'overlay')
-        && element.scrollWidth > element.clientWidth;
-    const canScrollY = (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')
-        && element.scrollHeight > element.clientHeight;
+    const canScrollX =
+        (overflowX === 'auto' || overflowX === 'scroll' || overflowX === 'overlay') &&
+        element.scrollWidth > element.clientWidth;
+    const canScrollY =
+        (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') &&
+        element.scrollHeight > element.clientHeight;
     return canScrollX || canScrollY;
 }
 

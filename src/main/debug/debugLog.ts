@@ -83,9 +83,7 @@ function buildStructuredLogger(
 ): StructuredLogger {
     const write = (level: DebugLogLevel, args: unknown[]) => {
         const text = formatLogArgs(args);
-        const withBindings = bindings && Object.keys(bindings).length > 0
-            ? `${text} ${safeJson(bindings)}`
-            : text;
+        const withBindings = bindings && Object.keys(bindings).length > 0 ? `${text} ${safeJson(bindings)}` : text;
         pushDebugLog({
             source,
             level,
@@ -101,14 +99,11 @@ function buildStructuredLogger(
         warn: (...args: unknown[]) => write('warn', args),
         error: (...args: unknown[]) => write('error', args),
         fatal: (...args: unknown[]) => write('fatal', args),
-        child: (childBindings?: Record<string, unknown>) => buildStructuredLogger(
-            source,
-            scope,
-            {
+        child: (childBindings?: Record<string, unknown>) =>
+            buildStructuredLogger(source, scope, {
                 ...(bindings ?? {}),
                 ...(childBindings ?? {}),
-            },
-        ),
+            }),
     };
 }
 
@@ -122,7 +117,7 @@ function formatLogArgs(args: unknown[]): string {
     if (typeof args[0] === 'string') {
         return format(...(args as Parameters<typeof format>));
     }
-    return args.map((arg) => typeof arg === 'string' ? arg : safeJson(arg)).join(' ');
+    return args.map((arg) => (typeof arg === 'string' ? arg : safeJson(arg))).join(' ');
 }
 
 function safeJson(value: unknown): string {

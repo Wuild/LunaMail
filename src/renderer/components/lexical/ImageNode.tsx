@@ -66,13 +66,7 @@ export class ImageNode extends DecoratorNode<React.JSX.Element> {
     }
 
     decorate(): React.JSX.Element {
-        return (
-            <img
-                src={this.__src}
-                alt={this.__altText}
-                className="my-2 inline-block h-auto max-w-full rounded-md"
-            />
-        );
+        return <img src={this.__src} alt={this.__altText} className="my-2 inline-block h-auto max-w-full rounded-md"/>;
     }
 }
 

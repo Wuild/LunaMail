@@ -2,14 +2,21 @@ import type {BrowserWindow} from 'electron';
 
 interface LoadWindowContentOptions {
     isDev: boolean;
-    devUrls: string[];
-    prodFiles: string[];
+    devUrls: WindowContentTarget[];
+    prodFiles: WindowContentTarget[];
     windowName?: string;
 }
 
+type WindowContentTarget =
+    | string
+    | {
+    target: string;
+    query?: Record<string, string>;
+};
+
 export async function loadWindowContent(
     win: BrowserWindow,
-    {isDev, devUrls, prodFiles, windowName = 'window'}: LoadWindowContentOptions
+    {isDev, devUrls, prodFiles, windowName = 'window'}: LoadWindowContentOptions,
 ): Promise<void> {
     attachWindowDiagnostics(win, windowName);
     const targets = isDev ? devUrls : prodFiles;
@@ -18,9 +25,17 @@ export async function loadWindowContent(
     for (const target of targets) {
         try {
             if (isDev) {
-                await win.loadURL(target);
+                if (typeof target === 'string') {
+                    await win.loadURL(target);
+                } else {
+                    await win.loadURL(appendQuery(target.target, target.query));
+                }
             } else {
-                await win.loadFile(target);
+                if (typeof target === 'string') {
+                    await win.loadFile(target);
+                } else {
+                    await win.loadFile(target.target, {query: target.query});
+                }
             }
             return;
         } catch (error) {
@@ -29,6 +44,15 @@ export async function loadWindowContent(
     }
 
     throw lastError instanceof Error ? lastError : new Error('Failed to load window content');
+}
+
+function appendQuery(target: string, query?: Record<string, string>): string {
+    if (!query || Object.keys(query).length === 0) return target;
+    const url = new URL(target);
+    for (const [key, value] of Object.entries(query)) {
+        url.searchParams.set(key, value);
+    }
+    return url.toString();
 }
 
 function attachWindowDiagnostics(win: BrowserWindow, windowName: string): void {

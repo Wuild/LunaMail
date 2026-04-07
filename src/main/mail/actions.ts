@@ -72,9 +72,14 @@ export async function moveServerMessage(messageId: number, targetFolderPath: str
     let movedUid: number | undefined;
     await withImapLock(ctx.accountId, ctx.folderPath, async (client) => {
         const result = await (client as any).messageMove(ctx.uid, targetFolderPath, {uid: true});
-        const uidMap = result && typeof result === 'object' ? (result as {
-            uidMap?: Map<number, number>
-        }).uidMap : undefined;
+        const uidMap =
+            result && typeof result === 'object'
+                ? (
+                    result as {
+                        uidMap?: Map<number, number>;
+                    }
+                ).uidMap
+                : undefined;
         if (uidMap?.has(ctx.uid)) {
             movedUid = uidMap.get(ctx.uid);
         }
@@ -96,8 +101,9 @@ export async function deleteServerMessage(messageId: number): Promise<ActionResu
 
 export async function deleteServerMessageByContext(ctx: MessageServerContext): Promise<void> {
     const folders = listFoldersByAccount(ctx.accountId);
-    const trash = folders.find((f) => (f.type ?? '').toLowerCase() === 'trash')
-        ?? folders.find((f) => /trash|deleted/i.test(f.path));
+    const trash =
+        folders.find((f) => (f.type ?? '').toLowerCase() === 'trash') ??
+        folders.find((f) => /trash|deleted/i.test(f.path));
 
     await withImapLock(ctx.accountId, ctx.folderPath, async (client) => {
         if (trash && trash.path !== ctx.folderPath) {

@@ -2,6 +2,7 @@ import {app, BrowserWindow} from 'electron';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import {loadWindowContent} from './loadWindowContent.js';
+import {attachWindowShortcuts, buildSecureWebPreferences, createAppWindow} from './windowFactory.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -22,7 +23,7 @@ export function openSplashWindow(options: OpenSplashWindowOptions = {}): Browser
     const preloadPath = path.join(app.getAppPath(), 'preload.cjs');
     const showTitleBar = isDev || Boolean(options.forceTitleBar);
 
-    splashWin = new BrowserWindow({
+    splashWin = createAppWindow({
         width: 420,
         height: 500,
         frame: showTitleBar,
@@ -31,38 +32,32 @@ export function openSplashWindow(options: OpenSplashWindowOptions = {}): Browser
         minimizable: showTitleBar,
         maximizable: false,
         fullscreenable: false,
-        autoHideMenuBar: true,
         show: true,
         title: 'LunaMail Updater',
-        webPreferences: {
-            preload: preloadPath,
-            contextIsolation: true,
-            nodeIntegration: false,
-        },
+        webPreferences: buildSecureWebPreferences({preloadPath}),
     });
-    splashWin.setMenuBarVisibility(false);
-    splashWin.removeMenu();
-    splashWin.webContents.on('before-input-event', (event, input) => {
-        if (input.type !== 'keyDown') return;
-        const key = String(input.key || '').toLowerCase();
-        const isF12 = key === 'f12';
-        const isCtrlShiftI = input.control && input.shift && key === 'i';
-        const isCmdAltI = input.meta && input.alt && key === 'i';
-        if (!isF12 && !isCtrlShiftI && !isCmdAltI) return;
-        event.preventDefault();
-        if (splashWin && !splashWin.isDestroyed()) {
-            splashWin.webContents.openDevTools({mode: 'detach'});
-        }
-    });
+    attachWindowShortcuts(splashWin);
     splashWin.on('closed', () => {
         splashWin = null;
     });
 
     void loadWindowContent(splashWin, {
         isDev,
-        devUrls: ['http://127.0.0.1:5174/splash.html', 'http://127.0.0.1:5174/src/renderer/splash.html'],
+        devUrls: [
+            {
+                target: 'http://127.0.0.1:5174/window.html',
+                query: {window: 'splash'},
+            },
+            {
+                target: 'http://127.0.0.1:5174/src/renderer/window.html',
+                query: {window: 'splash'},
+            },
+        ],
         prodFiles: [
-            path.join(__dirname, '..', '..', 'renderer/splash.html'),
+            {
+                target: path.join(__dirname, '..', '..', 'renderer/window.html'),
+                query: {window: 'splash'},
+            },
         ],
         windowName: 'splash',
     }).catch((error) => {

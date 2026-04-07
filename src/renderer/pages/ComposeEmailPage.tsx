@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
     File,
     FileArchive,
@@ -10,13 +10,15 @@ import {
     FileVideo,
     Paperclip,
     PenSquare,
-    SendHorizonal
+    SendHorizonal,
 } from 'lucide-react';
 import type {ComposeDraftPayload, ContactItem, PublicAccount, RecentRecipientItem} from '../../preload/index';
 import MarkdownLexicalEditor from '../components/MarkdownLexicalEditor';
 import WindowTitleBar from '../components/WindowTitleBar';
 import {formatBytes} from '../lib/format';
 import {useAppTheme} from '../hooks/useAppTheme';
+import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
+import {ipcClient} from '../lib/ipcClient';
 
 type ComposeAttachment = {
     id: string;
@@ -46,7 +48,7 @@ function ComposeEmailPage() {
     const [plainBody, setPlainBody] = useState('');
     const [threadMeta, setThreadMeta] = useState<{
         inReplyTo?: string | null;
-        references?: string[] | string | null
+        references?: string[] | string | null;
     }>({});
     const [sending, setSending] = useState(false);
     const [status, setStatus] = useState<string | null>(null);
@@ -59,7 +61,7 @@ function ComposeEmailPage() {
 
     useEffect(() => {
         let active = true;
-        window.electronAPI
+        ipcClient
             .getAccounts()
             .then((rows) => {
                 if (!active) return;
@@ -77,46 +79,47 @@ function ComposeEmailPage() {
         };
     }, []);
 
-    useEffect(() => {
-        const applyDraft = (draft: ComposeDraftPayload | null | undefined) => {
-            if (!draft) return;
-            if (typeof draft.accountId === 'number') setFromAccountId(draft.accountId);
-            if (typeof draft.to === 'string') setToList(parseRecipients(draft.to));
-            if (typeof draft.cc === 'string') {
-                const parsedCc = parseRecipients(draft.cc);
-                setCcList(parsedCc);
-                if (draft.cc.trim()) setShowCcBcc(true);
-            }
-            if (typeof draft.bcc === 'string') {
-                const parsedBcc = parseRecipients(draft.bcc);
-                setBccList(parsedBcc);
-                if (draft.bcc.trim()) setShowCcBcc(true);
-            }
-            if (typeof draft.subject === 'string') setSubject(draft.subject);
-            if (typeof draft.bodyHtml === 'string') {
-                setBody(draft.bodyHtml);
-            } else if (typeof draft.body === 'string') {
-                setBody(draft.body);
-            }
-            if (typeof draft.bodyText === 'string') {
-                setPlainBody(draft.bodyText);
-            } else if (typeof draft.body === 'string') {
-                setPlainBody(draft.body);
-            }
-            setThreadMeta({
-                inReplyTo: draft.inReplyTo ?? null,
-                references: draft.references ?? null,
-            });
-        };
+    const applyDraft = useCallback((draft: ComposeDraftPayload | null | undefined) => {
+        if (!draft) return;
+        if (typeof draft.accountId === 'number') setFromAccountId(draft.accountId);
+        if (typeof draft.to === 'string') setToList(parseRecipients(draft.to));
+        if (typeof draft.cc === 'string') {
+            const parsedCc = parseRecipients(draft.cc);
+            setCcList(parsedCc);
+            if (draft.cc.trim()) setShowCcBcc(true);
+        }
+        if (typeof draft.bcc === 'string') {
+            const parsedBcc = parseRecipients(draft.bcc);
+            setBccList(parsedBcc);
+            if (draft.bcc.trim()) setShowCcBcc(true);
+        }
+        if (typeof draft.subject === 'string') setSubject(draft.subject);
+        if (typeof draft.bodyHtml === 'string') {
+            setBody(draft.bodyHtml);
+        } else if (typeof draft.body === 'string') {
+            setBody(draft.body);
+        }
+        if (typeof draft.bodyText === 'string') {
+            setPlainBody(draft.bodyText);
+        } else if (typeof draft.body === 'string') {
+            setPlainBody(draft.body);
+        }
+        setThreadMeta({
+            inReplyTo: draft.inReplyTo ?? null,
+            references: draft.references ?? null,
+        });
+    }, []);
 
-        window.electronAPI.getComposeDraft?.()
+    useEffect(() => {
+        ipcClient
+            .getComposeDraft()
             .then((draft) => applyDraft(draft))
             .catch(() => undefined);
-        const off = window.electronAPI.onComposeDraft?.((draft) => applyDraft(draft));
-        return () => {
-            if (typeof off === 'function') off();
-        };
-    }, []);
+    }, [applyDraft]);
+
+    useIpcEvent(ipcClient.onComposeDraft, (draft) => {
+        applyDraft(draft);
+    });
 
     const words = useMemo(() => plainBody.trim().split(/\s+/).filter(Boolean).length, [plainBody]);
     const draftPayload = useMemo(() => {
@@ -140,7 +143,18 @@ function ComposeEmailPage() {
                 : null,
             draftSessionId: draftSessionIdRef.current,
         };
-    }, [fromAccountId, toList, ccList, bccList, subject, body, plainBody, threadMeta.inReplyTo, threadMeta.references, attachments]);
+    }, [
+        fromAccountId,
+        toList,
+        ccList,
+        bccList,
+        subject,
+        body,
+        plainBody,
+        threadMeta.inReplyTo,
+        threadMeta.references,
+        attachments,
+    ]);
 
     useEffect(() => {
         if (!draftPayload || sending) return;
@@ -164,7 +178,9 @@ function ComposeEmailPage() {
                     setStatus((prev) => (prev?.startsWith('Send failed:') ? prev : 'Draft saved'));
                 })
                 .catch((e: any) => {
-                    setStatus((prev) => (prev?.startsWith('Sending') ? prev : `Draft save failed: ${e?.message || String(e)}`));
+                    setStatus((prev) =>
+                        prev?.startsWith('Sending') ? prev : `Draft save failed: ${e?.message || String(e)}`,
+                    );
                 });
         }, 1200);
 
@@ -186,7 +202,9 @@ function ComposeEmailPage() {
             setStatus('Recipient is required.');
             return;
         }
-        const invalidAddresses = [...toList, ...ccList, ...bccList].filter((entry) => !normalizeRecipientAddress(entry));
+        const invalidAddresses = [...toList, ...ccList, ...bccList].filter(
+            (entry) => !normalizeRecipientAddress(entry),
+        );
         if (invalidAddresses.length > 0) {
             setStatus(`Invalid address: ${invalidAddresses[0]}`);
             return;
@@ -199,7 +217,7 @@ function ComposeEmailPage() {
                 clearTimeout(autosaveTimerRef.current);
                 autosaveTimerRef.current = null;
             }
-            const res = await window.electronAPI.sendEmail({
+            const res = await ipcClient.sendEmail({
                 accountId: Number(fromAccountId),
                 to: joinRecipients(toList),
                 cc: ccList.length ? joinRecipients(ccList) : null,
@@ -264,11 +282,7 @@ function ComposeEmailPage() {
 
     async function onPickAttachments() {
         try {
-            if (typeof window.electronAPI.pickComposeAttachments !== 'function') {
-                fileInputRef.current?.click();
-                return;
-            }
-            const picked = await window.electronAPI.pickComposeAttachments();
+            const picked = await ipcClient.pickComposeAttachments();
             if (!picked.length) return;
             const next: ComposeAttachment[] = picked.map((item) => ({
                 id: item.path,
@@ -307,8 +321,9 @@ function ComposeEmailPage() {
                         </div>
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                             <span>{words} words</span>
-                            <span
-                                className="rounded-full border border-slate-300 px-2 py-0.5 dark:border-[#3a3d44]">Draft</span>
+                            <span className="rounded-full border border-slate-300 px-2 py-0.5 dark:border-[#3a3d44]">
+								Draft
+							</span>
                         </div>
                     </div>
                 </header>
@@ -318,8 +333,9 @@ function ComposeEmailPage() {
                         <div className="border-b border-slate-200 px-5 py-4 dark:border-[#3a3d44]">
                             <div className="grid grid-cols-1 gap-2 md:grid-cols-[220px_1fr]">
                                 <label className="block text-sm">
-                                    <span
-                                        className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">From</span>
+									<span className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+										From
+									</span>
                                     <select
                                         className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100"
                                         value={fromAccountId}
@@ -335,8 +351,9 @@ function ComposeEmailPage() {
                                 </label>
 
                                 <label className="block text-sm">
-                                    <span
-                                        className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">To</span>
+									<span className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+										To
+									</span>
                                     <div className="flex gap-2">
                                         <RecipientsInput
                                             placeholder="recipient@example.com"
@@ -360,8 +377,10 @@ function ComposeEmailPage() {
                             {showCcBcc && (
                                 <div className="mt-2 grid grid-cols-2 gap-2">
                                     <label className="block min-w-0 text-sm">
-                                        <span
-                                            className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Cc</span>
+										<span
+                                            className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+											Cc
+										</span>
                                         <RecipientsInput
                                             placeholder="optional"
                                             recipients={ccList}
@@ -372,8 +391,10 @@ function ComposeEmailPage() {
                                     </label>
 
                                     <label className="block min-w-0 text-sm">
-                                        <span
-                                            className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Bcc</span>
+										<span
+                                            className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+											Bcc
+										</span>
                                         <RecipientsInput
                                             placeholder="optional"
                                             recipients={bccList}
@@ -387,8 +408,9 @@ function ComposeEmailPage() {
 
                             <div className="mt-2">
                                 <label className="block text-sm">
-                                    <span
-                                        className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Subject</span>
+									<span className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+										Subject
+									</span>
                                     <input
                                         placeholder="Add a subject"
                                         value={subject}
@@ -470,13 +492,7 @@ function joinRecipients(recipients: string[]): string {
     return recipients.join(', ');
 }
 
-function AttachmentCard({
-                            attachment,
-                            onRemove,
-                        }: {
-    attachment: ComposeAttachment;
-    onRemove: () => void;
-}) {
+function AttachmentCard({attachment, onRemove}: { attachment: ComposeAttachment; onRemove: () => void }) {
     const isImage = isImageAttachment(attachment.filename, attachment.contentType);
     const [imageFailed, setImageFailed] = useState(false);
 
@@ -539,16 +555,21 @@ function fileExtensionLabel(filename: string): string {
 function renderAttachmentTypeIcon(filename: string, contentType: string | null): React.ReactNode {
     const type = (contentType || '').toLowerCase();
     const ext = (filename.split('.').pop() || '').toLowerCase();
-    if (type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext)) return <FileImage
-        size={16}/>;
+    if (type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext))
+        return <FileImage size={16}/>;
     if (type.startsWith('video/') || ['mp4', 'mkv', 'mov', 'avi', 'webm'].includes(ext)) return <FileVideo size={16}/>;
-    if (type.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(ext)) return <FileAudio2 size={16}/>;
+    if (type.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(ext))
+        return <FileAudio2 size={16}/>;
     if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(ext)) return <FileArchive size={16}/>;
     if (['csv', 'xls', 'xlsx', 'ods'].includes(ext)) return <FileSpreadsheet size={16}/>;
-    if (['txt', 'md', 'rtf', 'doc', 'docx', 'pdf'].includes(ext) || type.startsWith('text/')) return <FileText
-        size={16}/>;
-    if (['json', 'xml', 'yml', 'yaml', 'js', 'ts', 'tsx', 'jsx', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'h'].includes(ext)) return <FileCode
-        size={16}/>;
+    if (['txt', 'md', 'rtf', 'doc', 'docx', 'pdf'].includes(ext) || type.startsWith('text/'))
+        return <FileText size={16}/>;
+    if (
+        ['json', 'xml', 'yml', 'yaml', 'js', 'ts', 'tsx', 'jsx', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'h'].includes(
+            ext,
+        )
+    )
+        return <FileCode size={16}/>;
     return <File size={16}/>;
 }
 
@@ -586,29 +607,26 @@ function RecipientsInput({
 
         const seq = ++searchSeqRef.current;
         const timer = setTimeout(() => {
-            const recentRecipientsPromise = typeof window.electronAPI.getRecentRecipients === 'function'
-                ? window.electronAPI.getRecentRecipients(accountId, query, 12)
-                : Promise.resolve([]);
-            Promise.all([
-                window.electronAPI.getContacts(accountId, query, 12, null),
-                recentRecipientsPromise,
-            ]).then(([contacts, recentRecipients]) => {
-                if (seq !== searchSeqRef.current) return;
-                const existing = new Set(
-                    [...recipients, ...blockedRecipients]
-                        .map((entry) => normalizeRecipientAddress(entry))
-                        .filter((entry): entry is string => Boolean(entry)),
-                );
-                const merged = mergeRecipientSuggestions(contacts, recentRecipients, existing, 12);
-                setSuggestions(merged);
-                setShowSuggestions(merged.length > 0);
-                setActiveSuggestionIndex(0);
-            }).catch(() => {
-                if (seq !== searchSeqRef.current) return;
-                setSuggestions([]);
-                setShowSuggestions(false);
-                setActiveSuggestionIndex(0);
-            });
+            const recentRecipientsPromise = ipcClient.getRecentRecipients(accountId, query, 12);
+            Promise.all([ipcClient.getContacts(accountId, query, 12, null), recentRecipientsPromise])
+                .then(([contacts, recentRecipients]) => {
+                    if (seq !== searchSeqRef.current) return;
+                    const existing = new Set(
+                        [...recipients, ...blockedRecipients]
+                            .map((entry) => normalizeRecipientAddress(entry))
+                            .filter((entry): entry is string => Boolean(entry)),
+                    );
+                    const merged = mergeRecipientSuggestions(contacts, recentRecipients, existing, 12);
+                    setSuggestions(merged);
+                    setShowSuggestions(merged.length > 0);
+                    setActiveSuggestionIndex(0);
+                })
+                .catch(() => {
+                    if (seq !== searchSeqRef.current) return;
+                    setSuggestions([]);
+                    setShowSuggestions(false);
+                    setActiveSuggestionIndex(0);
+                });
         }, 120);
 
         return () => {
@@ -677,20 +695,20 @@ function RecipientsInput({
                     key={recipient}
                     className="inline-flex max-w-full items-center gap-1 rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-800 dark:bg-[#35373c] dark:text-slate-100"
                 >
-          <span className="truncate">{recipient}</span>
-          <button
-              type="button"
-              className="text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-              onClick={(e) => {
-                  e.stopPropagation();
-                  removeRecipient(recipient);
-              }}
-              aria-label={`Remove ${recipient}`}
-              title="Remove"
-          >
-            x
-          </button>
-        </span>
+					<span className="truncate">{recipient}</span>
+					<button
+                        type="button"
+                        className="text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            removeRecipient(recipient);
+                        }}
+                        aria-label={`Remove ${recipient}`}
+                        title="Remove"
+                    >
+						x
+					</button>
+				</span>
             ))}
             <input
                 ref={inputRef}
@@ -744,8 +762,7 @@ function RecipientsInput({
             )}
             {showSuggestions && suggestions.length > 0 && (
                 <div
-                    className="absolute left-0 top-[calc(100%+4px)] z-20 max-h-56 w-full overflow-auto rounded-md border border-slate-300 bg-white py-1 shadow-lg dark:border-[#3a3d44] dark:bg-[#1f2125]"
-                >
+                    className="absolute left-0 top-[calc(100%+4px)] z-20 max-h-56 w-full overflow-auto rounded-md border border-slate-300 bg-white py-1 shadow-lg dark:border-[#3a3d44] dark:bg-[#1f2125]">
                     {suggestions.map((contact, index) => (
                         <button
                             key={contact.key}
@@ -762,8 +779,9 @@ function RecipientsInput({
                         >
                             <div className="truncate text-sm">{contact.displayName || contact.email}</div>
                             {contact.displayName && (
-                                <div
-                                    className="truncate text-xs text-slate-500 dark:text-slate-400">{contact.email}</div>
+                                <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                    {contact.email}
+                                </div>
                             )}
                         </button>
                     ))}

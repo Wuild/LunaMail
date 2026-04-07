@@ -5,7 +5,7 @@ import {
     type MailFilter,
     type MailFilterAction,
     type MailFilterCondition,
-    upsertMailFilter
+    upsertMailFilter,
 } from '../db/repositories/mailFiltersRepo.js';
 import {moveServerMessage, setServerMessageFlagged, setServerMessageRead} from './actions.js';
 

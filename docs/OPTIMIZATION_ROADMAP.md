@@ -13,7 +13,7 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 ## Phase 0: Baseline and Guardrails
 
 - [ ] Record baseline build status and startup behavior.
-- [ ] Create or refresh `docs/SMOKE_TEST_CHECKLIST.md`.
+- [x] Create or refresh `docs/SMOKE_TEST_CHECKLIST.md`.
 - [ ] Run and record baseline smoke checks:
 - [ ] Launch app.
 - [ ] Load inbox.
@@ -21,12 +21,12 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 - [ ] Open message window.
 - [ ] Open settings tabs.
 - [ ] Add, update, delete account.
-- [ ] Agree PR rule: refactor PRs must include `npm run build` + smoke results.
+- [x] Agree PR rule: refactor PRs must include `npm run build` + smoke results.
 
 ### Exit Criteria
 
 - [ ] Baseline behavior documented.
-- [ ] Smoke checklist exists and is usable.
+- [x] Smoke checklist exists and is usable.
 
 ---
 
@@ -42,16 +42,16 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 
 ### Checklist
 
-- [ ] Add `src/main/windows/windowFactory.ts`.
-- [ ] Extract shared BrowserWindow defaults (secure `webPreferences`, title bar/menu defaults).
-- [ ] Extract shared `before-input-event` shortcut handler utility.
-- [ ] Keep per-window options explicit (`width/height/min/max/modal`).
-- [ ] Migrate each window module to use shared helpers.
+- [x] Add `src/main/windows/windowFactory.ts`.
+- [x] Extract shared BrowserWindow defaults (secure `webPreferences`, title bar/menu defaults).
+- [x] Extract shared `before-input-event` shortcut handler utility.
+- [x] Keep per-window options explicit (`width/height/min/max/modal`).
+- [x] Migrate each window module to use shared helpers.
 - [ ] Verify no behavior change in all windows.
 
 ### Exit Criteria
 
-- [ ] Window creation duplication significantly reduced.
+- [x] Window creation duplication significantly reduced.
 - [ ] All windows still open and behave identically.
 - [ ] Build and smoke checks pass.
 
@@ -67,20 +67,20 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 
 ### Checklist
 
-- [ ] Split account IPC into domain modules:
-- [ ] `registerAccountCoreIpc.ts`
-- [ ] `registerMailIpc.ts`
-- [ ] `registerDavIpc.ts`
-- [ ] `registerComposeIpc.ts`
-- [ ] Add shared broadcast helper (`broadcastToAllWindows` + typed wrappers).
-- [ ] Keep existing channel names unchanged.
-- [ ] Keep preload contract unchanged.
-- [ ] Update main bootstrap registration in `src/main/index.ts`.
+- [x] Split account IPC into domain modules:
+- [x] `registerAccountCoreIpc.ts`
+- [x] `registerMailIpc.ts`
+- [x] `registerDavIpc.ts`
+- [x] `registerComposeIpc.ts`
+- [x] Add shared broadcast helper (`broadcastToAllWindows` + typed wrappers).
+- [x] Keep existing channel names unchanged.
+- [x] Keep preload contract unchanged.
+- [x] Update main bootstrap registration in `src/main/index.ts`.
 
 ### Exit Criteria
 
-- [ ] Monolithic `accounts.ts` removed or reduced to orchestration.
-- [ ] No channel naming regressions.
+- [x] Monolithic `accounts.ts` removed or reduced to orchestration.
+- [x] No channel naming regressions.
 - [ ] Build and smoke checks pass.
 
 ---
@@ -97,20 +97,20 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 
 ### Checklist
 
-- [ ] Add `src/renderer/lib/ipcClient.ts` with typed wrappers.
-- [ ] Add `useIpcEvent` hook for safe subscribe/unsubscribe.
-- [ ] Add shared hooks:
-- [ ] `useAccounts()`
-- [ ] `useAppSettings()`
-- [ ] `useAutoUpdateState()`
-- [ ] `useWindowControlsState()`
-- [ ] Replace repeated page-level `window.electronAPI.on...` wiring with hooks.
-- [ ] Preserve optimistic behavior for user-visible actions.
+- [x] Add `src/renderer/lib/ipcClient.ts` with typed wrappers.
+- [x] Add `useIpcEvent` hook for safe subscribe/unsubscribe.
+- [x] Add shared hooks:
+- [x] `useAccounts()`
+- [x] `useAppSettings()`
+- [x] `useAutoUpdateState()`
+- [x] `useWindowControlsState()`
+- [x] Replace repeated page-level `window.electronAPI.on...` wiring with hooks.
+- [x] Preserve optimistic behavior for user-visible actions.
 
 ### Exit Criteria
 
-- [ ] Event subscription boilerplate reduced across pages.
-- [ ] No regressions on unread/account/update indicators.
+- [x] Event subscription boilerplate reduced across pages.
+- [x] No regressions on unread/account/update indicators.
 - [ ] Build and smoke checks pass.
 
 ---
@@ -125,18 +125,18 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 
 ### Checklist
 
-- [ ] Extract route modules:
-- [ ] `src/renderer/routes/ContactsRoute.tsx`
-- [ ] `src/renderer/routes/CalendarRoute.tsx`
-- [ ] Keep `MainWindowApp` as shell/router orchestration.
-- [ ] Extract Mail hooks:
-- [ ] `useMailSelection`
-- [ ] `useMailSyncStatus`
-- [ ] `useMessageBodyLoader`
-- [ ] `useOptimisticReadState`
-- [ ] Split `MainLayout` into reusable subcomponents (folder panel, message list, menus, table config).
-- [ ] Move date helper functions to `src/renderer/lib/date/`.
-- [ ] Remove local theme duplication and use `useAppTheme` consistently.
+- [x] Extract route modules:
+- [x] `src/renderer/routes/ContactsRoute.tsx`
+- [x] `src/renderer/routes/CalendarRoute.tsx`
+- [x] Keep `MainWindowApp` as shell/router orchestration.
+- [x] Extract Mail hooks:
+- [x] `useMailSelection`
+- [x] `useMailSyncStatus`
+- [x] `useMessageBodyLoader`
+- [x] `useOptimisticReadState`
+- [x] Split `MainLayout` into reusable subcomponents (folder panel, message list, menus, table config).
+- [x] Move date helper functions to `src/renderer/lib/date/`.
+- [x] Remove local theme duplication and use `useAppTheme` consistently.
 
 ### Exit Criteria
 
@@ -156,14 +156,14 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 
 ### Checklist
 
-- [ ] Define rule: Drizzle by default for new repository code.
-- [ ] Identify hot paths where raw SQL is still justified.
-- [ ] Migrate high-churn paths first:
-- [ ] folder/message list reads
-- [ ] read/unread flows
-- [ ] move/archive/delete flows
-- [ ] Add comments for any intentionally retained raw SQL.
-- [ ] Document DB access conventions in `docs/`.
+- [x] Define rule: Drizzle by default for new repository code.
+- [x] Identify hot paths where raw SQL is still justified.
+- [x] Migrate high-churn paths first:
+- [x] folder/message list reads
+- [x] read/unread flows
+- [x] move/archive/delete flows
+- [x] Add comments for any intentionally retained raw SQL.
+- [x] Document DB access conventions in `docs/`.
 
 ### Exit Criteria
 
@@ -177,17 +177,17 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 
 ### Checklist
 
-- [ ] Add QueryClient provider in renderer entrypoint.
-- [ ] Migrate first query set:
-- [ ] accounts
-- [ ] folders
-- [ ] app settings
-- [ ] Migrate first mutation set with optimistic updates:
-- [ ] read/unread
-- [ ] flag/tag
-- [ ] move/archive/delete
-- [ ] Use Zustand only for cross-route local UI state that should persist.
-- [ ] Remove redundant manual loading/error state where Query handles it.
+- [x] Add QueryClient provider in renderer entrypoint.
+- [x] Migrate first query set:
+- [x] accounts
+- [x] folders
+- [x] app settings
+- [x] Migrate first mutation set with optimistic updates:
+- [x] read/unread
+- [x] flag/tag
+- [x] move/archive/delete
+- [x] Use Zustand only for cross-route local UI state that should persist.
+- [x] Remove redundant manual loading/error state where Query handles it.
 
 ### Exit Criteria
 
@@ -201,18 +201,19 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 
 ### Checklist
 
-- [ ] Move shared IPC payload/result types into a common shared module.
-- [ ] Keep `src/preload/index.ts` as single renderer bridge surface.
-- [ ] Add runtime validation to riskier IPC payload entry points.
-- [ ] Verify security constraints remain intact:
-- [ ] `contextIsolation = true`
-- [ ] `nodeIntegration = false`
-- [ ] no renderer direct Node/FS/IMAP access
+- [x] Move shared IPC payload/result types into a common shared module.
+- [x] Centralize shared app settings defaults/options in `src/shared/` and consume from main + renderer.
+- [x] Keep `src/preload/index.ts` as single renderer bridge surface.
+- [x] Add runtime validation to riskier IPC payload entry points.
+- [x] Verify security constraints remain intact:
+- [x] `contextIsolation = true`
+- [x] `nodeIntegration = false`
+- [x] no renderer direct Node/FS/IMAP access
 
 ### Exit Criteria
 
-- [ ] Type drift between preload/main/renderer is reduced.
-- [ ] Security contract unchanged or improved.
+- [x] Type drift between preload/main/renderer is reduced.
+- [x] Security contract unchanged or improved.
 - [ ] Build and smoke checks pass.
 
 ---
@@ -221,33 +222,33 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 
 ### Checklist
 
-- [ ] Add unit tests for extracted pure logic first:
-- [ ] date helpers
-- [ ] selection logic
-- [ ] optimistic reducers/state transitions
-- [ ] Add integration coverage for critical IPC workflows.
-- [ ] Add lint/check rules for:
-- [ ] large-file warning thresholds
-- [ ] discouraged direct event boilerplate patterns
-- [ ] Keep build and smoke checks required in PR template.
+- [x] Add unit tests for extracted pure logic first:
+- [x] date helpers
+- [x] selection logic
+- [x] optimistic reducers/state transitions
+- [x] Add integration coverage for critical IPC workflows.
+- [x] Add lint/check rules for:
+- [x] large-file warning thresholds
+- [x] discouraged direct event boilerplate patterns
+- [x] Keep build and smoke checks required in PR template.
 
 ### Exit Criteria
 
-- [ ] Refactors are safer due to automated guardrails.
-- [ ] Regression detection improves before manual QA.
+- [x] Refactors are safer due to automated guardrails.
+- [x] Regression detection improves before manual QA.
 
 ---
 
 ## PR Sequence Tracker
 
-- [ ] PR-A: Window factory + shared shortcuts.
-- [ ] PR-B: IPC modular split + broadcast helpers.
-- [ ] PR-C: Renderer IPC client + shared hooks.
-- [ ] PR-D: `MainWindowApp` route extraction + date utilities.
-- [ ] PR-E: `MailPage` hook extraction + `MainLayout` decomposition.
-- [ ] PR-F: Drizzle-first migration on core mail paths.
-- [ ] PR-G: React Query rollout + optimistic mutation utilities.
-- [ ] PR-H: tests and tooling hardening.
+- [x] PR-A: Window factory + shared shortcuts.
+- [x] PR-B: IPC modular split + broadcast helpers.
+- [x] PR-C: Renderer IPC client + shared hooks.
+- [x] PR-D: `MainWindowApp` route extraction + date utilities.
+- [x] PR-E: `MailPage` hook extraction + `MainLayout` decomposition.
+- [x] PR-F: Drizzle-first migration on core mail paths.
+- [x] PR-G: React Query rollout + optimistic mutation utilities.
+- [x] PR-H: tests and tooling hardening.
 
 ---
 
@@ -259,4 +260,3 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 - [ ] Shared hooks cover common fetch/subscription needs.
 - [ ] DB access strategy is consistent and documented.
 - [ ] Build + smoke tests remain stable through the full sequence.
-

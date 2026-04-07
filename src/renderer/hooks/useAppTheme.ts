@@ -1,6 +1,9 @@
 import {useEffect, useState} from 'react';
+import {useIpcEvent} from './ipc/useIpcEvent';
+import {ipcClient} from '../lib/ipcClient';
+import type {AppTheme} from '../../shared/ipcTypes';
 
-export type ThemePreference = 'light' | 'dark' | 'system';
+export type ThemePreference = AppTheme;
 
 function applyTheme(theme: ThemePreference, prefersDark: boolean): void {
     const useDark = theme === 'dark' || (theme === 'system' && prefersDark);
@@ -25,7 +28,8 @@ export function useAppTheme(defaultTheme: ThemePreference = 'system'): ThemePref
 
     useEffect(() => {
         let active = true;
-        window.electronAPI.getAppSettings()
+        ipcClient
+            .getAppSettings()
             .then((settings) => {
                 if (!active) return;
                 setTheme((settings?.theme as ThemePreference) ?? defaultTheme);
@@ -35,15 +39,14 @@ export function useAppTheme(defaultTheme: ThemePreference = 'system'): ThemePref
                 setTheme(defaultTheme);
             });
 
-        const off = window.electronAPI.onAppSettingsUpdated?.((settings) => {
-            setTheme((settings?.theme as ThemePreference) ?? defaultTheme);
-        });
-
         return () => {
             active = false;
-            if (typeof off === 'function') off();
         };
     }, [defaultTheme]);
+
+    useIpcEvent(ipcClient.onAppSettingsUpdated, (settings) => {
+        setTheme((settings?.theme as ThemePreference) ?? defaultTheme);
+    });
 
     useThemePreference(theme);
     return theme;

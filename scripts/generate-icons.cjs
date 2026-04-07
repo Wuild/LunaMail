@@ -30,23 +30,14 @@ async function ensureDirectories() {
 async function writeAppIcons() {
     for (const size of iconSizes) {
         const outPath = path.join(iconsDir, `${size}x${size}.png`);
-        await sharp(lunaSource)
-            .resize(size, size, {fit: 'contain'})
-            .png()
-            .toFile(outPath);
+        await sharp(lunaSource).resize(size, size, {fit: 'contain'}).png().toFile(outPath);
     }
 
-    await sharp(lunaSource)
-        .resize(1024, 1024, {fit: 'contain'})
-        .png()
-        .toFile(appIconOut);
+    await sharp(lunaSource).resize(1024, 1024, {fit: 'contain'}).png().toFile(appIconOut);
 }
 
 async function writeTrayIcon() {
-    await sharp(lunaTraySource)
-        .resize(64, 64, {fit: 'contain'})
-        .png()
-        .toFile(trayIconOut);
+    await sharp(lunaTraySource).resize(64, 64, {fit: 'contain'}).png().toFile(trayIconOut);
 }
 
 async function writeWindowsIco() {
@@ -60,10 +51,7 @@ async function writeWindowsIco() {
             path.join(iconsDir, '256x256.png'),
             appIconIcoOut,
         ]);
-        await execFileAsync('convert', [
-            trayIconOut,
-            trayIconIcoOut,
-        ]);
+        await execFileAsync('convert', [trayIconOut, trayIconIcoOut]);
     } catch {
         // ImageMagick may not be available in all environments; PNG icons remain as fallback.
     }

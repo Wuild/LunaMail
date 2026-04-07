@@ -1,5 +1,7 @@
 export function normalizeAllowlistEntry(entry: string): string | null {
-    const value = String(entry || '').trim().toLowerCase();
+    const value = String(entry || '')
+        .trim()
+        .toLowerCase();
     if (!value) return null;
     if (value.includes('@')) {
         const extracted = extractEmailAddress(value);
@@ -10,7 +12,9 @@ export function normalizeAllowlistEntry(entry: string): string | null {
 }
 
 export function extractEmailAddress(raw: string | null | undefined): string | null {
-    const value = String(raw || '').trim().toLowerCase();
+    const value = String(raw || '')
+        .trim()
+        .toLowerCase();
     if (!value) return null;
     const angleMatch = value.match(/<([^>]+)>/);
     const candidate = angleMatch?.[1]?.trim() || value;
@@ -35,8 +39,8 @@ export function isSenderAllowed(fromAddress: string | null | undefined, allowlis
 }
 
 export function buildSourceDocCsp(allowRemote: boolean): string {
-    const mediaSources = allowRemote ? "data: blob: cid: https: http:" : "data: blob: cid:";
-    const fontSources = allowRemote ? "data: https: http:" : 'data:';
+    const mediaSources = allowRemote ? 'data: blob: cid: https: http:' : 'data: blob: cid:';
+    const fontSources = allowRemote ? 'data: https: http:' : 'data:';
     return [
         "default-src 'none'",
         "base-uri 'none'",
@@ -63,7 +67,9 @@ export function enrichAnchorTitles(rawHtml: string): string {
             if (!href) return;
             const hasTitle = String(anchor.getAttribute('title') || '').trim().length > 0;
             if (hasTitle) return;
-            const text = String(anchor.textContent || '').replace(/\s+/g, ' ').trim();
+            const text = String(anchor.textContent || '')
+                .replace(/\s+/g, ' ')
+                .trim();
             anchor.setAttribute('title', text || href);
         });
         return doc.body.innerHTML || rawHtml;

@@ -131,6 +131,11 @@ const api = {
         ipcRenderer.on('auto-update-status', listener);
         return () => ipcRenderer.removeListener('auto-update-status', listener);
     },
+    onGlobalError: (callback) => {
+        const listener = (_event, payload) => callback(payload);
+        ipcRenderer.on('global-error', listener);
+        return () => ipcRenderer.removeListener('global-error', listener);
+    },
     onLinkHoverUrl: (callback) => {
         const listener = (_event, payload) => callback(payload || '');
         ipcRenderer.on('link-hover-url', listener);

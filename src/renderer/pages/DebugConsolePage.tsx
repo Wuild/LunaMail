@@ -2,6 +2,8 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import type {DebugLogEntry} from '../../preload';
 import WindowTitleBar from '../components/WindowTitleBar';
 import {useAppTheme} from '../hooks/useAppTheme';
+import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
+import {ipcClient} from '../lib/ipcClient';
 
 const SOURCE_OPTIONS: Array<{ value: DebugLogEntry['source']; label: string }> = [
     {value: 'imap', label: 'IMAP'},
@@ -22,23 +24,25 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
 
     useEffect(() => {
         let active = true;
-        window.electronAPI.getDebugLogs(1000).then((initial) => {
-            if (!active) return;
-            setLogs(initial);
-        }).catch(() => undefined);
-
-        const off = window.electronAPI.onDebugLog?.((entry) => {
-            setLogs((prev) => {
-                const next = [...prev, entry];
-                if (next.length > 2000) return next.slice(next.length - 2000);
-                return next;
-            });
-        });
+        ipcClient
+            .getDebugLogs(1000)
+            .then((initial) => {
+                if (!active) return;
+                setLogs(initial);
+            })
+            .catch(() => undefined);
         return () => {
             active = false;
-            if (typeof off === 'function') off();
         };
     }, []);
+
+    useIpcEvent(ipcClient.onDebugLog, (entry) => {
+        setLogs((prev) => {
+            const next = [...prev, entry];
+            if (next.length > 2000) return next.slice(next.length - 2000);
+            return next;
+        });
+    });
 
     useEffect(() => {
         if (!autoScroll) return;
@@ -48,10 +52,11 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
     }, [logs, autoScroll]);
 
     const renderedLogs = useMemo(
-        () => logs.map((entry) => ({
-            ...entry,
-            timestampLabel: new Date(entry.timestamp).toLocaleTimeString(),
-        })),
+        () =>
+            logs.map((entry) => ({
+                ...entry,
+                timestampLabel: new Date(entry.timestamp).toLocaleTimeString(),
+            })),
         [logs],
     );
     const filteredLogs = useMemo(() => {
@@ -60,9 +65,12 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
     }, [renderedLogs, selectedSources]);
 
     function onClear(): void {
-        void window.electronAPI.clearDebugLogs().then(() => {
-            setLogs([]);
-        }).catch(() => undefined);
+        void ipcClient
+            .clearDebugLogs()
+            .then(() => {
+                setLogs([]);
+            })
+            .catch(() => undefined);
     }
 
     function onToggleSource(source: DebugLogEntry['source']): void {
@@ -138,9 +146,7 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
                         ref={listRef}
                         className="h-full overflow-auto rounded-lg border border-slate-200 bg-[#0d1117] p-3 font-mono text-xs leading-5 text-slate-100 select-text [&_*]:select-text dark:border-[#3a3d44]"
                     >
-                        {logs.length === 0 && (
-                            <div className="text-slate-400">No debug events yet.</div>
-                        )}
+                        {logs.length === 0 && <div className="text-slate-400">No debug events yet.</div>}
                         {logs.length > 0 && filteredLogs.length === 0 && (
                             <div className="text-slate-400">No events match current source filters.</div>
                         )}

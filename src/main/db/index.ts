@@ -617,70 +617,70 @@ export function initDb(): void {
     const cols = db.prepare("PRAGMA table_info('accounts')").all() as { name: string }[];
     const names = new Set(cols.map((c) => c.name));
     if (!names.has('pop3_host')) {
-        db.exec("ALTER TABLE accounts ADD COLUMN pop3_host TEXT");
+        db.exec('ALTER TABLE accounts ADD COLUMN pop3_host TEXT');
     }
     if (!names.has('pop3_port')) {
-        db.exec("ALTER TABLE accounts ADD COLUMN pop3_port INTEGER");
+        db.exec('ALTER TABLE accounts ADD COLUMN pop3_port INTEGER');
     }
     if (!names.has('pop3_secure')) {
-        db.exec("ALTER TABLE accounts ADD COLUMN pop3_secure INTEGER DEFAULT 1");
+        db.exec('ALTER TABLE accounts ADD COLUMN pop3_secure INTEGER DEFAULT 1');
     }
     if (!names.has('display_name')) {
-        db.exec("ALTER TABLE accounts ADD COLUMN display_name TEXT");
+        db.exec('ALTER TABLE accounts ADD COLUMN display_name TEXT');
     }
     if (!names.has('reply_to')) {
-        db.exec("ALTER TABLE accounts ADD COLUMN reply_to TEXT");
+        db.exec('ALTER TABLE accounts ADD COLUMN reply_to TEXT');
     }
     if (!names.has('organization')) {
-        db.exec("ALTER TABLE accounts ADD COLUMN organization TEXT");
+        db.exec('ALTER TABLE accounts ADD COLUMN organization TEXT');
     }
     if (!names.has('signature_text')) {
-        db.exec("ALTER TABLE accounts ADD COLUMN signature_text TEXT");
+        db.exec('ALTER TABLE accounts ADD COLUMN signature_text TEXT');
     }
     if (!names.has('signature_is_html')) {
-        db.exec("ALTER TABLE accounts ADD COLUMN signature_is_html INTEGER DEFAULT 0");
+        db.exec('ALTER TABLE accounts ADD COLUMN signature_is_html INTEGER DEFAULT 0');
     }
     if (!names.has('signature_file_path')) {
-        db.exec("ALTER TABLE accounts ADD COLUMN signature_file_path TEXT");
+        db.exec('ALTER TABLE accounts ADD COLUMN signature_file_path TEXT');
     }
     if (!names.has('attach_vcard')) {
-        db.exec("ALTER TABLE accounts ADD COLUMN attach_vcard INTEGER DEFAULT 0");
+        db.exec('ALTER TABLE accounts ADD COLUMN attach_vcard INTEGER DEFAULT 0');
     }
 
     // Ensure folder customization columns exist for older DBs
     const folderCols = db.prepare("PRAGMA table_info('folders')").all() as { name: string }[];
     const folderNames = new Set(folderCols.map((c) => c.name));
     if (!folderNames.has('custom_name')) {
-        db.exec("ALTER TABLE folders ADD COLUMN custom_name TEXT");
+        db.exec('ALTER TABLE folders ADD COLUMN custom_name TEXT');
     }
     if (!folderNames.has('color')) {
-        db.exec("ALTER TABLE folders ADD COLUMN color TEXT");
+        db.exec('ALTER TABLE folders ADD COLUMN color TEXT');
     }
     if (!folderNames.has('sort_order')) {
-        db.exec("ALTER TABLE folders ADD COLUMN sort_order INTEGER");
+        db.exec('ALTER TABLE folders ADD COLUMN sort_order INTEGER');
     }
 
     const messageCols = db.prepare("PRAGMA table_info('messages')").all() as { name: string }[];
     const messageNames = new Set(messageCols.map((c) => c.name));
     if (!messageNames.has('tag')) {
-        db.exec("ALTER TABLE messages ADD COLUMN tag TEXT");
+        db.exec('ALTER TABLE messages ADD COLUMN tag TEXT');
     }
 
     const contactCols = db.prepare("PRAGMA table_info('contacts')").all() as { name: string }[];
     const contactNames = new Set(contactCols.map((c) => c.name));
     if (!contactNames.has('address_book_id')) {
-        db.exec("ALTER TABLE contacts ADD COLUMN address_book_id INTEGER");
+        db.exec('ALTER TABLE contacts ADD COLUMN address_book_id INTEGER');
     }
     if (!contactNames.has('phone')) {
-        db.exec("ALTER TABLE contacts ADD COLUMN phone TEXT");
+        db.exec('ALTER TABLE contacts ADD COLUMN phone TEXT');
     }
     if (!contactNames.has('organization')) {
-        db.exec("ALTER TABLE contacts ADD COLUMN organization TEXT");
+        db.exec('ALTER TABLE contacts ADD COLUMN organization TEXT');
     }
     if (!contactNames.has('title')) {
-        db.exec("ALTER TABLE contacts ADD COLUMN title TEXT");
+        db.exec('ALTER TABLE contacts ADD COLUMN title TEXT');
     }
     if (!contactNames.has('note')) {
-        db.exec("ALTER TABLE contacts ADD COLUMN note TEXT");
+        db.exec('ALTER TABLE contacts ADD COLUMN note TEXT');
     }
 }

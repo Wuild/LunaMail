@@ -18,7 +18,7 @@ import {
     INSERT_UNORDERED_LIST_COMMAND,
     ListItemNode,
     ListNode,
-    REMOVE_LIST_COMMAND
+    REMOVE_LIST_COMMAND,
 } from '@lexical/list';
 import {AutoLinkNode, LinkNode} from '@lexical/link';
 import {$generateHtmlFromNodes, $generateNodesFromDOM} from '@lexical/html';
@@ -83,9 +83,8 @@ const editorTheme = {
 };
 
 const AUTO_LINK_MATCHERS = [
-    createLinkMatcherWithRegExp(
-        /((https?:\/\/)|(www\.))[^\s<]+[^\s<.)!?,:;"']/i,
-        (text) => (text.startsWith('http://') || text.startsWith('https://') ? text : `https://${text}`),
+    createLinkMatcherWithRegExp(/((https?:\/\/)|(www\.))[^\s<]+[^\s<.)!?,:;"']/i, (text) =>
+        text.startsWith('http://') || text.startsWith('https://') ? text : `https://${text}`,
     ),
 ];
 
@@ -235,32 +234,60 @@ function ToolbarPlugin() {
     return (
         <div
             className="flex shrink-0 flex-wrap items-center gap-1 rounded-t-lg border border-slate-300 border-b-0 bg-slate-50 p-2 dark:border-[#3a3d44] dark:bg-[#25272c]">
-            <ToolbarIcon title="Bold" onClick={() => format('bold')}><Bold size={18}/></ToolbarIcon>
-            <ToolbarIcon title="Italic" onClick={() => format('italic')}><Italic size={18}/></ToolbarIcon>
-            <ToolbarIcon title="Underline" onClick={() => format('underline')}><Underline size={18}/></ToolbarIcon>
-            <ToolbarIcon title="Strikethrough" onClick={() => format('strikethrough')}><Strikethrough
-                size={18}/></ToolbarIcon>
-            <ToolbarIcon title="Highlight" onClick={() => format('highlight')}><Highlighter size={18}/></ToolbarIcon>
+            <ToolbarIcon title="Bold" onClick={() => format('bold')}>
+                <Bold size={18}/>
+            </ToolbarIcon>
+            <ToolbarIcon title="Italic" onClick={() => format('italic')}>
+                <Italic size={18}/>
+            </ToolbarIcon>
+            <ToolbarIcon title="Underline" onClick={() => format('underline')}>
+                <Underline size={18}/>
+            </ToolbarIcon>
+            <ToolbarIcon title="Strikethrough" onClick={() => format('strikethrough')}>
+                <Strikethrough size={18}/>
+            </ToolbarIcon>
+            <ToolbarIcon title="Highlight" onClick={() => format('highlight')}>
+                <Highlighter size={18}/>
+            </ToolbarIcon>
             <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
-            <ToolbarIcon title="H1" onClick={() => setHeading('h1')}><Heading1 size={18}/></ToolbarIcon>
-            <ToolbarIcon title="H2" onClick={() => setHeading('h2')}><Heading2 size={18}/></ToolbarIcon>
-            <ToolbarIcon title="Paragraph" onClick={setParagraph}><Pilcrow size={18}/></ToolbarIcon>
-            <ToolbarIcon title="Quote" onClick={setQuote}><MessageSquareQuote size={18}/></ToolbarIcon>
+            <ToolbarIcon title="H1" onClick={() => setHeading('h1')}>
+                <Heading1 size={18}/>
+            </ToolbarIcon>
+            <ToolbarIcon title="H2" onClick={() => setHeading('h2')}>
+                <Heading2 size={18}/>
+            </ToolbarIcon>
+            <ToolbarIcon title="Paragraph" onClick={setParagraph}>
+                <Pilcrow size={18}/>
+            </ToolbarIcon>
+            <ToolbarIcon title="Quote" onClick={setQuote}>
+                <MessageSquareQuote size={18}/>
+            </ToolbarIcon>
             <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
-            <ToolbarIcon title="Bulleted list"
-                         onClick={() => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)}><List
-                size={18}/></ToolbarIcon>
-            <ToolbarIcon title="Numbered list"
-                         onClick={() => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)}><ListOrdered
-                size={18}/></ToolbarIcon>
-            <ToolbarIcon title="Checklist" onClick={() => editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined)}><ListChecks
-                size={18}/></ToolbarIcon>
-            <ToolbarIcon title="Remove list"
-                         onClick={() => editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)}><ListX
-                size={18}/></ToolbarIcon>
+            <ToolbarIcon
+                title="Bulleted list"
+                onClick={() => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)}
+            >
+                <List size={18}/>
+            </ToolbarIcon>
+            <ToolbarIcon
+                title="Numbered list"
+                onClick={() => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)}
+            >
+                <ListOrdered size={18}/>
+            </ToolbarIcon>
+            <ToolbarIcon title="Checklist" onClick={() => editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined)}>
+                <ListChecks size={18}/>
+            </ToolbarIcon>
+            <ToolbarIcon title="Remove list" onClick={() => editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)}>
+                <ListX size={18}/>
+            </ToolbarIcon>
             <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
-            <ToolbarIcon title="Insert image" onClick={insertImage}><ImagePlus size={18}/></ToolbarIcon>
-            <ToolbarIcon title="Code block" onClick={insertCodeBlock}><Minus size={18}/></ToolbarIcon>
+            <ToolbarIcon title="Insert image" onClick={insertImage}>
+                <ImagePlus size={18}/>
+            </ToolbarIcon>
+            <ToolbarIcon title="Code block" onClick={insertCodeBlock}>
+                <Minus size={18}/>
+            </ToolbarIcon>
         </div>
     );
 }

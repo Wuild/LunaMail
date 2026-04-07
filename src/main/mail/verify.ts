@@ -55,7 +55,8 @@ async function verifyImap(p: VerifyPayload): Promise<void> {
     } finally {
         try {
             await client.logout();
-        } catch { /* ignore */
+        } catch {
+            /* ignore */
         }
     }
 }
@@ -84,7 +85,7 @@ async function verifyPop3(p: VerifyPayload): Promise<void> {
                     resolve();
                 } else if (str.startsWith('-ERR')) {
                     socket.removeListener('data', onData);
-                    reject(new Error(str.trim()))
+                    reject(new Error(str.trim()));
                 }
             };
             socket.on('data', onData);
@@ -196,5 +197,8 @@ function isCredentialFailure(input: {
         /bad credentials/i,
         /invalid login/i,
     ];
-    return authIndicators.some((pattern) => pattern.test(message) || pattern.test(responseText) || pattern.test(serverResponse) || pattern.test(merged));
+    return authIndicators.some(
+        (pattern) =>
+            pattern.test(message) || pattern.test(responseText) || pattern.test(serverResponse) || pattern.test(merged),
+    );
 }

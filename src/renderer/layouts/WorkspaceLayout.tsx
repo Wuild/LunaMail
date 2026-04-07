@@ -104,7 +104,8 @@ export default function WorkspaceLayout({
 
     return (
         <section
-            className={cn('flex h-full min-h-0 flex-col overflow-hidden bg-slate-50 dark:bg-[#26292f]', className)}>
+            className={cn('flex h-full min-h-0 flex-col overflow-hidden bg-slate-50 dark:bg-[#26292f]', className)}
+        >
             {showMenuBar && (
                 <header
                     className="shrink-0 border-b border-slate-200 bg-white px-5 py-3 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
@@ -137,19 +138,19 @@ export default function WorkspaceLayout({
                 <footer
                     className="h-8 shrink-0 border-t border-slate-200 bg-slate-50 px-3 dark:border-[#2a2d31] dark:bg-[#1b1c20]">
                     <div className="flex h-full items-center text-xs">
-                        <span className="flex min-w-0 items-center gap-2 truncate text-slate-600 dark:text-slate-300">
-                            <span
+						<span className="flex min-w-0 items-center gap-2 truncate text-slate-600 dark:text-slate-300">
+							<span
                                 className={cn(
                                     'inline-flex h-2.5 w-2.5 shrink-0 rounded-full',
                                     effectiveStatusBusy ? 'animate-pulse bg-sky-500' : 'bg-slate-300 dark:bg-slate-600',
                                 )}
                             />
-                            <span ref={statusTextViewportRef} className="min-w-0 flex-1 overflow-hidden">
-                                <span ref={statusTextContentRef} className="block w-max whitespace-nowrap">
-                                    {effectiveStatusText}
-                                </span>
-                            </span>
-                        </span>
+							<span ref={statusTextViewportRef} className="min-w-0 flex-1 overflow-hidden">
+								<span ref={statusTextContentRef} className="block w-max whitespace-nowrap">
+									{effectiveStatusText}
+								</span>
+							</span>
+						</span>
                     </div>
                 </footer>
             )}

@@ -1,0 +1,815 @@
+import React, {useEffect, useState} from 'react';
+import {Download, Pencil, Plus, RefreshCw, Trash2} from 'lucide-react';
+import type {AddressBookItem, ContactItem, PublicAccount, SyncStatusEvent} from '../../preload';
+import {getAccountAvatarColors, getAccountMonogram} from '../lib/accountAvatar';
+import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
+import {useResizableSidebar} from '../hooks/useResizableSidebar';
+import {ipcClient} from '../lib/ipcClient';
+import {
+    statusAutoSyncFailed,
+    statusNoAccountSelected,
+    statusSyncCompleteDav,
+    statusSyncCompleteMessages,
+    statusSyncFailed,
+    statusSyncing,
+    toErrorMessage,
+} from '../lib/statusText';
+import {cn} from '../lib/utils';
+import WorkspaceLayout from '../layouts/WorkspaceLayout';
+
+type ContactsRouteProps = {
+    accountId: number | null;
+    accounts: PublicAccount[];
+    onSelectAccount: (accountId: number | null) => void;
+};
+
+export default function ContactsRoute({accountId, accounts, onSelectAccount}: ContactsRouteProps) {
+    const [query, setQuery] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [contacts, setContacts] = useState<ContactItem[]>([]);
+    const [addressBooks, setAddressBooks] = useState<AddressBookItem[]>([]);
+    const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
+    const [newContactName, setNewContactName] = useState('');
+    const [newContactEmail, setNewContactEmail] = useState('');
+    const [newContactPhone, setNewContactPhone] = useState('');
+    const [newContactOrganization, setNewContactOrganization] = useState('');
+    const [newContactTitle, setNewContactTitle] = useState('');
+    const [newContactNote, setNewContactNote] = useState('');
+    const [showAddContactModal, setShowAddContactModal] = useState(false);
+    const [showExportContactsModal, setShowExportContactsModal] = useState(false);
+    const [exportFormat, setExportFormat] = useState<'csv' | 'vcf'>('csv');
+    const [exportBookMode, setExportBookMode] = useState<'all' | 'selected'>('selected');
+    const [exportingContacts, setExportingContacts] = useState(false);
+    const [editingContact, setEditingContact] = useState<ContactItem | null>(null);
+    const [editContactName, setEditContactName] = useState('');
+    const [editContactEmail, setEditContactEmail] = useState('');
+    const [editContactPhone, setEditContactPhone] = useState('');
+    const [editContactOrganization, setEditContactOrganization] = useState('');
+    const [editContactTitle, setEditContactTitle] = useState('');
+    const [editContactNote, setEditContactNote] = useState('');
+    const [editContactBookId, setEditContactBookId] = useState<number | null>(null);
+    const [savingEditContact, setSavingEditContact] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncStatusText, setSyncStatusText] = useState<string>('Contacts ready');
+    const [contactError, setContactError] = useState<string | null>(null);
+    const {sidebarWidth, onResizeStart} = useResizableSidebar();
+
+    const loadContacts = React.useCallback(async (targetAccountId: number, q: string, bookId: number | null) => {
+        const rows = await ipcClient.getContacts(targetAccountId, q.trim() || null, 600, bookId ?? null);
+        setContacts(rows);
+    }, []);
+
+    useEffect(() => {
+        if (!accountId) {
+            setContacts([]);
+            setAddressBooks([]);
+            setSelectedBookId(null);
+            setShowAddContactModal(false);
+            setShowExportContactsModal(false);
+            setEditingContact(null);
+            setSyncing(false);
+            setSyncStatusText(statusNoAccountSelected());
+            setLoading(false);
+            return;
+        }
+        setSyncStatusText('Contacts ready');
+        let active = true;
+        const load = async () => {
+            setLoading(true);
+            setContactError(null);
+            try {
+                const books = await ipcClient.getAddressBooks(accountId);
+                if (!active) return;
+                setAddressBooks(books);
+                const effectiveBookId =
+                    selectedBookId && books.some((book) => book.id === selectedBookId)
+                        ? selectedBookId
+                        : (books[0]?.id ?? null);
+                setSelectedBookId(effectiveBookId);
+                const rows = await ipcClient.getContacts(accountId, query.trim() || null, 600, effectiveBookId);
+                if (!active) return;
+                setContacts(rows);
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+        void load();
+        return () => {
+            active = false;
+        };
+    }, [accountId, query, selectedBookId]);
+
+    useIpcEvent(ipcClient.onAccountSyncStatus, (evt: SyncStatusEvent) => {
+        if (!accountId || evt.accountId !== accountId) return;
+        if (evt.status === 'syncing') {
+            setSyncing(true);
+            setSyncStatusText(statusSyncing());
+            return;
+        }
+        if (evt.status === 'error') {
+            setSyncing(false);
+            setSyncStatusText(statusSyncFailed(evt.error));
+            return;
+        }
+        setSyncing(false);
+        const davSummary = evt.summary?.dav;
+        if (davSummary) {
+            setSyncStatusText(statusSyncCompleteDav(davSummary.contacts.upserted, davSummary.events.upserted));
+            return;
+        }
+        setSyncStatusText(statusSyncCompleteMessages(evt.summary?.messages ?? 0));
+    });
+
+    useEffect(() => {
+        if (!accountId) return;
+        let active = true;
+        setSyncing(true);
+        setSyncStatusText(statusSyncing());
+        setContactError(null);
+        void ipcClient
+            .syncDav(accountId)
+            .then(async () => {
+                if (!active) return;
+                const books = await ipcClient.getAddressBooks(accountId);
+                if (!active) return;
+                setAddressBooks(books);
+                const effectiveBookId =
+                    selectedBookId && books.some((book) => book.id === selectedBookId)
+                        ? selectedBookId
+                        : (books[0]?.id ?? null);
+                setSelectedBookId(effectiveBookId);
+                await loadContacts(accountId, query, effectiveBookId);
+                if (!active) return;
+                setSyncing(false);
+                setSyncStatusText('Contacts synced');
+            })
+            .catch((error: any) => {
+                if (!active) return;
+                setSyncing(false);
+                setContactError(toErrorMessage(error));
+                setSyncStatusText(statusAutoSyncFailed(error));
+            });
+        return () => {
+            active = false;
+        };
+    }, [accountId]);
+
+    async function onAddContact() {
+        if (!accountId) return;
+        const email = newContactEmail.trim();
+        if (!email) return;
+        setContactError(null);
+        try {
+            await ipcClient.addContact(accountId, {
+                addressBookId: selectedBookId,
+                fullName: newContactName.trim() || null,
+                email,
+                phone: newContactPhone.trim() || null,
+                organization: newContactOrganization.trim() || null,
+                title: newContactTitle.trim() || null,
+                note: newContactNote.trim() || null,
+            });
+            setNewContactName('');
+            setNewContactEmail('');
+            setNewContactPhone('');
+            setNewContactOrganization('');
+            setNewContactTitle('');
+            setNewContactNote('');
+            setShowAddContactModal(false);
+            await loadContacts(accountId, query, selectedBookId);
+        } catch (error: any) {
+            setContactError(toErrorMessage(error));
+        }
+    }
+
+    async function onDeleteContact(contactId: number) {
+        if (!accountId) return;
+        setContactError(null);
+        try {
+            await ipcClient.deleteContact(contactId);
+            await loadContacts(accountId, query, selectedBookId);
+        } catch (error: any) {
+            setContactError(toErrorMessage(error));
+        }
+    }
+
+    function openEditContact(contact: ContactItem) {
+        setEditingContact(contact);
+        setEditContactName(contact.full_name || '');
+        setEditContactEmail(contact.email || '');
+        setEditContactPhone(contact.phone || '');
+        setEditContactOrganization(contact.organization || '');
+        setEditContactTitle(contact.title || '');
+        setEditContactNote(contact.note || '');
+        setEditContactBookId(contact.address_book_id ?? selectedBookId ?? null);
+        setContactError(null);
+    }
+
+    async function onSaveEditedContact() {
+        if (!accountId || !editingContact) return;
+        const email = editContactEmail.trim();
+        if (!email) return;
+        setSavingEditContact(true);
+        setContactError(null);
+        try {
+            await ipcClient.updateContact(editingContact.id, {
+                addressBookId: editContactBookId,
+                fullName: editContactName.trim() || null,
+                email,
+                phone: editContactPhone.trim() || null,
+                organization: editContactOrganization.trim() || null,
+                title: editContactTitle.trim() || null,
+                note: editContactNote.trim() || null,
+            });
+            setEditingContact(null);
+            await loadContacts(accountId, query, selectedBookId);
+        } catch (error: any) {
+            setContactError(toErrorMessage(error));
+        } finally {
+            setSavingEditContact(false);
+        }
+    }
+
+    async function onExportContacts() {
+        if (!accountId || exportingContacts) return;
+        setExportingContacts(true);
+        setContactError(null);
+        try {
+            const result = await ipcClient.exportContacts(accountId, {
+                format: exportFormat,
+                addressBookId: exportBookMode === 'selected' ? selectedBookId : null,
+            });
+            if (result.canceled) {
+                setSyncStatusText('Export cancelled');
+            } else {
+                setSyncStatusText(`Exported ${result.count} contacts`);
+                setShowExportContactsModal(false);
+            }
+        } catch (error: any) {
+            setContactError(toErrorMessage(error));
+        } finally {
+            setExportingContacts(false);
+        }
+    }
+
+    async function onDeleteSelectedAddressBook() {
+        if (!accountId || !selectedBookId) return;
+        const targetBook = addressBooks.find((book) => book.id === selectedBookId);
+        if (!targetBook) return;
+        if (targetBook.source !== 'local') {
+            setContactError('Only local address books can be deleted.');
+            return;
+        }
+        const shouldDelete = window.confirm(`Delete address book "${targetBook.name}"?`);
+        if (!shouldDelete) return;
+        setContactError(null);
+        try {
+            await ipcClient.deleteAddressBook(accountId, selectedBookId);
+            const books = await ipcClient.getAddressBooks(accountId);
+            setAddressBooks(books);
+            const nextBookId = books[0]?.id ?? null;
+            setSelectedBookId(nextBookId);
+            await loadContacts(accountId, query, nextBookId);
+        } catch (error: any) {
+            setContactError(toErrorMessage(error));
+        }
+    }
+
+    async function onManualSync() {
+        if (!accountId || syncing) return;
+        setContactError(null);
+        setSyncing(true);
+        setSyncStatusText(statusSyncing());
+        try {
+            await ipcClient.syncAccount(accountId);
+            const books = await ipcClient.getAddressBooks(accountId);
+            setAddressBooks(books);
+            const effectiveBookId =
+                selectedBookId && books.some((book) => book.id === selectedBookId)
+                    ? selectedBookId
+                    : (books[0]?.id ?? null);
+            setSelectedBookId(effectiveBookId);
+            await loadContacts(accountId, query, effectiveBookId);
+        } catch (error: any) {
+            setSyncing(false);
+            const message = toErrorMessage(error);
+            setSyncStatusText(statusSyncFailed(message));
+            setContactError(message);
+        }
+    }
+
+    const accountSidebar = (
+        <aside
+            className="flex h-full min-h-0 shrink-0 flex-col justify-between border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Accounts
+                </p>
+                <div className="space-y-1">
+                    {accounts.map((account) => {
+                        const avatarColors = getAccountAvatarColors(
+                            account.email || account.display_name || String(account.id),
+                        );
+                        return (
+                            <button
+                                key={account.id}
+                                type="button"
+                                onClick={() => onSelectAccount(account.id)}
+                                className={cn(
+                                    'w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
+                                    accountId === account.id
+                                        ? 'bg-sky-100 text-sky-900 dark:bg-[#3d4153] dark:text-slate-100'
+                                        : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
+                                )}
+                            >
+                                <div className="flex min-w-0 items-center gap-2">
+									<span
+                                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1 ring-black/10 dark:ring-white/10"
+                                        style={{
+                                            backgroundColor: avatarColors.background,
+                                            color: avatarColors.foreground,
+                                        }}
+                                    >
+										{getAccountMonogram(account)}
+									</span>
+                                    <span className="min-w-0 flex-1">
+										<span className="block truncate">
+											{account.display_name?.trim() || account.email}
+										</span>
+                                        {account.display_name?.trim() && (
+                                            <span
+                                                className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
+												{account.email}
+											</span>
+                                        )}
+									</span>
+                                </div>
+                            </button>
+                        );
+                    })}
+                    {accounts.length === 0 && (
+                        <p className="px-2 py-2 text-sm text-slate-500 dark:text-slate-400">No accounts available.</p>
+                    )}
+                </div>
+            </div>
+            <div className="shrink-0 border-t border-slate-200 px-2 py-3 dark:border-[#3a3d44]">
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        disabled={syncing}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                        onClick={() => void onManualSync()}
+                        title="Sync now"
+                        aria-label="Sync now"
+                    >
+                        <RefreshCw size={14} className={cn(syncing && 'animate-spin')}/>
+                    </button>
+                </div>
+            </div>
+        </aside>
+    );
+    const contactsToolbar = (
+        <div className="flex h-10 min-w-0 items-center gap-2">
+            <select
+                value={selectedBookId ?? ''}
+                onChange={(event) => setSelectedBookId(event.target.value ? Number(event.target.value) : null)}
+                className="h-10 min-w-52 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                disabled={!accountId}
+            >
+                {addressBooks.map((book) => (
+                    <option key={book.id} value={book.id}>
+                        {book.name}
+                    </option>
+                ))}
+            </select>
+            <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                disabled={
+                    !accountId ||
+                    !selectedBookId ||
+                    addressBooks.find((book) => book.id === selectedBookId)?.source !== 'local'
+                }
+                onClick={() => void onDeleteSelectedAddressBook()}
+                title="Delete address book"
+                aria-label="Delete address book"
+            >
+                <Trash2 size={14}/>
+            </button>
+            <input
+                type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search contacts..."
+                className="h-10 min-w-0 w-full max-w-xl rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                disabled={!accountId}
+            />
+            <button
+                type="button"
+                className="ml-auto inline-flex h-10 items-center gap-2 rounded-md bg-sky-600 px-3 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-60 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                onClick={() => setShowAddContactModal(true)}
+                disabled={!accountId}
+                title="Add contact"
+                aria-label="Add contact"
+            >
+                <Plus size={14}/>
+                Add contact
+            </button>
+            <button
+                type="button"
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                onClick={() => setShowExportContactsModal(true)}
+                disabled={!accountId}
+                title="Export contacts"
+                aria-label="Export contacts"
+            >
+                <Download size={14}/>
+                Export
+            </button>
+        </div>
+    );
+
+    return (
+        <WorkspaceLayout
+            sidebar={accountSidebar}
+            sidebarWidth={sidebarWidth}
+            onSidebarResizeStart={onResizeStart}
+            menubar={contactsToolbar}
+            showMenuBar
+            statusText={syncing && syncStatusText.toLowerCase().includes('ready') ? statusSyncing() : syncStatusText}
+            statusBusy={syncing}
+        >
+            <div className="mx-auto max-w-5xl">
+                {!accountId && (
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{statusNoAccountSelected()}</p>
+                )}
+                {accountId && (
+                    <>
+                        {contactError && <p className="mb-3 text-sm text-red-600 dark:text-red-300">{contactError}</p>}
+                        {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Loading contacts...</p>}
+                        {!loading && contacts.length === 0 && (
+                            <p className="text-sm text-slate-500 dark:text-slate-400">No contacts found.</p>
+                        )}
+                        {!loading && contacts.length > 0 && (
+                            <div
+                                className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+                                <ul className="divide-y divide-slate-200 dark:divide-[#3a3d44]">
+                                    {contacts.map((contact) => (
+                                        <li key={contact.id} className="px-4 py-3">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                                                        {contact.full_name || '(No name)'}
+                                                    </p>
+                                                    <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
+                                                        {contact.email}
+                                                    </p>
+                                                    {(contact.phone || contact.organization || contact.title) && (
+                                                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                                            {[contact.phone, contact.organization, contact.title]
+                                                                .filter(Boolean)
+                                                                .join(' • ')}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                                        onClick={() => openEditContact(contact)}
+                                                        disabled={!contact.source.startsWith('local:')}
+                                                        title={
+                                                            contact.source.startsWith('local:')
+                                                                ? 'Edit contact'
+                                                                : 'Only local contacts can be edited'
+                                                        }
+                                                    >
+                                                        <Pencil size={12} className="mr-1 inline-block"/>
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-700/50 dark:text-red-300 dark:hover:bg-red-900/30"
+                                                        onClick={() => void onDeleteContact(contact.id)}
+                                                        disabled={!contact.source.startsWith('local:')}
+                                                        title={
+                                                            contact.source.startsWith('local:')
+                                                                ? 'Delete contact'
+                                                                : 'Only local contacts can be deleted'
+                                                        }
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {showAddContactModal && accountId && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+                    onClick={() => setShowAddContactModal(false)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <form
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                void onAddContact();
+                            }}
+                        >
+                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Add Contact</h3>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                Create a contact for the selected account.
+                            </p>
+                            <div className="mt-4 space-y-3">
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Full name
+									</span>
+                                    <input
+                                        type="text"
+                                        value={newContactName}
+                                        onChange={(event) => setNewContactName(event.target.value)}
+                                        placeholder="Jane Doe"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Email
+									</span>
+                                    <input
+                                        type="email"
+                                        value={newContactEmail}
+                                        onChange={(event) => setNewContactEmail(event.target.value)}
+                                        placeholder="jane@domain.com"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        required
+                                    />
+                                </label>
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Phone
+									</span>
+                                    <input
+                                        type="text"
+                                        value={newContactPhone}
+                                        onChange={(event) => setNewContactPhone(event.target.value)}
+                                        placeholder="+46 70 123 45 67"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Organization
+									</span>
+                                    <input
+                                        type="text"
+                                        value={newContactOrganization}
+                                        onChange={(event) => setNewContactOrganization(event.target.value)}
+                                        placeholder="Acme Inc."
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Title
+									</span>
+                                    <input
+                                        type="text"
+                                        value={newContactTitle}
+                                        onChange={(event) => setNewContactTitle(event.target.value)}
+                                        placeholder="Sales Manager"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Notes
+									</span>
+                                    <textarea
+                                        value={newContactNote}
+                                        onChange={(event) => setNewContactNote(event.target.value)}
+                                        rows={3}
+                                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                            </div>
+                            <div className="mt-4 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                    onClick={() => setShowAddContactModal(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                    disabled={!newContactEmail.trim()}
+                                >
+                                    Save Contact
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {editingContact && accountId && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+                    onClick={() => setEditingContact(null)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <form
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                void onSaveEditedContact();
+                            }}
+                        >
+                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Edit Contact</h3>
+                            <div className="mt-4 space-y-3">
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Full name
+									</span>
+                                    <input
+                                        type="text"
+                                        value={editContactName}
+                                        onChange={(event) => setEditContactName(event.target.value)}
+                                        placeholder="Jane Doe"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Email
+									</span>
+                                    <input
+                                        type="email"
+                                        value={editContactEmail}
+                                        onChange={(event) => setEditContactEmail(event.target.value)}
+                                        placeholder="jane@domain.com"
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        required
+                                    />
+                                </label>
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Phone
+									</span>
+                                    <input
+                                        type="text"
+                                        value={editContactPhone}
+                                        onChange={(event) => setEditContactPhone(event.target.value)}
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Organization
+									</span>
+                                    <input
+                                        type="text"
+                                        value={editContactOrganization}
+                                        onChange={(event) => setEditContactOrganization(event.target.value)}
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Title
+									</span>
+                                    <input
+                                        type="text"
+                                        value={editContactTitle}
+                                        onChange={(event) => setEditContactTitle(event.target.value)}
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Notes
+									</span>
+                                    <textarea
+                                        value={editContactNote}
+                                        onChange={(event) => setEditContactNote(event.target.value)}
+                                        rows={3}
+                                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    />
+                                </label>
+                                <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Address book
+									</span>
+                                    <select
+                                        value={editContactBookId ?? ''}
+                                        onChange={(event) =>
+                                            setEditContactBookId(event.target.value ? Number(event.target.value) : null)
+                                        }
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    >
+                                        {addressBooks.map((book) => (
+                                            <option key={book.id} value={book.id}>
+                                                {book.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
+                            <div className="mt-4 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                    onClick={() => setEditingContact(null)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                    disabled={savingEditContact || !editContactEmail.trim()}
+                                >
+                                    {savingEditContact ? 'Saving...' : 'Save changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {showExportContactsModal && accountId && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+                    onClick={() => setShowExportContactsModal(false)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Export Contacts</h3>
+                        <div className="mt-4 space-y-3">
+                            <label className="block text-sm">
+								<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									Format
+								</span>
+                                <select
+                                    value={exportFormat}
+                                    onChange={(event) => setExportFormat(event.target.value === 'vcf' ? 'vcf' : 'csv')}
+                                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                >
+                                    <option value="csv">CSV (.csv)</option>
+                                    <option value="vcf">vCard (.vcf)</option>
+                                </select>
+                            </label>
+                            <label className="block text-sm">
+                                <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Scope</span>
+                                <select
+                                    value={exportBookMode}
+                                    onChange={(event) =>
+                                        setExportBookMode(event.target.value === 'all' ? 'all' : 'selected')
+                                    }
+                                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                >
+                                    <option value="selected">Current book</option>
+                                    <option value="all">All books</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div className="mt-4 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                onClick={() => setShowExportContactsModal(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                onClick={() => void onExportContacts()}
+                                disabled={exportingContacts}
+                            >
+                                <Download size={14}/>
+                                {exportingContacts ? 'Exporting...' : 'Export'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </WorkspaceLayout>
+    );
+}

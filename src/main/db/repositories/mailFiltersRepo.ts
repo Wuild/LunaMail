@@ -1,87 +1,60 @@
 import {getDb} from '../drizzle.js';
+import type {
+    MailFilter,
+    MailFilterAction,
+    MailFilterActionType,
+    MailFilterCondition,
+    MailFilterField,
+    MailFilterMatchMode,
+    MailFilterOperator,
+    UpsertMailFilterPayload,
+} from '../../../shared/ipcTypes.js';
 
-export type MailFilterMatchMode = 'all' | 'any' | 'all_messages';
-export type MailFilterField = 'subject' | 'from' | 'to' | 'body';
-export type MailFilterOperator = 'contains' | 'not_contains' | 'equals' | 'starts_with' | 'ends_with';
-export type MailFilterActionType = 'move_to_folder' | 'mark_read' | 'mark_unread' | 'star' | 'unstar';
-
-export interface MailFilterCondition {
-    id: number;
-    filter_id: number;
-    field: MailFilterField;
-    operator: MailFilterOperator;
-    value: string;
-    sort_order: number;
-}
-
-export interface MailFilterAction {
-    id: number;
-    filter_id: number;
-    type: MailFilterActionType;
-    value: string;
-    sort_order: number;
-}
-
-export interface MailFilter {
-    id: number;
-    account_id: number;
-    name: string;
-    enabled: number;
-    run_on_incoming: number;
-    match_mode: MailFilterMatchMode;
-    stop_processing: number;
-    created_at: string;
-    updated_at: string;
-    conditions: MailFilterCondition[];
-    actions: MailFilterAction[];
-}
-
-export interface UpsertMailFilterPayload {
-    id?: number;
-    name: string;
-    enabled?: number;
-    run_on_incoming?: number;
-    match_mode?: MailFilterMatchMode;
-    stop_processing?: number;
-    conditions?: Array<{
-        field?: MailFilterField;
-        operator?: MailFilterOperator;
-        value?: string | null;
-    }>;
-    actions?: Array<{
-        type?: MailFilterActionType;
-        value?: string | null;
-    }>;
-}
+export type {
+    MailFilter,
+    MailFilterAction,
+    MailFilterActionType,
+    MailFilterCondition,
+    MailFilterField,
+    MailFilterMatchMode,
+    MailFilterOperator,
+    UpsertMailFilterPayload,
+} from '../../../shared/ipcTypes.js';
 
 export function listMailFilters(accountId: number): MailFilter[] {
     const db = getDb();
-    const filters = db.prepare(
-        `
+    const filters = db
+        .prepare(
+            `
             SELECT *
             FROM mail_filters
             WHERE account_id = ?
             ORDER BY id ASC
         `,
-    ).all(accountId) as Array<Omit<MailFilter, 'conditions' | 'actions'>>;
+        )
+        .all(accountId) as Array<Omit<MailFilter, 'conditions' | 'actions'>>;
     if (filters.length === 0) return [];
 
-    const conditions = db.prepare(
-        `
+    const conditions = db
+        .prepare(
+            `
             SELECT *
             FROM mail_filter_conditions
             WHERE filter_id IN (${filters.map(() => '?').join(',')})
             ORDER BY sort_order ASC, id ASC
         `,
-    ).all(...filters.map((f) => f.id)) as MailFilterCondition[];
-    const actions = db.prepare(
-        `
+        )
+        .all(...filters.map((f) => f.id)) as MailFilterCondition[];
+    const actions = db
+        .prepare(
+            `
             SELECT *
             FROM mail_filter_actions
             WHERE filter_id IN (${filters.map(() => '?').join(',')})
             ORDER BY sort_order ASC, id ASC
         `,
-    ).all(...filters.map((f) => f.id)) as MailFilterAction[];
+        )
+        .all(...filters.map((f) => f.id)) as MailFilterAction[];
 
     return filters.map((filter) => ({
         ...filter,
@@ -101,9 +74,9 @@ export function upsertMailFilter(accountId: number, payload: UpsertMailFilterPay
     const tx = db.transaction(() => {
         let filterId = Number(payload.id || 0);
         if (filterId > 0) {
-            const existing = db.prepare(
-                'SELECT id FROM mail_filters WHERE id = ? AND account_id = ?',
-            ).get(filterId, accountId) as { id: number } | undefined;
+            const existing = db
+                .prepare('SELECT id FROM mail_filters WHERE id = ? AND account_id = ?')
+                .get(filterId, accountId) as { id: number } | undefined;
             if (!existing?.id) throw new Error('Filter not found');
             db.prepare(
                 `
@@ -121,12 +94,14 @@ export function upsertMailFilter(accountId: number, payload: UpsertMailFilterPay
             db.prepare('DELETE FROM mail_filter_conditions WHERE filter_id = ?').run(filterId);
             db.prepare('DELETE FROM mail_filter_actions WHERE filter_id = ?').run(filterId);
         } else {
-            const result = db.prepare(
-                `
+            const result = db
+                .prepare(
+                    `
                     INSERT INTO mail_filters (account_id, name, enabled, run_on_incoming, match_mode, stop_processing)
                     VALUES (?, ?, ?, ?, ?, ?)
                 `,
-            ).run(accountId, name, enabled, runOnIncoming, matchMode, stopProcessing);
+                )
+                .run(accountId, name, enabled, runOnIncoming, matchMode, stopProcessing);
             filterId = Number(result.lastInsertRowid);
         }
 
@@ -155,12 +130,7 @@ export function upsertMailFilter(accountId: number, payload: UpsertMailFilterPay
         );
         const safeActions = Array.isArray(payload.actions) ? payload.actions : [];
         safeActions.forEach((action, index) => {
-            actionInsert.run(
-                filterId,
-                normalizeActionType(action.type),
-                String(action.value ?? ''),
-                index,
-            );
+            actionInsert.run(filterId, normalizeActionType(action.type), String(action.value ?? ''), index);
         });
     });
     tx();
@@ -195,7 +165,8 @@ function normalizeConditionField(value?: string): MailFilterField {
 }
 
 function normalizeConditionOperator(value?: string): MailFilterOperator {
-    if (value === 'not_contains' || value === 'equals' || value === 'starts_with' || value === 'ends_with') return value;
+    if (value === 'not_contains' || value === 'equals' || value === 'starts_with' || value === 'ends_with')
+        return value;
     return 'contains';
 }
 

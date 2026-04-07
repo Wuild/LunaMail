@@ -102,7 +102,10 @@ export async function syncAccountMailboxWithCredentials(
             if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
             const rawSpecialUse = String(box.specialUse || '').toLowerCase();
             const inferredType = box.specialUse ?? inferFolderType(box.path);
-            const isInboxFolder = rawSpecialUse === '\\inbox' || String(inferredType || '').toLowerCase() === 'inbox' || box.path.toLowerCase() === 'inbox';
+            const isInboxFolder =
+                rawSpecialUse === '\\inbox' ||
+                String(inferredType || '').toLowerCase() === 'inbox' ||
+                box.path.toLowerCase() === 'inbox';
             const folderId = upsertFolder({
                 accountId,
                 name: box.name || box.path,
@@ -134,9 +137,11 @@ export async function syncAccountMailboxWithCredentials(
                     const existed = hasMessageByFolderAndUid(folderId, msg.uid);
                     const isRead = msg.flags?.has('\\Seen') ? 1 : 0;
                     const messageDate = msg.internalDate ? new Date(msg.internalDate).toISOString() : null;
-                    const envelopeWithRefs = msg.envelope as (typeof msg.envelope & {
-                        references?: unknown
-                    }) | undefined;
+                    const envelopeWithRefs = msg.envelope as
+                        | (typeof msg.envelope & {
+                        references?: unknown;
+                    })
+                        | undefined;
                     const referencesText = stringifyReferences(envelopeWithRefs?.references);
                     const threadId = buildThreadId({
                         messageId: msg.envelope?.messageId ?? null,
@@ -144,7 +149,11 @@ export async function syncAccountMailboxWithCredentials(
                         references: envelopeWithRefs?.references,
                         subject: msg.envelope?.subject ?? null,
                         fromAddress: msg.envelope?.from?.[0]?.address ?? null,
-                        toAddress: msg.envelope?.to?.map((a) => a.address).filter(Boolean).join(', ') ?? null,
+                        toAddress:
+                            msg.envelope?.to
+                                ?.map((a) => a.address)
+                                .filter(Boolean)
+                                .join(', ') ?? null,
                     });
                     upsertThread(threadId, msg.envelope?.subject ?? null, messageDate ?? new Date().toISOString());
                     upsertMessage({
@@ -159,7 +168,11 @@ export async function syncAccountMailboxWithCredentials(
                         subject: msg.envelope?.subject ?? null,
                         fromName: msg.envelope?.from?.[0]?.name ?? null,
                         fromAddress: msg.envelope?.from?.[0]?.address ?? null,
-                        toAddress: msg.envelope?.to?.map((a) => a.address).filter(Boolean).join(', ') ?? null,
+                        toAddress:
+                            msg.envelope?.to
+                                ?.map((a) => a.address)
+                                .filter(Boolean)
+                                .join(', ') ?? null,
                         date: messageDate,
                         isRead,
                         isFlagged: msg.flags?.has('\\Flagged') ? 1 : 0,

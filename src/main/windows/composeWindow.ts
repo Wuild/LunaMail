@@ -3,6 +3,7 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import {loadWindowContent} from './loadWindowContent.js';
 import {getAppSettingsSync, getSpellCheckerLanguages} from '../settings/store.js';
+import {attachWindowShortcuts, buildSecureWebPreferences, createFramelessAppWindow} from './windowFactory.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -35,47 +36,21 @@ export function openComposeWindow(parentWindow?: BrowserWindow, draft?: ComposeD
 
     const preloadPath = path.join(app.getAppPath(), 'preload.cjs');
 
-    composeWin = new BrowserWindow({
+    composeWin = createFramelessAppWindow({
         parent: parentWindow && !parentWindow.isDestroyed() ? parentWindow : undefined,
         modal: false,
-        frame: false,
-        titleBarStyle: 'hidden',
         width: 920,
         height: 760,
         minWidth: 760,
         minHeight: 620,
-        autoHideMenuBar: true,
         title: 'Compose Email',
-        webPreferences: {
-            preload: preloadPath,
-            contextIsolation: true,
-            nodeIntegration: false,
+        webPreferences: buildSecureWebPreferences({
+            preloadPath,
             spellcheck: true,
-        },
+        }),
     });
-    composeWin.setMenuBarVisibility(false);
-    composeWin.removeMenu();
     composeWin.webContents.session.setSpellCheckerLanguages(getSpellCheckerLanguages(getAppSettingsSync().language));
-
-    composeWin.webContents.on('before-input-event', (event, input) => {
-        if (input.type !== 'keyDown') return;
-        const key = String(input.key || '').toLowerCase();
-        if (key === 'escape') {
-            event.preventDefault();
-            if (composeWin && !composeWin.isDestroyed()) {
-                composeWin.close();
-            }
-            return;
-        }
-        const isF12 = key === 'f12';
-        const isCtrlShiftI = input.control && input.shift && key === 'i';
-        const isCmdAltI = input.meta && input.alt && key === 'i';
-        if (!isF12 && !isCtrlShiftI && !isCmdAltI) return;
-        event.preventDefault();
-        if (composeWin && !composeWin.isDestroyed()) {
-            composeWin.webContents.openDevTools({mode: 'detach'});
-        }
-    });
+    attachWindowShortcuts(composeWin, {closeOnEscape: true});
 
     composeWin.on('closed', () => {
         composeWin = null;
@@ -87,9 +62,21 @@ export function openComposeWindow(parentWindow?: BrowserWindow, draft?: ComposeD
 
     void loadWindowContent(composeWin, {
         isDev,
-        devUrls: ['http://127.0.0.1:5174/compose.html', 'http://127.0.0.1:5174/src/renderer/compose.html'],
+        devUrls: [
+            {
+                target: 'http://127.0.0.1:5174/window.html',
+                query: {window: 'compose'},
+            },
+            {
+                target: 'http://127.0.0.1:5174/src/renderer/window.html',
+                query: {window: 'compose'},
+            },
+        ],
         prodFiles: [
-            path.join(__dirname, '..', '..', 'renderer/compose.html'),
+            {
+                target: path.join(__dirname, '..', '..', 'renderer/window.html'),
+                query: {window: 'compose'},
+            },
         ],
         windowName: 'compose',
     }).catch((error) => {

@@ -56,13 +56,17 @@ export interface DavSettingsRow {
 
 export function getDavSettings(accountId: number): DavSettingsRow | null {
     const db = getDb();
-    const row = db
-        .prepare('SELECT * FROM account_dav_settings WHERE account_id = ?')
-        .get(accountId) as DavSettingsRow | undefined;
+    const row = db.prepare('SELECT * FROM account_dav_settings WHERE account_id = ?').get(accountId) as
+        | DavSettingsRow
+        | undefined;
     return row ?? null;
 }
 
-export function upsertDavSettings(accountId: number, carddavUrl?: string | null, caldavUrl?: string | null): DavSettingsRow {
+export function upsertDavSettings(
+    accountId: number,
+    carddavUrl?: string | null,
+    caldavUrl?: string | null,
+): DavSettingsRow {
     const db = getDb();
     db.prepare(
         `
@@ -74,9 +78,7 @@ export function upsertDavSettings(accountId: number, carddavUrl?: string | null,
         `,
     ).run(accountId, carddavUrl ?? null, caldavUrl ?? null);
 
-    return db
-        .prepare('SELECT * FROM account_dav_settings WHERE account_id = ?')
-        .get(accountId) as DavSettingsRow;
+    return db.prepare('SELECT * FROM account_dav_settings WHERE account_id = ?').get(accountId) as DavSettingsRow;
 }
 
 export function upsertContacts(
@@ -127,15 +129,17 @@ export function upsertContacts(
                 seenAt,
             );
         }
-        const cleanup = db.prepare(
-            `
+        const cleanup = db
+            .prepare(
+                `
                 DELETE
                 FROM contacts
                 WHERE account_id = ?
                   AND source = ?
                   AND last_seen_sync <> ?
             `,
-        ).run(accountId, source, seenAt);
+            )
+            .run(accountId, source, seenAt);
         return {upserted: rows.length, removed: cleanup.changes};
     });
     return tx();
@@ -193,28 +197,36 @@ export function upsertCalendarEvents(
                 seenAt,
             );
         }
-        const cleanup = db.prepare(
-            `
+        const cleanup = db
+            .prepare(
+                `
                 DELETE
                 FROM calendar_events
                 WHERE account_id = ?
                   AND source = ?
                   AND last_seen_sync <> ?
             `,
-        ).run(accountId, source, seenAt);
+            )
+            .run(accountId, source, seenAt);
         return {upserted: rows.length, removed: cleanup.changes};
     });
     return tx();
 }
 
-export function listContacts(accountId: number, query?: string | null, limit: number = 200, addressBookId?: number | null): ContactRow[] {
+export function listContacts(
+    accountId: number,
+    query?: string | null,
+    limit: number = 200,
+    addressBookId?: number | null,
+): ContactRow[] {
     const db = getDb();
     const q = (query || '').trim();
     const hasBookFilter = typeof addressBookId === 'number' && Number.isFinite(addressBookId);
     if (!q) {
         if (hasBookFilter) {
-            return db.prepare(
-                `
+            return db
+                .prepare(
+                    `
                     SELECT *
                     FROM contacts
                     WHERE account_id = ?
@@ -222,22 +234,26 @@ export function listContacts(accountId: number, query?: string | null, limit: nu
                     ORDER BY lower(coalesce(full_name, '')), lower(email)
                     LIMIT ?
                 `,
-            ).all(accountId, addressBookId, limit) as ContactRow[];
+                )
+                .all(accountId, addressBookId, limit) as ContactRow[];
         }
-        return db.prepare(
-            `
+        return db
+            .prepare(
+                `
                 SELECT *
                 FROM contacts
                 WHERE account_id = ?
                 ORDER BY lower(coalesce(full_name, '')), lower(email)
                 LIMIT ?
             `,
-        ).all(accountId, limit) as ContactRow[];
+            )
+            .all(accountId, limit) as ContactRow[];
     }
     const pattern = `%${q.toLowerCase()}%`;
     if (hasBookFilter) {
-        return db.prepare(
-            `
+        return db
+            .prepare(
+                `
                 SELECT *
                 FROM contacts
                 WHERE account_id = ?
@@ -253,10 +269,12 @@ export function listContacts(accountId: number, query?: string | null, limit: nu
                 ORDER BY lower(coalesce(full_name, '')), lower(email)
                 LIMIT ?
             `,
-        ).all(accountId, addressBookId, pattern, pattern, pattern, pattern, pattern, pattern, limit) as ContactRow[];
+            )
+            .all(accountId, addressBookId, pattern, pattern, pattern, pattern, pattern, pattern, limit) as ContactRow[];
     }
-    return db.prepare(
-        `
+    return db
+        .prepare(
+            `
             SELECT *
             FROM contacts
             WHERE account_id = ?
@@ -271,20 +289,23 @@ export function listContacts(accountId: number, query?: string | null, limit: nu
             ORDER BY lower(coalesce(full_name, '')), lower(email)
             LIMIT ?
         `,
-    ).all(accountId, pattern, pattern, pattern, pattern, pattern, pattern, limit) as ContactRow[];
+        )
+        .all(accountId, pattern, pattern, pattern, pattern, pattern, pattern, limit) as ContactRow[];
 }
 
 export function listAddressBooks(accountId: number): AddressBookRow[] {
     const db = getDb();
     ensureDefaultLocalAddressBook(accountId);
-    return db.prepare(
-        `
+    return db
+        .prepare(
+            `
             SELECT *
             FROM address_books
             WHERE account_id = ?
             ORDER BY lower(name), id
         `,
-    ).all(accountId) as AddressBookRow[];
+        )
+        .all(accountId) as AddressBookRow[];
 }
 
 export function createAddressBook(accountId: number, name: string): AddressBookRow {
@@ -297,26 +318,30 @@ export function createAddressBook(accountId: number, name: string): AddressBookR
             VALUES (?, ?, 'local', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `,
     ).run(accountId, normalized);
-    return db.prepare(
-        `
+    return db
+        .prepare(
+            `
             SELECT *
             FROM address_books
             WHERE id = last_insert_rowid()
         `,
-    ).get() as AddressBookRow;
+        )
+        .get() as AddressBookRow;
 }
 
 export function deleteAddressBook(accountId: number, addressBookId: number): { removed: boolean } {
     const db = getDb();
-    const existing = db.prepare(
-        `
+    const existing = db
+        .prepare(
+            `
             SELECT *
             FROM address_books
             WHERE id = ?
               AND account_id = ?
             LIMIT 1
         `,
-    ).get(addressBookId, accountId) as AddressBookRow | undefined;
+        )
+        .get(addressBookId, accountId) as AddressBookRow | undefined;
     if (!existing) return {removed: false};
     if (existing.source !== 'local') {
         throw new Error('Only local address books can be deleted.');
@@ -339,13 +364,15 @@ export function deleteAddressBook(accountId: number, addressBookId: number): { r
                   AND address_book_id = ?
             `,
         ).run(accountId, addressBookId);
-        const res = db.prepare(
-            `
+        const res = db
+            .prepare(
+                `
                 DELETE FROM address_books
                 WHERE id = ?
                   AND account_id = ?
             `,
-        ).run(addressBookId, accountId);
+            )
+            .run(addressBookId, accountId);
         ensureDefaultLocalAddressBook(accountId);
         return {removed: res.changes > 0};
     });
@@ -388,13 +415,15 @@ export function createLocalContact(
         normalizeContactText(fields?.note, 4000),
         seenAt,
     );
-    return db.prepare(
-        `
+    return db
+        .prepare(
+            `
             SELECT *
             FROM contacts
             WHERE id = last_insert_rowid()
         `,
-    ).get() as ContactRow;
+        )
+        .get() as ContactRow;
 }
 
 export function upsertCardDavContact(
@@ -416,9 +445,10 @@ export function upsertCardDavContact(
     if (!normalizedEmail) throw new Error('A valid email is required.');
     const normalizedName = normalizeDisplayName(payload.fullName);
     const seenAt = new Date().toISOString();
-    const bookId = typeof payload.addressBookId === 'number' && Number.isFinite(payload.addressBookId)
-        ? payload.addressBookId
-        : null;
+    const bookId =
+        typeof payload.addressBookId === 'number' && Number.isFinite(payload.addressBookId)
+            ? payload.addressBookId
+            : null;
 
     db.prepare(
         `
@@ -450,8 +480,9 @@ export function upsertCardDavContact(
         seenAt,
     );
 
-    return db.prepare(
-        `
+    return db
+        .prepare(
+            `
             SELECT *
             FROM contacts
             WHERE account_id = ?
@@ -460,40 +491,48 @@ export function upsertCardDavContact(
               AND email = ?
             LIMIT 1
         `,
-    ).get(accountId, payload.sourceUid, normalizedEmail) as ContactRow;
+        )
+        .get(accountId, payload.sourceUid, normalizedEmail) as ContactRow;
 }
 
-export function updateLocalContact(contactId: number, payload: {
-    fullName?: string | null;
-    email?: string;
-    phone?: string | null;
-    organization?: string | null;
-    title?: string | null;
-    note?: string | null;
-    addressBookId?: number | null;
-}): ContactRow {
+export function updateLocalContact(
+    contactId: number,
+    payload: {
+        fullName?: string | null;
+        email?: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
+        addressBookId?: number | null;
+    },
+): ContactRow {
     const db = getDb();
-    const current = db.prepare(
-        `
+    const current = db
+        .prepare(
+            `
             SELECT *
             FROM contacts
             WHERE id = ?
         `,
-    ).get(contactId) as ContactRow | undefined;
+        )
+        .get(contactId) as ContactRow | undefined;
     if (!current) throw new Error('Contact not found.');
     if (!current.source.startsWith('local:')) {
         throw new Error('Only local contacts can be edited.');
     }
 
-    const nextBookId = payload.addressBookId === undefined
-        ? current.address_book_id
-        : ensureLocalBookForContact(current.account_id, payload.addressBookId);
+    const nextBookId =
+        payload.addressBookId === undefined
+            ? current.address_book_id
+            : ensureLocalBookForContact(current.account_id, payload.addressBookId);
     const nextSource = `local:${nextBookId ?? 0}`;
     const nextEmail = payload.email === undefined ? current.email : normalizeEmail(payload.email);
     if (!nextEmail) throw new Error('A valid email is required.');
     const nextName = payload.fullName === undefined ? current.full_name : normalizeDisplayName(payload.fullName);
     const nextPhone = payload.phone === undefined ? current.phone : normalizeContactText(payload.phone);
-    const nextOrganization = payload.organization === undefined ? current.organization : normalizeContactText(payload.organization);
+    const nextOrganization =
+        payload.organization === undefined ? current.organization : normalizeContactText(payload.organization);
     const nextTitle = payload.title === undefined ? current.title : normalizeContactText(payload.title);
     const nextNote = payload.note === undefined ? current.note : normalizeContactText(payload.note, 4000);
 
@@ -518,9 +557,11 @@ export function updateLocalContact(contactId: number, payload: {
 
 export function deleteLocalContact(contactId: number): { removed: boolean } {
     const db = getDb();
-    const current = db.prepare('SELECT source FROM contacts WHERE id = ?').get(contactId) as {
-        source: string
-    } | undefined;
+    const current = db.prepare('SELECT source FROM contacts WHERE id = ?').get(contactId) as
+        | {
+        source: string;
+    }
+        | undefined;
     if (!current) return {removed: false};
     if (!current.source.startsWith('local:')) {
         throw new Error('Only local contacts can be deleted.');
@@ -529,13 +570,19 @@ export function deleteLocalContact(contactId: number): { removed: boolean } {
     return {removed: res.changes > 0};
 }
 
-export function listCalendarEvents(accountId: number, startIso?: string | null, endIso?: string | null, limit: number = 500): CalendarEventRow[] {
+export function listCalendarEvents(
+    accountId: number,
+    startIso?: string | null,
+    endIso?: string | null,
+    limit: number = 500,
+): CalendarEventRow[] {
     const db = getDb();
     const start = (startIso || '').trim();
     const end = (endIso || '').trim();
     if (start && end) {
-        return db.prepare(
-            `
+        return db
+            .prepare(
+                `
                 SELECT *
                 FROM calendar_events
                 WHERE account_id = ?
@@ -544,26 +591,32 @@ export function listCalendarEvents(accountId: number, startIso?: string | null, 
                 ORDER BY coalesce(starts_at, '') ASC
                 LIMIT ?
             `,
-        ).all(accountId, start, end, limit) as CalendarEventRow[];
+            )
+            .all(accountId, start, end, limit) as CalendarEventRow[];
     }
-    return db.prepare(
-        `
+    return db
+        .prepare(
+            `
             SELECT *
             FROM calendar_events
             WHERE account_id = ?
             ORDER BY coalesce(starts_at, '') ASC
             LIMIT ?
         `,
-    ).all(accountId, limit) as CalendarEventRow[];
+        )
+        .all(accountId, limit) as CalendarEventRow[];
 }
 
-export function createLocalCalendarEvent(accountId: number, payload: {
-    summary?: string | null;
-    description?: string | null;
-    location?: string | null;
-    startsAt: string;
-    endsAt: string;
-}): CalendarEventRow {
+export function createLocalCalendarEvent(
+    accountId: number,
+    payload: {
+        summary?: string | null;
+        description?: string | null;
+        location?: string | null;
+        startsAt: string;
+        endsAt: string;
+    },
+): CalendarEventRow {
     const db = getDb();
     const startsAt = String(payload.startsAt || '').trim();
     const endsAt = String(payload.endsAt || '').trim();
@@ -592,25 +645,16 @@ export function createLocalCalendarEvent(accountId: number, payload: {
             )
             VALUES (?, 'local', ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `,
-    ).run(
-        accountId,
-        calendarUrl,
-        uid,
-        summary,
-        description,
-        location,
-        startsAt,
-        endsAt,
-        seenAt,
-    );
+    ).run(accountId, calendarUrl, uid, summary, description, location, startsAt, endsAt, seenAt);
 
     return db.prepare('SELECT * FROM calendar_events WHERE id = last_insert_rowid()').get() as CalendarEventRow;
 }
 
 function ensureDefaultLocalAddressBook(accountId: number): number {
     const db = getDb();
-    const existing = db.prepare(
-        `
+    const existing = db
+        .prepare(
+            `
             SELECT id
             FROM address_books
             WHERE account_id = ?
@@ -618,7 +662,8 @@ function ensureDefaultLocalAddressBook(accountId: number): number {
             ORDER BY id
             LIMIT 1
         `,
-    ).get(accountId) as { id: number } | undefined;
+        )
+        .get(accountId) as { id: number } | undefined;
     if (existing) return existing.id;
     db.prepare(
         `
@@ -632,15 +677,17 @@ function ensureDefaultLocalAddressBook(accountId: number): number {
 function ensureLocalBookForContact(accountId: number, addressBookId: number | null): number {
     const db = getDb();
     if (typeof addressBookId === 'number' && Number.isFinite(addressBookId)) {
-        const found = db.prepare(
-            `
+        const found = db
+            .prepare(
+                `
                 SELECT id
                 FROM address_books
                 WHERE id = ?
                   AND account_id = ?
                   AND source = 'local'
             `,
-        ).get(addressBookId, accountId) as { id: number } | undefined;
+            )
+            .get(addressBookId, accountId) as { id: number } | undefined;
         if (found) return found.id;
         throw new Error('Address book not found.');
     }
@@ -648,21 +695,32 @@ function ensureLocalBookForContact(accountId: number, addressBookId: number | nu
 }
 
 function normalizeBookName(value: string): string {
-    return String(value || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+    return String(value || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .slice(0, 120);
 }
 
 function normalizeDisplayName(value: string | null | undefined): string | null {
-    const normalized = String(value || '').trim().replace(/\s+/g, ' ').slice(0, 180);
+    const normalized = String(value || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .slice(0, 180);
     return normalized || null;
 }
 
 function normalizeContactText(value: string | null | undefined, maxLength: number = 240): string | null {
-    const normalized = String(value || '').trim().replace(/\s+/g, ' ').slice(0, maxLength);
+    const normalized = String(value || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .slice(0, maxLength);
     return normalized || null;
 }
 
 function normalizeEmail(value: string | null | undefined): string {
-    const normalized = String(value || '').trim().toLowerCase();
+    const normalized = String(value || '')
+        .trim()
+        .toLowerCase();
     if (!normalized) return '';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return '';
     return normalized;

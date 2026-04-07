@@ -192,17 +192,16 @@ function MainWindowShell() {
                     void window.electronAPI.toggleMaximizeWindow().then((res) => setIsMaximized(!!res?.isMaximized)).catch(() => undefined);
                 }}
             >
-                <div className="pointer-events-none flex items-center justify-start">
-                    <div className="flex items-center gap-2 text-xs font-medium text-white/80">
+                <div className="pointer-events-none flex min-w-0 flex-1 items-center justify-start gap-3">
+                    <div className="flex shrink-0 items-center gap-2 text-xs font-medium text-white/80">
                         <img src={lunaLogo} alt="" className="h-4 w-4 rounded-sm object-contain" draggable={false}/>
                         <span>LunaMail</span>
                         <span
                             className="text-[10px] font-semibold uppercase tracking-wide text-white/55">v{appVersion}</span>
                     </div>
-                </div>
-                <div
-                    className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center justify-center">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-white/80">{pageTitle}</span>
+                    <span aria-hidden className="h-3.5 w-px shrink-0 bg-white/25"/>
+                    <span
+                        className="block min-w-0 flex-1 truncate text-xs font-semibold tracking-wide text-white/80">{pageTitle}</span>
                 </div>
                 <div
                     className="flex w-24 shrink-0 items-center justify-end gap-1"

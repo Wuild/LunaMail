@@ -54,6 +54,8 @@ const windowsTrayIconPath = resolveWindowsTrayIconPath();
 const appIconPngBase64 = appIconPath && fs.existsSync(appIconPath) ? fs.readFileSync(appIconPath).toString('base64') : null;
 const mainWindowStatePath = path.join(app.getPath('userData'), 'main-window-state.json');
 const logger = createAppLogger('main');
+const MAIN_WINDOW_MIN_WIDTH = 900;
+const MAIN_WINDOW_MIN_HEIGHT = 600;
 
 type MainWindowState = {
     width: number;
@@ -73,6 +75,8 @@ function createWindow() {
     const win = new BrowserWindow({
         width: normalizedState?.width ?? 1200,
         height: normalizedState?.height ?? 800,
+        minWidth: MAIN_WINDOW_MIN_WIDTH,
+        minHeight: MAIN_WINDOW_MIN_HEIGHT,
         ...(typeof normalizedState?.x === 'number' && typeof normalizedState?.y === 'number'
             ? {x: normalizedState.x, y: normalizedState.y}
             : {}),
@@ -200,8 +204,8 @@ function loadMainWindowState(): MainWindowState | null {
         const parsed = JSON.parse(raw) as Partial<MainWindowState>;
         if (!Number.isFinite(parsed.width) || !Number.isFinite(parsed.height)) return null;
         return {
-            width: Math.max(900, Number(parsed.width)),
-            height: Math.max(600, Number(parsed.height)),
+            width: Math.max(MAIN_WINDOW_MIN_WIDTH, Number(parsed.width)),
+            height: Math.max(MAIN_WINDOW_MIN_HEIGHT, Number(parsed.height)),
             ...(Number.isFinite(parsed.x) ? {x: Number(parsed.x)} : {}),
             ...(Number.isFinite(parsed.y) ? {y: Number(parsed.y)} : {}),
             isMaximized: Boolean(parsed.isMaximized),
@@ -233,8 +237,8 @@ function normalizeWindowState(state: MainWindowState | null): MainWindowState | 
     const displays = screen.getAllDisplays();
     if (displays.length === 0) return state;
 
-    const width = Math.max(900, state.width);
-    const height = Math.max(600, state.height);
+    const width = Math.max(MAIN_WINDOW_MIN_WIDTH, state.width);
+    const height = Math.max(MAIN_WINDOW_MIN_HEIGHT, state.height);
     const x = typeof state.x === 'number' ? state.x : undefined;
     const y = typeof state.y === 'number' ? state.y : undefined;
     if (typeof x !== 'number' || typeof y !== 'number') {

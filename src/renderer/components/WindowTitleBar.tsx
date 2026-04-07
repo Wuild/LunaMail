@@ -51,12 +51,14 @@ export default function WindowTitleBar({
                     .catch(() => undefined);
             }}
         >
-            <div className="flex w-48 shrink-0 items-center px-2 text-xs font-medium text-white/75">{title}</div>
-            <div className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center justify-center">
-                <div className="flex items-center gap-2 text-xs font-medium text-white/80">
+            <div className="pointer-events-none flex min-w-0 flex-1 items-center justify-start gap-3">
+                <div className="flex shrink-0 items-center gap-2 text-xs font-medium text-white/80">
                     <img src={lunaLogo} alt="" className="h-4 w-4 rounded-sm object-contain" draggable={false}/>
                     <span>LunaMail</span>
                 </div>
+                <span aria-hidden className="h-3.5 w-px shrink-0 bg-white/25"/>
+                <span
+                    className="block min-w-0 flex-1 truncate text-xs font-semibold tracking-wide text-white/80">{title}</span>
             </div>
             <div
                 className="flex w-24 shrink-0 items-center justify-end gap-1"

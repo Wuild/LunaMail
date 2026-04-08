@@ -1,9 +1,9 @@
-import keytar from "keytar";
-import {eq} from "drizzle-orm";
-import {getDb, getDrizzle} from "../drizzle.js";
-import {accounts, type InsertAccount} from "../schema.js";
+import keytar from 'keytar';
+import {eq} from 'drizzle-orm';
+import {getDb, getDrizzle} from '../drizzle.js';
+import {accounts, type InsertAccount} from '../schema.js';
 
-const SERVICE_NAME = "LunaMail";
+const SERVICE_NAME = 'LunaMail';
 
 export interface PublicAccount {
     id: number;
@@ -56,7 +56,7 @@ export async function getAccounts(): Promise<PublicAccount[]> {
             smtp_secure: r.smtpSecure ?? 1,
             user: r.user!,
             created_at: r.createdAt!,
-        })
+        }),
     );
 }
 
@@ -132,7 +132,7 @@ export async function addAccount(payload: AddAccountPayload): Promise<{ id: numb
     } = payload;
 
     if (!email || !imap_host || !imap_port || !smtp_host || !smtp_port || !user || !password) {
-        throw new Error("Missing required account fields");
+        throw new Error('Missing required account fields');
     }
 
     const toInsert: InsertAccount = {
@@ -194,7 +194,7 @@ export async function getAccountSyncCredentials(accountId: number): Promise<Acco
     if (!row?.id) throw new Error(`Account ${accountId} not found`);
 
     const password = await keytar.getPassword(SERVICE_NAME, `${row.id}:${row.email}`);
-    if (!password) throw new Error("Account password not found in keychain");
+    if (!password) throw new Error('Account password not found in keychain');
 
     return {
         id: row.id,
@@ -213,7 +213,7 @@ export async function getAccountSendCredentials(accountId: number): Promise<Acco
     if (!row?.id) throw new Error(`Account ${accountId} not found`);
 
     const password = await keytar.getPassword(SERVICE_NAME, `${row.id}:${row.email}`);
-    if (!password) throw new Error("Account password not found in keychain");
+    if (!password) throw new Error('Account password not found in keychain');
 
     return {
         id: row.id,
@@ -239,7 +239,7 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
     const smtpHost = payload.smtp_host?.trim();
     const user = payload.user?.trim();
     if (!email || !imapHost || !payload.imap_port || !smtpHost || !payload.smtp_port || !user) {
-        throw new Error("Missing required account fields");
+        throw new Error('Missing required account fields');
     }
 
     await db
@@ -321,7 +321,7 @@ export async function deleteAccount(accountId: number): Promise<{ id: number; em
                 WHERE message_id IN (SELECT id
                                      FROM messages
                                      WHERE account_id = ?)
-                `
+            `,
             )
             .run(id);
         rawDb
@@ -332,12 +332,12 @@ export async function deleteAccount(accountId: number): Promise<{ id: number; em
                 WHERE message_id IN (SELECT id
                                      FROM messages
                                      WHERE account_id = ?)
-                `
+            `,
             )
             .run(id);
-        rawDb.prepare("DELETE FROM messages WHERE account_id = ?").run(id);
-        rawDb.prepare("DELETE FROM folders WHERE account_id = ?").run(id);
-        rawDb.prepare("DELETE FROM accounts WHERE id = ?").run(id);
+        rawDb.prepare('DELETE FROM messages WHERE account_id = ?').run(id);
+        rawDb.prepare('DELETE FROM folders WHERE account_id = ?').run(id);
+        rawDb.prepare('DELETE FROM accounts WHERE id = ?').run(id);
     });
 
     tx(accountId);

@@ -1,29 +1,29 @@
-const fs = require("node:fs");
-const path = require("node:path");
+const fs = require('node:fs');
+const path = require('node:path');
 
-const projectRoot = path.resolve(__dirname, "..");
-const builtPreloadPath = path.join(projectRoot, "build", "preload", "index.js");
-const targetPreloadPath = path.join(projectRoot, "preload.cjs");
+const projectRoot = path.resolve(__dirname, '..');
+const builtPreloadPath = path.join(projectRoot, 'build', 'preload', 'index.js');
+const targetPreloadPath = path.join(projectRoot, 'preload.cjs');
 
 function normalizePreloadSource(input) {
-    const importPattern = /import\s*\{\s*contextBridge\s*,\s*ipcRenderer\s*\}\s*from\s*["']electron["'];?/;
-    if (!importPattern.test(input)) {
-        throw new Error("Unexpected build/preload/index.js format: missing electron import");
+    const importLine = "import { contextBridge, ipcRenderer } from 'electron';";
+    if (!input.includes(importLine)) {
+        throw new Error('Unexpected build/preload/index.js format: missing electron import');
     }
-    return input.replace(importPattern, "const {contextBridge, ipcRenderer} = require('electron');");
+    return input.replace(importLine, "const {contextBridge, ipcRenderer} = require('electron');");
 }
 
 function main() {
     if (!fs.existsSync(builtPreloadPath)) {
         throw new Error(`Missing ${builtPreloadPath}. Run TypeScript build first.`);
     }
-    const source = fs.readFileSync(builtPreloadPath, "utf8");
+    const source = fs.readFileSync(builtPreloadPath, 'utf8');
     const normalized = normalizePreloadSource(source);
-    const existing = fs.existsSync(targetPreloadPath) ? fs.readFileSync(targetPreloadPath, "utf8") : null;
-  if (existing === normalized) {
-    console.log(`Preload bridge already up to date: ${targetPreloadPath}`);
-    return;
-  }
+    const existing = fs.existsSync(targetPreloadPath) ? fs.readFileSync(targetPreloadPath, 'utf8') : null;
+    if (existing === normalized) {
+        console.log(`Preload bridge already up to date: ${targetPreloadPath}`);
+        return;
+    }
     fs.writeFileSync(targetPreloadPath, normalized);
     console.log(`Synced preload bridge: ${targetPreloadPath}`);
 }
@@ -31,6 +31,6 @@ function main() {
 try {
     main();
 } catch (error) {
-    console.error("Failed to sync preload bridge:", error.message || error);
+    console.error('Failed to sync preload bridge:', error.message || error);
     process.exit(1);
 }

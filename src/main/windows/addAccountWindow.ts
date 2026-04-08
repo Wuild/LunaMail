@@ -1,7 +1,8 @@
-import {app, BrowserWindow} from "electron";
-import path from "path";
-import {fileURLToPath} from "url";
-import {loadWindowContent} from "./loadWindowContent.js";
+import {app, BrowserWindow} from 'electron';
+import path from 'path';
+import {fileURLToPath} from 'url';
+import {loadWindowContent} from './loadWindowContent.js';
+import {attachWindowShortcuts, buildSecureWebPreferences, createFramelessAppWindow} from './windowFactory.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -15,16 +16,14 @@ export function openAddAccountWindow(parentWindow?: BrowserWindow): void {
         return;
     }
 
-    const preloadPath = path.join(app.getAppPath(), "preload.cjs");
+    const preloadPath = path.join(app.getAppPath(), 'preload.cjs');
 
     const parent = parentWindow && !parentWindow.isDestroyed() ? parentWindow : undefined;
     const parentBounds = parent?.getBounds();
 
-    addAccountWin = new BrowserWindow({
+    addAccountWin = createFramelessAppWindow({
         parent,
         modal: true,
-        frame: false,
-        titleBarStyle: "hidden",
         width: Math.max(960, parentBounds?.width ?? 960),
         height: Math.max(700, parentBounds?.height ?? 700),
         minWidth: 960,
@@ -33,49 +32,38 @@ export function openAddAccountWindow(parentWindow?: BrowserWindow): void {
         maxHeight: 1000,
         minimizable: false,
         maximizable: false,
-        autoHideMenuBar: true,
         resizable: true,
-        title: "Add Account",
-        webPreferences: {
-            preload: preloadPath,
-            contextIsolation: true,
-            nodeIntegration: false,
-        },
+        title: 'Add Account',
+        webPreferences: buildSecureWebPreferences({preloadPath}),
     });
     addAccountWin.setMaximizable(false);
-    addAccountWin.setMenuBarVisibility(false);
-    addAccountWin.removeMenu();
-    addAccountWin.webContents.on("before-input-event", (event, input) => {
-        if (input.type !== "keyDown") return;
-        const key = String(input.key || "").toLowerCase();
-        if (key === "escape") {
-            event.preventDefault();
-            if (addAccountWin && !addAccountWin.isDestroyed()) {
-                addAccountWin.close();
-            }
-            return;
-        }
-        const isF12 = key === "f12";
-        const isCtrlShiftI = input.control && input.shift && key === "i";
-        const isCmdAltI = input.meta && input.alt && key === "i";
-        if (!isF12 && !isCtrlShiftI && !isCmdAltI) return;
-        event.preventDefault();
-        if (addAccountWin && !addAccountWin.isDestroyed()) {
-            addAccountWin.webContents.openDevTools({mode: "detach"});
-        }
-    });
+    attachWindowShortcuts(addAccountWin, {closeOnEscape: true});
 
-    addAccountWin.on("closed", () => {
+    addAccountWin.on('closed', () => {
         addAccountWin = null;
     });
 
     void loadWindowContent(addAccountWin, {
         isDev,
-        devUrls: ["http://127.0.0.1:5174/add-account.html", "http://127.0.0.1:5174/src/renderer/add-account.html"],
-        prodFiles: [path.join(__dirname, "..", "..", "renderer/add-account.html")],
-        windowName: "add-account",
+        devUrls: [
+            {
+                target: 'http://127.0.0.1:5174/window.html',
+                query: {window: 'add-account'},
+            },
+            {
+                target: 'http://127.0.0.1:5174/src/renderer/window.html',
+                query: {window: 'add-account'},
+            },
+        ],
+        prodFiles: [
+            {
+                target: path.join(__dirname, '..', '..', 'renderer/window.html'),
+                query: {window: 'add-account'},
+            },
+        ],
+        windowName: 'add-account',
     }).catch((error) => {
-        console.error("Failed to load add-account window:", error);
+        console.error('Failed to load add-account window:', error);
     });
 }
 

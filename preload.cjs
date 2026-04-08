@@ -164,6 +164,11 @@ const api = {
         ipcRenderer.on("app-startup-status", listener);
         return () => ipcRenderer.removeListener("app-startup-status", listener);
     },
+    onGlobalError: (callback) => {
+        const listener = (_event, payload) => callback(payload);
+        ipcRenderer.on('global-error', listener);
+        return () => ipcRenderer.removeListener('global-error', listener);
+    },
     onLinkHoverUrl: (callback) => {
         const listener = (_event, payload) => callback(payload || "");
         ipcRenderer.on("link-hover-url", listener);

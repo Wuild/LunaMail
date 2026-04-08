@@ -1,31 +1,34 @@
-import {useEffect, useState} from "react";
+import {useEffect, useState} from 'react';
+import {useIpcEvent} from './ipc/useIpcEvent';
+import {ipcClient} from '../lib/ipcClient';
+import type {AppTheme} from '../../shared/ipcTypes';
 
-export type ThemePreference = "light" | "dark" | "system";
+export type ThemePreference = AppTheme;
 
 function applyTheme(theme: ThemePreference, prefersDark: boolean): void {
-    const useDark = theme === "dark" || (theme === "system" && prefersDark);
-    document.documentElement.classList.toggle("dark", useDark);
-    document.body.classList.toggle("dark", useDark);
+    const useDark = theme === 'dark' || (theme === 'system' && prefersDark);
+    document.documentElement.classList.toggle('dark', useDark);
+    document.body.classList.toggle('dark', useDark);
 }
 
 export function useThemePreference(theme: ThemePreference): void {
     useEffect(() => {
-        const media = window.matchMedia("(prefers-color-scheme: dark)");
+        const media = window.matchMedia('(prefers-color-scheme: dark)');
         const update = () => applyTheme(theme, media.matches);
         update();
-        media.addEventListener("change", update);
+        media.addEventListener('change', update);
         return () => {
-            media.removeEventListener("change", update);
+            media.removeEventListener('change', update);
         };
     }, [theme]);
 }
 
-export function useAppTheme(defaultTheme: ThemePreference = "system"): ThemePreference {
+export function useAppTheme(defaultTheme: ThemePreference = 'system'): ThemePreference {
     const [theme, setTheme] = useState<ThemePreference>(defaultTheme);
 
     useEffect(() => {
         let active = true;
-        window.electronAPI
+        ipcClient
             .getAppSettings()
             .then((settings) => {
                 if (!active) return;
@@ -36,15 +39,14 @@ export function useAppTheme(defaultTheme: ThemePreference = "system"): ThemePref
                 setTheme(defaultTheme);
             });
 
-        const off = window.electronAPI.onAppSettingsUpdated?.((settings) => {
-            setTheme((settings?.theme as ThemePreference) ?? defaultTheme);
-        });
-
         return () => {
             active = false;
-            if (typeof off === "function") off();
         };
     }, [defaultTheme]);
+
+    useIpcEvent(ipcClient.onAppSettingsUpdated, (settings) => {
+        setTheme((settings?.theme as ThemePreference) ?? defaultTheme);
+    });
 
     useThemePreference(theme);
     return theme;

@@ -1,7 +1,8 @@
-import {app, BrowserWindow} from "electron";
-import path from "path";
-import {fileURLToPath} from "url";
-import {loadWindowContent} from "./loadWindowContent.js";
+import {app, BrowserWindow} from 'electron';
+import path from 'path';
+import {fileURLToPath} from 'url';
+import {loadWindowContent} from './loadWindowContent.js';
+import {attachWindowShortcuts, buildSecureWebPreferences, createAppWindow} from './windowFactory.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -19,52 +20,48 @@ export function openSplashWindow(options: OpenSplashWindowOptions = {}): Browser
         return splashWin;
     }
 
-    const preloadPath = path.join(app.getAppPath(), "preload.cjs");
+    const preloadPath = path.join(app.getAppPath(), 'preload.cjs');
     const showTitleBar = isDev || Boolean(options.forceTitleBar);
 
-    splashWin = new BrowserWindow({
+    splashWin = createAppWindow({
         width: 420,
         height: 500,
         frame: showTitleBar,
-        ...(showTitleBar ? {} : {titleBarStyle: "hidden" as const}),
+        ...(showTitleBar ? {} : {titleBarStyle: 'hidden' as const}),
         resizable: false,
         minimizable: showTitleBar,
         maximizable: false,
         fullscreenable: false,
-        autoHideMenuBar: true,
         show: true,
-        title: "LunaMail Updater",
-        webPreferences: {
-            preload: preloadPath,
-            contextIsolation: true,
-            nodeIntegration: false,
-        },
+        title: 'LunaMail Updater',
+        webPreferences: buildSecureWebPreferences({preloadPath}),
     });
-    splashWin.setMenuBarVisibility(false);
-    splashWin.removeMenu();
-    splashWin.webContents.on("before-input-event", (event, input) => {
-        if (input.type !== "keyDown") return;
-        const key = String(input.key || "").toLowerCase();
-        const isF12 = key === "f12";
-        const isCtrlShiftI = input.control && input.shift && key === "i";
-        const isCmdAltI = input.meta && input.alt && key === "i";
-        if (!isF12 && !isCtrlShiftI && !isCmdAltI) return;
-        event.preventDefault();
-        if (splashWin && !splashWin.isDestroyed()) {
-            splashWin.webContents.openDevTools({mode: "detach"});
-        }
-    });
-    splashWin.on("closed", () => {
+    attachWindowShortcuts(splashWin);
+    splashWin.on('closed', () => {
         splashWin = null;
     });
 
     void loadWindowContent(splashWin, {
         isDev,
-        devUrls: ["http://127.0.0.1:5174/splash.html", "http://127.0.0.1:5174/src/renderer/splash.html"],
-        prodFiles: [path.join(__dirname, "..", "..", "renderer/splash.html")],
-        windowName: "splash",
+        devUrls: [
+            {
+                target: 'http://127.0.0.1:5174/window.html',
+                query: {window: 'splash'},
+            },
+            {
+                target: 'http://127.0.0.1:5174/src/renderer/window.html',
+                query: {window: 'splash'},
+            },
+        ],
+        prodFiles: [
+            {
+                target: path.join(__dirname, '..', '..', 'renderer/window.html'),
+                query: {window: 'splash'},
+            },
+        ],
+        windowName: 'splash',
     }).catch((error) => {
-        console.error("Failed to load splash window:", error);
+        console.error('Failed to load splash window:', error);
     });
 
     return splashWin;

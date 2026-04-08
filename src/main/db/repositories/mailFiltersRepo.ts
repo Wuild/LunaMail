@@ -1,58 +1,25 @@
-import {getDb} from "../drizzle.js";
+import {getDb} from '../drizzle.js';
+import type {
+    MailFilter,
+    MailFilterAction,
+    MailFilterActionType,
+    MailFilterCondition,
+    MailFilterField,
+    MailFilterMatchMode,
+    MailFilterOperator,
+    UpsertMailFilterPayload,
+} from '../../../shared/ipcTypes.js';
 
-export type MailFilterMatchMode = "all" | "any" | "all_messages";
-export type MailFilterField = "subject" | "from" | "to" | "body";
-export type MailFilterOperator = "contains" | "not_contains" | "equals" | "starts_with" | "ends_with";
-export type MailFilterActionType = "move_to_folder" | "mark_read" | "mark_unread" | "star" | "unstar";
-
-export interface MailFilterCondition {
-    id: number;
-    filter_id: number;
-    field: MailFilterField;
-    operator: MailFilterOperator;
-    value: string;
-    sort_order: number;
-}
-
-export interface MailFilterAction {
-    id: number;
-    filter_id: number;
-    type: MailFilterActionType;
-    value: string;
-    sort_order: number;
-}
-
-export interface MailFilter {
-    id: number;
-    account_id: number;
-    name: string;
-    enabled: number;
-    run_on_incoming: number;
-    match_mode: MailFilterMatchMode;
-    stop_processing: number;
-    created_at: string;
-    updated_at: string;
-    conditions: MailFilterCondition[];
-    actions: MailFilterAction[];
-}
-
-export interface UpsertMailFilterPayload {
-    id?: number;
-    name: string;
-    enabled?: number;
-    run_on_incoming?: number;
-    match_mode?: MailFilterMatchMode;
-    stop_processing?: number;
-    conditions?: Array<{
-        field?: MailFilterField;
-        operator?: MailFilterOperator;
-        value?: string | null;
-    }>;
-    actions?: Array<{
-        type?: MailFilterActionType;
-        value?: string | null;
-    }>;
-}
+export type {
+    MailFilter,
+    MailFilterAction,
+    MailFilterActionType,
+    MailFilterCondition,
+    MailFilterField,
+    MailFilterMatchMode,
+    MailFilterOperator,
+    UpsertMailFilterPayload,
+} from '../../../shared/ipcTypes.js';
 
 export function listMailFilters(accountId: number): MailFilter[] {
     const db = getDb();
@@ -63,9 +30,9 @@ export function listMailFilters(accountId: number): MailFilter[] {
             FROM mail_filters
             WHERE account_id = ?
             ORDER BY id ASC
-            `
+        `,
         )
-        .all(accountId) as Array<Omit<MailFilter, "conditions" | "actions">>;
+        .all(accountId) as Array<Omit<MailFilter, 'conditions' | 'actions'>>;
     if (filters.length === 0) return [];
 
     const conditions = db
@@ -73,9 +40,9 @@ export function listMailFilters(accountId: number): MailFilter[] {
             `
             SELECT *
             FROM mail_filter_conditions
-            WHERE filter_id IN (${filters.map(() => "?").join(",")})
+            WHERE filter_id IN (${filters.map(() => '?').join(',')})
             ORDER BY sort_order ASC, id ASC
-        `
+        `,
         )
         .all(...filters.map((f) => f.id)) as MailFilterCondition[];
     const actions = db
@@ -83,9 +50,9 @@ export function listMailFilters(accountId: number): MailFilter[] {
             `
             SELECT *
             FROM mail_filter_actions
-            WHERE filter_id IN (${filters.map(() => "?").join(",")})
+            WHERE filter_id IN (${filters.map(() => '?').join(',')})
             ORDER BY sort_order ASC, id ASC
-        `
+        `,
         )
         .all(...filters.map((f) => f.id)) as MailFilterAction[];
 
@@ -98,7 +65,7 @@ export function listMailFilters(accountId: number): MailFilter[] {
 
 export function upsertMailFilter(accountId: number, payload: UpsertMailFilterPayload): MailFilter {
     const db = getDb();
-    const name = String(payload.name || "").trim() || "New filter";
+    const name = String(payload.name || '').trim() || 'New filter';
     const enabled = payload.enabled ? 1 : 0;
     const runOnIncoming = payload.run_on_incoming === 0 ? 0 : 1;
     const matchMode = normalizeMatchMode(payload.match_mode);
@@ -108,9 +75,9 @@ export function upsertMailFilter(accountId: number, payload: UpsertMailFilterPay
         let filterId = Number(payload.id || 0);
         if (filterId > 0) {
             const existing = db
-                .prepare("SELECT id FROM mail_filters WHERE id = ? AND account_id = ?")
+                .prepare('SELECT id FROM mail_filters WHERE id = ? AND account_id = ?')
                 .get(filterId, accountId) as { id: number } | undefined;
-            if (!existing?.id) throw new Error("Filter not found");
+            if (!existing?.id) throw new Error('Filter not found');
             db.prepare(
                 `
                     UPDATE mail_filters
@@ -122,17 +89,17 @@ export function upsertMailFilter(accountId: number, payload: UpsertMailFilterPay
                         updated_at      = CURRENT_TIMESTAMP
                     WHERE id = ?
                       AND account_id = ?
-                `
+                `,
             ).run(name, enabled, runOnIncoming, matchMode, stopProcessing, filterId, accountId);
-            db.prepare("DELETE FROM mail_filter_conditions WHERE filter_id = ?").run(filterId);
-            db.prepare("DELETE FROM mail_filter_actions WHERE filter_id = ?").run(filterId);
+            db.prepare('DELETE FROM mail_filter_conditions WHERE filter_id = ?').run(filterId);
+            db.prepare('DELETE FROM mail_filter_actions WHERE filter_id = ?').run(filterId);
         } else {
             const result = db
                 .prepare(
                     `
                     INSERT INTO mail_filters (account_id, name, enabled, run_on_incoming, match_mode, stop_processing)
                     VALUES (?, ?, ?, ?, ?, ?)
-                `
+                `,
                 )
                 .run(accountId, name, enabled, runOnIncoming, matchMode, stopProcessing);
             filterId = Number(result.lastInsertRowid);
@@ -142,7 +109,7 @@ export function upsertMailFilter(accountId: number, payload: UpsertMailFilterPay
             `
                 INSERT INTO mail_filter_conditions (filter_id, field, operator, value, sort_order)
                 VALUES (?, ?, ?, ?, ?)
-            `
+            `,
         );
         const safeConditions = Array.isArray(payload.conditions) ? payload.conditions : [];
         safeConditions.forEach((condition, index) => {
@@ -150,8 +117,8 @@ export function upsertMailFilter(accountId: number, payload: UpsertMailFilterPay
                 filterId,
                 normalizeConditionField(condition.field),
                 normalizeConditionOperator(condition.operator),
-                String(condition.value ?? ""),
-                index
+                String(condition.value ?? ''),
+                index,
             );
         });
 
@@ -159,11 +126,11 @@ export function upsertMailFilter(accountId: number, payload: UpsertMailFilterPay
             `
                 INSERT INTO mail_filter_actions (filter_id, type, value, sort_order)
                 VALUES (?, ?, ?, ?)
-            `
+            `,
         );
         const safeActions = Array.isArray(payload.actions) ? payload.actions : [];
         safeActions.forEach((action, index) => {
-            actionInsert.run(filterId, normalizeActionType(action.type), String(action.value ?? ""), index);
+            actionInsert.run(filterId, normalizeActionType(action.type), String(action.value ?? ''), index);
         });
     });
     tx();
@@ -172,37 +139,38 @@ export function upsertMailFilter(accountId: number, payload: UpsertMailFilterPay
     const targetId = Number(payload.id || 0);
     if (targetId > 0) {
         const updated = filters.find((filter) => filter.id === targetId);
-        if (!updated) throw new Error("Filter not found after update");
+        if (!updated) throw new Error('Filter not found after update');
         return updated;
     }
     const latest = filters[filters.length - 1];
-    if (!latest) throw new Error("Filter not found after insert");
+    if (!latest) throw new Error('Filter not found after insert');
     return latest;
 }
 
 export function deleteMailFilter(accountId: number, filterId: number): { removed: boolean } {
     const db = getDb();
-    const result = db.prepare("DELETE FROM mail_filters WHERE id = ? AND account_id = ?").run(filterId, accountId);
+    const result = db.prepare('DELETE FROM mail_filters WHERE id = ? AND account_id = ?').run(filterId, accountId);
     return {removed: result.changes > 0};
 }
 
 function normalizeMatchMode(value?: string): MailFilterMatchMode {
-    if (value === "any") return "any";
-    if (value === "all_messages") return "all_messages";
-    return "all";
+    if (value === 'any') return 'any';
+    if (value === 'all_messages') return 'all_messages';
+    return 'all';
 }
 
 function normalizeConditionField(value?: string): MailFilterField {
-    if (value === "from" || value === "to" || value === "body") return value;
-    return "subject";
+    if (value === 'from' || value === 'to' || value === 'body') return value;
+    return 'subject';
 }
 
 function normalizeConditionOperator(value?: string): MailFilterOperator {
-    if (value === "not_contains" || value === "equals" || value === "starts_with" || value === "ends_with") return value;
-    return "contains";
+    if (value === 'not_contains' || value === 'equals' || value === 'starts_with' || value === 'ends_with')
+        return value;
+    return 'contains';
 }
 
 function normalizeActionType(value?: string): MailFilterActionType {
-    if (value === "mark_read" || value === "mark_unread" || value === "star" || value === "unstar") return value;
-    return "move_to_folder";
+    if (value === 'mark_read' || value === 'mark_unread' || value === 'star' || value === 'unstar') return value;
+    return 'move_to_folder';
 }

@@ -399,6 +399,64 @@ Use electron-builder:
 
 ---
 
+## ✅ Development Workflow (Required)
+
+Use this as the default process for all future development work.
+
+### 1) Plan and Scope
+
+- Track work in `docs/OPTIMIZATION_ROADMAP.md` (or add a new roadmap/checklist doc for non-optimization epics).
+- Work in small, behavior-preserving slices. Check off only what is actually complete.
+- Prefer extracting pure logic into reusable modules/hooks before adding more page-level code.
+
+### 2) Contract-First IPC Changes
+
+- Define or reuse shared payload/result types in `src/shared/ipcTypes.ts`.
+- Keep shared app defaults and select options in `src/shared/` (for example `defaults.ts`, `settingsOptions.ts`) and
+  consume them from both main and renderer instead of duplicating literals.
+- Keep `src/preload/index.ts` as the single renderer bridge surface.
+- If adding or renaming an IPC channel:
+  - update main `ipcMain.handle(...)` registration
+  - update preload `ipcRenderer.invoke(...)` wrapper
+  - update affected renderer callers/hooks
+  - keep integration contract tests passing
+- Add runtime validation for riskier IPC inputs (especially mutation payloads and file actions).
+
+### 3) Renderer State Rules
+
+- Use TanStack Query for async server/cache state and mutations.
+- Keep optimistic UX for user-visible actions (read/unread, tag/flag, move/delete/archive, etc.).
+- Use Zustand only for cross-route UI state that must persist beyond a single page scope.
+- Prefer shared IPC hooks/clients over direct page-local subscription boilerplate.
+
+### 4) Data Layer Rules
+
+- Drizzle-first for repository code.
+- Raw SQL is allowed only where justified (complex CTE/window queries, performance-critical paths).
+- Any intentionally retained raw SQL must include a short inline justification comment.
+
+### 5) Required Validation Before Handoff
+
+Run these locally for refactors/features:
+
+- `npm run check:architecture`
+- `npm run test:unit`
+- `npm run build`
+
+Also update:
+
+- `docs/SMOKE_TEST_CHECKLIST.md` with latest run log notes
+- relevant checklist/roadmap checkboxes
+
+### 6) Tests and Guardrails
+
+- Unit tests live under `src/tests/` and should target extracted pure logic first.
+- Integration contract tests should validate preload ↔ main IPC channel parity and critical event wiring.
+- Keep `.github/pull_request_template.md` requirements satisfied.
+- Keep `.github/workflows/quality.yml` green (architecture checks, unit tests, build).
+
+---
+
 ## 💡 Future Features
 
 - unified inbox

@@ -1,19 +1,13 @@
-import {BrowserWindow, dialog, ipcMain, shell} from "electron";
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import {Worker} from "node:worker_threads";
-import {ImapFlow} from "imapflow";
-import {createAppLogger, createMailDebugLogger} from "../debug/debugLog.js";
+import {Worker} from 'node:worker_threads';
+import {ImapFlow} from 'imapflow';
+import {createAppLogger, createMailDebugLogger} from '../debug/debugLog.js';
 import {
     addAccount,
-    type AddAccountPayload,
     deleteAccount,
     getAccounts,
     getAccountSyncCredentials,
     updateAccount,
-    type UpdateAccountPayload,
-} from "../db/repositories/accountsRepo.js";
+} from '../db/repositories/accountsRepo.js';
 import {
     deleteFolderByPath,
     deleteMessageLocally,
@@ -28,10 +22,10 @@ import {
     searchMessages,
     setMessageTag,
     updateFolderSettings,
-} from "../db/repositories/mailRepo.js";
-import {autodiscover, autodiscoverBasic} from "../mail/autodiscover.js";
-import {deleteMailFilter, listMailFilters, runMailFiltersForMessages, upsertMailFilter} from "../mail/filterRules.js";
-import {resolveImapSecurity} from "../mail/security.js";
+} from '../db/repositories/mailRepo.js';
+import {autodiscover, autodiscoverBasic} from '../mail/autodiscover.js';
+import {deleteMailFilter, listMailFilters, runMailFiltersForMessages, upsertMailFilter} from '../mail/filterRules.js';
+import {resolveImapSecurity} from '../mail/security.js';
 import {
     createServerFolder,
     deleteServerFolder,
@@ -39,19 +33,17 @@ import {
     moveServerMessage,
     setServerMessageFlagged,
     setServerMessageRead,
-} from "../mail/actions.js";
-import {saveDraftEmail, type SaveDraftPayload, sendEmail, type SendEmailPayload} from "../mail/send.js";
-import {downloadMessageAttachment, syncMessageBody, syncMessageSource, type SyncSummary} from "../mail/sync.js";
-import {getSqlitePath} from "../db/drizzle.js";
-import {verifyConnection, type VerifyPayload} from "../mail/verify.js";
+} from '../mail/actions.js';
+import {saveDraftEmail, sendEmail} from '../mail/send.js';
+import {downloadMessageAttachment, syncMessageBody, syncMessageSource, type SyncSummary} from '../mail/sync.js';
+import {getSqlitePath} from '../db/drizzle.js';
+import {verifyConnection} from '../mail/verify.js';
 import {
     addAddressBook,
     addCalendarEvent,
     addContact,
-    type DavDiscoveryPreviewPayload,
     type DavSyncSummary,
     discoverDav,
-    discoverDavPreview,
     editContact,
     getAddressBooks,
     getCalendarEvents,
@@ -59,7 +51,18 @@ import {
     removeAddressBook,
     removeContact,
     syncDav,
-} from "../dav/sync.js";
+} from '../dav/sync.js';
+import {registerAccountCoreIpc} from './registerAccountCoreIpc.js';
+import {registerComposeIpc} from './registerComposeIpc.js';
+import {registerDavIpc} from './registerDavIpc.js';
+import {registerMailIpc} from './registerMailIpc.js';
+import {normalizeSyncIntervalMinutes} from '../../shared/settingsRules.js';
+import {
+    broadcastAccountSyncStatus,
+    broadcastMessageReadUpdated as broadcastMessageReadUpdatedEvent,
+    broadcastToAllWindows,
+    broadcastUnreadCountUpdated,
+} from './broadcast.js';
 
 const bodyRequests = new Map<string, { cancel: () => void }>();
 const SYNC_DEBOUNCE_MS = 350;
@@ -115,14 +118,9 @@ type FolderIdleState = {
 };
 
 const IDLE_RECONNECT_MAX_MS = 60000;
-const appLogger = createAppLogger("ipc:accounts");
+const appLogger = createAppLogger('ipc:accounts');
 
 const idleWatchers = new Map<number, IdleWatcherState>();
-
-type ExportContactsPayload = {
-    format: "csv" | "vcf";
-    addressBookId?: number | null;
-};
 
 function escapeCsvValue(value: string): string {
     if (!/[",\n\r]/.test(value)) return value;
@@ -131,681 +129,159 @@ function escapeCsvValue(value: string): string {
 
 function toCsv(
     contacts: Array<{
-    full_name: string | null;
-    email: string;
-    phone?: string | null;
-    organization?: string | null;
-    title?: string | null;
-    note?: string | null;
-    }>
+        full_name: string | null;
+        email: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
+    }>,
 ): string {
-    const lines = ["full_name,email,phone,organization,title,note"];
+    const lines = ['full_name,email,phone,organization,title,note'];
     for (const contact of contacts) {
         lines.push(
             [
-                escapeCsvValue(contact.full_name ?? ""),
-                escapeCsvValue(contact.email ?? ""),
-                escapeCsvValue(contact.phone ?? ""),
-                escapeCsvValue(contact.organization ?? ""),
-                escapeCsvValue(contact.title ?? ""),
-                escapeCsvValue(contact.note ?? ""),
-            ].join(",")
+                escapeCsvValue(contact.full_name ?? ''),
+                escapeCsvValue(contact.email ?? ''),
+                escapeCsvValue(contact.phone ?? ''),
+                escapeCsvValue(contact.organization ?? ''),
+                escapeCsvValue(contact.title ?? ''),
+                escapeCsvValue(contact.note ?? ''),
+            ].join(','),
         );
     }
-    return `${lines.join("\n")}\n`;
+    return `${lines.join('\n')}\n`;
 }
 
 function escapeVCardValue(value: string): string {
-    return value.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/;/g, "\\;").replace(/,/g, "\\,");
+    return value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,');
 }
 
 function toVcf(
     contacts: Array<{
-    full_name: string | null;
-    email: string;
-    phone?: string | null;
-    organization?: string | null;
-    title?: string | null;
-    note?: string | null;
-    }>
+        full_name: string | null;
+        email: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
+    }>,
 ): string {
     return (
         contacts
             .map((contact) => {
-                const fullName = (contact.full_name || contact.email || "").trim();
-        const safeName = escapeVCardValue(fullName);
-                const safeEmail = escapeVCardValue((contact.email || "").trim());
-                const lines = ["BEGIN:VCARD", "VERSION:3.0", `FN:${safeName}`, `EMAIL;TYPE=INTERNET:${safeEmail}`];
-        if (contact.phone?.trim()) lines.push(`TEL;TYPE=CELL:${escapeVCardValue(contact.phone.trim())}`);
-        if (contact.organization?.trim()) lines.push(`ORG:${escapeVCardValue(contact.organization.trim())}`);
-        if (contact.title?.trim()) lines.push(`TITLE:${escapeVCardValue(contact.title.trim())}`);
-        if (contact.note?.trim()) lines.push(`NOTE:${escapeVCardValue(contact.note.trim())}`);
-                lines.push("END:VCARD");
-                return lines.join("\n");
+                const fullName = (contact.full_name || contact.email || '').trim();
+                const safeName = escapeVCardValue(fullName);
+                const safeEmail = escapeVCardValue((contact.email || '').trim());
+                const lines = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${safeName}`, `EMAIL;TYPE=INTERNET:${safeEmail}`];
+                if (contact.phone?.trim()) lines.push(`TEL;TYPE=CELL:${escapeVCardValue(contact.phone.trim())}`);
+                if (contact.organization?.trim()) lines.push(`ORG:${escapeVCardValue(contact.organization.trim())}`);
+                if (contact.title?.trim()) lines.push(`TITLE:${escapeVCardValue(contact.title.trim())}`);
+                if (contact.note?.trim()) lines.push(`NOTE:${escapeVCardValue(contact.note.trim())}`);
+                lines.push('END:VCARD');
+                return lines.join('\n');
             })
-            .join("\n") + "\n"
+            .join('\n') + '\n'
     );
 }
 
 export function registerAccountIpc(): void {
-    // Get all accounts (without passwords)
-    ipcMain.handle("get-accounts", async () => {
-        appLogger.debug("IPC get-accounts");
-        return await getAccounts();
+    registerAccountCoreIpc({
+        appLogger,
+        getAccounts,
+        getTotalUnreadCount,
+        addAccount,
+        updateAccount,
+        deleteAccount,
+        blockedSyncAccounts,
+        broadcastAccountAdded: (payload) => broadcastToAllWindows('account-added', payload),
+        broadcastAccountUpdated: (payload) => broadcastToAllWindows('account-updated', payload),
+        broadcastAccountDeleted: (payload) => broadcastToAllWindows('account-deleted', payload),
+        notifyAccountCountChanged,
+        notifyUnreadCountChanged,
+        runSyncAndBroadcast,
+        ensureIdleWatcher,
+        restartIdleWatcher,
+        stopIdleWatcher,
+        autodiscover,
+        autodiscoverBasic,
+        verifyConnection,
     });
 
-    ipcMain.handle("get-unread-count", async () => {
-        appLogger.debug("IPC get-unread-count");
-        return getTotalUnreadCount();
+    registerComposeIpc({
+        appLogger,
+        sendEmail,
+        saveDraftEmail,
+        runSyncAndBroadcast,
     });
 
-    // Add account: persist metadata in DB, secret in keytar (via repo)
-    ipcMain.handle("add-account", async (_event, account: AddAccountPayload) => {
-        appLogger.info("IPC add-account email=%s", account?.email ?? "");
-        const created = await addAccount(account);
-        blockedSyncAccounts.delete(created.id);
-        for (const win of BrowserWindow.getAllWindows()) {
-            win.webContents.send("account-added", created);
-        }
-        notifyAccountCountChanged();
-        void runSyncAndBroadcast(created.id, "new-account").catch((error) => {
-            console.warn("Initial sync after account add failed:", (error as any)?.message || String(error));
-        });
-        void ensureIdleWatcher(created.id);
-        return created;
+    registerMailIpc({
+        appLogger,
+        runSyncAndBroadcast,
+        listFoldersByAccount,
+        listMessagesByFolder,
+        listThreadMessagesByFolder,
+        createServerFolder,
+        deleteServerFolder,
+        deleteFolderByPath,
+        updateFolderSettings,
+        reorderCustomFolders,
+        listMailFilters,
+        upsertMailFilter,
+        deleteMailFilter,
+        runMailFiltersForMessages,
+        getMessageById,
+        searchMessages,
+        syncMessageBody,
+        syncMessageSource,
+        bodyRequests,
+        downloadMessageAttachment,
+        sanitizeAttachmentFilename,
+        setServerMessageRead,
+        notifyUnreadCountChanged,
+        broadcastMessageReadUpdated,
+        setServerMessageFlagged,
+        setMessageTag,
+        moveServerMessage,
+        getMessageContext,
+        resolveArchiveFolderPath,
+        deleteMessageLocally,
+        deleteServerMessageByContext,
     });
 
-    ipcMain.handle("update-account", async (_event, accountId: number, payload: UpdateAccountPayload) => {
-        appLogger.info("IPC update-account accountId=%d", accountId);
-        const updated = await updateAccount(accountId, payload);
-        blockedSyncAccounts.delete(accountId);
-        for (const win of BrowserWindow.getAllWindows()) {
-            win.webContents.send("account-updated", updated);
-        }
-        restartIdleWatcher(accountId);
-        return updated;
-    });
-
-    ipcMain.handle("delete-account", async (_event, accountId: number) => {
-        appLogger.warn("IPC delete-account accountId=%d", accountId);
-        const deleted = await deleteAccount(accountId);
-        blockedSyncAccounts.delete(accountId);
-        for (const win of BrowserWindow.getAllWindows()) {
-            win.webContents.send("account-deleted", deleted);
-        }
-        stopIdleWatcher(accountId);
-        notifyAccountCountChanged();
-        notifyUnreadCountChanged();
-        return deleted;
-    });
-
-    // Autodiscover settings for an email
-    ipcMain.handle("discover-mail-settings", async (_event, email: string) => {
-        try {
-            return await autodiscover(email);
-        } catch (error) {
-            console.error("discover-mail-settings failed, using basic fallback:", error);
-            return await autodiscoverBasic(email);
-        }
-    });
-
-    // Verify connection/auth for imap/pop3/smtp
-    ipcMain.handle("verify-credentials", async (_event, payload: VerifyPayload) => {
-        return await verifyConnection(payload);
-    });
-
-    ipcMain.handle("send-email", async (_event, payload: SendEmailPayload) => {
-        appLogger.info("IPC send-email accountId=%d toLen=%d", payload.accountId, String(payload.to || "").length);
-        const result = await sendEmail(payload);
-        void runSyncAndBroadcast(payload.accountId, "send").catch((error) => {
-            console.warn("Post-send sync failed:", (error as any)?.message || String(error));
-        });
-        return result;
-    });
-
-    ipcMain.handle("save-draft", async (_event, payload: SaveDraftPayload) => {
-        appLogger.debug("IPC save-draft accountId=%d", payload.accountId);
-        return await saveDraftEmail(payload);
-    });
-
-    ipcMain.handle("sync-account", async (_event, accountId: number) => {
-        appLogger.info("IPC sync-account accountId=%d", accountId);
-        return await runSyncAndBroadcast(accountId, "manual");
-    });
-
-    ipcMain.handle("get-folders", async (_event, accountId: number) => {
-        appLogger.debug("IPC get-folders accountId=%d", accountId);
-        return listFoldersByAccount(accountId);
-    });
-
-    ipcMain.handle("create-folder", async (_event, accountId: number, folderPath: string) => {
-        appLogger.info("IPC create-folder accountId=%d folderPath=%s", accountId, folderPath);
-        const created = await createServerFolder(accountId, folderPath);
-        await runSyncAndBroadcast(accountId, "create-folder");
-        return created;
-    });
-
-    ipcMain.handle("delete-folder", async (_event, accountId: number, folderPath: string) => {
-        appLogger.warn("IPC delete-folder accountId=%d folderPath=%s", accountId, folderPath);
-        const deleted = await deleteServerFolder(accountId, folderPath);
-        const local = deleteFolderByPath(accountId, folderPath);
-        await runSyncAndBroadcast(accountId, "delete-folder");
-        return {...deleted, removed: local.removed};
-    });
-
-    ipcMain.handle(
-        "update-folder-settings",
-        async (
-            _event,
-            accountId: number,
-            folderPath: string,
-            payload: {
-                customName?: string | null;
-                color?: string | null;
-                type?: string | null;
-            }
-        ) => {
-            appLogger.info("IPC update-folder-settings accountId=%d folderPath=%s", accountId, folderPath);
-            return updateFolderSettings({
-                accountId,
-                folderPath,
-                customName: payload?.customName ?? null,
-                color: payload?.color ?? null,
-                type: payload?.type ?? null,
-            });
-        }
-    );
-
-    ipcMain.handle("reorder-custom-folders", async (_event, accountId: number, orderedFolderPaths: string[]) => {
-        appLogger.info("IPC reorder-custom-folders accountId=%d count=%d", accountId, orderedFolderPaths?.length ?? 0);
-        return reorderCustomFolders(accountId, Array.isArray(orderedFolderPaths) ? orderedFolderPaths : []);
-    });
-
-    ipcMain.handle("get-folder-messages", async (_event, accountId: number, folderPath: string, limit?: number) => {
-        appLogger.debug("IPC get-folder-messages accountId=%d folderPath=%s limit=%s", accountId, folderPath, limit ?? "");
-        return listMessagesByFolder(accountId, folderPath, limit ?? 100);
-    });
-
-    ipcMain.handle("get-folder-threads", async (_event, accountId: number, folderPath: string, limit?: number) => {
-        appLogger.debug("IPC get-folder-threads accountId=%d folderPath=%s limit=%s", accountId, folderPath, limit ?? "");
-        return listThreadMessagesByFolder(accountId, folderPath, limit ?? 100);
-    });
-
-    ipcMain.handle("get-mail-filters", async (_event, accountId: number) => {
-        appLogger.debug("IPC get-mail-filters accountId=%d", accountId);
-        return listMailFilters(accountId);
-    });
-
-    ipcMain.handle(
-        "save-mail-filter",
-        async (
-            _event,
-            accountId: number,
-            payload: {
-                id?: number;
-                name: string;
-                enabled?: number;
-                run_on_incoming?: number;
-                match_mode?: "all" | "any" | "all_messages";
-                stop_processing?: number;
-                conditions?: Array<{
-                    field?: "subject" | "from" | "to" | "body";
-                    operator?: "contains" | "not_contains" | "equals" | "starts_with" | "ends_with";
-                    value?: string | null;
-                }>;
-                actions?: Array<{
-                    type?: "move_to_folder" | "mark_read" | "mark_unread" | "star" | "unstar";
-                    value?: string | null;
-                }>;
-            }
-        ) => {
-            return upsertMailFilter(accountId, payload ?? {name: "New filter"});
-        }
-    );
-
-    ipcMain.handle("delete-mail-filter", async (_event, accountId: number, filterId: number) => {
-        return deleteMailFilter(accountId, filterId);
-    });
-
-    ipcMain.handle(
-        "run-mail-filters",
-        async (
-            _event,
-            accountId: number,
-            payload?: {
-                filterId?: number;
-                folderPath?: string | null;
-                limit?: number;
-            }
-        ) => {
-            const folders = listFoldersByAccount(accountId);
-            const requestedFolder = String(payload?.folderPath || "").trim();
-            const fallbackInbox =
-                folders.find((folder) => (folder.type || "").toLowerCase() === "inbox") ||
-                folders.find((folder) => folder.path.toLowerCase() === "inbox") ||
-                folders[0];
-            if (!fallbackInbox) {
-                return {
-                    accountId,
-                    trigger: "manual" as const,
-                    processed: 0,
-                    matched: 0,
-                    actionsApplied: 0,
-                    errors: 0,
-                };
-            }
-            const selectedFolderPath = requestedFolder || fallbackInbox.path;
-            const limit = Math.max(1, Math.min(1000, Number(payload?.limit || 300)));
-            const messageIds = listMessagesByFolder(accountId, selectedFolderPath, limit).map((message) => message.id);
-            const filterIds = Number.isFinite(Number(payload?.filterId)) ? [Number(payload?.filterId)] : undefined;
-            return runMailFiltersForMessages(accountId, messageIds, "manual", {filterIds});
-        }
-    );
-
-    ipcMain.handle("get-message", async (_event, messageId: number) => {
-        appLogger.debug("IPC get-message messageId=%d", messageId);
-        return getMessageById(messageId);
-    });
-
-    ipcMain.handle(
-        "search-messages",
-        async (_event, accountId: number, query: string, folderPath?: string | null, limit?: number) => {
-            appLogger.debug(
-                "IPC search-messages accountId=%d folderPath=%s queryLen=%d limit=%s",
-                accountId,
-                folderPath ?? "",
-                (query || "").length,
-                limit ?? ""
-            );
-            return searchMessages(accountId, query, folderPath ?? null, limit ?? 200);
-        }
-    );
-
-    ipcMain.handle("discover-dav", async (_event, accountId: number) => {
-        return discoverDav(accountId);
-    });
-
-    ipcMain.handle("discover-dav-preview", async (_event, payload: DavDiscoveryPreviewPayload) => {
-        appLogger.debug("IPC discover-dav-preview email=%s", payload?.email ?? "");
-        return discoverDavPreview(payload);
-    });
-
-    ipcMain.handle("sync-dav", async (_event, accountId: number) => {
-        return syncDav(accountId);
-    });
-
-    ipcMain.handle(
-        "get-contacts",
-        async (_event, accountId: number, query?: string | null, limit?: number, addressBookId?: number | null) => {
-            return getContacts(accountId, query ?? null, limit ?? 200, addressBookId ?? null);
-        }
-    );
-
-    ipcMain.handle("get-recent-recipients", async (_event, accountId: number, query?: string | null, limit?: number) => {
-        return listRecentRecipients(accountId, query ?? null, limit ?? 20);
-    });
-
-    ipcMain.handle("get-address-books", async (_event, accountId: number) => {
-        return getAddressBooks(accountId);
-    });
-
-    ipcMain.handle("add-address-book", async (_event, accountId: number, name: string) => {
-        return addAddressBook(accountId, name);
-    });
-
-    ipcMain.handle(
-        "add-contact",
-        async (
-            _event,
-            accountId: number,
-            payload: {
-                addressBookId?: number | null;
-                fullName?: string | null;
-                email: string;
-                phone?: string | null;
-                organization?: string | null;
-                title?: string | null;
-                note?: string | null;
-            }
-        ) => {
-            return addContact(accountId, payload);
-        }
-    );
-
-    ipcMain.handle(
-        "update-contact",
-        async (
-            _event,
-            contactId: number,
-            payload: {
-                addressBookId?: number | null;
-                fullName?: string | null;
-                email?: string;
-                phone?: string | null;
-                organization?: string | null;
-                title?: string | null;
-                note?: string | null;
-            }
-        ) => {
-            return editContact(contactId, payload);
-        }
-    );
-
-    ipcMain.handle("delete-address-book", async (_event, accountId: number, addressBookId: number) => {
-        return removeAddressBook(accountId, addressBookId);
-    });
-
-    ipcMain.handle("delete-contact", async (_event, contactId: number) => {
-        return removeContact(contactId);
-    });
-
-    ipcMain.handle("export-contacts", async (event, accountId: number, payload: ExportContactsPayload) => {
-        const format = payload?.format === "vcf" ? "vcf" : "csv";
-        const addressBookId = payload?.addressBookId ?? null;
-        const contacts = getContacts(accountId, null, 100000, addressBookId);
-        const content = format === "vcf" ? toVcf(contacts) : toCsv(contacts);
-        const defaultName = `contacts-${new Date().toISOString().slice(0, 10)}.${format}`;
-        const parentWindow = BrowserWindow.fromWebContents(event.sender);
-        const dialogOptions = {
-            title: "Export Contacts",
-            defaultPath: path.join(os.homedir(), defaultName),
-            filters: format === "vcf" ? [{name: "vCard", extensions: ["vcf"]}] : [{name: "CSV", extensions: ["csv"]}],
-        };
-        const save = parentWindow
-            ? await dialog.showSaveDialog(parentWindow, dialogOptions)
-            : await dialog.showSaveDialog(dialogOptions);
-        if (save.canceled || !save.filePath) {
-            return {
-                canceled: true,
-                count: contacts.length,
-                path: null,
-                format,
-            };
-        }
-        await fs.writeFile(save.filePath, content, "utf8");
-        return {
-            canceled: false,
-            count: contacts.length,
-            path: save.filePath,
-            format,
-        };
-    });
-
-    ipcMain.handle(
-        "get-calendar-events",
-        async (_event, accountId: number, startIso?: string | null, endIso?: string | null, limit?: number) => {
-            return getCalendarEvents(accountId, startIso ?? null, endIso ?? null, limit ?? 500);
-        }
-    );
-
-    ipcMain.handle(
-        "add-calendar-event",
-        async (
-            _event,
-            accountId: number,
-            payload: {
-                summary?: string | null;
-                description?: string | null;
-                location?: string | null;
-                startsAt: string;
-                endsAt: string;
-            }
-        ) => {
-            return addCalendarEvent(accountId, payload);
-        }
-    );
-
-    ipcMain.handle("get-message-body", async (event, messageId: number, requestId?: string) => {
-        appLogger.debug("IPC get-message-body messageId=%d requestId=%s", messageId, requestId ?? "");
-        const key = `${event.sender.id}:${requestId ?? `msg-${messageId}`}`;
-        let cancelled = false;
-        let clientRef: any = null;
-        bodyRequests.set(key, {
-            cancel: () => {
-                cancelled = true;
-                try {
-                    clientRef?.close?.();
-                } catch {
-                    // ignore
-                }
-                try {
-                    clientRef?.logout?.();
-                } catch {
-                    // ignore
-                }
-            },
-        });
-
-        try {
-            return await syncMessageBody(messageId, {
-                isCancelled: () => cancelled,
-                onClient: (client) => {
-                    clientRef = client;
-                },
-            });
-        } finally {
-            bodyRequests.delete(key);
-        }
-    });
-
-    ipcMain.handle("get-message-source", async (_event, messageId: number) => {
-        appLogger.debug("IPC get-message-source messageId=%d", messageId);
-        return syncMessageSource(messageId);
-    });
-
-    ipcMain.handle("cancel-message-body", async (event, requestId: string) => {
-        appLogger.debug("IPC cancel-message-body requestId=%s", requestId);
-        const key = `${event.sender.id}:${requestId}`;
-        const req = bodyRequests.get(key);
-        if (req) {
-            req.cancel();
-            bodyRequests.delete(key);
-        }
-        return {ok: true as const};
-    });
-
-    ipcMain.handle(
-        "open-message-attachment",
-        async (event, messageId: number, attachmentIndex: number, action?: "open" | "save" | "prompt") => {
-            appLogger.info(
-                "IPC open-message-attachment messageId=%d attachmentIndex=%d action=%s",
-                messageId,
-                attachmentIndex,
-                action ?? "prompt"
-            );
-            const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
-            const attachment = await downloadMessageAttachment(messageId, attachmentIndex);
-            const safeName = sanitizeAttachmentFilename(attachment.filename);
-            const requestedAction = action ?? "prompt";
-            if (requestedAction === "open") {
-                const targetPath = path.join(os.tmpdir(), `lunamail-${Date.now()}-${safeName}`);
-                await fs.writeFile(targetPath, attachment.content);
-                const openError = await shell.openPath(targetPath);
-                if (openError) throw new Error(openError);
-                return {ok: true as const, action: "opened" as const, path: targetPath};
-            }
-            if (requestedAction === "save") {
-                const saveDialogOptions = {
-                    title: "Save attachment",
-                    defaultPath: safeName,
-                    showsTagField: false,
-                };
-                const saveResult = parentWindow
-                    ? await dialog.showSaveDialog(parentWindow, saveDialogOptions)
-                    : await dialog.showSaveDialog(saveDialogOptions);
-                if (saveResult.canceled || !saveResult.filePath) {
-                    return {ok: false as const, action: "cancelled" as const};
-                }
-                await fs.writeFile(saveResult.filePath, attachment.content);
-                return {ok: true as const, action: "saved" as const, path: saveResult.filePath};
-            }
-            const dialogOptions = {
-                type: "question" as const,
-                title: "Attachment",
-                message: safeName,
-                detail: "Choose how to continue with this attachment.",
-                buttons: ["Open", "Save As...", "Cancel"],
-                defaultId: 0,
-                cancelId: 2,
-            };
-            const openOrSave = parentWindow
-                ? await dialog.showMessageBox(parentWindow, dialogOptions)
-                : await dialog.showMessageBox(dialogOptions);
-
-            if (openOrSave.response === 2) {
-                return {ok: false as const, action: "cancelled" as const};
-            }
-
-            if (openOrSave.response === 0) {
-                const targetPath = path.join(os.tmpdir(), `lunamail-${Date.now()}-${safeName}`);
-                await fs.writeFile(targetPath, attachment.content);
-                const openError = await shell.openPath(targetPath);
-                if (openError) throw new Error(openError);
-                return {ok: true as const, action: "opened" as const, path: targetPath};
-            }
-
-            const saveDialogOptions = {
-                title: "Save attachment",
-                defaultPath: safeName,
-                showsTagField: false,
-            };
-            const saveResult = parentWindow
-                ? await dialog.showSaveDialog(parentWindow, saveDialogOptions)
-                : await dialog.showSaveDialog(saveDialogOptions);
-            if (saveResult.canceled || !saveResult.filePath) {
-                return {ok: false as const, action: "cancelled" as const};
-            }
-            await fs.writeFile(saveResult.filePath, attachment.content);
-            return {ok: true as const, action: "saved" as const, path: saveResult.filePath};
-        }
-    );
-
-    ipcMain.handle("set-message-read", async (_event, messageId: number, isRead: number) => {
-        appLogger.debug("IPC set-message-read messageId=%d isRead=%d", messageId, isRead);
-        const result = await setServerMessageRead(messageId, isRead);
-        notifyUnreadCountChanged();
-        broadcastMessageReadUpdated(result);
-        return result;
-    });
-
-    ipcMain.handle("mark-message-read", async (_event, messageId: number) => {
-        appLogger.debug("IPC mark-message-read messageId=%d", messageId);
-        const result = await setServerMessageRead(messageId, 1);
-        notifyUnreadCountChanged();
-        broadcastMessageReadUpdated(result);
-        return result;
-    });
-
-    ipcMain.handle("mark-message-unread", async (_event, messageId: number) => {
-        appLogger.debug("IPC mark-message-unread messageId=%d", messageId);
-        const result = await setServerMessageRead(messageId, 0);
-        notifyUnreadCountChanged();
-        broadcastMessageReadUpdated(result);
-        return result;
-    });
-
-    ipcMain.handle("set-message-flagged", async (_event, messageId: number, isFlagged: number) => {
-        appLogger.debug("IPC set-message-flagged messageId=%d isFlagged=%d", messageId, isFlagged);
-        const result = await setServerMessageFlagged(messageId, isFlagged);
-        void runSyncAndBroadcast(result.accountId, "flag-change").catch((error) => {
-            console.warn("Post-flag sync failed:", (error as any)?.message || String(error));
-        });
-        return result;
-    });
-
-    ipcMain.handle("set-message-tag", async (_event, messageId: number, tag: string | null) => {
-        appLogger.debug("IPC set-message-tag messageId=%d tag=%s", messageId, String(tag ?? ""));
-        return setMessageTag(messageId, tag ?? null);
-    });
-
-    ipcMain.handle("move-message", async (_event, messageId: number, targetFolderPath: string) => {
-        appLogger.info("IPC move-message messageId=%d targetFolderPath=%s", messageId, targetFolderPath);
-        return await moveServerMessage(messageId, targetFolderPath);
-    });
-
-    ipcMain.handle("archive-message", async (_event, messageId: number) => {
-        appLogger.info("IPC archive-message messageId=%d", messageId);
-        const ctx = getMessageContext(messageId);
-        if (!ctx) throw new Error(`Message ${messageId} not found`);
-        const archivePath = resolveArchiveFolderPath(ctx.accountId, ctx.folderPath);
-        if (!archivePath) throw new Error("No archive folder available for this account.");
-        return await moveServerMessage(messageId, archivePath);
-    });
-
-    ipcMain.handle("delete-message", async (_event, messageId: number) => {
-        appLogger.warn("IPC delete-message messageId=%d", messageId);
-        const ctx = getMessageContext(messageId);
-        if (!ctx) throw new Error(`Message ${messageId} not found`);
-        const {accountId} = deleteMessageLocally(messageId);
-        notifyUnreadCountChanged();
-        void (async () => {
-            try {
-                await deleteServerMessageByContext({
-                    accountId: ctx.accountId,
-                    folderPath: ctx.folderPath,
-                    uid: ctx.uid,
-                });
-            } catch (error) {
-                console.error("Server delete failed, syncing mailbox for reconciliation:", error);
-            } finally {
-                try {
-                    await runSyncAndBroadcast(accountId, "delete");
-                } catch {
-                    // ignore async sync failures for queued deletes
-                }
-            }
-        })();
-        return {accountId, queued: true as const};
+    registerDavIpc({
+        discoverDav,
+        syncDav,
+        getContacts,
+        listRecentRecipients,
+        getAddressBooks,
+        addAddressBook,
+        addContact,
+        editContact,
+        removeAddressBook,
+        removeContact,
+        toVcf,
+        toCsv,
+        getCalendarEvents,
+        addCalendarEvent,
     });
 }
 
 export function startAccountAutoSync(): void {
     if (autoSyncTimer) return;
-    appLogger.info("Starting account auto sync intervalMs=%d", autoSyncIntervalMs);
-    void runAutoSyncCycle("startup");
+    appLogger.info('Starting account auto sync intervalMs=%d', autoSyncIntervalMs);
+    void runAutoSyncCycle('startup');
     void ensureIdleWatchersForAllAccounts();
     autoSyncTimer = setInterval(() => {
-        void runAutoSyncCycle("interval");
+        void runAutoSyncCycle('interval');
     }, autoSyncIntervalMs);
-}
-
-export async function warmupAccountCaches(): Promise<{
-    accounts: number;
-    synced: number;
-    failed: number;
-}> {
-    const accounts = await getAccounts();
-    if (accounts.length === 0) {
-        return {accounts: 0, synced: 0, failed: 0};
-    }
-
-    let synced = 0;
-    let failed = 0;
-    for (const account of accounts) {
-        if (blockedSyncAccounts.has(account.id)) {
-            failed += 1;
-            continue;
-        }
-        try {
-            await runSyncAndBroadcast(account.id, "startup-warmup");
-            synced += 1;
-        } catch {
-            failed += 1;
-        }
-    }
-
-    return {
-        accounts: accounts.length,
-        synced,
-        failed,
-    };
 }
 
 function resolveArchiveFolderPath(accountId: number, currentFolderPath: string | null): string | null {
     const folders = listFoldersByAccount(accountId);
     if (folders.length === 0) return null;
-    const current = String(currentFolderPath || "").toLowerCase();
-    const byType = folders.find((folder) => (folder.type || "").toLowerCase() === "archive");
+    const current = String(currentFolderPath || '').toLowerCase();
+    const byType = folders.find((folder) => (folder.type || '').toLowerCase() === 'archive');
     if (byType?.path && byType.path.toLowerCase() !== current) return byType.path;
 
     const byPath = folders.find((folder) => /archive|all mail/.test(folder.path.toLowerCase()));
@@ -816,20 +292,20 @@ function resolveArchiveFolderPath(accountId: number, currentFolderPath: string |
 
 export function stopAccountAutoSync(): void {
     if (!autoSyncTimer) return;
-    appLogger.info("Stopping account auto sync");
+    appLogger.info('Stopping account auto sync');
     clearInterval(autoSyncTimer);
     autoSyncTimer = null;
     stopAllIdleWatchers();
 }
 
 export function setAutoSyncIntervalMinutes(minutes: number): void {
-    const normalized = Math.min(120, Math.max(1, Math.round(Number(minutes) || 2)));
+    const normalized = normalizeSyncIntervalMinutes(minutes);
     autoSyncIntervalMs = normalized * 60 * 1000;
-    appLogger.info("Set auto sync interval minutes=%d", normalized);
+    appLogger.info('Set auto sync interval minutes=%d', normalized);
     if (!autoSyncTimer) return;
     clearInterval(autoSyncTimer);
     autoSyncTimer = setInterval(() => {
-        void runAutoSyncCycle("interval");
+        void runAutoSyncCycle('interval');
     }, autoSyncIntervalMs);
 }
 
@@ -849,7 +325,7 @@ export function setNewMailListener(
         source: string;
         target: { accountId: number; folderPath: string; messageId: number } | null;
     }) => void)
-        | null
+        | null,
 ): void {
     newMailListener = listener;
 }
@@ -858,9 +334,9 @@ export function getCurrentUnreadCount(): number {
     return getTotalUnreadCount();
 }
 
-async function runAutoSyncCycle(source: "startup" | "interval"): Promise<void> {
+async function runAutoSyncCycle(source: 'startup' | 'interval'): Promise<void> {
     if (autoSyncRunning) return;
-    appLogger.debug("runAutoSyncCycle source=%s", source);
+    appLogger.debug('runAutoSyncCycle source=%s', source);
     autoSyncRunning = true;
     try {
         const accounts = await getAccounts();
@@ -879,11 +355,11 @@ async function runAutoSyncCycle(source: "startup" | "interval"): Promise<void> {
 }
 
 async function runSyncAndBroadcast(accountId: number, source: string): Promise<AccountSyncSummary> {
-    appLogger.debug("runSyncAndBroadcast accountId=%d source=%s", accountId, source);
+    appLogger.debug('runSyncAndBroadcast accountId=%d source=%s', accountId, source);
     const blockedReason = blockedSyncAccounts.get(accountId);
     if (blockedReason) {
         const error = `Sync paused for this account: ${blockedReason}. Update account settings or restart app.`;
-        broadcastSync({accountId, status: "error", error, source});
+        broadcastSync({accountId, status: 'error', error, source});
         throw new Error(error);
     }
 
@@ -925,7 +401,7 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
         state.cancelCurrent = () => {
             cancelled = true;
             try {
-                activeWorker?.postMessage({type: "cancel"});
+                activeWorker?.postMessage({type: 'cancel'});
             } catch {
                 // ignore post errors
             }
@@ -936,8 +412,8 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
             }
         };
 
-        broadcastSync({accountId, status: "syncing", source});
-        appLogger.info("Sync started accountId=%d source=%s", accountId, source);
+        broadcastSync({accountId, status: 'syncing', source});
+        appLogger.info('Sync started accountId=%d source=%s', accountId, source);
 
         try {
             const mailSummary = await syncAccountMailboxInWorker(accountId, (worker) => {
@@ -945,13 +421,13 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
             });
             if (cancelled && state.queued) continue;
 
-            if (source !== "manual" && mailSummary.newMessageIds.length > 0) {
+            if (source !== 'manual' && mailSummary.newMessageIds.length > 0) {
                 try {
-                    await runMailFiltersForMessages(accountId, mailSummary.newMessageIds, "incoming");
+                    await runMailFiltersForMessages(accountId, mailSummary.newMessageIds, 'incoming');
                 } catch (filterError) {
                     console.warn(
                         `Mail filter run failed for account ${accountId}:`,
-                        (filterError as any)?.message || String(filterError)
+                        (filterError as any)?.message || String(filterError),
                     );
                 }
             }
@@ -960,13 +436,13 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
             try {
                 davSummary = await syncDav(accountId);
             } catch (davError: any) {
-                createMailDebugLogger("carddav", `sync:${accountId}`).error(
-                    "DAV sync skipped: %s",
-                    davError?.message || String(davError)
+                createMailDebugLogger('carddav', `sync:${accountId}`).error(
+                    'DAV sync skipped: %s',
+                    davError?.message || String(davError),
                 );
-                createMailDebugLogger("caldav", `sync:${accountId}`).error(
-                    "DAV sync skipped: %s",
-                    davError?.message || String(davError)
+                createMailDebugLogger('caldav', `sync:${accountId}`).error(
+                    'DAV sync skipped: %s',
+                    davError?.message || String(davError),
                 );
                 console.warn(`DAV sync skipped for account ${accountId}:`, davError?.message || String(davError));
             }
@@ -984,13 +460,13 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
                     target: mailSummary.newestMessageTarget,
                 });
             }
-            broadcastSync({accountId, status: "done", summary, source});
+            broadcastSync({accountId, status: 'done', summary, source});
             appLogger.info(
-                "Sync done accountId=%d source=%s messages=%d newMessages=%d",
+                'Sync done accountId=%d source=%s messages=%d newMessages=%d',
                 accountId,
                 source,
                 summary.messages ?? 0,
-                summary.newMessages ?? 0
+                summary.newMessages ?? 0,
             );
             state.pending?.resolve(summary);
             state.pending = null;
@@ -1007,14 +483,14 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
                     stopIdleWatcher(accountId);
                     broadcastSync({
                         accountId,
-                        status: "error",
+                        status: 'error',
                         error: `Sync paused: ${message}. Password or authentication may have changed. Update account settings or restart app.`,
                         source,
                     });
-                    appLogger.warn("Sync paused accountId=%d source=%s error=%s", accountId, source, message);
+                    appLogger.warn('Sync paused accountId=%d source=%s error=%s', accountId, source, message);
                 } else {
-                    broadcastSync({accountId, status: "error", error: message, source});
-                    appLogger.warn("Sync error accountId=%d source=%s error=%s", accountId, source, message);
+                    broadcastSync({accountId, status: 'error', error: message, source});
+                    appLogger.warn('Sync error accountId=%d source=%s error=%s', accountId, source, message);
                 }
             }
             state.pending?.reject(error);
@@ -1029,10 +505,10 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 
 async function syncAccountMailboxInWorker(
     accountId: number,
-    onWorkerReady?: (worker: Worker) => void
+    onWorkerReady?: (worker: Worker) => void,
 ): Promise<SyncSummary> {
     const credentials = await getAccountSyncCredentials(accountId);
-    const worker = new Worker(new URL("../workers/mailSyncWorker.mjs", import.meta.url), {
+    const worker = new Worker(new URL('../workers/mailSyncWorker.js', import.meta.url), {
         workerData: {
             dbPath: getSqlitePath(),
             credentials,
@@ -1049,26 +525,26 @@ async function syncAccountMailboxInWorker(
             fn();
         };
 
-        worker.on("message", (payload: unknown) => {
-            if (!payload || typeof payload !== "object") return;
+        worker.on('message', (payload: unknown) => {
+            if (!payload || typeof payload !== 'object') return;
             const data = payload as { type?: string; summary?: SyncSummary; error?: string };
-            if (data.type === "result" && data.summary) {
+            if (data.type === 'result' && data.summary) {
                 finish(() => resolve(data.summary as SyncSummary));
                 return;
             }
-            if (data.type === "error") {
-                finish(() => reject(new Error(data.error || "Mailbox sync worker failed")));
+            if (data.type === 'error') {
+                finish(() => reject(new Error(data.error || 'Mailbox sync worker failed')));
             }
         });
 
-        worker.on("error", (error) => {
+        worker.on('error', (error) => {
             finish(() => reject(error));
         });
 
-        worker.on("exit", (code) => {
+        worker.on('exit', (code) => {
             if (settled) return;
             if (code === 0) {
-                finish(() => reject(new Error("Mailbox sync worker exited without result")));
+                finish(() => reject(new Error('Mailbox sync worker exited without result')));
                 return;
             }
             finish(() => reject(new Error(`Mailbox sync worker exited with code ${code}`)));
@@ -1082,7 +558,7 @@ function getAccountSyncState(accountId: number): AccountSyncState {
     const created: AccountSyncState = {
         inFlight: false,
         queued: false,
-        latestSource: "manual",
+        latestSource: 'manual',
         timer: null,
         runner: null,
         cancelCurrent: null,
@@ -1103,17 +579,13 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 function broadcastSync(payload: any) {
-    for (const win of BrowserWindow.getAllWindows()) {
-        win.webContents.send("account-sync-status", payload);
-    }
+    broadcastAccountSyncStatus(payload);
 }
 
 function notifyUnreadCountChanged(): void {
     const count = getTotalUnreadCount();
-    appLogger.debug("Broadcast unread-count-updated count=%d", count);
-    for (const win of BrowserWindow.getAllWindows()) {
-        win.webContents.send("unread-count-updated", count);
-    }
+    appLogger.debug('Broadcast unread-count-updated count=%d', count);
+    broadcastUnreadCountUpdated(count);
     if (!unreadCountListener) return;
     unreadCountListener(count);
 }
@@ -1127,9 +599,7 @@ function broadcastMessageReadUpdated(payload: {
     totalCount: number;
     isRead: number;
 }): void {
-    for (const win of BrowserWindow.getAllWindows()) {
-        win.webContents.send("message-read-updated", payload);
-    }
+    broadcastMessageReadUpdatedEvent(payload);
 }
 
 function notifyAccountCountChanged(): void {
@@ -1140,13 +610,13 @@ function notifyAccountCountChanged(): void {
         })
         .catch(() => {
             // ignore listener failures
-    });
+        });
 }
 
 function sanitizeAttachmentFilename(filename: string): string {
-    const trimmed = String(filename || "").trim();
-    const normalized = trimmed.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_").replace(/\s+/g, " ");
-    if (!normalized || normalized === "." || normalized === "..") return "attachment.bin";
+    const trimmed = String(filename || '').trim();
+    const normalized = trimmed.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_').replace(/\s+/g, ' ');
+    if (!normalized || normalized === '.' || normalized === '..') return 'attachment.bin';
     return normalized.slice(0, 255);
 }
 
@@ -1202,7 +672,7 @@ async function connectIdleWatcher(state: IdleWatcherState): Promise<void> {
             port: account.imap_port,
             ...resolveImapSecurity(account.imap_secure),
             auth: {user: account.user, pass: account.password},
-            logger: createMailDebugLogger("imap", `idle-probe:${state.accountId}`),
+            logger: createMailDebugLogger('imap', `idle-probe:${state.accountId}`),
         });
         let mailboxes: any[] = [];
         try {
@@ -1218,7 +688,7 @@ async function connectIdleWatcher(state: IdleWatcherState): Promise<void> {
         if (state.stopped) return;
 
         const inboxPath = resolveInboxPath(mailboxes);
-        const mailboxPaths = inboxPath ? [inboxPath] : ["INBOX"];
+        const mailboxPaths = inboxPath ? [inboxPath] : ['INBOX'];
         const keep = new Set(mailboxPaths);
 
         for (const mailboxPath of mailboxPaths) {
@@ -1250,7 +720,7 @@ async function connectIdleWatcher(state: IdleWatcherState): Promise<void> {
             }
             if (state.folders.size === 0) {
                 const fallbackFolder: FolderIdleState = {
-                    mailboxPath: "INBOX",
+                    mailboxPath: 'INBOX',
                     connecting: false,
                     reconnectTimer: null,
                     reconnectAttempt: 0,
@@ -1274,29 +744,32 @@ async function connectFolderIdleWatcher(state: IdleWatcherState, folder: FolderI
             port: account.imap_port,
             ...resolveImapSecurity(account.imap_secure),
             auth: {user: account.user, pass: account.password},
-            logger: createMailDebugLogger("imap", `idle:${state.accountId}:${folder.mailboxPath}`),
+            logger: createMailDebugLogger('imap', `idle:${state.accountId}:${folder.mailboxPath}`),
         });
 
-        client.on("exists", () => {
+        client.on('exists', () => {
             if (state.stopped) return;
-            void runSyncAndBroadcast(state.accountId, "push").catch((error) => {
+            void runSyncAndBroadcast(state.accountId, 'push').catch((error) => {
                 if (state.stopped) return;
                 console.warn(
                     `Push-triggered sync failed for account ${state.accountId}:`,
-                    (error as any)?.message || String(error)
+                    (error as any)?.message || String(error),
                 );
             });
         });
 
-        client.on("close", () => {
+        client.on('close', () => {
             if (state.stopped) return;
             scheduleFolderIdleReconnect(state, folder);
         });
 
-        client.on("error", (error: any) => {
+        client.on('error', (error: any) => {
             if (state.stopped) return;
             const message = error?.message || String(error);
-            console.error(`IMAP IDLE watcher error for account ${state.accountId} folder ${folder.mailboxPath}:`, message);
+            console.error(
+                `IMAP IDLE watcher error for account ${state.accountId} folder ${folder.mailboxPath}:`,
+                message,
+            );
             scheduleFolderIdleReconnect(state, folder);
         });
 
@@ -1307,7 +780,10 @@ async function connectFolderIdleWatcher(state: IdleWatcherState, folder: FolderI
     } catch (error: any) {
         if (!state.stopped) {
             const message = error?.message || String(error);
-            console.error(`IMAP IDLE connect failed for account ${state.accountId} folder ${folder.mailboxPath}:`, message);
+            console.error(
+                `IMAP IDLE connect failed for account ${state.accountId} folder ${folder.mailboxPath}:`,
+                message,
+            );
             scheduleFolderIdleReconnect(state, folder);
         }
     } finally {
@@ -1376,30 +852,30 @@ function resolveInboxPath(mailboxes: any[]): string | null {
     if (!Array.isArray(mailboxes) || mailboxes.length === 0) return null;
     const selectable = mailboxes.filter((box) => {
         const flags = box?.flags;
-        if (flags && typeof flags?.has === "function" && flags.has("\\Noselect")) return false;
+        if (flags && typeof flags?.has === 'function' && flags.has('\\Noselect')) return false;
         return Boolean(box?.path);
     });
-    const bySpecialUse = selectable.find((box) => String(box?.specialUse || "").toLowerCase() === "\\inbox");
+    const bySpecialUse = selectable.find((box) => String(box?.specialUse || '').toLowerCase() === '\\inbox');
     if (bySpecialUse?.path) return String(bySpecialUse.path);
-    const byPath = selectable.find((box) => String(box?.path || "").toLowerCase() === "inbox");
+    const byPath = selectable.find((box) => String(box?.path || '').toLowerCase() === 'inbox');
     if (byPath?.path) return String(byPath.path);
-    const byName = selectable.find((box) => String(box?.name || "").toLowerCase() === "inbox");
+    const byName = selectable.find((box) => String(box?.name || '').toLowerCase() === 'inbox');
     if (byName?.path) return String(byName.path);
     return null;
 }
 
 function isCredentialFailure(message: string): boolean {
-    const text = String(message || "").toLowerCase();
+    const text = String(message || '').toLowerCase();
     return (
-        text.includes("authentication failed") ||
-        text.includes("auth failed") ||
-        text.includes("invalid credentials") ||
-        text.includes("login failed") ||
-        text.includes("password") ||
-        text.includes("oauth") ||
-        text.includes("not authenticated") ||
-        text.includes("invalid user") ||
-        text.includes("application-specific password") ||
+        text.includes('authentication failed') ||
+        text.includes('auth failed') ||
+        text.includes('invalid credentials') ||
+        text.includes('login failed') ||
+        text.includes('password') ||
+        text.includes('oauth') ||
+        text.includes('not authenticated') ||
+        text.includes('invalid user') ||
+        text.includes('application-specific password') ||
         /\bauth\b/.test(text)
     );
 }

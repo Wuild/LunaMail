@@ -1,8 +1,9 @@
-import {app, BrowserWindow} from "electron";
-import path from "path";
-import {fileURLToPath} from "url";
-import {loadWindowContent} from "./loadWindowContent.js";
-import {getAppSettingsSync, getSpellCheckerLanguages} from "../settings/store.js";
+import {app, BrowserWindow} from 'electron';
+import path from 'path';
+import {fileURLToPath} from 'url';
+import {loadWindowContent} from './loadWindowContent.js';
+import {getAppSettingsSync, getSpellCheckerLanguages} from '../settings/store.js';
+import {attachWindowShortcuts, buildSecureWebPreferences, createFramelessAppWindow} from './windowFactory.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -33,67 +34,53 @@ export function openComposeWindow(parentWindow?: BrowserWindow, draft?: ComposeD
         return;
     }
 
-    const preloadPath = path.join(app.getAppPath(), "preload.cjs");
+    const preloadPath = path.join(app.getAppPath(), 'preload.cjs');
 
-    composeWin = new BrowserWindow({
+    composeWin = createFramelessAppWindow({
         parent: parentWindow && !parentWindow.isDestroyed() ? parentWindow : undefined,
         modal: false,
-        frame: false,
-        titleBarStyle: "hidden",
         width: 920,
         height: 760,
         minWidth: 760,
         minHeight: 620,
-        resizable: true,
-        maximizable: true,
-        autoHideMenuBar: true,
-        title: "Compose Email",
-        webPreferences: {
-            preload: preloadPath,
-            contextIsolation: true,
-            nodeIntegration: false,
+        title: 'Compose Email',
+        webPreferences: buildSecureWebPreferences({
+            preloadPath,
             spellcheck: true,
-        },
+        }),
     });
-    composeWin.setMenuBarVisibility(false);
-    composeWin.removeMenu();
     composeWin.webContents.session.setSpellCheckerLanguages(getSpellCheckerLanguages(getAppSettingsSync().language));
+    attachWindowShortcuts(composeWin, {closeOnEscape: true});
 
-    composeWin.webContents.on("before-input-event", (event, input) => {
-        if (input.type !== "keyDown") return;
-        const key = String(input.key || "").toLowerCase();
-        if (key === "escape") {
-            event.preventDefault();
-            if (composeWin && !composeWin.isDestroyed()) {
-                composeWin.close();
-            }
-            return;
-        }
-        const isF12 = key === "f12";
-        const isCtrlShiftI = input.control && input.shift && key === "i";
-        const isCmdAltI = input.meta && input.alt && key === "i";
-        if (!isF12 && !isCtrlShiftI && !isCmdAltI) return;
-        event.preventDefault();
-        if (composeWin && !composeWin.isDestroyed()) {
-            composeWin.webContents.openDevTools({mode: "detach"});
-        }
-    });
-
-    composeWin.on("closed", () => {
+    composeWin.on('closed', () => {
         composeWin = null;
     });
 
-    composeWin.webContents.on("did-finish-load", () => {
+    composeWin.webContents.on('did-finish-load', () => {
         pushDraftToComposeWindow();
     });
 
     void loadWindowContent(composeWin, {
         isDev,
-        devUrls: ["http://127.0.0.1:5174/compose.html", "http://127.0.0.1:5174/src/renderer/compose.html"],
-        prodFiles: [path.join(__dirname, "..", "..", "renderer/compose.html")],
-        windowName: "compose",
+        devUrls: [
+            {
+                target: 'http://127.0.0.1:5174/window.html',
+                query: {window: 'compose'},
+            },
+            {
+                target: 'http://127.0.0.1:5174/src/renderer/window.html',
+                query: {window: 'compose'},
+            },
+        ],
+        prodFiles: [
+            {
+                target: path.join(__dirname, '..', '..', 'renderer/window.html'),
+                query: {window: 'compose'},
+            },
+        ],
+        windowName: 'compose',
     }).catch((error) => {
-        console.error("Failed to load compose window:", error);
+        console.error('Failed to load compose window:', error);
     });
 }
 
@@ -103,5 +90,5 @@ export function getComposeDraft(): ComposeDraftPayload | null {
 
 function pushDraftToComposeWindow(): void {
     if (!composeWin || composeWin.isDestroyed()) return;
-    composeWin.webContents.send("compose-draft", composeDraft);
+    composeWin.webContents.send('compose-draft', composeDraft);
 }

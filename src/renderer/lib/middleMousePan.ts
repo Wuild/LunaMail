@@ -20,10 +20,10 @@ function isScrollableElement(element: HTMLElement): boolean {
     const overflowX = style.overflowX;
     const overflowY = style.overflowY;
     const canScrollX =
-        (overflowX === "auto" || overflowX === "scroll" || overflowX === "overlay") &&
+        (overflowX === 'auto' || overflowX === 'scroll' || overflowX === 'overlay') &&
         element.scrollWidth > element.clientWidth;
     const canScrollY =
-        (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+        (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') &&
         element.scrollHeight > element.clientHeight;
     return canScrollX || canScrollY;
 }
@@ -38,7 +38,7 @@ function findScrollableAncestor(target: EventTarget | null): HTMLElement | null 
 }
 
 export function installMiddleMousePan(): void {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
     if ((window as any).__lunaMiddleMousePanInstalled) return;
     (window as any).__lunaMiddleMousePanInstalled = true;
 
@@ -54,8 +54,8 @@ export function installMiddleMousePan(): void {
     const startPan = (event: MouseEvent, scrollable: HTMLElement) => {
         const previousCursor = scrollable.style.cursor;
         const previousBodyCursor = document.body.style.cursor;
-        scrollable.style.cursor = "all-scroll";
-        document.body.style.cursor = "all-scroll";
+        scrollable.style.cursor = 'all-scroll';
+        document.body.style.cursor = 'all-scroll';
         active = {
             element: scrollable,
             anchorX: event.clientX,
@@ -92,11 +92,11 @@ export function installMiddleMousePan(): void {
         active.element.scrollTop = active.originScrollTop + dy;
     };
     const onKeyDown = (event: KeyboardEvent) => {
-        if (event.key === "Escape") stopPan();
+        if (event.key === 'Escape') stopPan();
     };
 
-    document.addEventListener("mousedown", onMouseDown, {capture: true});
-    window.addEventListener("mousemove", onMouseMove, {capture: true});
-    window.addEventListener("keydown", onKeyDown, {capture: true});
-    window.addEventListener("blur", stopPan, {capture: true});
+    document.addEventListener('mousedown', onMouseDown, {capture: true});
+    window.addEventListener('mousemove', onMouseMove, {capture: true});
+    window.addEventListener('keydown', onKeyDown, {capture: true});
+    window.addEventListener('blur', stopPan, {capture: true});
 }

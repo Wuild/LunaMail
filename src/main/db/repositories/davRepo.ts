@@ -1,5 +1,5 @@
-import {getDb} from "../drizzle.js";
-import {randomUUID} from "node:crypto";
+import {getDb} from '../drizzle.js';
+import {randomUUID} from 'node:crypto';
 
 export interface ContactRow {
     id: number;
@@ -56,7 +56,7 @@ export interface DavSettingsRow {
 
 export function getDavSettings(accountId: number): DavSettingsRow | null {
     const db = getDb();
-    const row = db.prepare("SELECT * FROM account_dav_settings WHERE account_id = ?").get(accountId) as
+    const row = db.prepare('SELECT * FROM account_dav_settings WHERE account_id = ?').get(accountId) as
         | DavSettingsRow
         | undefined;
     return row ?? null;
@@ -65,7 +65,7 @@ export function getDavSettings(accountId: number): DavSettingsRow | null {
 export function upsertDavSettings(
     accountId: number,
     carddavUrl?: string | null,
-    caldavUrl?: string | null
+    caldavUrl?: string | null,
 ): DavSettingsRow {
     const db = getDb();
     db.prepare(
@@ -75,10 +75,10 @@ export function upsertDavSettings(
             UPDATE SET carddav_url = COALESCE(excluded.carddav_url, account_dav_settings.carddav_url),
                        caldav_url  = COALESCE(excluded.caldav_url, account_dav_settings.caldav_url),
                        updated_at  = CURRENT_TIMESTAMP
-        `
+        `,
     ).run(accountId, carddavUrl ?? null, caldavUrl ?? null);
 
-    return db.prepare("SELECT * FROM account_dav_settings WHERE account_id = ?").get(accountId) as DavSettingsRow;
+    return db.prepare('SELECT * FROM account_dav_settings WHERE account_id = ?').get(accountId) as DavSettingsRow;
 }
 
 export function upsertContacts(
@@ -93,7 +93,7 @@ export function upsertContacts(
         note?: string | null;
         etag?: string | null;
     }>,
-    source: string = "carddav"
+    source: string = 'carddav',
 ): { upserted: number; removed: number } {
     const db = getDb();
     const seenAt = new Date().toISOString();
@@ -112,7 +112,7 @@ export function upsertContacts(
                            etag           = excluded.etag,
                            last_seen_sync = excluded.last_seen_sync,
                            updated_at     = CURRENT_TIMESTAMP
-            `
+            `,
         );
         for (const row of rows) {
             upsert.run(
@@ -126,7 +126,7 @@ export function upsertContacts(
                 normalizeContactText(row.title),
                 normalizeContactText(row.note, 4000),
                 row.etag ?? null,
-                seenAt
+                seenAt,
             );
         }
         const cleanup = db
@@ -137,7 +137,7 @@ export function upsertContacts(
                 WHERE account_id = ?
                   AND source = ?
                   AND last_seen_sync <> ?
-            `
+            `,
             )
             .run(accountId, source, seenAt);
         return {upserted: rows.length, removed: cleanup.changes};
@@ -158,7 +158,7 @@ export function upsertCalendarEvents(
         etag?: string | null;
         rawIcs?: string | null;
     }>,
-    source: string = "caldav"
+    source: string = 'caldav',
 ): { upserted: number; removed: number } {
     const db = getDb();
     const seenAt = new Date().toISOString();
@@ -179,7 +179,7 @@ export function upsertCalendarEvents(
                            raw_ics        = excluded.raw_ics,
                            last_seen_sync = excluded.last_seen_sync,
                            updated_at     = CURRENT_TIMESTAMP
-            `
+            `,
         );
         for (const row of rows) {
             upsert.run(
@@ -194,7 +194,7 @@ export function upsertCalendarEvents(
                 row.endsAt ?? null,
                 row.etag ?? null,
                 row.rawIcs ?? null,
-                seenAt
+                seenAt,
             );
         }
         const cleanup = db
@@ -205,7 +205,7 @@ export function upsertCalendarEvents(
                 WHERE account_id = ?
                   AND source = ?
                   AND last_seen_sync <> ?
-            `
+            `,
             )
             .run(accountId, source, seenAt);
         return {upserted: rows.length, removed: cleanup.changes};
@@ -217,11 +217,11 @@ export function listContacts(
     accountId: number,
     query?: string | null,
     limit: number = 200,
-    addressBookId?: number | null
+    addressBookId?: number | null,
 ): ContactRow[] {
     const db = getDb();
-    const q = (query || "").trim();
-    const hasBookFilter = typeof addressBookId === "number" && Number.isFinite(addressBookId);
+    const q = (query || '').trim();
+    const hasBookFilter = typeof addressBookId === 'number' && Number.isFinite(addressBookId);
     if (!q) {
         if (hasBookFilter) {
             return db
@@ -233,7 +233,7 @@ export function listContacts(
                       AND address_book_id = ?
                     ORDER BY lower(coalesce(full_name, '')), lower(email)
                     LIMIT ?
-                `
+                `,
                 )
                 .all(accountId, addressBookId, limit) as ContactRow[];
         }
@@ -245,7 +245,7 @@ export function listContacts(
                 WHERE account_id = ?
                 ORDER BY lower(coalesce(full_name, '')), lower(email)
                 LIMIT ?
-            `
+            `,
             )
             .all(accountId, limit) as ContactRow[];
     }
@@ -268,7 +268,7 @@ export function listContacts(
                   )
                 ORDER BY lower(coalesce(full_name, '')), lower(email)
                 LIMIT ?
-            `
+            `,
             )
             .all(accountId, addressBookId, pattern, pattern, pattern, pattern, pattern, pattern, limit) as ContactRow[];
     }
@@ -288,7 +288,7 @@ export function listContacts(
               )
             ORDER BY lower(coalesce(full_name, '')), lower(email)
             LIMIT ?
-        `
+        `,
         )
         .all(accountId, pattern, pattern, pattern, pattern, pattern, pattern, limit) as ContactRow[];
 }
@@ -303,7 +303,7 @@ export function listAddressBooks(accountId: number): AddressBookRow[] {
             FROM address_books
             WHERE account_id = ?
             ORDER BY lower(name), id
-        `
+        `,
         )
         .all(accountId) as AddressBookRow[];
 }
@@ -311,12 +311,12 @@ export function listAddressBooks(accountId: number): AddressBookRow[] {
 export function createAddressBook(accountId: number, name: string): AddressBookRow {
     const db = getDb();
     const normalized = normalizeBookName(name);
-    if (!normalized) throw new Error("Address book name is required.");
+    if (!normalized) throw new Error('Address book name is required.');
     db.prepare(
         `
             INSERT INTO address_books (account_id, name, source, remote_url, created_at, updated_at)
             VALUES (?, ?, 'local', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        `
+        `,
     ).run(accountId, normalized);
     return db
         .prepare(
@@ -324,7 +324,7 @@ export function createAddressBook(accountId: number, name: string): AddressBookR
             SELECT *
             FROM address_books
             WHERE id = last_insert_rowid()
-        `
+        `,
         )
         .get() as AddressBookRow;
 }
@@ -339,12 +339,12 @@ export function deleteAddressBook(accountId: number, addressBookId: number): { r
             WHERE id = ?
               AND account_id = ?
             LIMIT 1
-        `
+        `,
         )
         .get(addressBookId, accountId) as AddressBookRow | undefined;
     if (!existing) return {removed: false};
-    if (existing.source !== "local") {
-        throw new Error("Only local address books can be deleted.");
+    if (existing.source !== 'local') {
+        throw new Error('Only local address books can be deleted.');
     }
 
     const tx = db.transaction(() => {
@@ -353,7 +353,7 @@ export function deleteAddressBook(accountId: number, addressBookId: number): { r
                 DELETE FROM contacts
                 WHERE account_id = ?
                   AND source = ?
-            `
+            `,
         ).run(accountId, `local:${addressBookId}`);
         db.prepare(
             `
@@ -362,7 +362,7 @@ export function deleteAddressBook(accountId: number, addressBookId: number): { r
                     updated_at = CURRENT_TIMESTAMP
                 WHERE account_id = ?
                   AND address_book_id = ?
-            `
+            `,
         ).run(accountId, addressBookId);
         const res = db
             .prepare(
@@ -370,7 +370,7 @@ export function deleteAddressBook(accountId: number, addressBookId: number): { r
                 DELETE FROM address_books
                 WHERE id = ?
                   AND account_id = ?
-            `
+            `,
             )
             .run(addressBookId, accountId);
         ensureDefaultLocalAddressBook(accountId);
@@ -385,11 +385,11 @@ export function createLocalContact(
     addressBookId: number | null,
     fullName: string | null,
     email: string,
-    fields?: { phone?: string | null; organization?: string | null; title?: string | null; note?: string | null }
+    fields?: { phone?: string | null; organization?: string | null; title?: string | null; note?: string | null },
 ): ContactRow {
     const db = getDb();
     const normalizedEmail = normalizeEmail(email);
-    if (!normalizedEmail) throw new Error("A valid email is required.");
+    if (!normalizedEmail) throw new Error('A valid email is required.');
     const normalizedName = normalizeDisplayName(fullName);
     const bookId = ensureLocalBookForContact(accountId, addressBookId);
     const sourceUid = randomUUID();
@@ -401,7 +401,7 @@ export function createLocalContact(
                 account_id, address_book_id, source, source_uid, full_name, email, phone, organization, title, note, etag, last_seen_sync, created_at, updated_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        `
+        `,
     ).run(
         accountId,
         bookId,
@@ -413,7 +413,7 @@ export function createLocalContact(
         normalizeContactText(fields?.organization),
         normalizeContactText(fields?.title),
         normalizeContactText(fields?.note, 4000),
-        seenAt
+        seenAt,
     );
     return db
         .prepare(
@@ -421,7 +421,7 @@ export function createLocalContact(
             SELECT *
             FROM contacts
             WHERE id = last_insert_rowid()
-        `
+        `,
         )
         .get() as ContactRow;
 }
@@ -438,15 +438,17 @@ export function upsertCardDavContact(
         note?: string | null;
         etag?: string | null;
         addressBookId?: number | null;
-    }
+    },
 ): ContactRow {
     const db = getDb();
     const normalizedEmail = normalizeEmail(payload.email);
-    if (!normalizedEmail) throw new Error("A valid email is required.");
+    if (!normalizedEmail) throw new Error('A valid email is required.');
     const normalizedName = normalizeDisplayName(payload.fullName);
     const seenAt = new Date().toISOString();
     const bookId =
-        typeof payload.addressBookId === "number" && Number.isFinite(payload.addressBookId) ? payload.addressBookId : null;
+        typeof payload.addressBookId === 'number' && Number.isFinite(payload.addressBookId)
+            ? payload.addressBookId
+            : null;
 
     db.prepare(
         `
@@ -463,7 +465,7 @@ export function upsertCardDavContact(
                        etag = excluded.etag,
                        last_seen_sync = excluded.last_seen_sync,
                        updated_at = CURRENT_TIMESTAMP
-        `
+        `,
     ).run(
         accountId,
         bookId,
@@ -475,7 +477,7 @@ export function upsertCardDavContact(
         normalizeContactText(payload.title),
         normalizeContactText(payload.note, 4000),
         payload.etag ?? null,
-        seenAt
+        seenAt,
     );
 
     return db
@@ -488,7 +490,7 @@ export function upsertCardDavContact(
               AND source_uid = ?
               AND email = ?
             LIMIT 1
-        `
+        `,
         )
         .get(accountId, payload.sourceUid, normalizedEmail) as ContactRow;
 }
@@ -496,14 +498,14 @@ export function upsertCardDavContact(
 export function updateLocalContact(
     contactId: number,
     payload: {
-    fullName?: string | null;
-    email?: string;
-    phone?: string | null;
-    organization?: string | null;
-    title?: string | null;
-    note?: string | null;
-    addressBookId?: number | null;
-    }
+        fullName?: string | null;
+        email?: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
+        addressBookId?: number | null;
+    },
 ): ContactRow {
     const db = getDb();
     const current = db
@@ -512,12 +514,12 @@ export function updateLocalContact(
             SELECT *
             FROM contacts
             WHERE id = ?
-        `
+        `,
         )
         .get(contactId) as ContactRow | undefined;
-    if (!current) throw new Error("Contact not found.");
-    if (!current.source.startsWith("local:")) {
-        throw new Error("Only local contacts can be edited.");
+    if (!current) throw new Error('Contact not found.');
+    if (!current.source.startsWith('local:')) {
+        throw new Error('Only local contacts can be edited.');
     }
 
     const nextBookId =
@@ -526,7 +528,7 @@ export function updateLocalContact(
             : ensureLocalBookForContact(current.account_id, payload.addressBookId);
     const nextSource = `local:${nextBookId ?? 0}`;
     const nextEmail = payload.email === undefined ? current.email : normalizeEmail(payload.email);
-    if (!nextEmail) throw new Error("A valid email is required.");
+    if (!nextEmail) throw new Error('A valid email is required.');
     const nextName = payload.fullName === undefined ? current.full_name : normalizeDisplayName(payload.fullName);
     const nextPhone = payload.phone === undefined ? current.phone : normalizeContactText(payload.phone);
     const nextOrganization =
@@ -547,24 +549,24 @@ export function updateLocalContact(
                 note = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
-        `
+        `,
     ).run(nextBookId, nextSource, nextName, nextEmail, nextPhone, nextOrganization, nextTitle, nextNote, contactId);
 
-    return db.prepare("SELECT * FROM contacts WHERE id = ?").get(contactId) as ContactRow;
+    return db.prepare('SELECT * FROM contacts WHERE id = ?').get(contactId) as ContactRow;
 }
 
 export function deleteLocalContact(contactId: number): { removed: boolean } {
     const db = getDb();
-    const current = db.prepare("SELECT source FROM contacts WHERE id = ?").get(contactId) as
+    const current = db.prepare('SELECT source FROM contacts WHERE id = ?').get(contactId) as
         | {
         source: string;
     }
         | undefined;
     if (!current) return {removed: false};
-    if (!current.source.startsWith("local:")) {
-        throw new Error("Only local contacts can be deleted.");
+    if (!current.source.startsWith('local:')) {
+        throw new Error('Only local contacts can be deleted.');
     }
-    const res = db.prepare("DELETE FROM contacts WHERE id = ?").run(contactId);
+    const res = db.prepare('DELETE FROM contacts WHERE id = ?').run(contactId);
     return {removed: res.changes > 0};
 }
 
@@ -572,11 +574,11 @@ export function listCalendarEvents(
     accountId: number,
     startIso?: string | null,
     endIso?: string | null,
-    limit: number = 500
+    limit: number = 500,
 ): CalendarEventRow[] {
     const db = getDb();
-    const start = (startIso || "").trim();
-    const end = (endIso || "").trim();
+    const start = (startIso || '').trim();
+    const end = (endIso || '').trim();
     if (start && end) {
         return db
             .prepare(
@@ -588,7 +590,7 @@ export function listCalendarEvents(
                   AND coalesce(starts_at, ends_at, '') <= ?
                 ORDER BY coalesce(starts_at, '') ASC
                 LIMIT ?
-            `
+            `,
             )
             .all(accountId, start, end, limit) as CalendarEventRow[];
     }
@@ -600,7 +602,7 @@ export function listCalendarEvents(
             WHERE account_id = ?
             ORDER BY coalesce(starts_at, '') ASC
             LIMIT ?
-        `
+        `,
         )
         .all(accountId, limit) as CalendarEventRow[];
 }
@@ -608,31 +610,31 @@ export function listCalendarEvents(
 export function createLocalCalendarEvent(
     accountId: number,
     payload: {
-    summary?: string | null;
-    description?: string | null;
-    location?: string | null;
-    startsAt: string;
-    endsAt: string;
-    }
+        summary?: string | null;
+        description?: string | null;
+        location?: string | null;
+        startsAt: string;
+        endsAt: string;
+    },
 ): CalendarEventRow {
     const db = getDb();
-    const startsAt = String(payload.startsAt || "").trim();
-    const endsAt = String(payload.endsAt || "").trim();
+    const startsAt = String(payload.startsAt || '').trim();
+    const endsAt = String(payload.endsAt || '').trim();
     if (!startsAt || Number.isNaN(Date.parse(startsAt))) {
-        throw new Error("Event start date/time is required.");
+        throw new Error('Event start date/time is required.');
     }
     if (!endsAt || Number.isNaN(Date.parse(endsAt))) {
-        throw new Error("Event end date/time is required.");
+        throw new Error('Event end date/time is required.');
     }
     if (Date.parse(endsAt) < Date.parse(startsAt)) {
-        throw new Error("Event end must be after start.");
+        throw new Error('Event end must be after start.');
     }
 
     const uid = randomUUID();
     const seenAt = new Date().toISOString();
-    const summary = String(payload.summary || "").trim() || null;
-    const description = String(payload.description || "").trim() || null;
-    const location = String(payload.location || "").trim() || null;
+    const summary = String(payload.summary || '').trim() || null;
+    const description = String(payload.description || '').trim() || null;
+    const location = String(payload.location || '').trim() || null;
     const calendarUrl = `local://${accountId}/default`;
 
     db.prepare(
@@ -642,10 +644,10 @@ export function createLocalCalendarEvent(
                 starts_at, ends_at, etag, raw_ics, last_seen_sync, created_at, updated_at
             )
             VALUES (?, 'local', ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        `
+        `,
     ).run(accountId, calendarUrl, uid, summary, description, location, startsAt, endsAt, seenAt);
 
-    return db.prepare("SELECT * FROM calendar_events WHERE id = last_insert_rowid()").get() as CalendarEventRow;
+    return db.prepare('SELECT * FROM calendar_events WHERE id = last_insert_rowid()').get() as CalendarEventRow;
 }
 
 function ensureDefaultLocalAddressBook(accountId: number): number {
@@ -659,7 +661,7 @@ function ensureDefaultLocalAddressBook(accountId: number): number {
               AND source = 'local'
             ORDER BY id
             LIMIT 1
-        `
+        `,
         )
         .get(accountId) as { id: number } | undefined;
     if (existing) return existing.id;
@@ -667,14 +669,14 @@ function ensureDefaultLocalAddressBook(accountId: number): number {
         `
             INSERT INTO address_books (account_id, name, source, remote_url, created_at, updated_at)
             VALUES (?, 'Personal', 'local', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        `
+        `,
     ).run(accountId);
-    return Number(db.prepare("SELECT last_insert_rowid() as id").get().id);
+    return Number(db.prepare('SELECT last_insert_rowid() as id').get().id);
 }
 
 function ensureLocalBookForContact(accountId: number, addressBookId: number | null): number {
     const db = getDb();
-    if (typeof addressBookId === "number" && Number.isFinite(addressBookId)) {
+    if (typeof addressBookId === 'number' && Number.isFinite(addressBookId)) {
         const found = db
             .prepare(
                 `
@@ -683,43 +685,43 @@ function ensureLocalBookForContact(accountId: number, addressBookId: number | nu
                 WHERE id = ?
                   AND account_id = ?
                   AND source = 'local'
-            `
+            `,
             )
             .get(addressBookId, accountId) as { id: number } | undefined;
         if (found) return found.id;
-        throw new Error("Address book not found.");
+        throw new Error('Address book not found.');
     }
     return ensureDefaultLocalAddressBook(accountId);
 }
 
 function normalizeBookName(value: string): string {
-    return String(value || "")
+    return String(value || '')
         .trim()
-        .replace(/\s+/g, " ")
+        .replace(/\s+/g, ' ')
         .slice(0, 120);
 }
 
 function normalizeDisplayName(value: string | null | undefined): string | null {
-    const normalized = String(value || "")
+    const normalized = String(value || '')
         .trim()
-        .replace(/\s+/g, " ")
+        .replace(/\s+/g, ' ')
         .slice(0, 180);
     return normalized || null;
 }
 
 function normalizeContactText(value: string | null | undefined, maxLength: number = 240): string | null {
-    const normalized = String(value || "")
+    const normalized = String(value || '')
         .trim()
-        .replace(/\s+/g, " ")
+        .replace(/\s+/g, ' ')
         .slice(0, maxLength);
     return normalized || null;
 }
 
 function normalizeEmail(value: string | null | undefined): string {
-    const normalized = String(value || "")
+    const normalized = String(value || '')
         .trim()
         .toLowerCase();
-    if (!normalized) return "";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return "";
+    if (!normalized) return '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return '';
     return normalized;
 }

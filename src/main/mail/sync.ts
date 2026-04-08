@@ -1,8 +1,8 @@
-import {ImapFlow} from "imapflow";
-import {simpleParser} from "mailparser";
-import {createMailDebugLogger} from "../debug/debugLog.js";
-import {getAccountSyncCredentials} from "../db/repositories/accountsRepo.js";
-import {resolveImapSecurity} from "./security.js";
+import {ImapFlow} from 'imapflow';
+import {simpleParser} from 'mailparser';
+import {createMailDebugLogger} from '../debug/debugLog.js';
+import {getAccountSyncCredentials} from '../db/repositories/accountsRepo.js';
+import {resolveImapSecurity} from './security.js';
 import {
     getMessageBody,
     getMessageContext,
@@ -16,8 +16,8 @@ import {
     upsertMessage,
     upsertMessageBody,
     upsertThread,
-} from "../db/repositories/mailRepo.js";
-import {buildThreadId, stringifyReferences} from "./threading.js";
+} from '../db/repositories/mailRepo.js';
+import {buildThreadId, stringifyReferences} from './threading.js';
 
 export interface SyncSummary {
     accountId: number;
@@ -76,7 +76,7 @@ export async function syncAccountMailboxWithCredentials(
         user: string;
         password: string;
     },
-    options?: AccountSyncOptions
+    options?: AccountSyncOptions,
 ): Promise<SyncSummary> {
     const accountId = account.id;
     const client = new ImapFlow({
@@ -84,7 +84,7 @@ export async function syncAccountMailboxWithCredentials(
         port: account.imap_port,
         ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
-        logger: createMailDebugLogger("imap", `sync:account:${accountId}`),
+        logger: createMailDebugLogger('imap', `sync:account:${accountId}`),
     });
     options?.onClient?.(client);
 
@@ -93,19 +93,19 @@ export async function syncAccountMailboxWithCredentials(
     const newMessageIds: number[] = [];
     let newestMessageTarget: { accountId: number; folderPath: string; messageId: number } | null = null;
     try {
-        if (options?.isCancelled?.()) throw new Error("Mailbox sync cancelled");
+        if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
         await client.connect();
-        if (options?.isCancelled?.()) throw new Error("Mailbox sync cancelled");
+        if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
         const mailboxes = await client.list();
 
         for (const box of mailboxes) {
-            if (options?.isCancelled?.()) throw new Error("Mailbox sync cancelled");
-            const rawSpecialUse = String(box.specialUse || "").toLowerCase();
+            if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
+            const rawSpecialUse = String(box.specialUse || '').toLowerCase();
             const inferredType = box.specialUse ?? inferFolderType(box.path);
             const isInboxFolder =
-                rawSpecialUse === "\\inbox" ||
-                String(inferredType || "").toLowerCase() === "inbox" ||
-                box.path.toLowerCase() === "inbox";
+                rawSpecialUse === '\\inbox' ||
+                String(inferredType || '').toLowerCase() === 'inbox' ||
+                box.path.toLowerCase() === 'inbox';
             const folderId = upsertFolder({
                 accountId,
                 name: box.name || box.path,
@@ -115,7 +115,7 @@ export async function syncAccountMailboxWithCredentials(
 
             const lock = await client.getMailboxLock(box.path);
             try {
-                if (options?.isCancelled?.()) throw new Error("Mailbox sync cancelled");
+                if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
                 const status = await client.status(box.path, {messages: true, unseen: true});
                 const total = status.messages ?? 0;
                 const unseen = status.unseen ?? 0;
@@ -132,10 +132,10 @@ export async function syncAccountMailboxWithCredentials(
                     size: true,
                     internalDate: true,
                 })) {
-                    if (options?.isCancelled?.()) throw new Error("Mailbox sync cancelled");
+                    if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
                     totalMessages += 1;
                     const existed = hasMessageByFolderAndUid(folderId, msg.uid);
-                    const isRead = msg.flags?.has("\\Seen") ? 1 : 0;
+                    const isRead = msg.flags?.has('\\Seen') ? 1 : 0;
                     const messageDate = msg.internalDate ? new Date(msg.internalDate).toISOString() : null;
                     const envelopeWithRefs = msg.envelope as
                         | (typeof msg.envelope & {
@@ -153,7 +153,7 @@ export async function syncAccountMailboxWithCredentials(
                             msg.envelope?.to
                                 ?.map((a) => a.address)
                                 .filter(Boolean)
-                                .join(", ") ?? null,
+                                .join(', ') ?? null,
                     });
                     upsertThread(threadId, msg.envelope?.subject ?? null, messageDate ?? new Date().toISOString());
                     upsertMessage({
@@ -172,10 +172,10 @@ export async function syncAccountMailboxWithCredentials(
                             msg.envelope?.to
                                 ?.map((a) => a.address)
                                 .filter(Boolean)
-                                .join(", ") ?? null,
+                                .join(', ') ?? null,
                         date: messageDate,
                         isRead,
-                        isFlagged: msg.flags?.has("\\Flagged") ? 1 : 0,
+                        isFlagged: msg.flags?.has('\\Flagged') ? 1 : 0,
                         size: msg.size ?? null,
                     });
                     if (!existed && isInboxFolder && !isRead) {
@@ -210,12 +210,12 @@ export async function syncAccountMailboxWithCredentials(
 
 function inferFolderType(path: string): string | null {
     const p = path.toLowerCase();
-    if (p === "inbox") return "inbox";
-    if (p.includes("sent")) return "sent";
-    if (p.includes("draft")) return "drafts";
-    if (p.includes("trash") || p.includes("deleted")) return "trash";
-    if (p.includes("archive")) return "archive";
-    if (p.includes("spam") || p.includes("junk")) return "junk";
+    if (p === 'inbox') return 'inbox';
+    if (p.includes('sent')) return 'sent';
+    if (p.includes('draft')) return 'drafts';
+    if (p.includes('trash') || p.includes('deleted')) return 'trash';
+    if (p.includes('archive')) return 'archive';
+    if (p.includes('spam') || p.includes('junk')) return 'junk';
     return null;
 }
 
@@ -245,21 +245,21 @@ export async function syncMessageBody(messageId: number, options?: MessageBodySy
         port: account.imap_port,
         ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
-        logger: createMailDebugLogger("imap", `body:message:${messageId}`),
+        logger: createMailDebugLogger('imap', `body:message:${messageId}`),
     });
     options?.onClient?.(client);
 
     try {
-        if (options?.isCancelled?.()) throw new Error("Message body request cancelled");
+        if (options?.isCancelled?.()) throw new Error('Message body request cancelled');
         await client.connect();
-        if (options?.isCancelled?.()) throw new Error("Message body request cancelled");
+        if (options?.isCancelled?.()) throw new Error('Message body request cancelled');
         const lock = await client.getMailboxLock(ctx.folderPath);
         try {
-            if (options?.isCancelled?.()) throw new Error("Message body request cancelled");
+            if (options?.isCancelled?.()) throw new Error('Message body request cancelled');
             const fetched = await client.fetchOne(ctx.uid, {source: true}, {uid: true});
-            if (options?.isCancelled?.()) throw new Error("Message body request cancelled");
-            const src = fetched && typeof fetched === "object" ? (fetched as any).source : null;
-            if (!src) throw new Error("Could not fetch message body from server");
+            if (options?.isCancelled?.()) throw new Error('Message body request cancelled');
+            const src = fetched && typeof fetched === 'object' ? (fetched as any).source : null;
+            if (!src) throw new Error('Could not fetch message body from server');
 
             const parsed = await simpleParser(src);
             const text = parsed.text ? String(parsed.text) : null;
@@ -287,7 +287,7 @@ export async function syncMessageBody(messageId: number, options?: MessageBodySy
 
 export async function syncMessageSource(
     messageId: number,
-    options?: MessageBodySyncOptions
+    options?: MessageBodySyncOptions,
 ): Promise<MessageSourceResult> {
     const ctx = getMessageContext(messageId);
     if (!ctx) throw new Error(`Message ${messageId} not found`);
@@ -298,22 +298,22 @@ export async function syncMessageSource(
         port: account.imap_port,
         ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
-        logger: createMailDebugLogger("imap", `source:message:${messageId}`),
+        logger: createMailDebugLogger('imap', `source:message:${messageId}`),
     });
     options?.onClient?.(client);
 
     try {
-        if (options?.isCancelled?.()) throw new Error("Message source request cancelled");
+        if (options?.isCancelled?.()) throw new Error('Message source request cancelled');
         await client.connect();
-        if (options?.isCancelled?.()) throw new Error("Message source request cancelled");
+        if (options?.isCancelled?.()) throw new Error('Message source request cancelled');
         const lock = await client.getMailboxLock(ctx.folderPath);
         try {
-            if (options?.isCancelled?.()) throw new Error("Message source request cancelled");
+            if (options?.isCancelled?.()) throw new Error('Message source request cancelled');
             const fetched = await client.fetchOne(ctx.uid, {source: true}, {uid: true});
-            if (options?.isCancelled?.()) throw new Error("Message source request cancelled");
-            const src = fetched && typeof fetched === "object" ? (fetched as any).source : null;
-            if (!src) throw new Error("Could not fetch message source from server");
-            const source = Buffer.isBuffer(src) ? src.toString("utf8") : String(src);
+            if (options?.isCancelled?.()) throw new Error('Message source request cancelled');
+            const src = fetched && typeof fetched === 'object' ? (fetched as any).source : null;
+            if (!src) throw new Error('Could not fetch message source from server');
+            const source = Buffer.isBuffer(src) ? src.toString('utf8') : String(src);
             return {messageId, source};
         } finally {
             lock.release();
@@ -330,10 +330,10 @@ export async function syncMessageSource(
 export async function downloadMessageAttachment(
     messageId: number,
     attachmentIndex: number,
-    options?: MessageBodySyncOptions
+    options?: MessageBodySyncOptions,
 ): Promise<MessageAttachmentFile> {
     if (!Number.isInteger(attachmentIndex) || attachmentIndex < 0) {
-        throw new Error("Invalid attachment index");
+        throw new Error('Invalid attachment index');
     }
     const ctx = getMessageContext(messageId);
     if (!ctx) throw new Error(`Message ${messageId} not found`);
@@ -344,31 +344,31 @@ export async function downloadMessageAttachment(
         port: account.imap_port,
         ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
-        logger: createMailDebugLogger("imap", `attachment:message:${messageId}`),
+        logger: createMailDebugLogger('imap', `attachment:message:${messageId}`),
     });
     options?.onClient?.(client);
 
     try {
-        if (options?.isCancelled?.()) throw new Error("Attachment request cancelled");
+        if (options?.isCancelled?.()) throw new Error('Attachment request cancelled');
         await client.connect();
-        if (options?.isCancelled?.()) throw new Error("Attachment request cancelled");
+        if (options?.isCancelled?.()) throw new Error('Attachment request cancelled');
         const lock = await client.getMailboxLock(ctx.folderPath);
         try {
-            if (options?.isCancelled?.()) throw new Error("Attachment request cancelled");
+            if (options?.isCancelled?.()) throw new Error('Attachment request cancelled');
             const fetched = await client.fetchOne(ctx.uid, {source: true}, {uid: true});
-            if (options?.isCancelled?.()) throw new Error("Attachment request cancelled");
-            const src = fetched && typeof fetched === "object" ? (fetched as any).source : null;
-            if (!src) throw new Error("Could not fetch message source for attachment");
+            if (options?.isCancelled?.()) throw new Error('Attachment request cancelled');
+            const src = fetched && typeof fetched === 'object' ? (fetched as any).source : null;
+            if (!src) throw new Error('Could not fetch message source for attachment');
 
             const parsed = await simpleParser(src);
             const attachments = parsed.attachments ?? [];
             const target = attachments[attachmentIndex] as any;
-            if (!target) throw new Error("Attachment not found");
+            if (!target) throw new Error('Attachment not found');
 
-            const filename = String(target.filename || "").trim() || `attachment-${attachmentIndex + 1}.bin`;
-            const contentType = String(target.contentType || "").trim() || "application/octet-stream";
+            const filename = String(target.filename || '').trim() || `attachment-${attachmentIndex + 1}.bin`;
+            const contentType = String(target.contentType || '').trim() || 'application/octet-stream';
             const size = Number.isFinite(Number(target.size)) ? Number(target.size) : null;
-            const content = Buffer.isBuffer(target.content) ? target.content : Buffer.from(target.content || "");
+            const content = Buffer.isBuffer(target.content) ? target.content : Buffer.from(target.content || '');
 
             return {filename, contentType, size, content};
         } finally {

@@ -90,7 +90,9 @@ module.exports = async function beforeBuild() {
         fs.mkdirSync(path.dirname(targetPath), {recursive: true});
         fs.cpSync(sourcePath, targetPath, {
             recursive: true,
-            dereference: false,
+            // Resolve symlinks to real files so macOS codesign strict verification
+            // does not fail on invalid bundle link destinations.
+            dereference: true,
             force: true,
             preserveTimestamps: true,
         });

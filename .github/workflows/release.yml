@@ -22,7 +22,7 @@ jobs:
         include:
           - name: Linux
             os: ubuntu-latest
-            target_args: --linux AppImage deb rpm
+            target_args: --linux AppImage deb rpm --x64
             artifact_name: dist-linux
             artifact_glob: |
               dist/*.AppImage
@@ -40,6 +40,24 @@ jobs:
               dist/*.nsis.7z
               dist/*.nsis.7z.blockmap
               dist/latest*.yml
+              dist/*.blockmap
+          - name: macOS Intel
+            os: macos-13
+            target_args: --mac dmg zip --x64
+            artifact_name: dist-macos-x64
+            artifact_glob: |
+              dist/*-mac.zip
+              dist/*.dmg
+              dist/latest-mac.yml
+              dist/*.blockmap
+          - name: macOS Apple Silicon
+            os: macos-14
+            target_args: --mac dmg zip --arm64
+            artifact_name: dist-macos-arm64
+            artifact_glob: |
+              dist/*-arm64-mac.zip
+              dist/*-arm64.dmg
+              dist/latest-mac.yml
               dist/*.blockmap
 
     env:
@@ -146,6 +164,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: dist-windows
+          path: release-assets
+
+      - name: Download macOS Intel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-macos-x64
+          path: release-assets
+
+      - name: Download macOS Apple Silicon artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-macos-arm64
           path: release-assets
 
       - name: Publish release

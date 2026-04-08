@@ -18,8 +18,12 @@
   "scripts": {
     "build:electron": "npm run build && electron-builder",
     "build:linux": "npm run build && electron-builder --linux",
+    "build:linux:x64": "npm run build && electron-builder --linux --x64",
+    "build:linux:arm64": "npm run build && electron-builder --linux --arm64",
     "build:win": "npm run build && electron-builder --win",
-    "build:mac": "npm run build && electron-builder --mac",
+    "build:mac": "node scripts/build-mac.cjs",
+    "build:mac:x64": "node scripts/build-mac.cjs --x64",
+    "build:mac:arm64": "node scripts/build-mac.cjs --arm64",
     "sync:preload": "node scripts/sync-preload.cjs",
     "dev:ui": "vite",
     "dev:types": "tsc -w --preserveWatchOutput",

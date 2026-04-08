@@ -3,7 +3,7 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import {loadWindowContent} from './loadWindowContent.js';
 import {getAppSettingsSync, getSpellCheckerLanguages} from '../settings/store.js';
-import {attachWindowShortcuts, buildSecureWebPreferences, createFramelessAppWindow} from './windowFactory.js';
+import {attachWindowShortcuts, buildSecureWebPreferences, createAppWindow, createFramelessAppWindow} from './windowFactory.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -36,7 +36,9 @@ export function openComposeWindow(parentWindow?: BrowserWindow, draft?: ComposeD
 
     const preloadPath = path.join(app.getAppPath(), 'preload.cjs');
 
-    composeWin = createFramelessAppWindow({
+    const useNativeTitleBar = Boolean(getAppSettingsSync().useNativeTitleBar);
+    const createWindow = useNativeTitleBar ? createAppWindow : createFramelessAppWindow;
+    composeWin = createWindow({
         parent: parentWindow && !parentWindow.isDestroyed() ? parentWindow : undefined,
         modal: false,
         width: 920,

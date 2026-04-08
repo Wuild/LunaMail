@@ -58,3 +58,9 @@ Use this checklist after each refactor PR.
 - 2026-04-08: `npm run check:architecture` passed after account/folder collapse-state persistence updates.
 - 2026-04-08: `npm run test:unit` passed after account/folder collapse-state persistence updates.
 - 2026-04-08: `npm run build` passed after account/folder collapse-state persistence updates.
+- 2026-04-08: `npm run check:architecture` passed after titlebar-style restart flow change.
+- 2026-04-08: `npm run test:unit` passed after titlebar-style restart flow change.
+- 2026-04-08: `npm run build` passed after titlebar-style restart flow change.
+- 2026-04-08: `npm run check:architecture` passed after native/custom titlebar state sync fixes.
+- 2026-04-08: `npm run test:unit` passed after native/custom titlebar state sync fixes.
+- 2026-04-08: `npm run build` passed after native/custom titlebar state sync fixes.

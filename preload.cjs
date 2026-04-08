@@ -72,6 +72,7 @@ const api = {
     closeWindow: () => ipcRenderer.invoke('window-close'),
     isWindowMaximized: () => ipcRenderer.invoke('window-is-maximized'),
     openDevTools: () => ipcRenderer.invoke('window-open-dev-tools'),
+    restartApp: () => ipcRenderer.invoke('app-restart'),
     openMessageWindow: (messageId) => ipcRenderer.invoke('open-message-window', messageId ?? null),
     getDebugLogs: (limit) => ipcRenderer.invoke('get-debug-logs', limit),
     clearDebugLogs: () => ipcRenderer.invoke('clear-debug-logs'),

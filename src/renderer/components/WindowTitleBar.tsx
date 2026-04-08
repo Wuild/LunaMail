@@ -3,6 +3,8 @@ import {Copy, Minus, Square, X} from 'lucide-react';
 import {cn} from '../lib/utils';
 import lunaLogo from '../../resources/luna.png';
 import {useWindowControlsState} from '../hooks/ipc/useWindowControlsState';
+import {useAppSettings} from '../hooks/ipc/useAppSettings';
+import {DEFAULT_APP_SETTINGS} from '../../shared/defaults';
 
 interface WindowTitleBarProps {
     title: string;
@@ -19,7 +21,11 @@ export default function WindowTitleBar({
                                            showMaximize = false,
                                            showClose = true,
                                        }: WindowTitleBarProps) {
+    const {appSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
     const {isMaximized, toggleMaximize, minimize, close} = useWindowControlsState();
+    if (appSettings.useNativeTitleBar) {
+        return null;
+    }
 
     return (
         <div

@@ -77,7 +77,7 @@ function MainWindowShell() {
 	const {accounts, selectedAccountId, setSelectedAccountId, totalUnreadCount} = useAccounts();
 	const {isMaximized, toggleMaximize, minimize, close} = useWindowControlsState();
 	const {appVersion, autoUpdatePhase, autoUpdateMessage} = useAutoUpdateState();
-	const {appSettings, setAppSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
+	const {appSettings, setAppSettings, isFetched: appSettingsFetched} = useAppSettings(DEFAULT_APP_SETTINGS);
 	const developerMode = Boolean(appSettings.developerMode);
 	const [globalErrors, setGlobalErrors] = useState<GlobalErrorEvent[]>([]);
 	const [topNavOrder, setTopNavOrder] = useState<TopNavItemId[]>(() =>
@@ -227,74 +227,77 @@ function MainWindowShell() {
 			: autoUpdatePhase === 'downloading'
 				? 'A new update is downloading in the background.'
 				: 'A new update is available.');
+	const useNativeTitleBar = Boolean(appSettings.useNativeTitleBar);
 
 	return (
 		<div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
-			<header
-				className="relative flex h-9 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-2 text-slate-100 dark:border-[#08090c] dark:bg-[#0b0c10]"
-				style={{WebkitAppRegion: 'drag'} as React.CSSProperties}
-				onDoubleClick={() => {
-					void toggleMaximize();
-				}}
-			>
-				<div className="pointer-events-none flex min-w-0 flex-1 items-center justify-start gap-3">
-					<div className="flex shrink-0 items-center gap-2 text-xs font-medium text-white/80">
-						<img src={lunaLogo} alt="" className="h-4 w-4 rounded-sm object-contain" draggable={false}/>
-						<span>LunaMail</span>
-						<span className="text-[10px] font-semibold uppercase tracking-wide text-white/55">
-							{appVersion}
+			{appSettingsFetched && !useNativeTitleBar && (
+				<header
+					className="relative flex h-9 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-2 text-slate-100 dark:border-[#08090c] dark:bg-[#0b0c10]"
+					style={{WebkitAppRegion: 'drag'} as React.CSSProperties}
+					onDoubleClick={() => {
+						void toggleMaximize();
+					}}
+				>
+					<div className="pointer-events-none flex min-w-0 flex-1 items-center justify-start gap-3">
+						<div className="flex shrink-0 items-center gap-2 text-xs font-medium text-white/80">
+							<img src={lunaLogo} alt="" className="h-4 w-4 rounded-sm object-contain" draggable={false}/>
+							<span>LunaMail</span>
+							<span className="text-[10px] font-semibold uppercase tracking-wide text-white/55">
+								{appVersion}
+							</span>
+						</div>
+						<span aria-hidden className="h-3.5 w-px shrink-0 bg-white/25"/>
+						<span className="block min-w-0 flex-1 truncate text-xs font-semibold tracking-wide text-white/80">
+							{pageTitle}
 						</span>
 					</div>
-					<span aria-hidden className="h-3.5 w-px shrink-0 bg-white/25"/>
-					<span className="block min-w-0 flex-1 truncate text-xs font-semibold tracking-wide text-white/80">
-						{pageTitle}
-					</span>
-				</div>
-				<div
-					className="flex w-24 shrink-0 items-center justify-end gap-1"
-					style={{WebkitAppRegion: 'no-drag'} as React.CSSProperties}
-				>
-					{hasUpdateIndicator && (
+					<div
+						className="flex w-24 shrink-0 items-center justify-end gap-1"
+						style={{WebkitAppRegion: 'no-drag'} as React.CSSProperties}
+					>
+						{hasUpdateIndicator && (
+							<button
+								type="button"
+								className="relative inline-flex h-7 w-7 items-center justify-center rounded text-amber-300/95 hover:bg-white/15 hover:text-amber-200"
+								onClick={() => navigate('/settings/application')}
+								title={updateIndicatorTitle}
+								aria-label="Open update status"
+							>
+								<Download size={13}/>
+								<span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400"/>
+							</button>
+						)}
 						<button
 							type="button"
-							className="relative inline-flex h-7 w-7 items-center justify-center rounded text-amber-300/95 hover:bg-white/15 hover:text-amber-200"
-							onClick={() => navigate('/settings/application')}
-							title={updateIndicatorTitle}
-							aria-label="Open update status"
+							className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/15 hover:text-white"
+							onClick={() => void minimize()}
+							title="Minimize"
+							aria-label="Minimize"
 						>
-							<Download size={13}/>
-							<span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400"/>
+							<Minus size={14}/>
 						</button>
-					)}
-					<button
-						type="button"
-						className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/15 hover:text-white"
-						onClick={() => void minimize()}
-						title="Minimize"
-						aria-label="Minimize"
-					>
-						<Minus size={14}/>
-					</button>
-					<button
-						type="button"
-						className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/15 hover:text-white"
-						onClick={() => void toggleMaximize()}
-						title={isMaximized ? 'Restore' : 'Maximize'}
-						aria-label={isMaximized ? 'Restore' : 'Maximize'}
-					>
-						{isMaximized ? <Copy size={13}/> : <Square size={13}/>}
-					</button>
-					<button
-						type="button"
-						className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-red-600 hover:text-white"
-						onClick={() => void close()}
-						title="Close"
-						aria-label="Close"
-					>
-						<X size={14}/>
-					</button>
-				</div>
-			</header>
+						<button
+							type="button"
+							className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/15 hover:text-white"
+							onClick={() => void toggleMaximize()}
+							title={isMaximized ? 'Restore' : 'Maximize'}
+							aria-label={isMaximized ? 'Restore' : 'Maximize'}
+						>
+							{isMaximized ? <Copy size={13}/> : <Square size={13}/>}
+						</button>
+						<button
+							type="button"
+							className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-red-600 hover:text-white"
+							onClick={() => void close()}
+							title="Close"
+							aria-label="Close"
+						>
+							<X size={14}/>
+						</button>
+					</div>
+				</header>
+			)}
 			{showUpdateBanner && (
 				<div
 					className="shrink-0 border-b border-amber-300 bg-amber-100 px-3 py-2 text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/40 dark:text-amber-100">

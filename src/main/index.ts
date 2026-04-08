@@ -51,7 +51,6 @@ const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 let mainWindow: BrowserWindow | null = null;
-let mainWindowUsesNativeTitleBar = false;
 let tray: Tray | null = null;
 let isQuitting = false;
 let currentUnreadCount = 0;
@@ -234,7 +233,6 @@ function createWindow() {
 		}
 	});
 	mainWindow = win;
-	mainWindowUsesNativeTitleBar = useNativeTitleBar;
 	win.webContents.once('did-finish-load', () => {
 		flushPendingGlobalErrors(win);
 	});
@@ -277,19 +275,6 @@ function createWindow() {
 		}).catch((error) => {
 			console.error('Failed to load main window (prod):', error);
 		});
-	}
-}
-
-function recreateMainWindowForFrameChange(): void {
-	const existing = mainWindow;
-	if (!existing || existing.isDestroyed()) return;
-	logger.info('Recreating main window to apply titlebar mode change');
-	saveMainWindowState(existing);
-	const wasVisible = existing.isVisible();
-	existing.destroy();
-	createWindow();
-	if (wasVisible) {
-		showMainWindow();
 	}
 }
 
@@ -1103,11 +1088,7 @@ if (!gotSingleInstanceLock) {
 		registerAccountIpc();
 		registerCloudIpc();
 		registerSettingsIpc((settings) => {
-			const previousTitleBarMode = mainWindowUsesNativeTitleBar;
 			applyRuntimeSettings();
-			if (previousTitleBarMode !== Boolean(settings.useNativeTitleBar)) {
-				recreateMainWindowForFrameChange();
-			}
 		});
 		registerUpdaterIpc();
 		registerWindowIpc();

@@ -21,14 +21,21 @@ function getSettingsPath(): string {
 }
 
 function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSettings {
+    const parseBoolean = (value: unknown, fallback: boolean): boolean => {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'number') return value !== 0;
+        if (typeof value === 'string') {
+            const normalized = value.trim().toLowerCase();
+            if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') return true;
+            if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off') return false;
+        }
+        return fallback;
+    };
     const language: AppLanguage = parseAppLanguage(input?.language);
     const theme: AppTheme = parseAppTheme(input?.theme);
     const mailView: MailView = parseMailView(input?.mailView);
     const navRailOrder = normalizeNavRailOrder(input?.navRailOrder);
-    const blockRemoteContent =
-        typeof input?.blockRemoteContent === 'boolean'
-            ? input.blockRemoteContent
-            : DEFAULT_APP_SETTINGS.blockRemoteContent;
+    const blockRemoteContent = parseBoolean(input?.blockRemoteContent, DEFAULT_APP_SETTINGS.blockRemoteContent);
     const remoteContentAllowlist = Array.isArray(input?.remoteContentAllowlist)
         ? [
             ...new Set(
@@ -46,18 +53,10 @@ function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSe
 
     const syncIntervalMinutes = normalizeSyncIntervalMinutes(input?.syncIntervalMinutes);
 
-    const minimizeToTray =
-        typeof input?.minimizeToTray === 'boolean' ? input.minimizeToTray : DEFAULT_APP_SETTINGS.minimizeToTray;
-    const useNativeTitleBar =
-        typeof input?.useNativeTitleBar === 'boolean'
-            ? input.useNativeTitleBar
-            : DEFAULT_APP_SETTINGS.useNativeTitleBar;
-    const autoUpdateEnabled =
-        typeof input?.autoUpdateEnabled === 'boolean'
-            ? input.autoUpdateEnabled
-            : DEFAULT_APP_SETTINGS.autoUpdateEnabled;
-    const developerMode =
-        typeof input?.developerMode === 'boolean' ? input.developerMode : DEFAULT_APP_SETTINGS.developerMode;
+    const minimizeToTray = parseBoolean(input?.minimizeToTray, DEFAULT_APP_SETTINGS.minimizeToTray);
+    const useNativeTitleBar = parseBoolean(input?.useNativeTitleBar, DEFAULT_APP_SETTINGS.useNativeTitleBar);
+    const autoUpdateEnabled = parseBoolean(input?.autoUpdateEnabled, DEFAULT_APP_SETTINGS.autoUpdateEnabled);
+    const developerMode = parseBoolean(input?.developerMode, DEFAULT_APP_SETTINGS.developerMode);
 
     return {
         language,

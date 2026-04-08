@@ -112,6 +112,7 @@ export const ipcClient = {
     toggleMaximizeWindow: (): Promise<{ ok: true; isMaximized: boolean }> => window.electronAPI.toggleMaximizeWindow(),
     closeWindow: (): Promise<{ ok: true }> => window.electronAPI.closeWindow(),
     openDevTools: (): Promise<{ ok: true }> => window.electronAPI.openDevTools(),
+    restartApp: (): Promise<{ ok: true }> => window.electronAPI.restartApp(),
     openAddAccountWindow: (): Promise<{ ok: true }> => window.electronAPI.openAddAccountWindow(),
 
     getSystemLocale: (): Promise<string> => window.electronAPI.getSystemLocale(),

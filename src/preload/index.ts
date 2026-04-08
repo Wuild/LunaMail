@@ -704,6 +704,7 @@ const api = {
 	closeWindow: (): Promise<{ ok: true }> => ipcRenderer.invoke('window-close'),
 	isWindowMaximized: (): Promise<boolean> => ipcRenderer.invoke('window-is-maximized'),
 	openDevTools: (): Promise<{ ok: true }> => ipcRenderer.invoke('window-open-dev-tools'),
+	restartApp: (): Promise<{ ok: true }> => ipcRenderer.invoke('app-restart'),
 	openMessageWindow: (messageId?: number | null): Promise<{ ok: true }> =>
 		ipcRenderer.invoke('open-message-window', messageId ?? null),
 	getDebugLogs: (limit?: number): Promise<DebugLogEntry[]> => ipcRenderer.invoke('get-debug-logs', limit),

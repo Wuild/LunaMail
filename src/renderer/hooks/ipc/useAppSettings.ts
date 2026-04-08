@@ -10,6 +10,7 @@ export function useAppSettings(defaultSettings: AppSettings) {
         queryKey: ['app-settings'],
         queryFn: () => ipcClient.getAppSettings(),
         initialData: defaultSettings,
+        refetchOnMount: 'always',
     });
     const appSettings = appSettingsQuery.data;
     const setAppSettings = useCallback(
@@ -30,5 +31,6 @@ export function useAppSettings(defaultSettings: AppSettings) {
     return {
         appSettings,
         setAppSettings,
+        isFetched: appSettingsQuery.isFetched,
     };
 }

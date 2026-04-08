@@ -443,7 +443,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
             <select
                 value={selectedBookId ?? ''}
                 onChange={(event) => setSelectedBookId(event.target.value ? Number(event.target.value) : null)}
-                className="h-10 min-w-52 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                className="h-10 min-w-52 shrink-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
                 disabled={!accountId}
             >
                 <option value="">All address books</option>
@@ -455,7 +455,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
             </select>
             <button
                 type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
                 disabled={!accountId}
                 onClick={() => setShowAddAddressBookModal(true)}
                 title="Create address book"
@@ -465,7 +465,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
             </button>
             <button
                 type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
                 disabled={
                     !accountId ||
                     !selectedBookId ||
@@ -482,12 +482,12 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search contacts..."
-                className="h-10 min-w-0 w-full max-w-xl rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                className="h-10 min-w-[10rem] flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
                 disabled={!accountId}
             />
             <button
                 type="button"
-                className="ml-auto inline-flex h-10 items-center gap-2 rounded-md bg-sky-600 px-3 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-60 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-sky-600 px-3 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-60 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                 onClick={() => setShowAddContactModal(true)}
                 disabled={!accountId}
                 title="Add contact"
@@ -498,7 +498,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
             </button>
             <button
                 type="button"
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
                 onClick={() => setShowExportContactsModal(true)}
                 disabled={!accountId}
                 title="Export contacts"

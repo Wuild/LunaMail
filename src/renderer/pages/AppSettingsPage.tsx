@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import type {
 	AppSettings,
@@ -103,6 +103,8 @@ export default function AppSettingsPage({
 	const [showUpdaterModal, setShowUpdaterModal] = useState(false);
 	const [mailFilterModal, setMailFilterModal] = useState<MailFilterModalState>(null);
 	const [remoteAllowlistInput, setRemoteAllowlistInput] = useState('');
+	const [titlebarRestartRequired, setTitlebarRestartRequired] = useState(false);
+	const [titlebarRestartBusy, setTitlebarRestartBusy] = useState(false);
 	const {sidebarWidth: settingsSidebarWidth, onResizeStart: onSettingsSidebarResizeStart} = useResizableSidebar({
 		defaultWidth: 320,
 		minWidth: 240,
@@ -116,8 +118,6 @@ export default function AppSettingsPage({
 			maxWidth: 420,
 			storageKey: 'lunamail.settings.account.sections.width',
 		});
-
-	const saveRequestSeqRef = useRef(0);
 
 	useEffect(() => {
 		setPanel((prev) => {
@@ -210,18 +210,48 @@ export default function AppSettingsPage({
 
 	useThemePreference(settings.theme);
 
-	async function applySettingsPatch(patch: Partial<AppSettings>) {
+	async function applySettingsPatch(patch: Partial<AppSettings>): Promise<boolean> {
 		setSettings((prev) => ({...prev, ...patch}));
 		setAppStatus('Saving...');
-		const requestSeq = ++saveRequestSeqRef.current;
 		try {
 			const saved = await ipcClient.updateAppSettings(patch);
-			if (requestSeq !== saveRequestSeqRef.current) return;
 			setSettings(saved);
 			setAppStatus('Settings saved.');
+			return true;
 		} catch (e: any) {
-			if (requestSeq !== saveRequestSeqRef.current) return;
+			const latest = await ipcClient.getAppSettings().catch(() => null);
+			if (latest) setSettings(latest);
 			setAppStatus(`Save failed: ${e?.message || String(e)}`);
+			return false;
+		}
+	}
+
+	async function onTitlebarModeChange(useNativeTitleBar: boolean): Promise<void> {
+		if (settings.useNativeTitleBar === useNativeTitleBar) return;
+		const saved = await applySettingsPatch({useNativeTitleBar});
+		if (!saved) return;
+		const latest = await ipcClient.getAppSettings().catch(() => null);
+		if (latest) {
+			setSettings(latest);
+		}
+		if ((latest?.useNativeTitleBar ?? useNativeTitleBar) === useNativeTitleBar) {
+			setTitlebarRestartRequired(true);
+			setAppStatus('Restart required to apply titlebar change.');
+			return;
+		}
+		setTitlebarRestartRequired(false);
+		setAppStatus('Titlebar setting did not persist. Please try again.');
+	}
+
+	async function onRestartForTitlebarChange(): Promise<void> {
+		if (titlebarRestartBusy) return;
+		setTitlebarRestartBusy(true);
+		setAppStatus('Restarting app...');
+		try {
+			await ipcClient.restartApp();
+		} catch (e: any) {
+			setTitlebarRestartBusy(false);
+			setAppStatus(`Restart failed: ${e?.message || String(e)}`);
 		}
 	}
 
@@ -763,7 +793,7 @@ export default function AppSettingsPage({
 													? 'bg-sky-600 text-white dark:bg-[#5865f2]'
 													: 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]',
 											)}
-											onClick={() => void applySettingsPatch({useNativeTitleBar: false})}
+											onClick={() => void onTitlebarModeChange(false)}
 										>
 											Custom titlebar
 										</button>
@@ -775,14 +805,27 @@ export default function AppSettingsPage({
 													? 'bg-sky-600 text-white dark:bg-[#5865f2]'
 													: 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]',
 											)}
-											onClick={() => void applySettingsPatch({useNativeTitleBar: true})}
+											onClick={() => void onTitlebarModeChange(true)}
 										>
 											Native titlebar
 										</button>
 									</div>
 									<p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-										Changing titlebar mode recreates the main window to apply frame changes.
+										Changing titlebar mode requires restarting the app.
 									</p>
+									{titlebarRestartRequired && (
+										<div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+											<span>Titlebar style changed. Restart required to apply it.</span>
+											<button
+												type="button"
+												className="rounded-md bg-amber-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+												onClick={() => void onRestartForTitlebarChange()}
+												disabled={titlebarRestartBusy}
+											>
+												{titlebarRestartBusy ? 'Restarting...' : 'Restart now'}
+											</button>
+										</div>
+									)}
 								</div>
 							</div>
 							<div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">

@@ -2,7 +2,8 @@ import {app, BrowserWindow} from 'electron';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import {loadWindowContent} from './loadWindowContent.js';
-import {attachWindowShortcuts, buildSecureWebPreferences, createFramelessAppWindow} from './windowFactory.js';
+import {getAppSettingsSync} from '../settings/store.js';
+import {attachWindowShortcuts, buildSecureWebPreferences, createAppWindow, createFramelessAppWindow} from './windowFactory.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -21,7 +22,9 @@ export function openAddAccountWindow(parentWindow?: BrowserWindow): void {
     const parent = parentWindow && !parentWindow.isDestroyed() ? parentWindow : undefined;
     const parentBounds = parent?.getBounds();
 
-    addAccountWin = createFramelessAppWindow({
+    const useNativeTitleBar = Boolean(getAppSettingsSync().useNativeTitleBar);
+    const createWindow = useNativeTitleBar ? createAppWindow : createFramelessAppWindow;
+    addAccountWin = createWindow({
         parent,
         modal: true,
         width: Math.max(960, parentBounds?.width ?? 960),

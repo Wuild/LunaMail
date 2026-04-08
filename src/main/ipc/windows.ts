@@ -1,5 +1,5 @@
 import type {OpenDialogOptions} from "electron";
-import {BrowserWindow, dialog, ipcMain} from "electron";
+import {app, BrowserWindow, dialog, ipcMain} from "electron";
 import path from "node:path";
 import {clearDebugLogs, createAppLogger, getDebugLogs} from "../debug/debugLog.js";
 import {type ComposeDraftPayload, getComposeDraft, openComposeWindow} from "../windows/composeWindow.js";
@@ -112,6 +112,13 @@ export function registerWindowIpc(): void {
         if (win && !win.isDestroyed()) {
             win.webContents.openDevTools({mode: "detach"});
         }
+        return {ok: true} as const;
+    });
+
+    ipcMain.handle("app-restart", async () => {
+        logger.info("IPC app-restart");
+        app.relaunch();
+        app.quit();
         return {ok: true} as const;
     });
 }

@@ -1,28 +1,31 @@
-import React, {useEffect, useState} from 'react';
-import WindowTitleBar from '../components/WindowTitleBar';
-import {useAppTheme} from '../hooks/useAppTheme';
+import React, {useEffect, useState} from "react";
+import WindowTitleBar from "../components/WindowTitleBar";
+import {useAppTheme} from "../hooks/useAppTheme";
 
 const shortcuts = [
-    {action: 'Compose new email', keys: 'Ctrl/Cmd + N'},
-    {action: 'Reply', keys: 'Ctrl/Cmd + R'},
-    {action: 'Reply all', keys: 'Ctrl/Cmd + Shift + R'},
-    {action: 'Forward', keys: 'Ctrl/Cmd + Shift + F'},
-    {action: 'Sync account', keys: 'Ctrl/Cmd + Shift + S'},
-    {action: 'Close child window', keys: 'Escape'},
+    {action: "Compose new email", keys: "Ctrl/Cmd + N"},
+    {action: "Reply", keys: "Ctrl/Cmd + R"},
+    {action: "Reply all", keys: "Ctrl/Cmd + Shift + R"},
+    {action: "Forward", keys: "Ctrl/Cmd + Shift + F"},
+    {action: "Sync account", keys: "Ctrl/Cmd + Shift + S"},
+    {action: "Close child window", keys: "Escape"},
 ];
 
 export default function SupportPage({embedded = false}: { embedded?: boolean }) {
     useAppTheme();
-    const [version, setVersion] = useState('unknown');
-    const repoUrl = 'https://github.com/wuild/LunaMail';
-    const author = 'wuild';
+    const [version, setVersion] = useState("unknown");
+    const repoUrl = "https://github.com/wuild/LunaMail";
+    const author = "wuild";
 
     useEffect(() => {
         let active = true;
-        void window.electronAPI.getAutoUpdateState().then((state) => {
-            if (!active) return;
-            setVersion(state.currentVersion || 'unknown');
-        }).catch(() => undefined);
+        void window.electronAPI
+            .getAutoUpdateState()
+            .then((state) => {
+                if (!active) return;
+                setVersion(state.currentVersion || "unknown");
+            })
+            .catch(() => undefined);
         return () => {
             active = false;
         };
@@ -35,8 +38,9 @@ export default function SupportPage({embedded = false}: { embedded?: boolean }) 
                 <header
                     className="border-b border-slate-200 bg-white px-5 py-4 dark:border-[#3a3d44] dark:bg-[#1f2125]">
                     <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Support</h1>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Keyboard shortcuts, metadata, and how
-                        LunaMail works</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Keyboard shortcuts, metadata, and how LunaMail works
+                    </p>
                 </header>
 
                 <main className="min-h-0 flex-1 overflow-auto p-5">
@@ -46,11 +50,13 @@ export default function SupportPage({embedded = false}: { embedded?: boolean }) 
                             className="mb-4 rounded-xl border border-slate-200 bg-white p-4 text-sm dark:border-[#3a3d44] dark:bg-[#2b2d31]">
                             <h2 className="font-semibold text-slate-800 dark:text-slate-100">Project Info</h2>
                             <div className="mt-2 grid gap-2 text-slate-700 dark:text-slate-200">
-                                <div><span
-                                    className="font-medium text-slate-500 dark:text-slate-400">Current version:</span> {version}
+                                <div>
+                                    <span
+                                        className="font-medium text-slate-500 dark:text-slate-400">Current version:</span> {version}
                                 </div>
-                                <div><span
-                                    className="font-medium text-slate-500 dark:text-slate-400">Author:</span> {author}
+                                <div>
+                                    <span
+                                        className="font-medium text-slate-500 dark:text-slate-400">Author:</span> {author}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                     <span className="font-medium text-slate-500 dark:text-slate-400">GitHub:</span>
@@ -90,27 +96,43 @@ export default function SupportPage({embedded = false}: { embedded?: boolean }) 
                             className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-sm dark:border-[#3a3d44] dark:bg-[#2b2d31]">
                             <h2 className="font-semibold text-slate-800 dark:text-slate-100">How LunaMail Works</h2>
                             <div className="mt-2 space-y-2 text-slate-600 dark:text-slate-300">
-                                <p><span
-                                    className="font-medium text-slate-700 dark:text-slate-200">Accounts and sync:</span> each
+                                <p>
+                                    <span
+                                        className="font-medium text-slate-700 dark:text-slate-200">Accounts and sync:</span> each
                                     account syncs through IMAP and caches messages locally for fast browsing and
-                                    offline-first behavior.</p>
-                                <p><span className="font-medium text-slate-700 dark:text-slate-200">Read/unread and message actions:</span> actions
-                                    apply optimistically in the UI first, then sync to server in the background.</p>
-                                <p><span
-                                    className="font-medium text-slate-700 dark:text-slate-200">Search:</span> search
-                                    runs across cached data for quick results, with filters for account, folder, read
-                                    state, starred state, date, and size.</p>
-                                <p><span
-                                    className="font-medium text-slate-700 dark:text-slate-200">Security model:</span> renderer
-                                    has no direct Node access; all sensitive operations go through preload IPC and
-                                    Electron main process.</p>
-                                <p><span className="font-medium text-slate-700 dark:text-slate-200">Remote content privacy:</span> remote
+                                    offline-first behavior.
+                                </p>
+                                <p>
+                  <span className="font-medium text-slate-700 dark:text-slate-200">
+                    Read/unread and message actions:
+                  </span>{" "}
+                                    actions apply optimistically in the UI first, then sync to server in the background.
+                                </p>
+                                <p>
+                                    <span
+                                        className="font-medium text-slate-700 dark:text-slate-200">Search:</span> search
+                                    runs across
+                                    cached data for quick results, with filters for account, folder, read state, starred
+                                    state, date, and
+                                    size.
+                                </p>
+                                <p>
+                                    <span
+                                        className="font-medium text-slate-700 dark:text-slate-200">Security model:</span> renderer
+                                    has
+                                    no direct Node access; all sensitive operations go through preload IPC and Electron
+                                    main process.
+                                </p>
+                                <p>
+                                    <span className="font-medium text-slate-700 dark:text-slate-200">Remote content privacy:</span> remote
                                     content can be blocked by default; you can load once or allowlist senders/domains.
                                 </p>
-                                <p><span
-                                    className="font-medium text-slate-700 dark:text-slate-200">Debug console:</span> use
-                                    the Debug page to inspect IMAP/SMTP/DAV/app logs for sync behavior and
-                                    troubleshooting.</p>
+                                <p>
+                                    <span
+                                        className="font-medium text-slate-700 dark:text-slate-200">Debug console:</span> use
+                                    the Debug
+                                    page to inspect IMAP/SMTP/DAV/app logs for sync behavior and troubleshooting.
+                                </p>
                             </div>
                         </section>
 

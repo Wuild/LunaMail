@@ -1,25 +1,25 @@
-const fs = require('node:fs');
-const path = require('node:path');
+const fs = require("node:fs");
+const path = require("node:path");
 
 function isSubPath(parent, candidate) {
     const rel = path.relative(parent, candidate);
-    return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+    return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
 }
 
 module.exports = async function beforeBuild() {
     const projectRoot = process.cwd();
-    const stageRoot = path.join(projectRoot, '.electron-builder-prod-node_modules');
-    const stageNodeModules = path.join(stageRoot, 'node_modules');
-    const sourceNodeModules = path.join(projectRoot, 'node_modules');
+    const stageRoot = path.join(projectRoot, ".electron-builder-prod-node_modules");
+    const stageNodeModules = path.join(stageRoot, "node_modules");
+    const sourceNodeModules = path.join(projectRoot, "node_modules");
 
     if (!fs.existsSync(sourceNodeModules)) {
-        throw new Error('node_modules not found. Run npm install before packaging.');
+        throw new Error("node_modules not found. Run npm install before packaging.");
     }
 
     fs.rmSync(stageRoot, {recursive: true, force: true});
     fs.mkdirSync(stageNodeModules, {recursive: true});
 
-    const rootPkg = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
+    const rootPkg = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf8"));
     const rootDeps = Object.keys(rootPkg.dependencies || {});
     const visited = new Set();
     const queue = [];
@@ -29,7 +29,7 @@ module.exports = async function beforeBuild() {
         let current = path.dirname(resolvedFile);
         const rootPath = path.parse(current).root;
         while (current !== rootPath) {
-            const pkgJsonPath = path.join(current, 'package.json');
+            const pkgJsonPath = path.join(current, "package.json");
             if (fs.existsSync(pkgJsonPath)) return current;
             current = path.dirname(current);
         }
@@ -64,9 +64,9 @@ module.exports = async function beforeBuild() {
         visited.add(realPkgDir);
         discovered.push(realPkgDir);
 
-        const manifestPath = path.join(realPkgDir, 'package.json');
+        const manifestPath = path.join(realPkgDir, "package.json");
         if (!fs.existsSync(manifestPath)) continue;
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         const childDeps = Object.keys({
             ...(manifest.dependencies || {}),
             ...(manifest.optionalDependencies || {}),

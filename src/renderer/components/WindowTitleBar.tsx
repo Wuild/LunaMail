@@ -1,7 +1,7 @@
-import React, {useEffect, useState} from 'react';
-import {Copy, Minus, Square, X} from 'lucide-react';
-import {cn} from '../lib/utils';
-import lunaLogo from '../../resources/luna.png';
+import React, {useEffect, useState} from "react";
+import {Copy, Minus, Square, X} from "lucide-react";
+import {cn} from "../lib/utils";
+import lunaLogo from "../../resources/luna.png";
 
 interface WindowTitleBarProps {
     title: string;
@@ -22,31 +22,34 @@ export default function WindowTitleBar({
 
     useEffect(() => {
         if (!showMaximize) return;
-        void window.electronAPI.isWindowMaximized()
+        void window.electronAPI
+            .isWindowMaximized()
             .then((value) => setIsMaximized(Boolean(value)))
             .catch(() => undefined);
 
         const onResize = () => {
-            void window.electronAPI.isWindowMaximized()
+            void window.electronAPI
+                .isWindowMaximized()
                 .then((value) => setIsMaximized(Boolean(value)))
                 .catch(() => undefined);
         };
-        window.addEventListener('resize', onResize);
+        window.addEventListener("resize", onResize);
         return () => {
-            window.removeEventListener('resize', onResize);
+            window.removeEventListener("resize", onResize);
         };
     }, [showMaximize]);
 
     return (
         <div
             className={cn(
-                'relative flex h-9 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-2 text-slate-100 dark:border-[#08090c] dark:bg-[#0b0c10]',
-                className,
+                "relative flex h-9 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-2 text-slate-100 dark:border-[#08090c] dark:bg-[#0b0c10]",
+                className
             )}
-            style={{WebkitAppRegion: 'drag'} as React.CSSProperties}
+            style={{WebkitAppRegion: "drag"} as React.CSSProperties}
             onDoubleClick={() => {
                 if (!showMaximize) return;
-                void window.electronAPI.toggleMaximizeWindow()
+                void window.electronAPI
+                    .toggleMaximizeWindow()
                     .then((res) => setIsMaximized(Boolean(res?.isMaximized)))
                     .catch(() => undefined);
             }}
@@ -60,7 +63,7 @@ export default function WindowTitleBar({
             </div>
             <div
                 className="flex w-24 shrink-0 items-center justify-end gap-1"
-                style={{WebkitAppRegion: 'no-drag'} as React.CSSProperties}
+                style={{WebkitAppRegion: "no-drag"} as React.CSSProperties}
             >
                 {showMinimize && (
                     <button
@@ -78,12 +81,13 @@ export default function WindowTitleBar({
                         type="button"
                         className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/15 hover:text-white"
                         onClick={() => {
-                            void window.electronAPI.toggleMaximizeWindow()
+                            void window.electronAPI
+                                .toggleMaximizeWindow()
                                 .then((res) => setIsMaximized(Boolean(res?.isMaximized)))
                                 .catch(() => undefined);
                         }}
-                        aria-label={isMaximized ? 'Restore' : 'Maximize'}
-                        title={isMaximized ? 'Restore' : 'Maximize'}
+                        aria-label={isMaximized ? "Restore" : "Maximize"}
+                        title={isMaximized ? "Restore" : "Maximize"}
                     >
                         {isMaximized ? <Copy size={13}/> : <Square size={13}/>}
                     </button>

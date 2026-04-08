@@ -1,7 +1,7 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {FileText, Forward, MailOpen, Paperclip, Reply, ReplyAll, Star, Tag, Trash2} from 'lucide-react';
-import type {AppSettings, MessageBodyResult, MessageDetails} from '../../preload';
-import {formatSystemDateTime} from '../lib/dateTime';
+import React, {useEffect, useMemo, useRef, useState} from "react";
+import {FileText, Forward, MailOpen, Paperclip, Reply, ReplyAll, Star, Tag, Trash2} from "lucide-react";
+import type {AppSettings, MessageBodyResult, MessageDetails} from "../../preload";
+import {formatSystemDateTime} from "../lib/dateTime";
 import {
     buildForwardQuoteHtml,
     buildForwardQuoteText,
@@ -13,20 +13,20 @@ import {
     htmlToText,
     inferReplyAddress,
     normalizeMessageId,
-} from '../features/mail/composeDraft';
-import {clampToViewport, formatBytes} from '../lib/format';
-import WindowTitleBar from '../components/WindowTitleBar';
-import {useAppTheme} from '../hooks/useAppTheme';
+} from "../features/mail/composeDraft";
+import {clampToViewport, formatBytes} from "../lib/format";
+import WindowTitleBar from "../components/WindowTitleBar";
+import {useAppTheme} from "../hooks/useAppTheme";
 import {
     buildSourceDocCsp,
     enrichAnchorTitles,
     extractEmailAddress,
-    isSenderAllowed
-} from '../features/mail/remoteContent';
+    isSenderAllowed,
+} from "../features/mail/remoteContent";
 
 export default function MessageWindowPage() {
     useAppTheme();
-    const [systemLocale, setSystemLocale] = useState('en-US');
+    const [systemLocale, setSystemLocale] = useState("en-US");
     const [messageId, setMessageId] = useState<number | null>(null);
     const [message, setMessage] = useState<MessageDetails | null>(null);
     const [body, setBody] = useState<MessageBodyResult | null>(null);
@@ -34,17 +34,19 @@ export default function MessageWindowPage() {
     const [attachmentMenu, setAttachmentMenu] = useState<{ x: number; y: number; index: number } | null>(null);
     const [showMessageDetails, setShowMessageDetails] = useState(false);
     const [showSourceModal, setShowSourceModal] = useState(false);
-    const [messageSource, setMessageSource] = useState('');
+    const [messageSource, setMessageSource] = useState("");
     const [sourceLoading, setSourceLoading] = useState(false);
     const [sourceError, setSourceError] = useState<string | null>(null);
     const sourceRequestSeqRef = useRef(0);
     const [sessionRemoteAllowed, setSessionRemoteAllowed] = useState(false);
-    const [hoveredLinkUrl, setHoveredLinkUrl] = useState('');
+    const [hoveredLinkUrl, setHoveredLinkUrl] = useState("");
     const [isPointerOverMessageFrame, setIsPointerOverMessageFrame] = useState(false);
     const [appSettings, setAppSettings] = useState<AppSettings>({
-        language: 'system',
-        theme: 'system',
-        mailView: 'side-list',
+        language: "system",
+        theme: "system",
+        mailView: "side-list",
+        navRailOrder: ["email", "contacts", "calendar", "cloud"],
+        useNativeTitleBar: false,
         blockRemoteContent: true,
         remoteContentAllowlist: [],
         minimizeToTray: true,
@@ -54,47 +56,56 @@ export default function MessageWindowPage() {
     });
 
     useEffect(() => {
-        window.electronAPI.getSystemLocale().then((locale) => setSystemLocale(locale || 'en-US')).catch(() => undefined);
+        window.electronAPI
+            .getSystemLocale()
+            .then((locale) => setSystemLocale(locale || "en-US"))
+            .catch(() => undefined);
     }, []);
 
     useEffect(() => {
         let active = true;
-        window.electronAPI.getAppSettings().then((settings) => {
-            if (!active) return;
-            setAppSettings(settings);
-        }).catch(() => undefined);
+        window.electronAPI
+            .getAppSettings()
+            .then((settings) => {
+                if (!active) return;
+                setAppSettings(settings);
+            })
+            .catch(() => undefined);
         const off = window.electronAPI.onAppSettingsUpdated?.((settings) => {
             if (!active) return;
             setAppSettings(settings);
         });
         return () => {
             active = false;
-            if (typeof off === 'function') off();
+            if (typeof off === "function") off();
         };
     }, []);
 
     useEffect(() => {
         const off = window.electronAPI.onLinkHoverUrl?.((url) => {
-            setHoveredLinkUrl(url || '');
+            setHoveredLinkUrl(url || "");
         });
         return () => {
-            if (typeof off === 'function') off();
+            if (typeof off === "function") off();
         };
     }, []);
 
     useEffect(() => {
         let active = true;
-        window.electronAPI.getMessageWindowTarget().then((target) => {
-            if (!active) return;
-            setMessageId(target);
-        }).catch(() => undefined);
+        window.electronAPI
+            .getMessageWindowTarget()
+            .then((target) => {
+                if (!active) return;
+                setMessageId(target);
+            })
+            .catch(() => undefined);
         const off = window.electronAPI.onMessageWindowTarget?.((target) => {
             if (!active) return;
             setMessageId(target);
         });
         return () => {
             active = false;
-            if (typeof off === 'function') off();
+            if (typeof off === "function") off();
         };
     }, []);
 
@@ -104,11 +115,11 @@ export default function MessageWindowPage() {
             setBody(null);
             setAttachmentMenu(null);
             setShowSourceModal(false);
-            setMessageSource('');
+            setMessageSource("");
             setSourceLoading(false);
             setSourceError(null);
             setSessionRemoteAllowed(false);
-            setHoveredLinkUrl('');
+            setHoveredLinkUrl("");
             setIsPointerOverMessageFrame(false);
             return;
         }
@@ -139,17 +150,20 @@ export default function MessageWindowPage() {
 
     useEffect(() => {
         setSessionRemoteAllowed(false);
-        setHoveredLinkUrl('');
+        setHoveredLinkUrl("");
         setIsPointerOverMessageFrame(false);
     }, [messageId]);
 
     useEffect(() => {
         if (!messageId || !message || message.is_read) return;
         let active = true;
-        void window.electronAPI.markMessageRead(messageId).then((result) => {
-            if (!active) return;
-            setMessage((prev) => (prev && prev.id === messageId ? {...prev, is_read: result.isRead} : prev));
-        }).catch(() => undefined);
+        void window.electronAPI
+            .markMessageRead(messageId)
+            .then((result) => {
+                if (!active) return;
+                setMessage((prev) => (prev && prev.id === messageId ? {...prev, is_read: result.isRead} : prev));
+            })
+            .catch(() => undefined);
         return () => {
             active = false;
         };
@@ -182,11 +196,11 @@ export default function MessageWindowPage() {
     useEffect(() => {
         if (!attachmentMenu) return;
         const close = () => setAttachmentMenu(null);
-        window.addEventListener('click', close);
-        window.addEventListener('keydown', close);
+        window.addEventListener("click", close);
+        window.addEventListener("keydown", close);
         return () => {
-            window.removeEventListener('click', close);
-            window.removeEventListener('keydown', close);
+            window.removeEventListener("click", close);
+            window.removeEventListener("keydown", close);
         };
     }, [attachmentMenu]);
 
@@ -197,14 +211,14 @@ export default function MessageWindowPage() {
     useEffect(() => {
         if (!showSourceModal) return;
         const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
+            if (event.key === "Escape") {
                 event.preventDefault();
                 setShowSourceModal(false);
             }
         };
-        window.addEventListener('keydown', onKeyDown);
+        window.addEventListener("keydown", onKeyDown);
         return () => {
-            window.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener("keydown", onKeyDown);
         };
     }, [showSourceModal]);
 
@@ -223,7 +237,7 @@ export default function MessageWindowPage() {
 
     function onReply(): void {
         if (!message) return;
-        const subject = ensurePrefixedSubject(message.subject, 'Re:');
+        const subject = ensurePrefixedSubject(message.subject, "Re:");
         const quoteText = body?.text ?? htmlToText(body?.html);
         const quoteHtml = buildReplyQuoteHtml(message, body?.html, quoteText, systemLocale);
         const replyTo = inferReplyAddress(message);
@@ -241,7 +255,7 @@ export default function MessageWindowPage() {
 
     function onReplyAll(): void {
         if (!message) return;
-        const subject = ensurePrefixedSubject(message.subject, 'Re:');
+        const subject = ensurePrefixedSubject(message.subject, "Re:");
         const quoteText = body?.text ?? htmlToText(body?.html);
         const quoteHtml = buildReplyQuoteHtml(message, body?.html, quoteText, systemLocale);
         const replyTo = inferReplyAddress(message);
@@ -249,7 +263,7 @@ export default function MessageWindowPage() {
         const references = buildReferences(message.references_text, message.message_id);
         composeWithDraft({
             to: replyTo,
-            cc: message.to_address || '',
+            cc: message.to_address || "",
             subject,
             bodyHtml: quoteHtml,
             bodyText: `\n\n${buildReplyQuoteText(message, quoteText, systemLocale)}`,
@@ -260,13 +274,13 @@ export default function MessageWindowPage() {
 
     function onForward(): void {
         if (!message) return;
-        const subject = ensurePrefixedSubject(message.subject, 'Fwd:');
+        const subject = ensurePrefixedSubject(message.subject, "Fwd:");
         const originalText = body?.text ?? htmlToText(body?.html);
         const forwarded = buildForwardQuoteText(message, originalText, systemLocale);
 
         composeWithDraft({
-            to: '',
-            cc: '',
+            to: "",
+            cc: "",
             subject,
             bodyHtml: buildForwardQuoteHtml(message, body?.html, originalText, systemLocale),
             bodyText: forwarded,
@@ -275,11 +289,10 @@ export default function MessageWindowPage() {
 
     function onDelete(): void {
         if (!message) return;
-        const confirmed = window.confirm(`Delete email "${message.subject || '(No subject)'}"?`);
+        const confirmed = window.confirm(`Delete email "${message.subject || "(No subject)"}"?`);
         if (!confirmed) return;
         window.close();
-        void window.electronAPI.deleteMessage(message.id)
-            .catch(() => undefined);
+        void window.electronAPI.deleteMessage(message.id).catch(() => undefined);
     }
 
     function allowRemoteContentForSender(): void {
@@ -296,8 +309,9 @@ export default function MessageWindowPage() {
         setShowSourceModal(true);
         setSourceLoading(true);
         setSourceError(null);
-        setMessageSource('');
-        void window.electronAPI.getMessageSource(message.id)
+        setMessageSource("");
+        void window.electronAPI
+            .getMessageSource(message.id)
             .then((result) => {
                 if (sourceRequestSeqRef.current !== requestSeq) return;
                 setMessageSource(result.source);
@@ -315,7 +329,7 @@ export default function MessageWindowPage() {
     return (
         <div className="h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
             <div className="flex h-full flex-col">
-                <WindowTitleBar title={message?.subject || 'Message'} showMaximize/>
+                <WindowTitleBar title={message?.subject || "Message"} showMaximize/>
                 <div
                     role="toolbar"
                     aria-label="Message actions"
@@ -368,79 +382,95 @@ export default function MessageWindowPage() {
                     {message && (
                         <>
                             <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                                <span
-                                    className="inline-flex h-5 items-center rounded-md bg-slate-200/90 px-2 text-[11px] font-medium text-slate-700 dark:bg-[#2a2d31] dark:text-slate-200">
-                                    Message
-                                </span>
+                <span
+                    className="inline-flex h-5 items-center rounded-md bg-slate-200/90 px-2 text-[11px] font-medium text-slate-700 dark:bg-[#2a2d31] dark:text-slate-200">
+                  Message
+                </span>
                                 {Boolean(message.is_flagged) && (
                                     <span
                                         className="inline-flex h-5 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 text-[11px] font-medium text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-300">
-                                        <Star size={11} className="fill-current"/>
-                                        Starred
-                                    </span>
+                    <Star size={11} className="fill-current"/>
+                    Starred
+                  </span>
                                 )}
                                 <span
                                     className="inline-flex h-5 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
-                                    <MailOpen size={11}/>
-                                    {message.is_read ? 'Read' : 'Unread'}
-                                </span>
+                  <MailOpen size={11}/>
+                                    {message.is_read ? "Read" : "Unread"}
+                </span>
                                 {Boolean((message as MessageDetails & { tag?: string | null }).tag) && (
                                     <span
                                         className="inline-flex h-5 items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-800 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-300">
-                                        <Tag size={11}/>
-                                        {formatMessageTagLabel((message as MessageDetails & {
-                                            tag?: string | null
-                                        }).tag ?? null)}
-                                    </span>
+                    <Tag size={11}/>
+                                        {formatMessageTagLabel(
+                                            (
+                                                message as MessageDetails & {
+                                                    tag?: string | null;
+                                                }
+                                            ).tag ?? null
+                                        )}
+                  </span>
                                 )}
                                 {attachments.length > 0 && (
                                     <span
                                         className="inline-flex h-5 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
-                                        <Paperclip size={11}/>
-                                        {attachments.length} attachment{attachments.length > 1 ? 's' : ''}
-                                    </span>
+                    <Paperclip size={11}/>
+                                        {attachments.length} attachment{attachments.length > 1 ? "s" : ""}
+                  </span>
                                 )}
                             </div>
-                            <h2 className="truncate text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">{message.subject || '(No subject)'}</h2>
+                            <h2 className="truncate text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                                {message.subject || "(No subject)"}
+                            </h2>
                             <div className="mt-2 grid gap-1 text-xs text-slate-700 dark:text-slate-200">
                                 <div className="select-text">
-                                    <span className="font-medium text-slate-500 dark:text-slate-400">From:</span>{' '}
+                                    <span className="font-medium text-slate-500 dark:text-slate-400">From:</span>{" "}
                                     <span className="select-text">{formatFromDisplay(message)}</span>
                                 </div>
                                 <div className="select-text">
-                                    <span className="font-medium text-slate-500 dark:text-slate-400">To:</span>{' '}
-                                    <span className="select-text">{message.to_address || '-'}</span>
+                                    <span className="font-medium text-slate-500 dark:text-slate-400">To:</span>{" "}
+                                    <span className="select-text">{message.to_address || "-"}</span>
                                 </div>
-                                <div><span
-                                    className="font-medium text-slate-500 dark:text-slate-400">Date:</span> {formatSystemDateTime(message.date, systemLocale)}
+                                <div>
+                                    <span className="font-medium text-slate-500 dark:text-slate-400">Date:</span>{" "}
+                                    {formatSystemDateTime(message.date, systemLocale)}
                                 </div>
                             </div>
                             <button
                                 className="mt-2 inline-flex h-7 items-center rounded-md border border-slate-300 px-2 text-[11px] text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
                                 onClick={() => setShowMessageDetails((prev) => !prev)}
                             >
-                                {showMessageDetails ? 'Hide message details' : 'Show message details'}
+                                {showMessageDetails ? "Hide message details" : "Show message details"}
                             </button>
                             {showMessageDetails && (
                                 <div
                                     className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
-                                    <div><span className="font-medium">From name:</span> {message.from_name || '-'}
+                                    <div>
+                                        <span className="font-medium">From name:</span> {message.from_name || "-"}
                                     </div>
-                                    <div><span
-                                        className="font-medium">From address:</span> {message.from_address || '-'}</div>
-                                    <div><span className="font-medium">To:</span> {message.to_address || '-'}</div>
-                                    <div><span
-                                        className="font-medium">Date:</span> {formatSystemDateTime(message.date, systemLocale)}
+                                    <div>
+                                        <span className="font-medium">From address:</span> {message.from_address || "-"}
                                     </div>
-                                    <div><span className="font-medium">Message-ID:</span> {message.message_id || '-'}
+                                    <div>
+                                        <span className="font-medium">To:</span> {message.to_address || "-"}
                                     </div>
-                                    <div><span className="font-medium">In-Reply-To:</span> {message.in_reply_to || '-'}
+                                    <div>
+                                        <span
+                                            className="font-medium">Date:</span> {formatSystemDateTime(message.date, systemLocale)}
                                     </div>
-                                    <div><span
-                                        className="font-medium">References:</span> {message.references_text || '-'}
+                                    <div>
+                                        <span className="font-medium">Message-ID:</span> {message.message_id || "-"}
                                     </div>
-                                    <div><span
-                                        className="font-medium">Size:</span> {message.size ? `${message.size.toLocaleString()} bytes` : '-'}
+                                    <div>
+                                        <span className="font-medium">In-Reply-To:</span> {message.in_reply_to || "-"}
+                                    </div>
+                                    <div>
+                                        <span
+                                            className="font-medium">References:</span> {message.references_text || "-"}
+                                    </div>
+                                    <div>
+                                        <span className="font-medium">Size:</span>{" "}
+                                        {message.size ? `${message.size.toLocaleString()} bytes` : "-"}
                                     </div>
                                 </div>
                             )}
@@ -473,28 +503,28 @@ export default function MessageWindowPage() {
                     )}
                     <div className="min-h-0 flex-1">
                         {loading && (
-                            <div
-                                className="flex h-full items-center justify-center text-slate-500 dark:text-slate-400">Loading
-                                message...</div>
+                            <div className="flex h-full items-center justify-center text-slate-500 dark:text-slate-400">
+                                Loading message...
+                            </div>
                         )}
                         {!loading && iframeSrcDoc && (
                             <iframe
-                                title={`message-window-body-${message?.id || 'unknown'}`}
+                                title={`message-window-body-${message?.id || "unknown"}`}
                                 srcDoc={iframeSrcDoc}
                                 sandbox="allow-popups allow-popups-to-escape-sandbox"
                                 className="h-full w-full border-0 bg-white"
                                 onMouseEnter={() => setIsPointerOverMessageFrame(true)}
                                 onMouseLeave={() => {
                                     setIsPointerOverMessageFrame(false);
-                                    setHoveredLinkUrl('');
+                                    setHoveredLinkUrl("");
                                 }}
                             />
                         )}
                         {!loading && !iframeSrcDoc && (
                             <div className="h-full overflow-auto bg-white p-4 text-slate-900">
-              <pre className="select-text whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">
-                {body?.text || 'No body content available for this message.'}
-              </pre>
+                <pre className="select-text whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">
+                  {body?.text || "No body content available for this message."}
+                </pre>
                             </div>
                         )}
                     </div>
@@ -506,10 +536,10 @@ export default function MessageWindowPage() {
                             <div className="flex min-w-full w-max gap-2 pb-1">
                                 {attachments.map((attachment, index) => (
                                     <button
-                                        key={`${attachment.filename || 'attachment'}-${index}`}
+                                        key={`${attachment.filename || "attachment"}-${index}`}
                                         type="button"
                                         className="group flex w-[17rem] shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white p-2 text-left text-xs text-slate-700 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-200"
-                                        title={attachment.filename || 'Attachment'}
+                                        title={attachment.filename || "Attachment"}
                                         onClick={(event) => {
                                             event.stopPropagation();
                                             setAttachmentMenu({x: event.clientX, y: event.clientY, index});
@@ -520,20 +550,17 @@ export default function MessageWindowPage() {
                                             setAttachmentMenu({x: event.clientX, y: event.clientY, index});
                                         }}
                                     >
-                                        <span
-                                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-slate-100 text-slate-500 dark:border-[#3a3d44] dark:bg-[#2a2d31] dark:text-slate-300">
-                                            <Paperclip size={15}/>
-                                        </span>
+                    <span
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-slate-100 text-slate-500 dark:border-[#3a3d44] dark:bg-[#2a2d31] dark:text-slate-300">
+                      <Paperclip size={15}/>
+                    </span>
                                         <span className="min-w-0 flex-1">
-                                            <span className="block truncate font-medium">
-                                                {attachment.filename || 'Attachment'}
-                                            </span>
-                                            <span
-                                                className="block truncate text-[11px] text-slate-500 dark:text-slate-400">
-                                                {attachment.contentType || 'FILE'}
-                                                {typeof attachment.size === 'number' ? ` • ${formatBytes(attachment.size)}` : ''}
-                                            </span>
-                                        </span>
+                      <span className="block truncate font-medium">{attachment.filename || "Attachment"}</span>
+                      <span className="block truncate text-[11px] text-slate-500 dark:text-slate-400">
+                        {attachment.contentType || "FILE"}
+                          {typeof attachment.size === "number" ? ` • ${formatBytes(attachment.size)}` : ""}
+                      </span>
+                    </span>
                                     </button>
                                 ))}
                             </div>
@@ -559,7 +586,9 @@ export default function MessageWindowPage() {
                             className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
                             onClick={() => {
                                 if (!message) return;
-                                void window.electronAPI.openMessageAttachment(message.id, attachmentMenu.index, 'open').catch(() => undefined);
+                                void window.electronAPI
+                                    .openMessageAttachment(message.id, attachmentMenu.index, "open")
+                                    .catch(() => undefined);
                                 setAttachmentMenu(null);
                             }}
                         >
@@ -569,7 +598,9 @@ export default function MessageWindowPage() {
                             className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
                             onClick={() => {
                                 if (!message) return;
-                                void window.electronAPI.openMessageAttachment(message.id, attachmentMenu.index, 'save').catch(() => undefined);
+                                void window.electronAPI
+                                    .openMessageAttachment(message.id, attachmentMenu.index, "save")
+                                    .catch(() => undefined);
                                 setAttachmentMenu(null);
                             }}
                         >
@@ -612,7 +643,9 @@ export default function MessageWindowPage() {
                                 )}
                                 {!sourceLoading && !sourceError && (
                                     <pre
-                                        className="select-text whitespace-pre-wrap break-words rounded-md border border-slate-200 bg-white p-3 font-mono text-xs leading-5 text-slate-900 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100">{messageSource || '(No source available)'}</pre>
+                                        className="select-text whitespace-pre-wrap break-words rounded-md border border-slate-200 bg-white p-3 font-mono text-xs leading-5 text-slate-900 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100">
+                    {messageSource || "(No source available)"}
+                  </pre>
                                 )}
                             </div>
                         </div>
@@ -624,11 +657,13 @@ export default function MessageWindowPage() {
 }
 
 function formatMessageTagLabel(tag: string | null): string {
-    const normalized = String(tag || '').trim().toLowerCase();
-    if (!normalized) return '';
-    if (normalized === 'important') return 'Important';
-    if (normalized === 'work') return 'Work';
-    if (normalized === 'personal') return 'Personal';
-    if (normalized === 'todo') return 'To-do';
+    const normalized = String(tag || "")
+        .trim()
+        .toLowerCase();
+    if (!normalized) return "";
+    if (normalized === "important") return "Important";
+    if (normalized === "work") return "Work";
+    if (normalized === "personal") return "Personal";
+    if (normalized === "todo") return "To-do";
     return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }

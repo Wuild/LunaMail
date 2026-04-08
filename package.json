@@ -1,6 +1,7 @@
 {
   "name": "lunamail",
-  "version": "v1.0.18",
+  "type": "module",
+  "version": "v1.0.24",
   "description": "Modern offline-first desktop email client for Linux.",
   "homepage": "https://github.com/Wuild/LunaMail",
   "repository": {
@@ -32,6 +33,10 @@
     "start": "npm run sync:preload && electron .",
     "drizzle:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "drizzle:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -44,15 +49,22 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@eslint/js": "^9.24.0",
     "autoprefixer": "^10.4.27",
     "concurrently": "^9.2.1",
     "drizzle-kit": "^0.24.0",
     "electron": "^41.1.1",
     "electron-builder": "^26.8.1",
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
     "nodemon": "^3.1.14",
     "postcss": "^8.5.8",
+    "prettier": "^3.5.3",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.1",
+    "typescript-eslint": "^8.29.1",
     "typescript": "^6.0.2",
     "vite": "^8.0.3",
     "wait-on": "^9.0.4"
@@ -95,6 +107,7 @@
       "public/**/*",
       "resources/**/*",
       "build/**/*",
+      "drizzle/**/*",
       "preload.cjs",
       "package.json"
     ],
@@ -106,9 +119,10 @@
     ],
     "protocols": [
       {
-        "name": "Email Link",
+        "name": "LunaMail Links",
         "schemes": [
-          "mailto"
+          "mailto",
+          "lunamail"
         ]
       }
     ],
@@ -129,7 +143,7 @@
       "desktop": {
         "entry": {
           "StartupWMClass": "lunamail",
-          "MimeType": "x-scheme-handler/mailto;"
+          "MimeType": "x-scheme-handler/mailto;x-scheme-handler/lunamail;"
         }
       },
       "category": "Network"

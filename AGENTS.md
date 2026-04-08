@@ -106,6 +106,8 @@ src/
 - If a view is reachable as a route in the main app shell, do not create a separate Electron window for it.
 - Window bootstraps must live under `src/renderer/entrypoints/` and mount through shared helpers.
 - Prefer shared hooks/components over page-local copies when logic/UI appears in more than one page.
+- Use the existing shared page layout system (`WorkspaceLayout` + existing sidebar/status patterns) for new or
+  refactored main-window pages by default. Only introduce a custom page shell/layout when explicitly requested.
 - Required shared primitives currently in use:
     - Theme synchronization: `src/renderer/hooks/useAppTheme.ts`
     - Reusable grouped server settings card: `src/renderer/components/settings/ServiceSettingsCard.tsx`

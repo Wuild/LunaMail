@@ -1,81 +1,92 @@
-import {app, BrowserWindow, ipcMain, Notification, shell} from 'electron';
-import {getAccounts} from '../db/repositories/accountsRepo.js';
-import {listFoldersByAccount, listMessagesByFolder} from '../db/repositories/mailRepo.js';
-import {createAppLogger} from '../debug/debugLog.js';
-import {type AppSettingsPatch, getAppSettings, updateAppSettings} from '../settings/store.js';
-import {openSplashWindow} from '../windows/splashWindow.js';
+import {app, BrowserWindow, ipcMain, Notification, shell} from "electron";
+import {getAccounts} from "../db/repositories/accountsRepo.js";
+import {listFoldersByAccount, listMessagesByFolder} from "../db/repositories/mailRepo.js";
+import {createAppLogger} from "../debug/debugLog.js";
+import {type AppSettingsPatch, getAppSettings, updateAppSettings} from "../settings/store.js";
+import {openSplashWindow} from "../windows/splashWindow.js";
 
-const logger = createAppLogger('ipc:settings');
+const logger = createAppLogger("ipc:settings");
 
-export function registerSettingsIpc(onSettingsUpdated: (settings: Awaited<ReturnType<typeof getAppSettings>>) => void): void {
-    ipcMain.handle('get-app-settings', async () => {
-        logger.debug('IPC get-app-settings');
+export function registerSettingsIpc(
+    onSettingsUpdated: (settings: Awaited<ReturnType<typeof getAppSettings>>) => void
+): void {
+    ipcMain.handle("get-app-settings", async () => {
+        logger.debug("IPC get-app-settings");
         return await getAppSettings();
     });
 
-    ipcMain.handle('update-app-settings', async (_event, patch: AppSettingsPatch) => {
-        logger.info('IPC update-app-settings keys=%s', Object.keys(patch || {}).join(','));
+    ipcMain.handle("update-app-settings", async (_event, patch: AppSettingsPatch) => {
+        logger.info("IPC update-app-settings keys=%s", Object.keys(patch || {}).join(","));
         const settings = await updateAppSettings(patch);
         onSettingsUpdated(settings);
         for (const win of BrowserWindow.getAllWindows()) {
-            win.webContents.send('app-settings-updated', settings);
+            win.webContents.send("app-settings-updated", settings);
         }
         return settings;
     });
 
-    ipcMain.handle('get-system-locale', async () => {
-        logger.debug('IPC get-system-locale');
+    ipcMain.handle("get-system-locale", async () => {
+        logger.debug("IPC get-system-locale");
         return resolveSystemLocale();
     });
 
-    ipcMain.handle('dev-show-notification', async (_event, payload?: {
+    ipcMain.handle(
+        "dev-show-notification",
+        async (
+            _event,
+            payload?: {
         title?: string;
         body?: string;
         route?: string | null;
-    } | null) => {
-        logger.info('IPC dev-show-notification');
-        if (!Notification.isSupported()) {
-            return {ok: true, supported: false, hasTarget: false} as const;
-        }
-        const target = await resolveFirstMessageTarget();
-        const title = target?.subject
-            ? `Test: ${target.subject}`
-            : String(payload?.title || 'LunaMail developer notification').trim() || 'LunaMail developer notification';
-        const body = target
-            ? `${target.from || 'Unknown sender'} -> ${target.accountEmail}`
-            : String(payload?.body || 'No message found in first account/folder.').trim() || 'No message found in first account/folder.';
-        const route = target
-            ? `/email/${target.accountId}/${target.folderId}/${target.messageId}`
-            : String(payload?.route || '/email').trim() || '/email';
-        const notification = new Notification({title, body, silent: false});
-        notification.on('click', () => {
-            const win = getFirstAppWindow();
-            if (!win) return;
-            focusWindow(win);
-            void win.webContents.executeJavaScript(`window.location.hash = ${JSON.stringify(route)};`).catch(() => undefined);
-            if (target) {
-                setTimeout(() => {
-                    if (win.isDestroyed()) return;
-                    win.webContents.send('open-message-target', {
-                        accountId: target.accountId,
-                        folderPath: target.folderPath,
-                        messageId: target.messageId,
-                    });
-                }, 120);
+            } | null
+        ) => {
+            logger.info("IPC dev-show-notification");
+            if (!Notification.isSupported()) {
+                return {ok: true, supported: false, hasTarget: false} as const;
             }
-        });
-        notification.show();
-        return {ok: true, supported: true, hasTarget: Boolean(target)} as const;
-    });
+            const target = await resolveFirstMessageTarget();
+            const title = target?.subject
+                ? `Test: ${target.subject}`
+                : String(payload?.title || "LunaMail developer notification").trim() || "LunaMail developer notification";
+            const body = target
+                ? `${target.from || "Unknown sender"} -> ${target.accountEmail}`
+                : String(payload?.body || "No message found in first account/folder.").trim() ||
+                "No message found in first account/folder.";
+            const route = target
+                ? `/email/${target.accountId}/${target.folderId}/${target.messageId}`
+                : String(payload?.route || "/email").trim() || "/email";
+            const notification = new Notification({title, body, silent: false});
+            notification.on("click", () => {
+                const win = getFirstAppWindow();
+                if (!win) return;
+                focusWindow(win);
+                void win.webContents
+                    .executeJavaScript(`window.location.hash = ${JSON.stringify(route)};`)
+                    .catch(() => undefined);
+                if (target) {
+                    setTimeout(() => {
+                        if (win.isDestroyed()) return;
+                        win.webContents.send("open-message-target", {
+                            accountId: target.accountId,
+                            folderPath: target.folderPath,
+                            messageId: target.messageId,
+                        });
+                    }, 120);
+                }
+            });
+            notification.show();
+            return {ok: true, supported: true, hasTarget: Boolean(target)} as const;
+        }
+    );
 
-    ipcMain.handle('dev-play-notification-sound', async () => {
-        logger.info('IPC dev-play-notification-sound');
+    ipcMain.handle("dev-play-notification-sound", async () => {
+        logger.info("IPC dev-play-notification-sound");
         let played = false;
         try {
             if (Notification.isSupported()) {
                 const notification = new Notification({
-                    title: 'LunaMail sound test',
-                    body: 'Testing notification sound',
+                    title: "LunaMail sound test",
+                    body: "Testing notification sound",
                     silent: false,
                 });
                 notification.show();
@@ -91,8 +102,8 @@ export function registerSettingsIpc(onSettingsUpdated: (settings: Awaited<Return
         return {ok: true, played} as const;
     });
 
-    ipcMain.handle('dev-open-updater-window', async () => {
-        logger.info('IPC dev-open-updater-window');
+    ipcMain.handle("dev-open-updater-window", async () => {
+        logger.info("IPC dev-open-updater-window");
         const updaterWin = openSplashWindow({forceTitleBar: true});
         focusWindow(updaterWin);
         return {ok: true, opened: true} as const;
@@ -166,15 +177,15 @@ function resolveSystemLocale(): string {
     const intlLocale = normalizeLocaleTag(Intl.DateTimeFormat().resolvedOptions().locale);
     if (intlLocale && isValidLocale(intlLocale)) return intlLocale;
 
-    return 'en-US';
+    return "en-US";
 }
 
 function normalizeLocaleTag(value?: string | null): string | null {
     if (!value) return null;
-    const withoutEncoding = value.split('.')[0] || value;
-    const withoutVariant = withoutEncoding.split('@')[0] || withoutEncoding;
-    const normalized = withoutVariant.replace(/_/g, '-').trim();
-    if (!normalized || normalized.toLowerCase() === 'c' || normalized.toLowerCase() === 'posix') {
+    const withoutEncoding = value.split(".")[0] || value;
+    const withoutVariant = withoutEncoding.split("@")[0] || withoutEncoding;
+    const normalized = withoutVariant.replace(/_/g, "-").trim();
+    if (!normalized || normalized.toLowerCase() === "c" || normalized.toLowerCase() === "posix") {
         return null;
     }
     return normalized;

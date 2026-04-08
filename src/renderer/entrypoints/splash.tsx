@@ -1,5 +1,5 @@
-import React from 'react';
-import SplashScreenPage from '../pages/SplashScreenPage';
-import {mountApp} from './mountApp';
+import React from "react";
+import SplashScreenPage from "../pages/SplashScreenPage";
+import {mountApp} from "./mountApp";
 
 mountApp(<SplashScreenPage/>);

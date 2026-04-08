@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
     DecoratorNode,
     type EditorConfig,
@@ -6,13 +6,13 @@ import {
     type NodeKey,
     type SerializedLexicalNode,
     type Spread,
-} from 'lexical';
+} from "lexical";
 
 export type SerializedImageNode = Spread<
     {
         altText: string;
         src: string;
-        type: 'image';
+        type: "image";
         version: 1;
     },
     SerializedLexicalNode
@@ -23,7 +23,7 @@ export class ImageNode extends DecoratorNode<React.JSX.Element> {
     __altText: string;
 
     static getType(): string {
-        return 'image';
+        return "image";
     }
 
     static clone(node: ImageNode): ImageNode {
@@ -34,7 +34,7 @@ export class ImageNode extends DecoratorNode<React.JSX.Element> {
         return new ImageNode(serializedNode.src, serializedNode.altText);
     }
 
-    constructor(src: string, altText = '', key?: NodeKey) {
+    constructor(src: string, altText = "", key?: NodeKey) {
         super(key);
         this.__src = src;
         this.__altText = altText;
@@ -44,13 +44,13 @@ export class ImageNode extends DecoratorNode<React.JSX.Element> {
         return {
             altText: this.__altText,
             src: this.__src,
-            type: 'image',
+            type: "image",
             version: 1,
         };
     }
 
     createDOM(_config: EditorConfig): HTMLElement {
-        return document.createElement('span');
+        return document.createElement("span");
     }
 
     updateDOM(_prevNode: ImageNode, _dom: HTMLElement, _config: EditorConfig): boolean {
@@ -66,17 +66,11 @@ export class ImageNode extends DecoratorNode<React.JSX.Element> {
     }
 
     decorate(): React.JSX.Element {
-        return (
-            <img
-                src={this.__src}
-                alt={this.__altText}
-                className="my-2 inline-block h-auto max-w-full rounded-md"
-            />
-        );
+        return <img src={this.__src} alt={this.__altText} className="my-2 inline-block h-auto max-w-full rounded-md"/>;
     }
 }
 
-export function $createImageNode(src: string, altText = ''): ImageNode {
+export function $createImageNode(src: string, altText = ""): ImageNode {
     return new ImageNode(src, altText);
 }
 

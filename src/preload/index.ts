@@ -1,4 +1,4 @@
-import {contextBridge, ipcRenderer} from 'electron';
+import {contextBridge, ipcRenderer} from "electron";
 
 export interface AddAccountPayload {
     email: string;
@@ -70,6 +70,94 @@ export interface PublicAccount {
     created_at: string;
 }
 
+export type CloudProvider = "nextcloud" | "webdav" | "google-drive" | "onedrive";
+
+export interface PublicCloudAccount {
+    id: number;
+    provider: CloudProvider;
+    name: string;
+    base_url: string | null;
+    user: string | null;
+    created_at: string;
+}
+
+export interface AddCloudAccountPayload {
+    provider: CloudProvider;
+    name: string;
+    base_url?: string | null;
+    user?: string | null;
+    secret: string;
+}
+
+export interface UpdateCloudAccountPayload {
+    name?: string | null;
+    base_url?: string | null;
+    user?: string | null;
+    secret?: string | null;
+}
+
+export interface CloudItem {
+    id: string;
+    name: string;
+    path: string;
+    isFolder: boolean;
+    size: number | null;
+    createdAt: string | null;
+    modifiedAt: string | null;
+    mimeType: string | null;
+}
+
+export interface CloudRecipientContact {
+    id: number;
+    full_name: string | null;
+    email: string;
+}
+
+export interface CloudDavSyncSummary {
+    cloudAccountId: number;
+    davAccountId: number;
+    carddavUrl: string | null;
+    caldavUrl: string | null;
+    contacts: { upserted: number; removed: number; books: number };
+    events: { upserted: number; removed: number; calendars: number };
+}
+
+export interface LinkCloudOAuthPayload {
+    clientId: string;
+    tenantId?: string | null;
+}
+
+export interface CloudUploadResult {
+    uploaded: number;
+}
+
+export interface CloudOpenItemResult {
+    ok: boolean;
+    action: "opened" | "saved" | "cancelled";
+    path: string;
+}
+
+export interface CloudAttachmentResult {
+    path: string;
+    filename: string;
+    contentType: string | null;
+}
+
+export interface CloudStorageUsage {
+    usedBytes: number | null;
+    totalBytes: number | null;
+}
+
+export interface CloudShareLinkResult {
+    url: string;
+}
+
+export interface CloudItemStatus {
+    exists: boolean;
+    item: CloudItem | null;
+    checkedAt: string;
+}
+
 export interface ServiceSettings {
     host: string;
     port: number;
@@ -84,7 +172,7 @@ export interface DiscoverResult {
 }
 
 export interface VerifyPayload {
-    type: 'imap' | 'pop3' | 'smtp';
+    type: "imap" | "pop3" | "smtp";
     host: string;
     port: number;
     secure: boolean;
@@ -140,7 +228,7 @@ export type MessageDetails = MessageItem;
 
 export interface SyncStatusEvent {
     accountId: number;
-    status: 'syncing' | 'done' | 'error';
+    status: "syncing" | "done" | "error";
     error?: string;
     summary?: AccountSyncSummary;
 }
@@ -166,6 +254,13 @@ export interface DavDiscoveryResult {
     accountId: number;
     carddavUrl: string | null;
     caldavUrl: string | null;
+}
+
+export interface DavDiscoveryPreviewPayload {
+    email: string;
+    user: string;
+    password: string;
+    imapHost: string;
 }
 
 export interface DavSyncSummary {
@@ -244,7 +339,7 @@ export interface AddCalendarEventPayload {
 }
 
 export interface ExportContactsPayload {
-    format: 'csv' | 'vcf';
+    format: "csv" | "vcf";
     addressBookId?: number | null;
 }
 
@@ -252,12 +347,12 @@ export interface ExportContactsResult {
     canceled: boolean;
     count: number;
     path: string | null;
-    format: 'csv' | 'vcf';
+    format: "csv" | "vcf";
 }
 
 export interface OpenMessageAttachmentResult {
     ok: boolean;
-    action: 'opened' | 'saved' | 'cancelled';
+    action: "opened" | "saved" | "cancelled";
     path?: string;
 }
 
@@ -367,14 +462,17 @@ export interface ComposeDraftPayload {
     references?: string[] | string | null;
 }
 
-export type AppLanguage = 'system' | 'en-US' | 'sv-SE';
-export type AppTheme = 'system' | 'light' | 'dark';
-export type MailView = 'side-list' | 'top-table';
+export type AppLanguage = "system" | "en-US" | "sv-SE";
+export type AppTheme = "system" | "light" | "dark";
+export type MailView = "side-list" | "top-table";
+export type NavRailItemId = "email" | "cloud" | "contacts" | "calendar";
 
 export interface AppSettings {
     language: AppLanguage;
     theme: AppTheme;
     mailView: MailView;
+    navRailOrder: NavRailItemId[];
+    useNativeTitleBar: boolean;
     blockRemoteContent: boolean;
     remoteContentAllowlist: string[];
     minimizeToTray: boolean;
@@ -397,8 +495,8 @@ export interface OpenMessageTargetEvent {
 export interface DebugLogEntry {
     id: number;
     timestamp: string;
-    source: 'imap' | 'smtp' | 'carddav' | 'caldav' | 'app';
-    level: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
+    source: "imap" | "smtp" | "carddav" | "caldav" | "cloud" | "app";
+    level: "trace" | "debug" | "info" | "warn" | "error" | "fatal";
     scope: string;
     message: string;
 }
@@ -406,14 +504,14 @@ export interface DebugLogEntry {
 export type AppSettingsPatch = Partial<AppSettings>;
 
 export type AutoUpdatePhase =
-    | 'disabled'
-    | 'idle'
-    | 'checking'
-    | 'available'
-    | 'not-available'
-    | 'downloading'
-    | 'downloaded'
-    | 'error';
+    | "disabled"
+    | "idle"
+    | "checking"
+    | "available"
+    | "not-available"
+    | "downloading"
+    | "downloaded"
+    | "error";
 
 export interface AutoUpdateState {
     enabled: boolean;
@@ -439,10 +537,17 @@ export interface DevShowNotificationResult {
     hasTarget: boolean;
 }
 
-export type MailFilterMatchMode = 'all' | 'any' | 'all_messages';
-export type MailFilterField = 'subject' | 'from' | 'to' | 'body';
-export type MailFilterOperator = 'contains' | 'not_contains' | 'equals' | 'starts_with' | 'ends_with';
-export type MailFilterActionType = 'move_to_folder' | 'mark_read' | 'mark_unread' | 'star' | 'unstar';
+export type AppStartupStatus = "loading" | "warming" | "ready";
+
+export interface AppStartupState {
+    status: AppStartupStatus;
+    message: string | null;
+}
+
+export type MailFilterMatchMode = "all" | "any" | "all_messages";
+export type MailFilterField = "subject" | "from" | "to" | "body";
+export type MailFilterOperator = "contains" | "not_contains" | "equals" | "starts_with" | "ends_with";
+export type MailFilterActionType = "move_to_folder" | "mark_read" | "mark_unread" | "star" | "unstar";
 
 export interface MailFilterCondition {
     id: number;
@@ -495,7 +600,7 @@ export interface UpsertMailFilterPayload {
 
 export interface MailFilterRunSummary {
     accountId: number;
-    trigger: 'incoming' | 'manual';
+    trigger: "incoming" | "manual";
     processed: number;
     matched: number;
     actionsApplied: number;
@@ -503,245 +608,305 @@ export interface MailFilterRunSummary {
 }
 
 const api = {
-    getAccounts: (): Promise<PublicAccount[]> => ipcRenderer.invoke('get-accounts'),
+    getAccounts: (): Promise<PublicAccount[]> => ipcRenderer.invoke("get-accounts"),
     addAccount: (account: AddAccountPayload): Promise<{ id: number; email: string }> =>
-        ipcRenderer.invoke('add-account', account),
+        ipcRenderer.invoke("add-account", account),
     updateAccount: (accountId: number, payload: UpdateAccountPayload): Promise<PublicAccount> =>
-        ipcRenderer.invoke('update-account', accountId, payload),
-    deleteAccount: (accountId: number): Promise<AccountDeletedEvent> =>
-        ipcRenderer.invoke('delete-account', accountId),
-    getUnreadCount: (): Promise<number> =>
-        ipcRenderer.invoke('get-unread-count'),
-    discoverMailSettings: (email: string): Promise<DiscoverResult> =>
-        ipcRenderer.invoke('discover-mail-settings', email),
+        ipcRenderer.invoke("update-account", accountId, payload),
+    deleteAccount: (accountId: number): Promise<AccountDeletedEvent> => ipcRenderer.invoke("delete-account", accountId),
+    getCloudAccounts: (): Promise<PublicCloudAccount[]> => ipcRenderer.invoke("get-cloud-accounts"),
+    addCloudAccount: (payload: AddCloudAccountPayload): Promise<PublicCloudAccount> =>
+        ipcRenderer.invoke("add-cloud-account", payload),
+    updateCloudAccount: (accountId: number, payload: UpdateCloudAccountPayload): Promise<PublicCloudAccount> =>
+        ipcRenderer.invoke("update-cloud-account", accountId, payload),
+    linkCloudOAuth: (
+        provider: "google-drive" | "onedrive",
+        payload: LinkCloudOAuthPayload
+    ): Promise<PublicCloudAccount> => ipcRenderer.invoke("link-cloud-oauth", provider, payload),
+    deleteCloudAccount: (accountId: number): Promise<{ removed: boolean }> =>
+        ipcRenderer.invoke("delete-cloud-account", accountId),
+    listCloudItems: (accountId: number, pathOrToken?: string | null): Promise<{ path: string; items: CloudItem[] }> =>
+        ipcRenderer.invoke("list-cloud-items", accountId, pathOrToken ?? null),
+    createCloudFolder: (
+        accountId: number,
+        parentPathOrToken: string | null,
+        folderName: string
+    ): Promise<{
+        id: string;
+        path: string;
+        name: string;
+    }> => ipcRenderer.invoke("create-cloud-folder", accountId, parentPathOrToken ?? null, folderName),
+    deleteCloudItem: (accountId: number, itemPathOrToken: string): Promise<{ removed: boolean }> =>
+        ipcRenderer.invoke("delete-cloud-item", accountId, itemPathOrToken),
+    getCloudItemStatus: (accountId: number, itemPathOrToken: string): Promise<CloudItemStatus> =>
+        ipcRenderer.invoke("get-cloud-item-status", accountId, itemPathOrToken),
+    createCloudShareLink: (accountId: number, itemPathOrToken: string): Promise<CloudShareLinkResult> =>
+        ipcRenderer.invoke("create-cloud-share-link", accountId, itemPathOrToken),
+    uploadCloudFiles: (accountId: number, parentPathOrToken?: string | null): Promise<CloudUploadResult> =>
+        ipcRenderer.invoke("upload-cloud-files", accountId, parentPathOrToken ?? null),
+    openCloudItem: (
+        accountId: number,
+        itemPathOrToken: string,
+        fallbackName?: string | null,
+        action?: "open" | "save"
+    ): Promise<CloudOpenItemResult> =>
+        ipcRenderer.invoke("open-cloud-item", accountId, itemPathOrToken, fallbackName ?? null, action ?? "open"),
+    pickCloudAttachment: (
+        accountId: number,
+        itemPathOrToken: string,
+        fallbackName?: string | null
+    ): Promise<CloudAttachmentResult> =>
+        ipcRenderer.invoke("pick-cloud-attachment", accountId, itemPathOrToken, fallbackName ?? null),
+    getCloudStorageUsage: (accountId: number): Promise<CloudStorageUsage> =>
+        ipcRenderer.invoke("get-cloud-storage-usage", accountId),
+    syncCloudDav: (accountId: number): Promise<CloudDavSyncSummary> => ipcRenderer.invoke("sync-cloud-dav", accountId),
+    getCloudRecipientContacts: (query?: string | null, limit?: number): Promise<CloudRecipientContact[]> =>
+        ipcRenderer.invoke("get-cloud-recipient-contacts", query ?? null, limit ?? 20),
+    getUnreadCount: (): Promise<number> => ipcRenderer.invoke("get-unread-count"),
+    discoverMailSettings: (email: string): Promise<DiscoverResult> => ipcRenderer.invoke("discover-mail-settings", email),
     verifyCredentials: (payload: VerifyPayload): Promise<VerifyResult> =>
-        ipcRenderer.invoke('verify-credentials', payload),
-    syncAccount: (accountId: number): Promise<AccountSyncSummary> =>
-        ipcRenderer.invoke('sync-account', accountId),
-    getFolders: (accountId: number): Promise<FolderItem[]> =>
-        ipcRenderer.invoke('get-folders', accountId),
+        ipcRenderer.invoke("verify-credentials", payload),
+    syncAccount: (accountId: number): Promise<AccountSyncSummary> => ipcRenderer.invoke("sync-account", accountId),
+    getFolders: (accountId: number): Promise<FolderItem[]> => ipcRenderer.invoke("get-folders", accountId),
     createFolder: (accountId: number, folderPath: string): Promise<CreateFolderResult> =>
-        ipcRenderer.invoke('create-folder', accountId, folderPath),
+        ipcRenderer.invoke("create-folder", accountId, folderPath),
     deleteFolder: (accountId: number, folderPath: string): Promise<DeleteFolderResult> =>
-        ipcRenderer.invoke('delete-folder', accountId, folderPath),
+        ipcRenderer.invoke("delete-folder", accountId, folderPath),
     updateFolderSettings: (
         accountId: number,
         folderPath: string,
-        payload: { customName?: string | null; color?: string | null; type?: string | null },
-    ): Promise<FolderItem> => ipcRenderer.invoke('update-folder-settings', accountId, folderPath, payload),
+        payload: { customName?: string | null; color?: string | null; type?: string | null }
+    ): Promise<FolderItem> => ipcRenderer.invoke("update-folder-settings", accountId, folderPath, payload),
     reorderCustomFolders: (accountId: number, orderedFolderPaths: string[]): Promise<FolderItem[]> =>
-        ipcRenderer.invoke('reorder-custom-folders', accountId, orderedFolderPaths),
-    discoverDav: (accountId: number): Promise<DavDiscoveryResult> =>
-        ipcRenderer.invoke('discover-dav', accountId),
-    syncDav: (accountId: number): Promise<DavSyncSummary> =>
-        ipcRenderer.invoke('sync-dav', accountId),
-    getContacts: (accountId: number, query?: string | null, limit?: number, addressBookId?: number | null): Promise<ContactItem[]> =>
-        ipcRenderer.invoke('get-contacts', accountId, query ?? null, limit, addressBookId ?? null),
+        ipcRenderer.invoke("reorder-custom-folders", accountId, orderedFolderPaths),
+    discoverDav: (accountId: number): Promise<DavDiscoveryResult> => ipcRenderer.invoke("discover-dav", accountId),
+    discoverDavPreview: (payload: DavDiscoveryPreviewPayload): Promise<DavDiscoveryResult> =>
+        ipcRenderer.invoke("discover-dav-preview", payload),
+    syncDav: (accountId: number): Promise<DavSyncSummary> => ipcRenderer.invoke("sync-dav", accountId),
+    getContacts: (
+        accountId: number,
+        query?: string | null,
+        limit?: number,
+        addressBookId?: number | null
+    ): Promise<ContactItem[]> =>
+        ipcRenderer.invoke("get-contacts", accountId, query ?? null, limit, addressBookId ?? null),
     getRecentRecipients: (accountId: number, query?: string | null, limit?: number): Promise<RecentRecipientItem[]> =>
-        ipcRenderer.invoke('get-recent-recipients', accountId, query ?? null, limit),
+        ipcRenderer.invoke("get-recent-recipients", accountId, query ?? null, limit),
     getAddressBooks: (accountId: number): Promise<AddressBookItem[]> =>
-        ipcRenderer.invoke('get-address-books', accountId),
+        ipcRenderer.invoke("get-address-books", accountId),
     addAddressBook: (accountId: number, name: string): Promise<AddressBookItem> =>
-        ipcRenderer.invoke('add-address-book', accountId, name),
+        ipcRenderer.invoke("add-address-book", accountId, name),
     deleteAddressBook: (accountId: number, addressBookId: number): Promise<{ removed: boolean }> =>
-        ipcRenderer.invoke('delete-address-book', accountId, addressBookId),
-    addContact: (accountId: number, payload: {
-        addressBookId?: number | null;
-        fullName?: string | null;
-        email: string;
-        phone?: string | null;
-        organization?: string | null;
-        title?: string | null;
-        note?: string | null;
-    }): Promise<ContactItem> => ipcRenderer.invoke('add-contact', accountId, payload),
-    updateContact: (contactId: number, payload: {
-        addressBookId?: number | null;
-        fullName?: string | null;
-        email?: string;
-        phone?: string | null;
-        organization?: string | null;
-        title?: string | null;
-        note?: string | null;
-    }): Promise<ContactItem> => ipcRenderer.invoke('update-contact', contactId, payload),
-    deleteContact: (contactId: number): Promise<{ removed: boolean }> =>
-        ipcRenderer.invoke('delete-contact', contactId),
+        ipcRenderer.invoke("delete-address-book", accountId, addressBookId),
+    addContact: (
+        accountId: number,
+        payload: {
+            addressBookId?: number | null;
+            fullName?: string | null;
+            email: string;
+            phone?: string | null;
+            organization?: string | null;
+            title?: string | null;
+            note?: string | null;
+        }
+    ): Promise<ContactItem> => ipcRenderer.invoke("add-contact", accountId, payload),
+    updateContact: (
+        contactId: number,
+        payload: {
+            addressBookId?: number | null;
+            fullName?: string | null;
+            email?: string;
+            phone?: string | null;
+            organization?: string | null;
+            title?: string | null;
+            note?: string | null;
+        }
+    ): Promise<ContactItem> => ipcRenderer.invoke("update-contact", contactId, payload),
+    deleteContact: (contactId: number): Promise<{
+        removed: boolean
+    }> => ipcRenderer.invoke("delete-contact", contactId),
     exportContacts: (accountId: number, payload: ExportContactsPayload): Promise<ExportContactsResult> =>
-        ipcRenderer.invoke('export-contacts', accountId, payload),
+        ipcRenderer.invoke("export-contacts", accountId, payload),
     getCalendarEvents: (
         accountId: number,
         startIso?: string | null,
         endIso?: string | null,
-        limit?: number,
+        limit?: number
     ): Promise<CalendarEventItem[]> =>
-        ipcRenderer.invoke('get-calendar-events', accountId, startIso ?? null, endIso ?? null, limit),
+        ipcRenderer.invoke("get-calendar-events", accountId, startIso ?? null, endIso ?? null, limit),
     addCalendarEvent: (accountId: number, payload: AddCalendarEventPayload): Promise<CalendarEventItem> =>
-        ipcRenderer.invoke('add-calendar-event', accountId, payload),
+        ipcRenderer.invoke("add-calendar-event", accountId, payload),
     getFolderMessages: (accountId: number, folderPath: string, limit?: number): Promise<MessageItem[]> =>
-        ipcRenderer.invoke('get-folder-messages', accountId, folderPath, limit),
+        ipcRenderer.invoke("get-folder-messages", accountId, folderPath, limit),
     getFolderThreads: (accountId: number, folderPath: string, limit?: number): Promise<MessageThreadItem[]> =>
-        ipcRenderer.invoke('get-folder-threads', accountId, folderPath, limit),
-    getMailFilters: (accountId: number): Promise<MailFilter[]> =>
-        ipcRenderer.invoke('get-mail-filters', accountId),
+        ipcRenderer.invoke("get-folder-threads", accountId, folderPath, limit),
+    getMailFilters: (accountId: number): Promise<MailFilter[]> => ipcRenderer.invoke("get-mail-filters", accountId),
     saveMailFilter: (accountId: number, payload: UpsertMailFilterPayload): Promise<MailFilter> =>
-        ipcRenderer.invoke('save-mail-filter', accountId, payload),
+        ipcRenderer.invoke("save-mail-filter", accountId, payload),
     deleteMailFilter: (accountId: number, filterId: number): Promise<{ removed: boolean }> =>
-        ipcRenderer.invoke('delete-mail-filter', accountId, filterId),
+        ipcRenderer.invoke("delete-mail-filter", accountId, filterId),
     runMailFilters: (
         accountId: number,
-        payload?: { filterId?: number; folderPath?: string | null; limit?: number },
-    ): Promise<MailFilterRunSummary> =>
-        ipcRenderer.invoke('run-mail-filters', accountId, payload ?? null),
-    searchMessages: (accountId: number, query: string, folderPath?: string | null, limit?: number): Promise<MessageItem[]> =>
-        ipcRenderer.invoke('search-messages', accountId, query, folderPath ?? null, limit),
-    getMessage: (messageId: number): Promise<MessageDetails | null> =>
-        ipcRenderer.invoke('get-message', messageId),
+        payload?: { filterId?: number; folderPath?: string | null; limit?: number }
+    ): Promise<MailFilterRunSummary> => ipcRenderer.invoke("run-mail-filters", accountId, payload ?? null),
+    searchMessages: (
+        accountId: number,
+        query: string,
+        folderPath?: string | null,
+        limit?: number
+    ): Promise<MessageItem[]> => ipcRenderer.invoke("search-messages", accountId, query, folderPath ?? null, limit),
+    getMessage: (messageId: number): Promise<MessageDetails | null> => ipcRenderer.invoke("get-message", messageId),
     getMessageBody: (messageId: number, requestId?: string): Promise<MessageBodyResult> =>
-        ipcRenderer.invoke('get-message-body', messageId, requestId),
+        ipcRenderer.invoke("get-message-body", messageId, requestId),
     getMessageSource: (messageId: number): Promise<MessageSourceResult> =>
-        ipcRenderer.invoke('get-message-source', messageId),
+        ipcRenderer.invoke("get-message-source", messageId),
     openMessageAttachment: (
         messageId: number,
         attachmentIndex: number,
-        action?: 'open' | 'save' | 'prompt',
+        action?: "open" | "save" | "prompt"
     ): Promise<OpenMessageAttachmentResult> =>
-        ipcRenderer.invoke('open-message-attachment', messageId, attachmentIndex, action ?? 'prompt'),
-    cancelMessageBody: (requestId: string): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('cancel-message-body', requestId),
+        ipcRenderer.invoke("open-message-attachment", messageId, attachmentIndex, action ?? "prompt"),
+    cancelMessageBody: (requestId: string): Promise<{
+        ok: true
+    }> => ipcRenderer.invoke("cancel-message-body", requestId),
     setMessageRead: (messageId: number, isRead: number): Promise<SetMessageReadResult> =>
-        ipcRenderer.invoke('set-message-read', messageId, isRead),
+        ipcRenderer.invoke("set-message-read", messageId, isRead),
     markMessageRead: (messageId: number): Promise<SetMessageReadResult> =>
-        ipcRenderer.invoke('mark-message-read', messageId),
+        ipcRenderer.invoke("mark-message-read", messageId),
     markMessageUnread: (messageId: number): Promise<SetMessageReadResult> =>
-        ipcRenderer.invoke('mark-message-unread', messageId),
-    setMessageFlagged: (messageId: number, isFlagged: number): Promise<{
+        ipcRenderer.invoke("mark-message-unread", messageId),
+    setMessageFlagged: (
+        messageId: number,
+        isFlagged: number
+    ): Promise<{
         accountId: number;
-    }> =>
-        ipcRenderer.invoke('set-message-flagged', messageId, isFlagged),
+    }> => ipcRenderer.invoke("set-message-flagged", messageId, isFlagged),
     setMessageTag: (messageId: number, tag: string | null): Promise<SetMessageTagResult> =>
-        ipcRenderer.invoke('set-message-tag', messageId, tag ?? null),
+        ipcRenderer.invoke("set-message-tag", messageId, tag ?? null),
     moveMessage: (messageId: number, targetFolderPath: string): Promise<MoveMessageResult> =>
-        ipcRenderer.invoke('move-message', messageId, targetFolderPath),
-    archiveMessage: (messageId: number): Promise<MoveMessageResult> =>
-        ipcRenderer.invoke('archive-message', messageId),
+        ipcRenderer.invoke("move-message", messageId, targetFolderPath),
+    archiveMessage: (messageId: number): Promise<MoveMessageResult> => ipcRenderer.invoke("archive-message", messageId),
     deleteMessage: (messageId: number): Promise<{ accountId: number; folders: number; messages: number }> =>
-        ipcRenderer.invoke('delete-message', messageId),
-    sendEmail: (payload: SendEmailPayload): Promise<SendEmailResult> =>
-        ipcRenderer.invoke('send-email', payload),
-    saveDraft: (payload: SaveDraftPayload): Promise<SaveDraftResult> =>
-        ipcRenderer.invoke('save-draft', payload),
-    openAddAccountWindow: (): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('open-add-account-window'),
+        ipcRenderer.invoke("delete-message", messageId),
+    sendEmail: (payload: SendEmailPayload): Promise<SendEmailResult> => ipcRenderer.invoke("send-email", payload),
+    saveDraft: (payload: SaveDraftPayload): Promise<SaveDraftResult> => ipcRenderer.invoke("save-draft", payload),
+    openAddAccountWindow: (): Promise<{ ok: true }> => ipcRenderer.invoke("open-add-account-window"),
     openComposeWindow: (draft?: ComposeDraftPayload | null): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('open-compose-window', draft ?? null),
-    minimizeWindow: (): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('window-minimize'),
-    toggleMaximizeWindow: (): Promise<{ ok: true; isMaximized: boolean }> =>
-        ipcRenderer.invoke('window-toggle-maximize'),
-    closeWindow: (): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('window-close'),
-    isWindowMaximized: (): Promise<boolean> =>
-        ipcRenderer.invoke('window-is-maximized'),
-    openDevTools: (): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('window-open-dev-tools'),
+        ipcRenderer.invoke("open-compose-window", draft ?? null),
+    minimizeWindow: (): Promise<{ ok: true }> => ipcRenderer.invoke("window-minimize"),
+    toggleMaximizeWindow: (): Promise<{
+        ok: true;
+        isMaximized: boolean
+    }> => ipcRenderer.invoke("window-toggle-maximize"),
+    closeWindow: (): Promise<{ ok: true }> => ipcRenderer.invoke("window-close"),
+    isWindowMaximized: (): Promise<boolean> => ipcRenderer.invoke("window-is-maximized"),
+    openDevTools: (): Promise<{ ok: true }> => ipcRenderer.invoke("window-open-dev-tools"),
     openMessageWindow: (messageId?: number | null): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('open-message-window', messageId ?? null),
-    getDebugLogs: (limit?: number): Promise<DebugLogEntry[]> =>
-        ipcRenderer.invoke('get-debug-logs', limit),
-    clearDebugLogs: (): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('clear-debug-logs'),
-    getComposeDraft: (): Promise<ComposeDraftPayload | null> =>
-        ipcRenderer.invoke('get-compose-draft'),
-    getMessageWindowTarget: (): Promise<number | null> =>
-        ipcRenderer.invoke('get-message-window-target'),
-    getAppSettings: (): Promise<AppSettings> =>
-        ipcRenderer.invoke('get-app-settings'),
-    getSystemLocale: (): Promise<string> =>
-        ipcRenderer.invoke('get-system-locale'),
+        ipcRenderer.invoke("open-message-window", messageId ?? null),
+    getDebugLogs: (limit?: number): Promise<DebugLogEntry[]> => ipcRenderer.invoke("get-debug-logs", limit),
+    clearDebugLogs: (): Promise<{ ok: true }> => ipcRenderer.invoke("clear-debug-logs"),
+    getComposeDraft: (): Promise<ComposeDraftPayload | null> => ipcRenderer.invoke("get-compose-draft"),
+    getMessageWindowTarget: (): Promise<number | null> => ipcRenderer.invoke("get-message-window-target"),
+    getAppSettings: (): Promise<AppSettings> => ipcRenderer.invoke("get-app-settings"),
+    getSystemLocale: (): Promise<string> => ipcRenderer.invoke("get-system-locale"),
     updateAppSettings: (patch: AppSettingsPatch): Promise<AppSettings> =>
-        ipcRenderer.invoke('update-app-settings', patch),
-    pickComposeAttachments: (): Promise<PickedAttachment[]> =>
-        ipcRenderer.invoke('pick-compose-attachments'),
-    getAutoUpdateState: (): Promise<AutoUpdateState> =>
-        ipcRenderer.invoke('get-auto-update-state'),
-    checkForUpdates: (): Promise<AutoUpdateState> =>
-        ipcRenderer.invoke('check-for-updates'),
-    downloadUpdate: (): Promise<AutoUpdateState> =>
-        ipcRenderer.invoke('download-update'),
-    quitAndInstallUpdate: (): Promise<{ ok: true }> =>
-        ipcRenderer.invoke('quit-and-install-update'),
+        ipcRenderer.invoke("update-app-settings", patch),
+    pickComposeAttachments: (): Promise<PickedAttachment[]> => ipcRenderer.invoke("pick-compose-attachments"),
+    getAutoUpdateState: (): Promise<AutoUpdateState> => ipcRenderer.invoke("get-auto-update-state"),
+    getAppStartupStatus: (): Promise<AppStartupState> => ipcRenderer.invoke("get-app-startup-status"),
+    checkForUpdates: (): Promise<AutoUpdateState> => ipcRenderer.invoke("check-for-updates"),
+    downloadUpdate: (): Promise<AutoUpdateState> => ipcRenderer.invoke("download-update"),
+    quitAndInstallUpdate: (): Promise<{ ok: true }> => ipcRenderer.invoke("quit-and-install-update"),
     devShowNotification: (payload?: DevNotificationPayload): Promise<DevShowNotificationResult> =>
-        ipcRenderer.invoke('dev-show-notification', payload ?? null),
+        ipcRenderer.invoke("dev-show-notification", payload ?? null),
     devPlayNotificationSound: (): Promise<{ ok: true; played: boolean }> =>
-        ipcRenderer.invoke('dev-play-notification-sound'),
-    devOpenUpdaterWindow: (): Promise<{ ok: true; opened: boolean }> =>
-        ipcRenderer.invoke('dev-open-updater-window'),
+        ipcRenderer.invoke("dev-play-notification-sound"),
+    devOpenUpdaterWindow: (): Promise<{ ok: true; opened: boolean }> => ipcRenderer.invoke("dev-open-updater-window"),
     onAccountAdded: (callback: (payload: { id: number; email: string }) => void): (() => void) => {
-        const listener = (_event: Electron.IpcRendererEvent, payload: {
-            id: number;
-            email: string
-        }) => callback(payload);
-        ipcRenderer.on('account-added', listener);
-        return () => ipcRenderer.removeListener('account-added', listener);
+        const listener = (
+            _event: Electron.IpcRendererEvent,
+            payload: {
+                id: number;
+                email: string;
+            }
+        ) => callback(payload);
+        ipcRenderer.on("account-added", listener);
+        return () => ipcRenderer.removeListener("account-added", listener);
     },
     onAccountUpdated: (callback: (payload: PublicAccount) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: PublicAccount) => callback(payload);
-        ipcRenderer.on('account-updated', listener);
-        return () => ipcRenderer.removeListener('account-updated', listener);
+        ipcRenderer.on("account-updated", listener);
+        return () => ipcRenderer.removeListener("account-updated", listener);
     },
     onAccountDeleted: (callback: (payload: AccountDeletedEvent) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: AccountDeletedEvent) => callback(payload);
-        ipcRenderer.on('account-deleted', listener);
-        return () => ipcRenderer.removeListener('account-deleted', listener);
+        ipcRenderer.on("account-deleted", listener);
+        return () => ipcRenderer.removeListener("account-deleted", listener);
+    },
+    onCloudAccountsUpdated: (callback: (payload: PublicCloudAccount[]) => void): (() => void) => {
+        const listener = (_event: Electron.IpcRendererEvent, payload: PublicCloudAccount[]) => callback(payload);
+        ipcRenderer.on("cloud-accounts-updated", listener);
+        return () => ipcRenderer.removeListener("cloud-accounts-updated", listener);
     },
     onUnreadCountUpdated: (callback: (payload: number) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: number) => callback(payload);
-        ipcRenderer.on('unread-count-updated', listener);
-        return () => ipcRenderer.removeListener('unread-count-updated', listener);
+        ipcRenderer.on("unread-count-updated", listener);
+        return () => ipcRenderer.removeListener("unread-count-updated", listener);
     },
     onMessageReadUpdated: (callback: (payload: SetMessageReadResult) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: SetMessageReadResult) => callback(payload);
-        ipcRenderer.on('message-read-updated', listener);
-        return () => ipcRenderer.removeListener('message-read-updated', listener);
+        ipcRenderer.on("message-read-updated", listener);
+        return () => ipcRenderer.removeListener("message-read-updated", listener);
     },
     onAccountSyncStatus: (callback: (payload: SyncStatusEvent) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: SyncStatusEvent) => callback(payload);
-        ipcRenderer.on('account-sync-status', listener);
-        return () => ipcRenderer.removeListener('account-sync-status', listener);
+        ipcRenderer.on("account-sync-status", listener);
+        return () => ipcRenderer.removeListener("account-sync-status", listener);
     },
     onComposeDraft: (callback: (payload: ComposeDraftPayload | null) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: ComposeDraftPayload | null) => callback(payload);
-        ipcRenderer.on('compose-draft', listener);
-        return () => ipcRenderer.removeListener('compose-draft', listener);
+        ipcRenderer.on("compose-draft", listener);
+        return () => ipcRenderer.removeListener("compose-draft", listener);
     },
     onAppSettingsUpdated: (callback: (payload: AppSettings) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: AppSettings) => callback(payload);
-        ipcRenderer.on('app-settings-updated', listener);
-        return () => ipcRenderer.removeListener('app-settings-updated', listener);
+        ipcRenderer.on("app-settings-updated", listener);
+        return () => ipcRenderer.removeListener("app-settings-updated", listener);
     },
     onOpenMessageTarget: (callback: (payload: OpenMessageTargetEvent) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: OpenMessageTargetEvent) => callback(payload);
-        ipcRenderer.on('open-message-target', listener);
-        return () => ipcRenderer.removeListener('open-message-target', listener);
+        ipcRenderer.on("open-message-target", listener);
+        return () => ipcRenderer.removeListener("open-message-target", listener);
     },
     onMessageWindowTarget: (callback: (payload: number | null) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: number | null) => callback(payload);
-        ipcRenderer.on('message-window-target', listener);
-        return () => ipcRenderer.removeListener('message-window-target', listener);
+        ipcRenderer.on("message-window-target", listener);
+        return () => ipcRenderer.removeListener("message-window-target", listener);
     },
     onDebugLog: (callback: (payload: DebugLogEntry) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: DebugLogEntry) => callback(payload);
-        ipcRenderer.on('debug-log', listener);
-        return () => ipcRenderer.removeListener('debug-log', listener);
+        ipcRenderer.on("debug-log", listener);
+        return () => ipcRenderer.removeListener("debug-log", listener);
     },
     onAutoUpdateStatus: (callback: (payload: AutoUpdateState) => void): (() => void) => {
         const listener = (_event: Electron.IpcRendererEvent, payload: AutoUpdateState) => callback(payload);
-        ipcRenderer.on('auto-update-status', listener);
-        return () => ipcRenderer.removeListener('auto-update-status', listener);
+        ipcRenderer.on("auto-update-status", listener);
+        return () => ipcRenderer.removeListener("auto-update-status", listener);
+    },
+    onOpenAddAccountModal: (callback: () => void): (() => void) => {
+        const listener = () => callback();
+        ipcRenderer.on("open-add-account-modal", listener);
+        return () => ipcRenderer.removeListener("open-add-account-modal", listener);
+    },
+    onAppStartupStatus: (callback: (payload: AppStartupState) => void): (() => void) => {
+        const listener = (_event: Electron.IpcRendererEvent, payload: AppStartupState) => callback(payload);
+        ipcRenderer.on("app-startup-status", listener);
+        return () => ipcRenderer.removeListener("app-startup-status", listener);
     },
     onLinkHoverUrl: (callback: (payload: string) => void): (() => void) => {
-        const listener = (_event: Electron.IpcRendererEvent, payload: string) => callback(payload || '');
-        ipcRenderer.on('link-hover-url', listener);
-        return () => ipcRenderer.removeListener('link-hover-url', listener);
+        const listener = (_event: Electron.IpcRendererEvent, payload: string) => callback(payload || "");
+        ipcRenderer.on("link-hover-url", listener);
+        return () => ipcRenderer.removeListener("link-hover-url", listener);
     },
 };
 
@@ -751,4 +916,4 @@ declare global {
     }
 }
 
-contextBridge.exposeInMainWorld('electronAPI', api);
+contextBridge.exposeInMainWorld("electronAPI", api);

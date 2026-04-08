@@ -1,4 +1,4 @@
-import {getDb} from '../drizzle.js';
+import {getDb} from "../drizzle.js";
 
 export interface FolderRow {
     id: number;
@@ -156,32 +156,31 @@ export function upsertFolder(input: UpsertFolderInput): number {
                 type = excluded.type,
                 unread_count = excluded.unread_count,
                 total_count = excluded.total_count
-        `,
-    ).run(
-        input.accountId,
-        input.name,
-        input.path,
-        input.type ?? null,
-        input.unreadCount ?? 0,
-        input.totalCount ?? 0,
-    );
+        `
+    ).run(input.accountId, input.name, input.path, input.type ?? null, input.unreadCount ?? 0, input.totalCount ?? 0);
 
-    const row = db.prepare('SELECT id FROM folders WHERE account_id = ? AND path = ?').get(input.accountId, input.path) as {
-        id: number
+    const row = db
+        .prepare("SELECT id FROM folders WHERE account_id = ? AND path = ?")
+        .get(input.accountId, input.path) as {
+        id: number;
     };
     return row.id;
 }
 
 export function updateFolderCounts(accountId: number, path: string, unreadCount: number, totalCount: number): void {
     const db = getDb();
-    db.prepare('UPDATE folders SET unread_count = ?, total_count = ? WHERE account_id = ? AND path = ?')
-        .run(unreadCount, totalCount, accountId, path);
+    db.prepare("UPDATE folders SET unread_count = ?, total_count = ? WHERE account_id = ? AND path = ?").run(
+        unreadCount,
+        totalCount,
+        accountId,
+        path
+    );
 }
 
 export function updateFolderSettings(input: UpdateFolderSettingsInput): FolderRow {
     const db = getDb();
     const row = db
-        .prepare('SELECT id FROM folders WHERE account_id = ? AND path = ?')
+        .prepare("SELECT id FROM folders WHERE account_id = ? AND path = ?")
         .get(input.accountId, input.folderPath) as { id: number } | undefined;
     if (!row?.id) {
         throw new Error(`Folder ${input.folderPath} not found`);
@@ -195,31 +194,32 @@ export function updateFolderSettings(input: UpdateFolderSettingsInput): FolderRo
                 type        = ?
             WHERE account_id = ?
               AND path = ?
-        `,
+        `
     ).run(
         input.customName && input.customName.trim().length ? input.customName.trim() : null,
         input.color && input.color.trim().length ? input.color.trim() : null,
         input.type && input.type.trim().length ? input.type.trim().toLowerCase() : null,
         input.accountId,
-        input.folderPath,
+        input.folderPath
     );
 
     const updated = db
-        .prepare('SELECT * FROM folders WHERE account_id = ? AND path = ?')
+        .prepare("SELECT * FROM folders WHERE account_id = ? AND path = ?")
         .get(input.accountId, input.folderPath) as FolderRow | undefined;
     if (!updated) throw new Error(`Folder ${input.folderPath} not found after update`);
     return updated;
 }
 
-export function deleteFolderByPath(accountId: number, folderPath: string): {
+export function deleteFolderByPath(
+    accountId: number,
+    folderPath: string
+): {
     accountId: number;
     folderPath: string;
-    removed: boolean
+    removed: boolean;
 } {
     const db = getDb();
-    const result = db
-        .prepare('DELETE FROM folders WHERE account_id = ? AND path = ?')
-        .run(accountId, folderPath);
+    const result = db.prepare("DELETE FROM folders WHERE account_id = ? AND path = ?").run(accountId, folderPath);
     return {
         accountId,
         folderPath,
@@ -249,7 +249,7 @@ export function upsertMessage(input: UpsertMessageInput): void {
                 is_flagged = excluded.is_flagged,
                 tag = COALESCE(messages.tag, excluded.tag),
                 size = excluded.size
-        `,
+        `
     ).run(
         input.accountId,
         input.folderId,
@@ -267,7 +267,7 @@ export function upsertMessage(input: UpsertMessageInput): void {
         input.isRead ?? 0,
         input.isFlagged ?? 0,
         input.tag ?? null,
-        input.size ?? null,
+        input.size ?? null
     );
 }
 
@@ -283,30 +283,35 @@ export function upsertThread(threadId: string, subject: string | null, updatedAt
                                  WHEN excluded.updated_at > threads.updated_at THEN excluded.updated_at
                                  ELSE threads.updated_at
                     END
-        `,
+        `
     ).run(threadId, subject, updatedAt);
 }
 
 export function hasMessageByFolderAndUid(folderId: number, uid: number): boolean {
     const db = getDb();
-    const row = db.prepare('SELECT 1 as ok FROM messages WHERE folder_id = ? AND uid = ? LIMIT 1').get(folderId, uid) as {
-        ok: number
-    } | undefined;
+    const row = db.prepare("SELECT 1 as ok FROM messages WHERE folder_id = ? AND uid = ? LIMIT 1").get(folderId, uid) as
+        | {
+        ok: number;
+    }
+        | undefined;
     return Boolean(row?.ok);
 }
 
 export function getMessageIdByFolderAndUid(folderId: number, uid: number): number | null {
     const db = getDb();
-    const row = db.prepare('SELECT id FROM messages WHERE folder_id = ? AND uid = ? LIMIT 1').get(folderId, uid) as {
-        id: number
-    } | undefined;
+    const row = db.prepare("SELECT id FROM messages WHERE folder_id = ? AND uid = ? LIMIT 1").get(folderId, uid) as
+        | {
+        id: number;
+    }
+        | undefined;
     return row?.id ?? null;
 }
 
 export function listFoldersByAccount(accountId: number): FolderRow[] {
     const db = getDb();
-    return db.prepare(
-        `
+    return db
+        .prepare(
+            `
             SELECT *
             FROM folders
             WHERE account_id = ?
@@ -331,19 +336,22 @@ export function listFoldersByAccount(accountId: number): FolderRow[] {
                          END ASC,
                      lower(name) ASC,
                      lower(path) ASC
-        `,
-    ).all(accountId) as FolderRow[];
+        `
+        )
+        .all(accountId) as FolderRow[];
 }
 
 export function reorderCustomFolders(accountId: number, orderedFolderPaths: string[]): FolderRow[] {
     const db = getDb();
-    const rows = db.prepare(
-        `
+    const rows = db
+        .prepare(
+            `
             SELECT id, path, type
             FROM folders
             WHERE account_id = ?
-        `,
-    ).all(accountId) as Array<{ id: number; path: string; type: string | null }>;
+        `
+        )
+        .all(accountId) as Array<{ id: number; path: string; type: string | null }>;
 
     const customRows = rows.filter((row) => !isSystemFolder(row.path, row.type));
     if (customRows.length <= 1) return listFoldersByAccount(accountId);
@@ -351,13 +359,11 @@ export function reorderCustomFolders(accountId: number, orderedFolderPaths: stri
     const customPathSet = new Set(customRows.map((r) => r.path));
     const requested = orderedFolderPaths.filter((path) => customPathSet.has(path));
     const requestedSet = new Set(requested);
-    const missing = customRows
-        .map((r) => r.path)
-        .filter((path) => !requestedSet.has(path));
+    const missing = customRows.map((r) => r.path).filter((path) => !requestedSet.has(path));
     const mergedOrder = [...requested, ...missing];
 
     const tx = db.transaction((paths: string[]) => {
-        const stmt = db.prepare('UPDATE folders SET sort_order = ? WHERE account_id = ? AND path = ?');
+        const stmt = db.prepare("UPDATE folders SET sort_order = ? WHERE account_id = ? AND path = ?");
         paths.forEach((path, index) => {
             stmt.run(index, accountId, path);
         });
@@ -368,44 +374,55 @@ export function reorderCustomFolders(accountId: number, orderedFolderPaths: stri
 }
 
 function isSystemFolder(pathRaw: string | null | undefined, typeRaw: string | null | undefined): boolean {
-    const path = (pathRaw || '').toLowerCase();
-    const type = (typeRaw || '').toLowerCase();
-    if (type === 'inbox' || path === 'inbox') return true;
-    if (type === 'sent' || path.includes('sent')) return true;
-    if (type === 'drafts' || path.includes('draft')) return true;
-    if (type === 'archive' || path.includes('archive')) return true;
-    if (type === 'junk' || path.includes('spam') || path.includes('junk')) return true;
-    if (type === 'trash' || path.includes('trash') || path.includes('deleted')) return true;
+    const path = (pathRaw || "").toLowerCase();
+    const type = (typeRaw || "").toLowerCase();
+    if (type === "inbox" || path === "inbox") return true;
+    if (type === "sent" || path.includes("sent")) return true;
+    if (type === "drafts" || path.includes("draft")) return true;
+    if (type === "archive" || path.includes("archive")) return true;
+    if (type === "junk" || path.includes("spam") || path.includes("junk")) return true;
+    if (type === "trash" || path.includes("trash") || path.includes("deleted")) return true;
     return false;
 }
 
 export function listMessagesByFolder(accountId: number, folderPath: string, limit: number = 100): MessageRow[] {
     const db = getDb();
-    const folder = db.prepare('SELECT id FROM folders WHERE account_id = ? AND path = ?').get(accountId, folderPath) as {
-        id: number
-    } | undefined;
+    const folder = db.prepare("SELECT id FROM folders WHERE account_id = ? AND path = ?").get(accountId, folderPath) as
+        | {
+        id: number;
+    }
+        | undefined;
     if (!folder?.id) return [];
 
-    return db.prepare(
-        `
+    return db
+        .prepare(
+            `
             SELECT *
             FROM messages
             WHERE account_id = ?
               AND folder_id = ?
             ORDER BY COALESCE(date, '') DESC, id DESC LIMIT ?
-        `,
-    ).all(accountId, folder.id, limit) as MessageRow[];
+        `
+        )
+        .all(accountId, folder.id, limit) as MessageRow[];
 }
 
-export function listThreadMessagesByFolder(accountId: number, folderPath: string, limit: number = 100): MessageThreadRow[] {
+export function listThreadMessagesByFolder(
+    accountId: number,
+    folderPath: string,
+    limit: number = 100
+): MessageThreadRow[] {
     const db = getDb();
-    const folder = db.prepare('SELECT id FROM folders WHERE account_id = ? AND path = ?').get(accountId, folderPath) as {
-        id: number
-    } | undefined;
+    const folder = db.prepare("SELECT id FROM folders WHERE account_id = ? AND path = ?").get(accountId, folderPath) as
+        | {
+        id: number;
+    }
+        | undefined;
     if (!folder?.id) return [];
 
-    return db.prepare(
-        `
+    return db
+        .prepare(
+            `
             WITH base AS (
                 SELECT m.*,
                        CASE
@@ -467,8 +484,9 @@ export function listThreadMessagesByFolder(accountId: number, folderPath: string
             WHERE rn = 1
             ORDER BY COALESCE(thread_latest_date, '') DESC, id DESC
             LIMIT ?
-        `,
-    ).all(accountId, folder.id, limit) as MessageThreadRow[];
+        `
+        )
+        .all(accountId, folder.id, limit) as MessageThreadRow[];
 }
 
 export function getMessageById(messageId: number): MessageRow | null {
@@ -479,23 +497,30 @@ export function getMessageById(messageId: number): MessageRow | null {
                 SELECT *
                 FROM messages
                 WHERE id = ? LIMIT 1
-            `,
+            `
         )
         .get(messageId) as MessageRow | undefined;
     return row ?? null;
 }
 
-export function searchMessages(accountId: number, query: string, folderPath?: string | null, limit: number = 200): MessageRow[] {
+export function searchMessages(
+    accountId: number,
+    query: string,
+    folderPath?: string | null,
+    limit: number = 200
+): MessageRow[] {
     const db = getDb();
-    const trimmed = (query || '').trim();
+    const trimmed = (query || "").trim();
     if (!trimmed) return [];
 
     const normalizedLimit = Math.max(1, Math.min(500, Math.round(Number(limit) || 200)));
     const pattern = `%${trimmed.toLowerCase()}%`;
     const folder = folderPath
-        ? (db.prepare('SELECT id FROM folders WHERE account_id = ? AND path = ?').get(accountId, folderPath) as {
-            id: number
-        } | undefined)
+        ? (db.prepare("SELECT id FROM folders WHERE account_id = ? AND path = ?").get(accountId, folderPath) as
+            | {
+            id: number;
+        }
+            | undefined)
         : undefined;
     if (folderPath && !folder?.id) return [];
 
@@ -537,11 +562,16 @@ export function searchMessages(accountId: number, query: string, folderPath?: st
     return db.prepare(sql).all(...params) as MessageRow[];
 }
 
-export function listRecentRecipients(accountId: number, query?: string | null, limit: number = 20): RecentRecipientRow[] {
+export function listRecentRecipients(
+    accountId: number,
+    query?: string | null,
+    limit: number = 20
+): RecentRecipientRow[] {
     const db = getDb();
     const normalizedLimit = Math.max(1, Math.min(100, Math.round(Number(limit) || 20)));
-    const rows = db.prepare(
-        `
+    const rows = db
+        .prepare(
+            `
             SELECT m.to_address AS toAddress, m.date AS date
             FROM messages m
                      JOIN folders f ON f.id = m.folder_id
@@ -554,19 +584,20 @@ export function listRecentRecipients(accountId: number, query?: string | null, l
                 )
             ORDER BY COALESCE(m.date, '') DESC, m.id DESC
             LIMIT 800
-        `,
-    ).all(accountId) as Array<{ toAddress: string; date: string | null }>;
+        `
+        )
+        .all(accountId) as Array<{ toAddress: string; date: string | null }>;
 
-    const queryValue = (query || '').trim().toLowerCase();
+    const queryValue = (query || "").trim().toLowerCase();
     const byEmail = new Map<string, { email: string; displayName: string | null; lastUsedAt: string | null }>();
 
     for (const row of rows) {
-        const parsed = parseRecipientHeaderList(row.toAddress || '');
+        const parsed = parseRecipientHeaderList(row.toAddress || "");
         for (const item of parsed) {
             const email = item.email.toLowerCase();
             if (!email) continue;
             if (queryValue) {
-                const haystack = `${item.displayName || ''} ${email}`.toLowerCase();
+                const haystack = `${item.displayName || ""} ${email}`.toLowerCase();
                 if (!haystack.includes(queryValue)) continue;
             }
             const existing = byEmail.get(email);
@@ -578,8 +609,8 @@ export function listRecentRecipients(accountId: number, query?: string | null, l
                 });
                 continue;
             }
-            const existingDate = Date.parse(existing.lastUsedAt || '');
-            const nextDate = Date.parse(row.date || '');
+            const existingDate = Date.parse(existing.lastUsedAt || "");
+            const nextDate = Date.parse(row.date || "");
             if (Number.isFinite(nextDate) && (!Number.isFinite(existingDate) || nextDate > existingDate)) {
                 existing.lastUsedAt = row.date ?? null;
                 if (item.displayName) existing.displayName = item.displayName;
@@ -591,8 +622,8 @@ export function listRecentRecipients(accountId: number, query?: string | null, l
 
     return Array.from(byEmail.values())
         .sort((a, b) => {
-            const ad = Date.parse(a.lastUsedAt || '');
-            const bd = Date.parse(b.lastUsedAt || '');
+            const ad = Date.parse(a.lastUsedAt || "");
+            const bd = Date.parse(b.lastUsedAt || "");
             if (Number.isFinite(ad) && Number.isFinite(bd) && ad !== bd) return bd - ad;
             if (Number.isFinite(ad) && !Number.isFinite(bd)) return -1;
             if (!Number.isFinite(ad) && Number.isFinite(bd)) return 1;
@@ -608,9 +639,11 @@ export function listRecentRecipients(accountId: number, query?: string | null, l
 
 export function getTotalUnreadCount(): number {
     const db = getDb();
-    const row = db.prepare('SELECT COALESCE(SUM(unread_count), 0) as unread FROM folders').get() as {
-        unread: number
-    } | undefined;
+    const row = db.prepare("SELECT COALESCE(SUM(unread_count), 0) as unread FROM folders").get() as
+        | {
+        unread: number;
+    }
+        | undefined;
     return Number(row?.unread ?? 0);
 }
 
@@ -622,8 +655,8 @@ function parseRecipientHeaderList(value: string): Array<{ email: string; display
         if (!token) continue;
         const angleMatch = token.match(/^(.*)<([^>]+)>$/);
         if (angleMatch) {
-            const displayName = normalizeRecipientName(angleMatch[1] || '');
-            const email = normalizeRecipientEmail(angleMatch[2] || '');
+            const displayName = normalizeRecipientName(angleMatch[1] || "");
+            const email = normalizeRecipientEmail(angleMatch[2] || "");
             if (email) out.push({email, displayName});
             continue;
         }
@@ -636,24 +669,27 @@ function parseRecipientHeaderList(value: string): Array<{ email: string; display
 }
 
 function normalizeRecipientEmail(value: string): string {
-    const cleaned = String(value || '').trim().replace(/^<|>$/g, '').toLowerCase();
-    if (!cleaned) return '';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned)) return '';
+    const cleaned = String(value || "")
+        .trim()
+        .replace(/^<|>$/g, "")
+        .toLowerCase();
+    if (!cleaned) return "";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned)) return "";
     return cleaned;
 }
 
 function normalizeRecipientName(value: string): string | null {
-    const cleaned = String(value || '')
+    const cleaned = String(value || "")
         .trim()
-        .replace(/^"+|"+$/g, '')
-        .replace(/\s+/g, ' ');
+        .replace(/^"+|"+$/g, "")
+        .replace(/\s+/g, " ");
     return cleaned || null;
 }
 
 export function getMessageBody(messageId: number): MessageBodyRow | null {
     const db = getDb();
     const row = db
-        .prepare('SELECT message_id, text_content, html_content FROM message_bodies WHERE message_id = ?')
+        .prepare("SELECT message_id, text_content, html_content FROM message_bodies WHERE message_id = ?")
         .get(messageId) as MessageBodyRow | undefined;
     return row ?? null;
 }
@@ -667,30 +703,25 @@ export function upsertMessageBody(messageId: number, textContent: string | null,
             UPDATE SET
                 text_content = excluded.text_content,
                 html_content = excluded.html_content
-        `,
+        `
     ).run(messageId, textContent, htmlContent);
 }
 
 export function replaceMessageAttachments(
     messageId: number,
-    attachments: Array<{ filename?: string | null; contentType?: string | null; size?: number | null }>,
+    attachments: Array<{ filename?: string | null; contentType?: string | null; size?: number | null }>
 ): void {
     const db = getDb();
     const tx = db.transaction(() => {
-        db.prepare('DELETE FROM attachments WHERE message_id = ?').run(messageId);
+        db.prepare("DELETE FROM attachments WHERE message_id = ?").run(messageId);
         const insert = db.prepare(
             `
                 INSERT INTO attachments (message_id, filename, content_type, size, content)
                 VALUES (?, ?, ?, ?, NULL)
-            `,
+            `
         );
         for (const attachment of attachments) {
-            insert.run(
-                messageId,
-                attachment.filename ?? null,
-                attachment.contentType ?? null,
-                attachment.size ?? null,
-            );
+            insert.run(messageId, attachment.filename ?? null, attachment.contentType ?? null, attachment.size ?? null);
         }
     });
     tx();
@@ -705,15 +736,16 @@ export function listMessageAttachments(messageId: number): MessageAttachmentRow[
                 FROM attachments
                 WHERE message_id = ?
                 ORDER BY id ASC
-            `,
+            `
         )
         .all(messageId) as MessageAttachmentRow[];
 }
 
 export function getMessageContext(messageId: number): MessageContextRow | null {
     const db = getDb();
-    const row = db.prepare(
-        `
+    const row = db
+        .prepare(
+            `
             SELECT m.id         AS messageId,
                    m.account_id AS accountId,
                    f.id         AS folderId,
@@ -722,8 +754,9 @@ export function getMessageContext(messageId: number): MessageContextRow | null {
             FROM messages m
                      JOIN folders f ON f.id = m.folder_id
             WHERE m.id = ?
-        `,
-    ).get(messageId) as MessageContextRow | undefined;
+        `
+        )
+        .get(messageId) as MessageContextRow | undefined;
     return row ?? null;
 }
 
@@ -732,19 +765,22 @@ export function setMessageRead(messageId: number, isRead: number): SetMessageRea
     const ctx = getMessageContext(messageId);
     if (!ctx) throw new Error(`Message ${messageId} not found`);
 
-    db.prepare('UPDATE messages SET is_read = ? WHERE id = ?').run(isRead ? 1 : 0, messageId);
+    db.prepare("UPDATE messages SET is_read = ? WHERE id = ?").run(isRead ? 1 : 0, messageId);
 
     const unreadRow = db
-        .prepare('SELECT COUNT(*) AS c FROM messages WHERE folder_id = ? AND is_read = 0')
+        .prepare("SELECT COUNT(*) AS c FROM messages WHERE folder_id = ? AND is_read = 0")
         .get(ctx.folderId) as { c: number };
-    const totalRow = db
-        .prepare('SELECT COUNT(*) AS c FROM messages WHERE folder_id = ?')
-        .get(ctx.folderId) as { c: number };
+    const totalRow = db.prepare("SELECT COUNT(*) AS c FROM messages WHERE folder_id = ?").get(ctx.folderId) as {
+        c: number;
+    };
 
     const unreadCount = unreadRow?.c ?? 0;
     const totalCount = totalRow?.c ?? 0;
-    db.prepare('UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?')
-        .run(unreadCount, totalCount, ctx.folderId);
+    db.prepare("UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?").run(
+        unreadCount,
+        totalCount,
+        ctx.folderId
+    );
 
     return {
         messageId,
@@ -762,7 +798,7 @@ export function setMessageFlagged(messageId: number, isFlagged: number): SetMess
     const ctx = getMessageContext(messageId);
     if (!ctx) throw new Error(`Message ${messageId} not found`);
 
-    db.prepare('UPDATE messages SET is_flagged = ? WHERE id = ?').run(isFlagged ? 1 : 0, messageId);
+    db.prepare("UPDATE messages SET is_flagged = ? WHERE id = ?").run(isFlagged ? 1 : 0, messageId);
     return {
         messageId,
         accountId: ctx.accountId,
@@ -777,8 +813,8 @@ export function setMessageTag(messageId: number, tag: string | null): SetMessage
     const ctx = getMessageContext(messageId);
     if (!ctx) throw new Error(`Message ${messageId} not found`);
 
-    const normalized = String(tag || '').trim();
-    db.prepare('UPDATE messages SET tag = ? WHERE id = ?').run(normalized.length ? normalized : null, messageId);
+    const normalized = String(tag || "").trim();
+    db.prepare("UPDATE messages SET tag = ? WHERE id = ?").run(normalized.length ? normalized : null, messageId);
     return {
         messageId,
         accountId: ctx.accountId,
@@ -792,14 +828,14 @@ export function moveMessageToFolder(messageId: number, targetFolderPath: string,
     const db = getDb();
     const ctx = getMessageContext(messageId);
     if (!ctx) throw new Error(`Message ${messageId} not found`);
-    if (!targetFolderPath) throw new Error('Target folder path is required');
+    if (!targetFolderPath) throw new Error("Target folder path is required");
     if (ctx.folderPath === targetFolderPath) {
         const sourceUnread = db
-            .prepare('SELECT COUNT(*) AS c FROM messages WHERE folder_id = ? AND is_read = 0')
+            .prepare("SELECT COUNT(*) AS c FROM messages WHERE folder_id = ? AND is_read = 0")
             .get(ctx.folderId) as { c: number };
-        const sourceTotal = db
-            .prepare('SELECT COUNT(*) AS c FROM messages WHERE folder_id = ?')
-            .get(ctx.folderId) as { c: number };
+        const sourceTotal = db.prepare("SELECT COUNT(*) AS c FROM messages WHERE folder_id = ?").get(ctx.folderId) as {
+            c: number;
+        };
         return {
             messageId,
             accountId: ctx.accountId,
@@ -816,47 +852,53 @@ export function moveMessageToFolder(messageId: number, targetFolderPath: string,
     }
 
     const targetFolder = db
-        .prepare('SELECT id FROM folders WHERE account_id = ? AND path = ?')
+        .prepare("SELECT id FROM folders WHERE account_id = ? AND path = ?")
         .get(ctx.accountId, targetFolderPath) as { id: number } | undefined;
     if (!targetFolder?.id) throw new Error(`Target folder ${targetFolderPath} not found`);
 
-    const current = db.prepare('SELECT uid FROM messages WHERE id = ?').get(messageId) as { uid: number } | undefined;
+    const current = db.prepare("SELECT uid FROM messages WHERE id = ?").get(messageId) as { uid: number } | undefined;
     if (!current) throw new Error(`Message ${messageId} not found`);
-    const requestedUid = typeof nextUid === 'number' && Number.isFinite(nextUid) ? nextUid : current.uid;
+    const requestedUid = typeof nextUid === "number" && Number.isFinite(nextUid) ? nextUid : current.uid;
 
     const tx = db.transaction(() => {
         let uidToStore = requestedUid;
-        const conflict = db.prepare(
-            'SELECT id FROM messages WHERE folder_id = ? AND uid = ? AND id != ? LIMIT 1',
-        ).get(targetFolder.id, uidToStore, messageId) as { id: number } | undefined;
+        const conflict = db
+            .prepare("SELECT id FROM messages WHERE folder_id = ? AND uid = ? AND id != ? LIMIT 1")
+            .get(targetFolder.id, uidToStore, messageId) as { id: number } | undefined;
         if (conflict?.id) {
             // Keep local operations resilient when target folder already has this UID.
-            const maxUidRow = db.prepare('SELECT MAX(uid) AS maxUid FROM messages WHERE folder_id = ?')
+            const maxUidRow = db
+                .prepare("SELECT MAX(uid) AS maxUid FROM messages WHERE folder_id = ?")
                 .get(targetFolder.id) as { maxUid: number | null } | undefined;
             const maxUid = Number(maxUidRow?.maxUid ?? 0);
             uidToStore = Math.max(uidToStore, maxUid + 1);
         }
 
-        db.prepare('UPDATE messages SET folder_id = ?, uid = ? WHERE id = ?')
-            .run(targetFolder.id, uidToStore, messageId);
+        db.prepare("UPDATE messages SET folder_id = ?, uid = ? WHERE id = ?").run(targetFolder.id, uidToStore, messageId);
 
         const sourceUnread = db
-            .prepare('SELECT COUNT(*) AS c FROM messages WHERE folder_id = ? AND is_read = 0')
+            .prepare("SELECT COUNT(*) AS c FROM messages WHERE folder_id = ? AND is_read = 0")
             .get(ctx.folderId) as { c: number };
-        const sourceTotal = db
-            .prepare('SELECT COUNT(*) AS c FROM messages WHERE folder_id = ?')
-            .get(ctx.folderId) as { c: number };
+        const sourceTotal = db.prepare("SELECT COUNT(*) AS c FROM messages WHERE folder_id = ?").get(ctx.folderId) as {
+            c: number;
+        };
         const targetUnread = db
-            .prepare('SELECT COUNT(*) AS c FROM messages WHERE folder_id = ? AND is_read = 0')
+            .prepare("SELECT COUNT(*) AS c FROM messages WHERE folder_id = ? AND is_read = 0")
             .get(targetFolder.id) as { c: number };
-        const targetTotal = db
-            .prepare('SELECT COUNT(*) AS c FROM messages WHERE folder_id = ?')
-            .get(targetFolder.id) as { c: number };
+        const targetTotal = db.prepare("SELECT COUNT(*) AS c FROM messages WHERE folder_id = ?").get(targetFolder.id) as {
+            c: number;
+        };
 
-        db.prepare('UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?')
-            .run(sourceUnread?.c ?? 0, sourceTotal?.c ?? 0, ctx.folderId);
-        db.prepare('UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?')
-            .run(targetUnread?.c ?? 0, targetTotal?.c ?? 0, targetFolder.id);
+        db.prepare("UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?").run(
+            sourceUnread?.c ?? 0,
+            sourceTotal?.c ?? 0,
+            ctx.folderId
+        );
+        db.prepare("UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?").run(
+            targetUnread?.c ?? 0,
+            targetTotal?.c ?? 0,
+            targetFolder.id
+        );
 
         return {
             messageId,
@@ -882,8 +924,8 @@ export function deleteMessageLocally(messageId: number): { accountId: number } {
     if (!ctx) throw new Error(`Message ${messageId} not found`);
 
     const folders = listFoldersByAccount(ctx.accountId);
-    const trash = folders.find((f) => (f.type ?? '').toLowerCase() === 'trash')
-        ?? folders.find((f) => /trash|deleted/i.test(f.path));
+    const trash =
+        folders.find((f) => (f.type ?? "").toLowerCase() === "trash") ?? folders.find((f) => /trash|deleted/i.test(f.path));
 
     if (trash && trash.path !== ctx.folderPath) {
         moveMessageToFolder(messageId, trash.path);
@@ -891,16 +933,19 @@ export function deleteMessageLocally(messageId: number): { accountId: number } {
     }
 
     const tx = db.transaction(() => {
-        db.prepare('DELETE FROM messages WHERE id = ?').run(messageId);
+        db.prepare("DELETE FROM messages WHERE id = ?").run(messageId);
 
         const sourceUnread = db
-            .prepare('SELECT COUNT(*) AS c FROM messages WHERE folder_id = ? AND is_read = 0')
+            .prepare("SELECT COUNT(*) AS c FROM messages WHERE folder_id = ? AND is_read = 0")
             .get(ctx.folderId) as { c: number };
-        const sourceTotal = db
-            .prepare('SELECT COUNT(*) AS c FROM messages WHERE folder_id = ?')
-            .get(ctx.folderId) as { c: number };
-        db.prepare('UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?')
-            .run(sourceUnread?.c ?? 0, sourceTotal?.c ?? 0, ctx.folderId);
+        const sourceTotal = db.prepare("SELECT COUNT(*) AS c FROM messages WHERE folder_id = ?").get(ctx.folderId) as {
+            c: number;
+        };
+        db.prepare("UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?").run(
+            sourceUnread?.c ?? 0,
+            sourceTotal?.c ?? 0,
+            ctx.folderId
+        );
     });
     tx();
 

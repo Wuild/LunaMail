@@ -1,7 +1,7 @@
-import {ImapFlow} from 'imapflow';
-import {createMailDebugLogger} from '../debug/debugLog.js';
-import {getAccountSyncCredentials} from '../db/repositories/accountsRepo.js';
-import {resolveImapSecurity} from './security.js';
+import {ImapFlow} from "imapflow";
+import {createMailDebugLogger} from "../debug/debugLog.js";
+import {getAccountSyncCredentials} from "../db/repositories/accountsRepo.js";
+import {resolveImapSecurity} from "./security.js";
 import {
     getMessageContext,
     listFoldersByAccount,
@@ -10,7 +10,7 @@ import {
     setMessageFlagged,
     setMessageRead,
     type SetMessageReadResult,
-} from '../db/repositories/mailRepo.js';
+} from "../db/repositories/mailRepo.js";
 
 interface ActionResult {
     accountId: number;
@@ -38,9 +38,9 @@ export async function setServerMessageRead(messageId: number, isRead: number): P
 
     await withImapLock(ctx.accountId, ctx.folderPath, async (client) => {
         if (isRead) {
-            await (client as any).messageFlagsAdd(ctx.uid, ['\\Seen'], {uid: true});
+            await (client as any).messageFlagsAdd(ctx.uid, ["\\Seen"], {uid: true});
         } else {
-            await (client as any).messageFlagsRemove(ctx.uid, ['\\Seen'], {uid: true});
+            await (client as any).messageFlagsRemove(ctx.uid, ["\\Seen"], {uid: true});
         }
     });
 
@@ -53,9 +53,9 @@ export async function setServerMessageFlagged(messageId: number, isFlagged: numb
 
     await withImapLock(ctx.accountId, ctx.folderPath, async (client) => {
         if (isFlagged) {
-            await (client as any).messageFlagsAdd(ctx.uid, ['\\Flagged'], {uid: true});
+            await (client as any).messageFlagsAdd(ctx.uid, ["\\Flagged"], {uid: true});
         } else {
-            await (client as any).messageFlagsRemove(ctx.uid, ['\\Flagged'], {uid: true});
+            await (client as any).messageFlagsRemove(ctx.uid, ["\\Flagged"], {uid: true});
         }
     });
 
@@ -66,15 +66,20 @@ export async function setServerMessageFlagged(messageId: number, isFlagged: numb
 export async function moveServerMessage(messageId: number, targetFolderPath: string): Promise<MoveMessageResult> {
     const ctx = getMessageContext(messageId);
     if (!ctx) throw new Error(`Message ${messageId} not found`);
-    if (!targetFolderPath) throw new Error('Target folder path is required');
+    if (!targetFolderPath) throw new Error("Target folder path is required");
     if (ctx.folderPath === targetFolderPath) return moveMessageToFolder(messageId, targetFolderPath);
 
     let movedUid: number | undefined;
     await withImapLock(ctx.accountId, ctx.folderPath, async (client) => {
         const result = await (client as any).messageMove(ctx.uid, targetFolderPath, {uid: true});
-        const uidMap = result && typeof result === 'object' ? (result as {
-            uidMap?: Map<number, number>
-        }).uidMap : undefined;
+        const uidMap =
+            result && typeof result === "object"
+                ? (
+                    result as {
+                        uidMap?: Map<number, number>;
+                    }
+                ).uidMap
+                : undefined;
         if (uidMap?.has(ctx.uid)) {
             movedUid = uidMap.get(ctx.uid);
         }
@@ -96,8 +101,8 @@ export async function deleteServerMessage(messageId: number): Promise<ActionResu
 
 export async function deleteServerMessageByContext(ctx: MessageServerContext): Promise<void> {
     const folders = listFoldersByAccount(ctx.accountId);
-    const trash = folders.find((f) => (f.type ?? '').toLowerCase() === 'trash')
-        ?? folders.find((f) => /trash|deleted/i.test(f.path));
+    const trash =
+        folders.find((f) => (f.type ?? "").toLowerCase() === "trash") ?? folders.find((f) => /trash|deleted/i.test(f.path));
 
     await withImapLock(ctx.accountId, ctx.folderPath, async (client) => {
         if (trash && trash.path !== ctx.folderPath) {
@@ -109,9 +114,9 @@ export async function deleteServerMessageByContext(ctx: MessageServerContext): P
 }
 
 export async function createServerFolder(accountId: number, folderPath: string): Promise<CreateFolderResult> {
-    const path = (folderPath || '').trim();
-    if (!accountId) throw new Error('Account is required');
-    if (!path) throw new Error('Folder name is required');
+    const path = (folderPath || "").trim();
+    if (!accountId) throw new Error("Account is required");
+    if (!path) throw new Error("Folder name is required");
 
     const account = await getAccountSyncCredentials(accountId);
     const client = new ImapFlow({
@@ -119,7 +124,7 @@ export async function createServerFolder(accountId: number, folderPath: string):
         port: account.imap_port,
         ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
-        logger: createMailDebugLogger('imap', `folder:create:${accountId}`),
+        logger: createMailDebugLogger("imap", `folder:create:${accountId}`),
     });
 
     try {
@@ -137,11 +142,11 @@ export async function createServerFolder(accountId: number, folderPath: string):
 }
 
 export async function deleteServerFolder(accountId: number, folderPath: string): Promise<DeleteFolderResult> {
-    const path = (folderPath || '').trim();
-    if (!accountId) throw new Error('Account is required');
-    if (!path) throw new Error('Folder path is required');
+    const path = (folderPath || "").trim();
+    if (!accountId) throw new Error("Account is required");
+    if (!path) throw new Error("Folder path is required");
     if (isProtectedFolderPath(path)) {
-        throw new Error('System folders cannot be deleted');
+        throw new Error("System folders cannot be deleted");
     }
 
     const account = await getAccountSyncCredentials(accountId);
@@ -150,7 +155,7 @@ export async function deleteServerFolder(accountId: number, folderPath: string):
         port: account.imap_port,
         ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
-        logger: createMailDebugLogger('imap', `folder:delete:${accountId}`),
+        logger: createMailDebugLogger("imap", `folder:delete:${accountId}`),
     });
 
     try {
@@ -170,7 +175,7 @@ export async function deleteServerFolder(accountId: number, folderPath: string):
 async function withImapLock(
     accountId: number,
     folderPath: string,
-    fn: (client: ImapFlow) => Promise<void>,
+    fn: (client: ImapFlow) => Promise<void>
 ): Promise<void> {
     const account = await getAccountSyncCredentials(accountId);
     const client = new ImapFlow({
@@ -178,7 +183,7 @@ async function withImapLock(
         port: account.imap_port,
         ...resolveImapSecurity(account.imap_secure),
         auth: {user: account.user, pass: account.password},
-        logger: createMailDebugLogger('imap', `message:action:${accountId}:${folderPath}`),
+        logger: createMailDebugLogger("imap", `message:action:${accountId}:${folderPath}`),
     });
 
     try {
@@ -200,7 +205,7 @@ async function withImapLock(
 
 function isProtectedFolderPath(path: string): boolean {
     const normalized = path.trim().toLowerCase();
-    if (normalized === 'inbox') return true;
+    if (normalized === "inbox") return true;
     if (/(^|[\/._ -])sent($|[\/._ -])/.test(normalized)) return true;
     if (/(^|[\/._ -])drafts?($|[\/._ -])/.test(normalized)) return true;
     if (/(^|[\/._ -])trash($|[\/._ -])|deleted/.test(normalized)) return true;

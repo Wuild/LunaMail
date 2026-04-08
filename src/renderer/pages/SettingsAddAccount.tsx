@@ -1,11 +1,13 @@
-import React, {useMemo, useState} from 'react';
-import WindowTitleBar from '../components/WindowTitleBar';
-import ServiceSettingsCard, {type ServiceSecurityMode} from '../components/settings/ServiceSettingsCard';
-import {useAppTheme} from '../hooks/useAppTheme';
+import React, {useMemo, useState} from "react";
+import WindowTitleBar from "../components/WindowTitleBar";
+import ServiceSettingsCard, {type ServiceSecurityMode} from "../components/settings/ServiceSettingsCard";
+import {useAppTheme} from "../hooks/useAppTheme";
+import type {DavDiscoveryResult} from "../../preload";
+import {isEditableTarget} from "../lib/dom";
 
 type Service = { host: string; port: number; security: ServiceSecurityMode };
 type WizardStep = 1 | 2 | 3;
-type VerifyType = 'imap' | 'smtp';
+type VerifyType = "imap" | "smtp";
 type DiscoverService = { host: string; port: number; secure: boolean };
 
 type DiscoverResult = {
@@ -21,17 +23,23 @@ type VerifyResult = {
 };
 
 const stepMeta: Record<WizardStep, { title: string; subtitle: string }> = {
-    1: {title: 'Credentials', subtitle: 'Email and password'},
-    2: {title: 'Manual Setup', subtitle: 'Server settings'},
-    3: {title: 'Confirm', subtitle: 'Review and add'},
+    1: {title: "Credentials", subtitle: "Email and password"},
+    2: {title: "Manual Setup", subtitle: "Server settings"},
+    3: {title: "Confirm", subtitle: "Review and add"},
 };
 
-const SettingsAddAccount: React.FC = () => {
+type SettingsAddAccountProps = {
+    embedded?: boolean;
+    onCompleted?: () => void;
+    onCancel?: () => void;
+};
+
+const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false, onCompleted, onCancel}) => {
     useAppTheme();
     const [step, setStep] = useState<WizardStep>(1);
-    const [email, setEmail] = useState('');
-    const [name, setName] = useState('');
-    const [password, setPassword] = useState('');
+    const [email, setEmail] = useState("");
+    const [name, setName] = useState("");
+    const [password, setPassword] = useState("");
     const [provider, setProvider] = useState<string | null>(null);
     const [imap, setImap] = useState<Service | null>(null);
     const [pop3, setPop3] = useState<Service | null>(null);
@@ -39,6 +47,7 @@ const SettingsAddAccount: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [davDiscovery, setDavDiscovery] = useState<DavDiscoveryResult | null>(null);
 
     const canGoStep1Next = useMemo(() => !!email.trim() && !!password.trim(), [email, password]);
     const canVerifyManual = useMemo(() => !!imap?.host && !!imap.port && !!smtp?.host && !!smtp.port, [imap, smtp]);
@@ -53,21 +62,35 @@ const SettingsAddAccount: React.FC = () => {
             type,
             host: svc.host,
             port: Number(svc.port),
-            secure: svc.security === 'ssl',
+            secure: svc.security === "ssl",
             user: email.trim(),
             password,
         });
     }
 
     async function verifyImapAndSmtp(imapService: Service, smtpService: Service): Promise<void> {
-        const imapResult = await verifyService('imap', imapService);
+        const imapResult = await verifyService("imap", imapService);
         if (!imapResult.ok) {
-            throw new Error(imapResult.error || 'IMAP verification failed.');
+            throw new Error(imapResult.error || "IMAP verification failed.");
         }
 
-        const smtpResult = await verifyService('smtp', smtpService);
+        const smtpResult = await verifyService("smtp", smtpService);
         if (!smtpResult.ok) {
-            throw new Error(smtpResult.error || 'SMTP verification failed.');
+            throw new Error(smtpResult.error || "SMTP verification failed.");
+        }
+    }
+
+    async function discoverDavPreview(imapService: Service): Promise<void> {
+        try {
+            const discovered = await window.electronAPI.discoverDavPreview({
+                email: email.trim(),
+                user: email.trim(),
+                password,
+                imapHost: imapService.host,
+            });
+            setDavDiscovery(discovered);
+        } catch {
+            setDavDiscovery(null);
         }
     }
 
@@ -89,31 +112,37 @@ const SettingsAddAccount: React.FC = () => {
         try {
             const hasAutoSettings = !!discovered?.imap && !!discovered?.smtp;
             if (!hasAutoSettings) {
-                const [, domain] = email.trim().split('@');
+                const [, domain] = email.trim().split("@");
                 setProvider(discovered?.provider ?? null);
-                setImap(discovered?.imap
-                    ? {
-                        host: discovered.imap.host,
-                        port: discovered.imap.port,
-                        security: discovered.imap.secure ? 'ssl' : 'starttls'
-                    }
-                    : {host: domain ? `imap.${domain}` : '', port: 993, security: 'ssl'});
-                setPop3(discovered?.pop3
-                    ? {
-                        host: discovered.pop3.host,
-                        port: discovered.pop3.port,
-                        security: discovered.pop3.secure ? 'ssl' : 'starttls'
-                    }
-                    : null);
-                setSmtp(discovered?.smtp
-                    ? {
-                        host: discovered.smtp.host,
-                        port: discovered.smtp.port,
-                        security: discovered.smtp.secure ? 'ssl' : 'starttls'
-                    }
-                    : {host: domain ? `smtp.${domain}` : '', port: 465, security: 'ssl'});
+                setImap(
+                    discovered?.imap
+                        ? {
+                            host: discovered.imap.host,
+                            port: discovered.imap.port,
+                            security: discovered.imap.secure ? "ssl" : "starttls",
+                        }
+                        : {host: domain ? `imap.${domain}` : "", port: 993, security: "ssl"}
+                );
+                setPop3(
+                    discovered?.pop3
+                        ? {
+                            host: discovered.pop3.host,
+                            port: discovered.pop3.port,
+                            security: discovered.pop3.secure ? "ssl" : "starttls",
+                        }
+                        : null
+                );
+                setSmtp(
+                    discovered?.smtp
+                        ? {
+                            host: discovered.smtp.host,
+                            port: discovered.smtp.port,
+                            security: discovered.smtp.secure ? "ssl" : "starttls",
+                        }
+                        : {host: domain ? `smtp.${domain}` : "", port: 465, security: "ssl"}
+                );
                 setStep(2);
-                setSuccess('Autodiscover did not return complete settings. Enter server settings manually.');
+                setSuccess("Autodiscover did not return complete settings. Enter server settings manually.");
                 return;
             }
 
@@ -121,44 +150,47 @@ const SettingsAddAccount: React.FC = () => {
             setImap({
                 host: discovered.imap!.host,
                 port: discovered.imap!.port,
-                security: discovered.imap!.secure ? 'ssl' : 'starttls',
+                security: discovered.imap!.secure ? "ssl" : "starttls",
             });
-            setPop3(discovered.pop3
-                ? {
-                    host: discovered.pop3.host,
-                    port: discovered.pop3.port,
-                    security: discovered.pop3.secure ? 'ssl' : 'starttls'
-                }
-                : null);
+            setPop3(
+                discovered.pop3
+                    ? {
+                        host: discovered.pop3.host,
+                        port: discovered.pop3.port,
+                        security: discovered.pop3.secure ? "ssl" : "starttls",
+                    }
+                    : null
+            );
             setSmtp({
                 host: discovered.smtp!.host,
                 port: discovered.smtp!.port,
-                security: discovered.smtp!.secure ? 'ssl' : 'starttls',
+                security: discovered.smtp!.secure ? "ssl" : "starttls",
             });
             const discoveredImap: Service = {
                 host: discovered.imap!.host,
                 port: discovered.imap!.port,
-                security: discovered.imap!.secure ? 'ssl' : 'starttls',
+                security: discovered.imap!.secure ? "ssl" : "starttls",
             };
             const discoveredSmtp: Service = {
                 host: discovered.smtp!.host,
                 port: discovered.smtp!.port,
-                security: discovered.smtp!.secure ? 'ssl' : 'starttls',
+                security: discovered.smtp!.secure ? "ssl" : "starttls",
             };
 
             try {
                 await verifyImapAndSmtp(discoveredImap, discoveredSmtp);
-                setSuccess('Account verified successfully.');
+                await discoverDavPreview(discoveredImap);
+                setSuccess("Account verified successfully.");
                 setStep(3);
             } catch (verifyError: any) {
                 const message = verifyError?.message || String(verifyError);
-                if (message === 'Wrong username or password.') {
+                if (message === "Wrong username or password.") {
                     setError(message);
                     return;
                 }
                 // Discovery succeeded, but verification failed. Let user review/edit manually.
                 setStep(2);
-                setSuccess('Autodiscover succeeded. Please review server settings manually.');
+                setSuccess("Autodiscover succeeded. Please review server settings manually.");
             }
         } finally {
             setLoading(false);
@@ -171,11 +203,12 @@ const SettingsAddAccount: React.FC = () => {
         resetMessages();
         try {
             await verifyImapAndSmtp(imap, smtp);
-            setSuccess('Server settings verified successfully.');
+            await discoverDavPreview(imap);
+            setSuccess("Server settings verified successfully.");
             setStep(3);
         } catch (e: any) {
             const message = e?.message || String(e);
-            setError(message === 'Wrong username or password.' ? message : `Could not verify settings: ${message}`);
+            setError(message === "Wrong username or password." ? message : `Could not verify settings: ${message}`);
         } finally {
             setLoading(false);
         }
@@ -192,18 +225,21 @@ const SettingsAddAccount: React.FC = () => {
                 provider,
                 imap_host: imap.host,
                 imap_port: Number(imap.port),
-                imap_secure: imap.security === 'ssl' ? 1 : 0,
+                imap_secure: imap.security === "ssl" ? 1 : 0,
                 pop3_host: pop3?.host ?? null,
                 pop3_port: pop3?.port ?? null,
-                pop3_secure: pop3 ? (pop3.security === 'ssl' ? 1 : 0) : null,
+                pop3_secure: pop3 ? (pop3.security === "ssl" ? 1 : 0) : null,
                 smtp_host: smtp.host,
                 smtp_port: Number(smtp.port),
-                smtp_secure: smtp.security === 'ssl' ? 1 : 0,
+                smtp_secure: smtp.security === "ssl" ? 1 : 0,
                 user: email.trim(),
                 password,
             });
-            setSuccess('Account added successfully.');
-            window.close();
+            setSuccess("Account added successfully.");
+            onCompleted?.();
+            if (!embedded) {
+                window.close();
+            }
         } catch (e: any) {
             setError(e?.message || String(e));
         } finally {
@@ -212,20 +248,23 @@ const SettingsAddAccount: React.FC = () => {
     }
 
     function updateService(setter: React.Dispatch<React.SetStateAction<Service | null>>, patch: Partial<Service>) {
-        setter((prev) => ({host: '', port: 0, security: 'ssl', ...(prev ?? {}), ...patch}));
+        setter((prev) => ({host: "", port: 0, security: "ssl", ...(prev ?? {}), ...patch}));
     }
 
-    const primaryActionDisabled =
-        loading ||
-        (step === 1 && !canGoStep1Next) ||
-        (step === 2 && !canVerifyManual);
+    const primaryActionDisabled = loading || (step === 1 && !canGoStep1Next) || (step === 2 && !canVerifyManual);
 
     const primaryActionLabel =
         step === 1
-            ? (loading ? 'Checking account...' : 'Next')
+            ? loading
+                ? "Checking account..."
+                : "Next"
             : step === 2
-                ? (loading ? 'Verifying...' : 'Verify and Continue')
-                : (loading ? 'Saving...' : 'Add Account');
+                ? loading
+                    ? "Verifying..."
+                    : "Verify and Continue"
+                : loading
+                    ? "Saving..."
+                    : "Add Account";
 
     async function onPrimaryAction() {
         if (step === 1) {
@@ -239,10 +278,17 @@ const SettingsAddAccount: React.FC = () => {
         await onSave();
     }
 
+    function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (primaryActionDisabled) return;
+        void onPrimaryAction();
+    }
+
     function onBack() {
         resetMessages();
         if (step === 2) {
             setStep(1);
+            setDavDiscovery(null);
             return;
         }
         if (step === 3) {
@@ -250,165 +296,225 @@ const SettingsAddAccount: React.FC = () => {
         }
     }
 
+    const canClose = embedded && typeof onCancel === "function";
+
     return (
-        <div className="h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
+        <div
+            className={`${embedded ? "h-full w-full" : "h-screen w-screen"} overflow-hidden bg-slate-100 dark:bg-[#2f3136]`}
+        >
             <div
                 className="flex h-full w-full flex-col overflow-hidden border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#313338]">
-                <WindowTitleBar title="Add Account"/>
-                <div className="flex min-h-0 flex-1 overflow-hidden">
-                <aside
-                    className="w-72 shrink-0 border-r border-slate-200 bg-slate-900 px-6 py-7 text-slate-100 dark:border-[#25272c] dark:bg-[#1f2125]">
-                    <h2 className="text-lg font-semibold">New Account</h2>
-                    <p className="mt-1 text-sm text-slate-400">Secure mail onboarding</p>
-                    <div className="mt-8 space-y-4">
-                        {[1, 2, 3].map((n) => {
-                            const s = n as WizardStep;
-                            return (
-                                <StepItem key={n} step={s} active={step === s} done={step > s} title={stepMeta[s].title}
-                                          subtitle={stepMeta[s].subtitle}/>
-                            );
-                        })}
-                    </div>
-                </aside>
-
-                <main className="flex min-h-0 flex-1 flex-col">
-                    <div className="border-b border-slate-200 px-8 py-6 dark:border-[#3a3d44]">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Step {step} of
-                            3</p>
+                {!embedded && <WindowTitleBar title="Add Account"/>}
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <div className="shrink-0 border-b border-slate-200 px-8 py-6 dark:border-[#3a3d44]">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                            {[1, 2, 3].map((n) => {
+                                const s = n as WizardStep;
+                                const isActive = step === s;
+                                const isDone = step > s;
+                                return (
+                                    <div
+                                        key={n}
+                                        className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 ${
+                                            isActive
+                                                ? "bg-sky-50 text-sky-800 dark:bg-sky-900/20 dark:text-sky-200"
+                                                : "text-slate-500 dark:text-slate-400"
+                                        }`}
+                                    >
+                    <span className={`text-xs font-semibold ${isDone ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                      {isDone ? "✓" : s}
+                    </span>
+                                        <span className="font-medium">{stepMeta[s].title}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Step {step} of 3
+                        </p>
                         <h3 className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{stepMeta[step].title}</h3>
                         <div className="mt-3 h-1.5 w-full rounded-full bg-slate-200 dark:bg-[#25272c]">
-                            <div className="h-1.5 rounded-full bg-sky-600 transition-all dark:bg-[#5865f2]"
-                                 style={{width: `${(step / 3) * 100}%`}}/>
+                            <div
+                                className="h-1.5 rounded-full bg-sky-600 transition-all dark:bg-[#5865f2]"
+                                style={{width: `${(step / 3) * 100}%`}}
+                            />
                         </div>
                     </div>
 
-                    <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
-                        {step === 1 && (
-                            <section className="space-y-5">
-                                <header>
-                                    <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Enter your
-                                        account credentials</h3>
-                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">We will autodiscover
-                                        your
-                                        server settings and verify authentication.</p>
-                                </header>
+                    <form
+                        className="flex min-h-0 flex-1 flex-col"
+                        onSubmit={onSubmit}
+                        onContextMenuCapture={(event) => {
+                            if (!isEditableTarget(event.target as HTMLElement | null)) return;
+                            event.stopPropagation();
+                        }}
+                    >
+                        <main className="min-h-0 flex-1">
+                            <div className="h-full overflow-y-auto px-8 py-6">
+                                <div className="mx-auto w-full max-w-5xl">
+                                    {step === 1 && (
+                                        <section className="space-y-5">
+                                            <header>
+                                                <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                                                    Enter your account credentials
+                                                </h3>
+                                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                                    We will autodiscover your server settings and verify authentication.
+                                                </p>
+                                            </header>
 
-                                <div
-                                    className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-                                    <Field label="Name (optional)" value={name} onChange={setName}
-                                           placeholder="Your display name"/>
-                                    <Field label="Email" value={email} onChange={setEmail} placeholder="you@domain.com"
-                                           className="mt-4"/>
-                                    <Field label="Password" value={password} onChange={setPassword} type="password"
-                                           className="mt-4"/>
+                                            <div
+                                                className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+                                                <Field
+                                                    label="Name (optional)"
+                                                    value={name}
+                                                    onChange={setName}
+                                                    placeholder="Your display name"
+                                                />
+                                                <Field
+                                                    label="Email"
+                                                    value={email}
+                                                    onChange={setEmail}
+                                                    placeholder="you@domain.com"
+                                                    className="mt-4"
+                                                />
+                                                <Field
+                                                    label="Password"
+                                                    value={password}
+                                                    onChange={setPassword}
+                                                    type="password"
+                                                    className="mt-4"
+                                                />
+                                            </div>
+
+                                            {loading && (
+                                                <div
+                                                    className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 dark:border-sky-500/30 dark:bg-sky-900/20 dark:text-sky-200">
+                          <span
+                              className="mt-0.5 inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-sky-300 border-t-sky-600 dark:border-sky-400/50 dark:border-t-sky-200"
+                              aria-hidden
+                          />
+                                                    <div>
+                                                        <p className="font-semibold">Running autodiscover</p>
+                                                        <p className="mt-0.5 text-xs text-sky-700/90 dark:text-sky-200/85">
+                                                            Detecting server settings and verifying IMAP/SMTP
+                                                            credentials.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </section>
+                                    )}
+
+                                    {step === 2 && (
+                                        <section className="space-y-5">
+                                            <header>
+                                                <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                                                    Manual server setup
+                                                </h3>
+                                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                                    Autodiscover did not return complete settings. Enter IMAP and SMTP
+                                                    manually.
+                                                </p>
+                                            </header>
+
+                                            <div className="grid gap-4">
+                                                <ServiceSettingsCard
+                                                    title="IMAP Incoming"
+                                                    host={imap?.host ?? ""}
+                                                    port={imap?.port ?? 0}
+                                                    security={imap?.security ?? "ssl"}
+                                                    onHostChange={(host) => updateService(setImap, {host})}
+                                                    onPortChange={(port) => updateService(setImap, {port})}
+                                                    onSecurityChange={(security) => updateService(setImap, {security})}
+                                                    allowNone
+                                                    tone="muted"
+                                                />
+                                                <ServiceSettingsCard
+                                                    title="SMTP Outgoing"
+                                                    host={smtp?.host ?? ""}
+                                                    port={smtp?.port ?? 0}
+                                                    security={smtp?.security ?? "ssl"}
+                                                    onHostChange={(host) => updateService(setSmtp, {host})}
+                                                    onPortChange={(port) => updateService(setSmtp, {port})}
+                                                    onSecurityChange={(security) => updateService(setSmtp, {security})}
+                                                    allowNone
+                                                    tone="muted"
+                                                />
+                                            </div>
+                                        </section>
+                                    )}
+
+                                    {step === 3 && (
+                                        <section className="space-y-5">
+                                            <header>
+                                                <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                                                    Confirm account details
+                                                </h3>
+                                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                                    Everything looks good. Save to add this mailbox.
+                                                </p>
+                                            </header>
+
+                                            <div
+                                                className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+                                                <SummaryRow label="Email" value={email}/>
+                                                <SummaryRow label="Provider" value={provider ?? "custom"}/>
+                                                <SummaryRow label="IMAP"
+                                                            value={`${imap?.host ?? "-"}:${imap?.port ?? "-"}`}/>
+                                                <SummaryRow label="SMTP"
+                                                            value={`${smtp?.host ?? "-"}:${smtp?.port ?? "-"}`}/>
+                                                {davDiscovery?.carddavUrl &&
+                                                    <SummaryRow label="CardDAV" value={davDiscovery.carddavUrl}/>}
+                                                {davDiscovery?.caldavUrl &&
+                                                    <SummaryRow label="CalDAV" value={davDiscovery.caldavUrl}/>}
+                                            </div>
+                                        </section>
+                                    )}
+
+                                    {error && (
+                                        <p className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-900/20 dark:text-red-300">
+                                            {error}
+                                        </p>
+                                    )}
+                                    {success && (
+                                        <p className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                            {success}
+                                        </p>
+                                    )}
                                 </div>
-                            </section>
-                        )}
-
-                        {step === 2 && (
-                            <section className="space-y-5">
-                                <header>
-                                    <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Manual
-                                        server
-                                        setup</h3>
-                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Autodiscover did not
-                                        return complete settings. Enter IMAP and SMTP manually.</p>
-                                </header>
-
-                                <div className="grid gap-4">
-                                    <ServiceSettingsCard
-                                        title="IMAP Incoming"
-                                        host={imap?.host ?? ''}
-                                        port={imap?.port ?? 0}
-                                        security={imap?.security ?? 'ssl'}
-                                        onHostChange={(host) => updateService(setImap, {host})}
-                                        onPortChange={(port) => updateService(setImap, {port})}
-                                        onSecurityChange={(security) => updateService(setImap, {security})}
-                                        tone="sky"
-                                    />
-                                    <ServiceSettingsCard
-                                        title="SMTP Outgoing"
-                                        host={smtp?.host ?? ''}
-                                        port={smtp?.port ?? 0}
-                                        security={smtp?.security ?? 'ssl'}
-                                        onHostChange={(host) => updateService(setSmtp, {host})}
-                                        onPortChange={(port) => updateService(setSmtp, {port})}
-                                        onSecurityChange={(security) => updateService(setSmtp, {security})}
-                                        tone="cyan"
-                                    />
-                                </div>
-                            </section>
-                        )}
-
-                        {step === 3 && (
-                            <section className="space-y-5">
-                                <header>
-                                    <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Confirm
-                                        account details</h3>
-                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Everything looks
-                                        good.
-                                        Save to add this mailbox.</p>
-                                </header>
-
-                                <div
-                                    className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-                                    <SummaryRow label="Email" value={email}/>
-                                    <SummaryRow label="Provider" value={provider ?? 'custom'}/>
-                                    <SummaryRow label="IMAP" value={`${imap?.host ?? '-'}:${imap?.port ?? '-'}`}/>
-                                    <SummaryRow label="SMTP" value={`${smtp?.host ?? '-'}:${smtp?.port ?? '-'}`}/>
-                                </div>
-                            </section>
-                        )}
-
-                        {error &&
-                            <p className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-900/20 dark:text-red-300">{error}</p>}
-                        {success &&
-                            <p className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-900/20 dark:text-emerald-300">{success}</p>}
-                    </div>
-
-                    <footer
-                        className="flex shrink-0 items-center justify-between border-t border-slate-200 px-8 py-4 dark:border-[#3a3d44]">
-                        <button
-                            disabled={step === 1 || loading}
-                            onClick={onBack}
-                            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
-                        >
-                            Back
-                        </button>
-                        <button
-                            disabled={primaryActionDisabled}
-                            onClick={onPrimaryAction}
-                            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${
-                                step === 3
-                                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                                    : 'bg-sky-600 hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]'
-                            }`}
-                        >
-                            {primaryActionLabel}
-                        </button>
-                    </footer>
-                </main>
+                            </div>
+                        </main>
+                        <footer
+                            className="flex shrink-0 items-center justify-between border-t border-slate-200 px-8 py-4 dark:border-[#3a3d44]">
+                            <button
+                                type="button"
+                                disabled={loading || (!canClose && step === 1)}
+                                onClick={() => {
+                                    if (step === 1 && canClose) {
+                                        onCancel?.();
+                                        return;
+                                    }
+                                    onBack();
+                                }}
+                                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                            >
+                                {step === 1 && canClose ? "Cancel" : "Back"}
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={primaryActionDisabled}
+                                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${
+                                    step === 3
+                                        ? "bg-emerald-600 hover:bg-emerald-700"
+                                        : "bg-sky-600 hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                }`}
+                            >
+                                {primaryActionLabel}
+                            </button>
+                        </footer>
+                    </form>
                 </div>
-            </div>
-        </div>
-    );
-};
-
-const StepItem: React.FC<{ step: WizardStep; active: boolean; done: boolean; title: string; subtitle: string }> = ({
-                                                                                                                       step,
-                                                                                                                       active,
-                                                                                                                       done,
-                                                                                                                       title,
-                                                                                                                       subtitle,
-                                                                                                                   }) => {
-    const badgeStyle = done ? 'bg-emerald-500 text-white' : active ? 'bg-sky-500 text-white' : 'bg-slate-700 text-slate-300';
-    return (
-        <div className={`flex items-start gap-3 rounded-lg px-2 py-2 ${active ? 'bg-slate-800' : ''}`}>
-            <span
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${badgeStyle}`}>{step}</span>
-            <div>
-                <p className={`text-sm font-medium ${active ? 'text-white' : 'text-slate-200'}`}>{title}</p>
-                <p className="text-xs text-slate-400">{subtitle}</p>
             </div>
         </div>
     );
@@ -421,7 +527,7 @@ const Field: React.FC<{
     placeholder?: string;
     type?: string;
     className?: string;
-}> = ({label, value, onChange, placeholder, type = 'text', className = ''}) => (
+}> = ({label, value, onChange, placeholder, type = "text", className = ""}) => (
     <label className={`block text-sm ${className}`}>
         <span className="font-medium text-slate-700 dark:text-slate-200">{label}</span>
         <input

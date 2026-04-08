@@ -1,11 +1,11 @@
-import {ImapFlow} from 'imapflow';
-import nodemailer from 'nodemailer';
-import tls from 'tls';
-import net from 'net';
-import {createMailDebugLogger} from '../debug/debugLog.js';
+import {ImapFlow} from "imapflow";
+import nodemailer from "nodemailer";
+import tls from "tls";
+import net from "net";
+import {createMailDebugLogger} from "../debug/debugLog.js";
 
 export interface VerifyPayload {
-    type: 'imap' | 'pop3' | 'smtp';
+    type: "imap" | "pop3" | "smtp";
     host: string;
     port: number;
     secure: boolean; // TLS from start
@@ -22,13 +22,13 @@ export interface VerifyResult {
 export async function verifyConnection(p: VerifyPayload): Promise<VerifyResult> {
     try {
         switch (p.type) {
-            case 'imap':
+            case "imap":
                 await verifyImap(p);
                 return {ok: true};
-            case 'smtp':
+            case "smtp":
                 await verifySmtp(p);
                 return {ok: true};
-            case 'pop3':
+            case "pop3":
                 await verifyPop3(p);
                 return {ok: true};
             default:
@@ -46,16 +46,17 @@ async function verifyImap(p: VerifyPayload): Promise<void> {
         secure: p.secure,
         doSTARTTLS: !p.secure,
         auth: {user: p.user, pass: p.password},
-        logger: createMailDebugLogger('imap', `verify:${p.host}:${p.port}`),
+        logger: createMailDebugLogger("imap", `verify:${p.host}:${p.port}`),
     });
     try {
         await client.connect();
         // simple NOOP by opening INBOX status
-        await client.mailboxOpen('INBOX', {readOnly: true}).catch(() => undefined);
+        await client.mailboxOpen("INBOX", {readOnly: true}).catch(() => undefined);
     } finally {
         try {
             await client.logout();
-        } catch { /* ignore */
+        } catch {
+            /* ignore */
         }
     }
 }
@@ -67,7 +68,7 @@ async function verifySmtp(p: VerifyPayload): Promise<void> {
         secure: p.secure, // true for 465, false for 587/25
         requireTLS: !p.secure,
         auth: {user: p.user, pass: p.password},
-        logger: createMailDebugLogger('smtp', `verify:${p.host}:${p.port}`),
+        logger: createMailDebugLogger("smtp", `verify:${p.host}:${p.port}`),
         debug: true,
     });
     await transporter.verify();
@@ -79,16 +80,16 @@ async function verifyPop3(p: VerifyPayload): Promise<void> {
         new Promise<void>((resolve, reject) => {
             const onData = (data: Buffer) => {
                 const str = data.toString();
-                if (str.startsWith('+OK')) {
-                    socket.removeListener('data', onData);
+                if (str.startsWith("+OK")) {
+                    socket.removeListener("data", onData);
                     resolve();
-                } else if (str.startsWith('-ERR')) {
-                    socket.removeListener('data', onData);
-                    reject(new Error(str.trim()))
+                } else if (str.startsWith("-ERR")) {
+                    socket.removeListener("data", onData);
+                    reject(new Error(str.trim()));
                 }
             };
-            socket.on('data', onData);
-            socket.write(cmd + '\r\n');
+            socket.on("data", onData);
+            socket.write(cmd + "\r\n");
         });
 
     await new Promise<void>((resolve, reject) => {
@@ -99,22 +100,22 @@ async function verifyPop3(p: VerifyPayload): Promise<void> {
         let greeted = false;
         sock.setTimeout(15000, () => {
             sock.destroy();
-            reject(new Error('POP3 timeout'));
+            reject(new Error("POP3 timeout"));
         });
 
         function onReady() {
             // Wait for greeting first
-            sock.once('data', async (data: Buffer) => {
+            sock.once("data", async (data: Buffer) => {
                 const s = data.toString();
-                if (!s.startsWith('+OK')) {
+                if (!s.startsWith("+OK")) {
                     sock.destroy();
-                    return reject(new Error('POP3 no +OK greeting'));
+                    return reject(new Error("POP3 no +OK greeting"));
                 }
                 try {
                     await command(sock as any, `USER ${p.user}`);
                     await command(sock as any, `PASS ${p.password}`);
                     // Quit politely
-                    sock.write('QUIT\r\n');
+                    sock.write("QUIT\r\n");
                     greeted = true;
                     sock.end();
                     resolve();
@@ -125,8 +126,8 @@ async function verifyPop3(p: VerifyPayload): Promise<void> {
             });
         }
 
-        sock.on('error', (err) => reject(err));
-        sock.on('close', () => {
+        sock.on("error", (err) => reject(err));
+        sock.on("close", () => {
             if (!greeted) {
                 // closed before auth
             }
@@ -135,18 +136,18 @@ async function verifyPop3(p: VerifyPayload): Promise<void> {
 }
 
 function formatVerifyError(err: any): string {
-    const code = err?.code ? String(err.code) : '';
-    const responseCode = typeof err?.responseCode === 'number' ? err.responseCode : undefined;
-    const message = err?.message ? String(err.message) : '';
-    const responseText = err?.responseText ? String(err.responseText) : '';
-    const serverResponse = err?.serverResponse ? String(err.serverResponse) : '';
-    const command = err?.command ? String(err.command) : '';
+    const code = err?.code ? String(err.code) : "";
+    const responseCode = typeof err?.responseCode === "number" ? err.responseCode : undefined;
+    const message = err?.message ? String(err.message) : "";
+    const responseText = err?.responseText ? String(err.responseText) : "";
+    const serverResponse = err?.serverResponse ? String(err.serverResponse) : "";
+    const command = err?.command ? String(err.command) : "";
 
-    const merged = [message, responseText, serverResponse, code, command].filter(Boolean).join(' | ');
+    const merged = [message, responseText, serverResponse, code, command].filter(Boolean).join(" | ");
 
     // Map common auth failures to a clear UI message.
     if (isCredentialFailure({merged, message, responseText, serverResponse, responseCode})) {
-        return 'Wrong username or password.';
+        return "Wrong username or password.";
     }
 
     // Replace unhelpful generic failures with more context if available.
@@ -154,14 +155,14 @@ function formatVerifyError(err: any): string {
         if (responseText) return responseText;
         if (serverResponse) return serverResponse;
         if (code) return `Connection failed (${code}).`;
-        return 'Connection failed while talking to the mail server.';
+        return "Connection failed while talking to the mail server.";
     }
 
     if (responseText) return responseText;
     if (serverResponse) return serverResponse;
     if (message) return message;
     if (code) return `Connection failed (${code}).`;
-    return 'Connection failed.';
+    return "Connection failed.";
 }
 
 function isCredentialFailure(input: {
@@ -181,7 +182,7 @@ function isCredentialFailure(input: {
 
     const definitelyNotCredentials =
         /(timeout|timed out|enotfound|econnrefused|ehostunreach|certificate|ssl|tls|self[- ]signed|unsupported|mechanism|network|dns)/i.test(
-            merged,
+            merged
         );
     if (definitelyNotCredentials) return false;
 
@@ -196,5 +197,8 @@ function isCredentialFailure(input: {
         /bad credentials/i,
         /invalid login/i,
     ];
-    return authIndicators.some((pattern) => pattern.test(message) || pattern.test(responseText) || pattern.test(serverResponse) || pattern.test(merged));
+    return authIndicators.some(
+        (pattern) =>
+            pattern.test(message) || pattern.test(responseText) || pattern.test(serverResponse) || pattern.test(merged)
+    );
 }

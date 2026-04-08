@@ -1,6 +1,6 @@
-import React from 'react';
+import React from "react";
 
-export type ServiceSecurityMode = 'ssl' | 'starttls';
+export type ServiceSecurityMode = "ssl" | "starttls" | "none";
 
 type ServiceSettingsCardProps = {
     title: string;
@@ -10,13 +10,15 @@ type ServiceSettingsCardProps = {
     onHostChange: (value: string) => void;
     onPortChange: (value: number) => void;
     onSecurityChange: (value: ServiceSecurityMode) => void;
-    tone?: 'neutral' | 'sky' | 'cyan';
+    allowNone?: boolean;
+    tone?: "neutral" | "muted" | "sky" | "cyan";
 };
 
-const toneClasses: Record<NonNullable<ServiceSettingsCardProps['tone']>, string> = {
-    neutral: 'border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#1e1f22]',
-    sky: 'border-sky-200 bg-sky-50/40 dark:border-[#30455a] dark:bg-[#243240]',
-    cyan: 'border-cyan-200 bg-cyan-50/40 dark:border-[#2a4e57] dark:bg-[#24373d]',
+const toneClasses: Record<NonNullable<ServiceSettingsCardProps["tone"]>, string> = {
+    neutral: "border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#1e1f22]",
+    muted: "border-slate-200 bg-slate-50 dark:border-[#3a3d44] dark:bg-[#2b2d31]",
+    sky: "border-sky-200 bg-sky-50/40 dark:border-[#30455a] dark:bg-[#243240]",
+    cyan: "border-cyan-200 bg-cyan-50/40 dark:border-[#2a4e57] dark:bg-[#24373d]",
 };
 
 export default function ServiceSettingsCard({
@@ -27,7 +29,8 @@ export default function ServiceSettingsCard({
                                                 onHostChange,
                                                 onPortChange,
                                                 onSecurityChange,
-                                                tone = 'neutral',
+                                                allowNone = false,
+                                                tone = "neutral",
                                             }: ServiceSettingsCardProps) {
     return (
         <div className={`rounded-lg border p-4 ${toneClasses[tone]}`}>
@@ -61,6 +64,7 @@ export default function ServiceSettingsCard({
                         >
                             <option value="ssl">SSL/TLS</option>
                             <option value="starttls">STARTTLS</option>
+                            {allowNone && <option value="none">None</option>}
                         </select>
                     </label>
                 </div>

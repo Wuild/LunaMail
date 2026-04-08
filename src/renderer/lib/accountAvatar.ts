@@ -1,17 +1,17 @@
-import type {PublicAccount} from '../../preload';
+import type {PublicAccount} from "../../preload";
 
 export function getAccountMonogram(account: PublicAccount): string {
-    const base = (account.display_name?.trim() || account.email || '').trim();
-    if (!base) return '?';
+    const base = (account.display_name?.trim() || account.email || "").trim();
+    if (!base) return "?";
     const words = base.split(/[\s._-]+/).filter(Boolean);
     if (words.length >= 2) {
-        return `${words[0][0] ?? ''}${words[1][0] ?? ''}`.toUpperCase();
+        return `${words[0][0] ?? ""}${words[1][0] ?? ""}`.toUpperCase();
     }
     return (words[0] || base).slice(0, 2).toUpperCase();
 }
 
 export function getAccountAvatarColors(seed: string): { background: string; foreground: string } {
-    const hash = hashString(seed.trim().toLowerCase() || 'account');
+    const hash = hashString(seed.trim().toLowerCase() || "account");
     const hue = hash % 360;
     const saturation = 58 + (hash % 15);
     const lightness = 44 + (Math.floor(hash / 11) % 12);
@@ -20,7 +20,7 @@ export function getAccountAvatarColors(seed: string): { background: string; fore
     const [r, g, b] = hslToRgb(hue, saturation, lightness);
     const whiteContrast = contrastRatio([r, g, b], [255, 255, 255]);
     const darkContrast = contrastRatio([r, g, b], [15, 23, 42]);
-    const foreground = whiteContrast >= darkContrast ? '#ffffff' : '#0f172a';
+    const foreground = whiteContrast >= darkContrast ? "#ffffff" : "#0f172a";
     return {background, foreground};
 }
 
@@ -37,7 +37,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
     const sat = s / 100;
     const light = l / 100;
     const c = (1 - Math.abs(2 * light - 1)) * sat;
-    const hp = ((h % 360) + 360) % 360 / 60;
+    const hp = (((h % 360) + 360) % 360) / 60;
     const x = c * (1 - Math.abs((hp % 2) - 1));
 
     let r1 = 0;
@@ -64,11 +64,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
     }
 
     const m = light - c / 2;
-    return [
-        Math.round((r1 + m) * 255),
-        Math.round((g1 + m) * 255),
-        Math.round((b1 + m) * 255),
-    ];
+    return [Math.round((r1 + m) * 255), Math.round((g1 + m) * 255), Math.round((b1 + m) * 255)];
 }
 
 function relativeLuminance([r, g, b]: [number, number, number]): number {

@@ -1,0 +1,7 @@
+node_modules
+build
+dist
+drizzle
+.electron-builder-prod-node_modules
+package-lock.json
+preload.cjs

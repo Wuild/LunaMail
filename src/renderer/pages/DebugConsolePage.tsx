@@ -1,42 +1,63 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
-import type {DebugLogEntry} from '../../preload';
-import WindowTitleBar from '../components/WindowTitleBar';
-import {useAppTheme} from '../hooks/useAppTheme';
+import React, {useEffect, useMemo, useRef, useState} from "react";
+import type {DebugLogEntry} from "../../preload";
+import WindowTitleBar from "../components/WindowTitleBar";
+import {useAppTheme} from "../hooks/useAppTheme";
 
-const SOURCE_OPTIONS: Array<{ value: DebugLogEntry['source']; label: string }> = [
-    {value: 'imap', label: 'IMAP'},
-    {value: 'smtp', label: 'SMTP'},
-    {value: 'carddav', label: 'CardDav'},
-    {value: 'caldav', label: 'CalDav'},
-    {value: 'app', label: 'App'},
+const DEBUG_SELECTED_SOURCES_STORAGE_KEY = "debug-console:selected-sources";
+
+const SOURCE_OPTIONS: Array<{ value: DebugLogEntry["source"]; label: string }> = [
+    {value: "imap", label: "IMAP"},
+    {value: "smtp", label: "SMTP"},
+    {value: "carddav", label: "CardDav"},
+    {value: "caldav", label: "CalDav"},
+    {value: "cloud", label: "Cloud Files"},
+    {value: "app", label: "App"},
 ];
 
 export default function DebugConsolePage({embedded = false}: { embedded?: boolean }) {
     useAppTheme();
     const [logs, setLogs] = useState<DebugLogEntry[]>([]);
     const [autoScroll, setAutoScroll] = useState(true);
-    const [selectedSources, setSelectedSources] = useState<DebugLogEntry['source'][]>(
-        SOURCE_OPTIONS.map((option) => option.value),
-    );
+    const [selectedSources, setSelectedSources] = useState<DebugLogEntry["source"][]>(() => {
+        const allSources = SOURCE_OPTIONS.map((option) => option.value);
+        try {
+            const raw = window.localStorage.getItem(DEBUG_SELECTED_SOURCES_STORAGE_KEY);
+            if (!raw) return allSources;
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return allSources;
+            const validSet = new Set(allSources);
+            const filtered = parsed.filter(
+                (value): value is DebugLogEntry["source"] =>
+                    typeof value === "string" && validSet.has(value as DebugLogEntry["source"])
+            );
+            if (filtered.length === 0) return allSources;
+            return Array.from(new Set(filtered));
+        } catch {
+            return allSources;
+        }
+    });
     const listRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         let active = true;
-        window.electronAPI.getDebugLogs(1000).then((initial) => {
-            if (!active) return;
-            setLogs(initial);
-        }).catch(() => undefined);
+        window.electronAPI
+            .getDebugLogs(10000)
+            .then((initial) => {
+                if (!active) return;
+                setLogs(initial);
+            })
+            .catch(() => undefined);
 
         const off = window.electronAPI.onDebugLog?.((entry) => {
             setLogs((prev) => {
                 const next = [...prev, entry];
-                if (next.length > 2000) return next.slice(next.length - 2000);
+                if (next.length > 10000) return next.slice(next.length - 10000);
                 return next;
             });
         });
         return () => {
             active = false;
-            if (typeof off === 'function') off();
+            if (typeof off === "function") off();
         };
     }, []);
 
@@ -47,12 +68,21 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
         list.scrollTop = list.scrollHeight;
     }, [logs, autoScroll]);
 
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(DEBUG_SELECTED_SOURCES_STORAGE_KEY, JSON.stringify(selectedSources));
+        } catch {
+            // ignore persistence failures
+        }
+    }, [selectedSources]);
+
     const renderedLogs = useMemo(
-        () => logs.map((entry) => ({
-            ...entry,
-            timestampLabel: new Date(entry.timestamp).toLocaleTimeString(),
-        })),
-        [logs],
+        () =>
+            logs.map((entry) => ({
+                ...entry,
+                timestampLabel: new Date(entry.timestamp).toLocaleTimeString(),
+            })),
+        [logs]
     );
     const filteredLogs = useMemo(() => {
         const selected = new Set(selectedSources);
@@ -60,12 +90,15 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
     }, [renderedLogs, selectedSources]);
 
     function onClear(): void {
-        void window.electronAPI.clearDebugLogs().then(() => {
-            setLogs([]);
-        }).catch(() => undefined);
+        void window.electronAPI
+            .clearDebugLogs()
+            .then(() => {
+                setLogs([]);
+            })
+            .catch(() => undefined);
     }
 
-    function onToggleSource(source: DebugLogEntry['source']): void {
+    function onToggleSource(source: DebugLogEntry["source"]): void {
         setSelectedSources((prev) => {
             if (prev.includes(source)) {
                 if (prev.length === 1) return prev;
@@ -84,16 +117,13 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
                     <div>
                         <h1 className="text-base font-semibold text-slate-900 dark:text-slate-100">Debug Console</h1>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Live logs with source filters (IMAP, SMTP, CardDav, CalDav, App)
+                            Live logs with source filters (IMAP, SMTP, CardDav, CalDav, Cloud Files, App)
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
                         <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                            <input
-                                type="checkbox"
-                                checked={autoScroll}
-                                onChange={(event) => setAutoScroll(event.target.checked)}
-                            />
+                            <input type="checkbox" checked={autoScroll}
+                                   onChange={(event) => setAutoScroll(event.target.checked)}/>
                             Auto-scroll
                         </label>
                         <button
@@ -123,11 +153,7 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
                                 key={option.value}
                                 className="inline-flex items-center gap-1.5 rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-[#3a3d44] dark:text-slate-200"
                             >
-                                <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => onToggleSource(option.value)}
-                                />
+                                <input type="checkbox" checked={checked} onChange={() => onToggleSource(option.value)}/>
                                 {option.label}
                             </label>
                         );
@@ -138,18 +164,16 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
                         ref={listRef}
                         className="h-full overflow-auto rounded-lg border border-slate-200 bg-[#0d1117] p-3 font-mono text-xs leading-5 text-slate-100 select-text [&_*]:select-text dark:border-[#3a3d44]"
                     >
-                        {logs.length === 0 && (
-                            <div className="text-slate-400">No debug events yet.</div>
-                        )}
+                        {logs.length === 0 && <div className="text-slate-400">No debug events yet.</div>}
                         {logs.length > 0 && filteredLogs.length === 0 && (
                             <div className="text-slate-400">No events match current source filters.</div>
                         )}
                         {filteredLogs.map((entry) => (
                             <div key={entry.id} className="whitespace-pre-wrap break-words">
-                                <span className="text-slate-400">[{entry.timestampLabel}]</span>{' '}
-                                <span className={levelClass(entry.level)}>{entry.level.toUpperCase()}</span>{' '}
-                                <span className="text-cyan-300">{entry.source}</span>{' '}
-                                <span className="text-amber-300">{entry.scope}</span>{' '}
+                                <span className="text-slate-400">[{entry.timestampLabel}]</span>{" "}
+                                <span className={levelClass(entry.level)}>{entry.level.toUpperCase()}</span>{" "}
+                                <span className="text-cyan-300">{entry.source}</span>{" "}
+                                <span className="text-amber-300">{entry.scope}</span>{" "}
                                 <span className="text-slate-100">{entry.message}</span>
                             </div>
                         ))}
@@ -160,10 +184,10 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
     );
 }
 
-function levelClass(level: DebugLogEntry['level']): string {
-    if (level === 'error' || level === 'fatal') return 'text-rose-400';
-    if (level === 'warn') return 'text-amber-400';
-    if (level === 'info') return 'text-emerald-400';
-    if (level === 'debug') return 'text-sky-400';
-    return 'text-violet-300';
+function levelClass(level: DebugLogEntry["level"]): string {
+    if (level === "error" || level === "fatal") return "text-rose-400";
+    if (level === "warn") return "text-amber-400";
+    if (level === "info") return "text-emerald-400";
+    if (level === "debug") return "text-sky-400";
+    return "text-violet-300";
 }

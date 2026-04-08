@@ -4,16 +4,15 @@ import path from "node:path";
 import {clearDebugLogs, createAppLogger, getDebugLogs} from "../debug/debugLog.js";
 import {type ComposeDraftPayload, getComposeDraft, openComposeWindow} from "../windows/composeWindow.js";
 import {getMessageWindowTargetId, openMessageWindow} from "../windows/messageWindow.js";
+import {openAddAccountWindow} from "../windows/addAccountWindow.js";
 
 const logger = createAppLogger("ipc:windows");
 
 export function registerWindowIpc(): void {
-    ipcMain.handle("open-add-account-window", async () => {
+    ipcMain.handle("open-add-account-window", async (event) => {
         logger.info("IPC open-add-account-window");
-        for (const win of BrowserWindow.getAllWindows()) {
-            if (win.isDestroyed()) continue;
-            win.webContents.send("open-add-account-modal");
-        }
+        const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+        openAddAccountWindow(parentWindow);
         return {ok: true} as const;
     });
 

@@ -10,6 +10,12 @@ type ExportContactsPayload = {
 
 type DavIpcDeps = {
     discoverDav: (accountId: number) => any;
+    discoverDavPreview: (payload: {
+        email: string;
+        user: string;
+        password: string;
+        imapHost: string;
+    }) => any;
     syncDav: (accountId: number) => any;
     getContacts: (accountId: number, query?: string | null, limit?: number, addressBookId?: number | null) => any[];
     listRecentRecipients: (accountId: number, query?: string | null, limit?: number) => any[];
@@ -23,12 +29,29 @@ type DavIpcDeps = {
     toCsv: (contacts: any[]) => string;
     getCalendarEvents: (accountId: number, startIso?: string | null, endIso?: string | null, limit?: number) => any[];
     addCalendarEvent: (accountId: number, payload: any) => any;
+    editCalendarEvent: (eventId: number, payload: any) => any;
+    removeCalendarEvent: (eventId: number) => any;
 };
 
 export function registerDavIpc(deps: DavIpcDeps): void {
     ipcMain.handle('discover-dav', async (_event, accountId: number) => {
         return deps.discoverDav(accountId);
     });
+
+    ipcMain.handle(
+        'discover-dav-preview',
+        async (
+            _event,
+            payload: {
+                email: string;
+                user: string;
+                password: string;
+                imapHost: string;
+            },
+        ) => {
+            return deps.discoverDavPreview(payload);
+        },
+    );
 
     ipcMain.handle('sync-dav', async (_event, accountId: number) => {
         return deps.syncDav(accountId);
@@ -113,5 +136,13 @@ export function registerDavIpc(deps: DavIpcDeps): void {
 
     ipcMain.handle('add-calendar-event', async (_event, accountId: number, payload: any) => {
         return deps.addCalendarEvent(accountId, payload);
+    });
+
+    ipcMain.handle('update-calendar-event', async (_event, eventId: number, payload: any) => {
+        return deps.editCalendarEvent(eventId, payload);
+    });
+
+    ipcMain.handle('delete-calendar-event', async (_event, eventId: number) => {
+        return deps.removeCalendarEvent(eventId);
     });
 }

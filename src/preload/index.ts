@@ -265,6 +265,13 @@ export interface DavDiscoveryResult {
 	caldavUrl: string | null;
 }
 
+export interface DavDiscoveryPreviewPayload {
+	email: string;
+	user: string;
+	password: string;
+	imapHost: string;
+}
+
 export interface DavSyncSummary {
 	accountId: number;
 	discovered: DavDiscoveryResult;
@@ -340,6 +347,14 @@ export interface AddCalendarEventPayload {
 	endsAt: string;
 }
 
+export interface UpdateCalendarEventPayload {
+	summary?: string | null;
+	description?: string | null;
+	location?: string | null;
+	startsAt: string;
+	endsAt: string;
+}
+
 export interface ExportContactsPayload {
 	format: 'csv' | 'vcf';
 	addressBookId?: number | null;
@@ -369,6 +384,8 @@ export interface PickedAttachment {
 	filename: string;
 	contentType: string | null;
 }
+
+export interface PickedCloudAttachment extends PickedAttachment {}
 
 export interface SetMessageReadResult {
 	messageId: number;
@@ -537,6 +554,12 @@ const api = {
 		action?: 'open' | 'save',
 	): Promise<CloudOpenItemResult> =>
 		ipcRenderer.invoke('open-cloud-item', accountId, itemPathOrToken, fallbackName ?? null, action ?? 'open'),
+	pickCloudAttachment: (
+		accountId: number,
+		itemPathOrToken: string,
+		fallbackName?: string | null,
+	): Promise<PickedCloudAttachment> =>
+		ipcRenderer.invoke('pick-cloud-attachment', accountId, itemPathOrToken, fallbackName ?? null),
 	getUnreadCount: (): Promise<number> => ipcRenderer.invoke('get-unread-count'),
 	discoverMailSettings: (email: string): Promise<DiscoverResult> =>
 		ipcRenderer.invoke('discover-mail-settings', email),
@@ -556,6 +579,8 @@ const api = {
 	reorderCustomFolders: (accountId: number, orderedFolderPaths: string[]): Promise<FolderItem[]> =>
 		ipcRenderer.invoke('reorder-custom-folders', accountId, orderedFolderPaths),
 	discoverDav: (accountId: number): Promise<DavDiscoveryResult> => ipcRenderer.invoke('discover-dav', accountId),
+	discoverDavPreview: (payload: DavDiscoveryPreviewPayload): Promise<DavDiscoveryResult> =>
+		ipcRenderer.invoke('discover-dav-preview', payload),
 	syncDav: (accountId: number): Promise<DavSyncSummary> => ipcRenderer.invoke('sync-dav', accountId),
 	getContacts: (
 		accountId: number,
@@ -610,6 +635,10 @@ const api = {
 		ipcRenderer.invoke('get-calendar-events', accountId, startIso ?? null, endIso ?? null, limit),
 	addCalendarEvent: (accountId: number, payload: AddCalendarEventPayload): Promise<CalendarEventItem> =>
 		ipcRenderer.invoke('add-calendar-event', accountId, payload),
+	updateCalendarEvent: (eventId: number, payload: UpdateCalendarEventPayload): Promise<CalendarEventItem> =>
+		ipcRenderer.invoke('update-calendar-event', eventId, payload),
+	deleteCalendarEvent: (eventId: number): Promise<{ removed: boolean }> =>
+		ipcRenderer.invoke('delete-calendar-event', eventId),
 	getFolderMessages: (accountId: number, folderPath: string, limit?: number): Promise<MessageItem[]> =>
 		ipcRenderer.invoke('get-folder-messages', accountId, folderPath, limit),
 	getFolderThreads: (accountId: number, folderPath: string, limit?: number): Promise<MessageThreadItem[]> =>

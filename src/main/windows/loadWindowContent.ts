@@ -18,11 +18,13 @@ export async function loadWindowContent(
     win: BrowserWindow,
     {isDev, devUrls, prodFiles, windowName = 'window'}: LoadWindowContentOptions,
 ): Promise<void> {
+    if (win.isDestroyed()) return;
     attachWindowDiagnostics(win, windowName);
     const targets = isDev ? devUrls : prodFiles;
     let lastError: unknown = null;
 
     for (const target of targets) {
+        if (win.isDestroyed()) return;
         try {
             if (isDev) {
                 if (typeof target === 'string') {
@@ -39,10 +41,12 @@ export async function loadWindowContent(
             }
             return;
         } catch (error) {
+            if (win.isDestroyed()) return;
             lastError = error;
         }
     }
 
+    if (win.isDestroyed()) return;
     throw lastError instanceof Error ? lastError : new Error('Failed to load window content');
 }
 

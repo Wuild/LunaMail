@@ -15,6 +15,7 @@ import type {
     CloudUploadResult,
     ComposeDraftPayload,
     ContactItem,
+    DavDiscoveryResult,
     DavSyncSummary,
     DebugLogEntry,
     DiscoverResult,
@@ -26,6 +27,7 @@ import type {
     MessageBodyResult,
     OpenMessageTargetEvent,
     PickedAttachment,
+    PickedCloudAttachment,
     PublicAccount,
     PublicCloudAccount,
     RecentRecipientItem,
@@ -36,6 +38,7 @@ import type {
     SetMessageReadResult,
     SyncStatusEvent,
     UpdateAccountPayload,
+    UpdateCalendarEventPayload,
     UpdateCloudAccountPayload,
     UpsertMailFilterPayload,
     VerifyPayload,
@@ -114,6 +117,12 @@ export const ipcClient = {
     getSystemLocale: (): Promise<string> => window.electronAPI.getSystemLocale(),
     discoverMailSettings: (email: string): Promise<DiscoverResult> => window.electronAPI.discoverMailSettings(email),
     verifyCredentials: (payload: VerifyPayload): Promise<VerifyResult> => window.electronAPI.verifyCredentials(payload),
+    discoverDavPreview: (payload: {
+        email: string;
+        user: string;
+        password: string;
+        imapHost: string;
+    }): Promise<DavDiscoveryResult> => window.electronAPI.discoverDavPreview(payload),
     addAccount: (payload: AddAccountPayload) => window.electronAPI.addAccount(payload),
     updateAccount: (accountId: number, payload: UpdateAccountPayload) =>
         window.electronAPI.updateAccount(accountId, payload),
@@ -154,6 +163,12 @@ export const ipcClient = {
         action?: 'open' | 'save',
     ): Promise<CloudOpenItemResult> =>
         window.electronAPI.openCloudItem(accountId, itemPathOrToken, fallbackName ?? null, action ?? 'open'),
+    pickCloudAttachment: (
+        accountId: number,
+        itemPathOrToken: string,
+        fallbackName?: string | null,
+    ): Promise<PickedCloudAttachment> =>
+        window.electronAPI.pickCloudAttachment(accountId, itemPathOrToken, fallbackName ?? null),
     createCloudShareLink: (accountId: number, itemPathOrToken: string): Promise<CloudShareLinkResult> =>
         window.electronAPI.createCloudShareLink(accountId, itemPathOrToken),
     syncAccount: (accountId: number): Promise<AccountSyncSummary> => window.electronAPI.syncAccount(accountId),
@@ -208,6 +223,8 @@ export const ipcClient = {
         addressBookId?: number | null,
     ): Promise<ContactItem[]> => window.electronAPI.getContacts(accountId, query ?? null, limit, addressBookId ?? null),
     getAddressBooks: (accountId: number): Promise<AddressBookItem[]> => window.electronAPI.getAddressBooks(accountId),
+    addAddressBook: (accountId: number, name: string): Promise<AddressBookItem> =>
+        window.electronAPI.addAddressBook(accountId, name),
     addContact: (accountId: number, payload: AddContactPayload): Promise<ContactItem> =>
         window.electronAPI.addContact(accountId, payload),
     updateContact: (contactId: number, payload: UpdateContactPayload): Promise<ContactItem> =>
@@ -228,6 +245,10 @@ export const ipcClient = {
         window.electronAPI.getCalendarEvents(accountId, startIso ?? null, endIso ?? null, limit),
     addCalendarEvent: (accountId: number, payload: AddCalendarEventPayload): Promise<CalendarEventItem> =>
         window.electronAPI.addCalendarEvent(accountId, payload),
+    updateCalendarEvent: (eventId: number, payload: UpdateCalendarEventPayload): Promise<CalendarEventItem> =>
+        window.electronAPI.updateCalendarEvent(eventId, payload),
+    deleteCalendarEvent: (eventId: number): Promise<{ removed: boolean }> =>
+        window.electronAPI.deleteCalendarEvent(eventId),
     setMessageRead: (messageId: number, isRead: number): Promise<SetMessageReadResult> =>
         window.electronAPI.setMessageRead(messageId, isRead),
     getMessageBody: (messageId: number, requestId?: string): Promise<MessageBodyResult> =>

@@ -7,6 +7,7 @@ import {
 	nativeTheme,
 	Notification,
 	screen,
+	session,
 	shell,
 	Tray,
 } from 'electron';
@@ -26,6 +27,7 @@ import {
 	startAccountAutoSync,
 	stopAccountAutoSync,
 } from './ipc/accounts.js';
+import {queueCloudOAuthCallbackUrl, registerCloudIpc} from './ipc/cloud.js';
 import {registerSettingsIpc} from './ipc/settings.js';
 import {broadcastAutoUpdateState, registerUpdaterIpc} from './ipc/updater.js';
 import {registerWindowIpc} from './ipc/windows.js';
@@ -642,11 +644,17 @@ function registerProtocolHandlers(): void {
 	app.on('open-url', (event, url) => {
 		event.preventDefault();
 		logger.info('Received open-url event url=%s', url);
+		if (queueCloudOAuthCallbackUrl(url)) return;
 		queueMailtoUrl(url);
 	});
 
 	app.on('second-instance', (_event, argv) => {
 		logger.info('Received second-instance event args=%d', argv.length);
+		const protocolUrl = findCustomProtocolArg(argv);
+		if (protocolUrl && queueCloudOAuthCallbackUrl(protocolUrl)) {
+			showMainWindow();
+			return;
+		}
 		const mailtoUrl = findMailtoArg(argv);
 		if (mailtoUrl) {
 			queueMailtoUrl(mailtoUrl);
@@ -892,6 +900,13 @@ function findMailtoArg(argv: string[]): string | null {
 	return null;
 }
 
+function findCustomProtocolArg(argv: string[]): string | null {
+	for (const arg of argv) {
+		if (/^lunamail:\/\//i.test(arg)) return arg;
+	}
+	return null;
+}
+
 function attachAddAccountWindowCloseBehavior(): void {
 	const wizard = getAddAccountWindow();
 	if (!wizard || wizard.isDestroyed()) return;
@@ -939,6 +954,104 @@ function configureLinuxDesktopEntryName(): void {
 	}
 }
 
+function compareVersionParts(a: string, b: string): number {
+	const aParts = a.split('.').map((part) => Number(part));
+	const bParts = b.split('.').map((part) => Number(part));
+	const maxLength = Math.max(aParts.length, bParts.length);
+	for (let index = 0; index < maxLength; index += 1) {
+		const aValue = Number.isFinite(aParts[index]) ? aParts[index] : 0;
+		const bValue = Number.isFinite(bParts[index]) ? bParts[index] : 0;
+		if (aValue > bValue) return 1;
+		if (aValue < bValue) return -1;
+	}
+	return 0;
+}
+
+function resolveLocalReactDevToolsPath(): string | null {
+	const extensionId = 'fmkadmapgofadopljbjfkapdkoienihi';
+	const homeDir = app.getPath('home');
+	if (!homeDir) return null;
+	const extensionRoots = [
+		path.join(homeDir, '.config', 'google-chrome', 'Default', 'Extensions', extensionId),
+		path.join(homeDir, '.config', 'google-chrome-beta', 'Default', 'Extensions', extensionId),
+		path.join(homeDir, '.config', 'chromium', 'Default', 'Extensions', extensionId),
+		path.join(homeDir, '.config', 'BraveSoftware', 'Brave-Browser', 'Default', 'Extensions', extensionId),
+	];
+	for (const root of extensionRoots) {
+		try {
+			if (!fs.existsSync(root)) continue;
+			const versions = fs
+				.readdirSync(root, {withFileTypes: true})
+				.filter((entry) => entry.isDirectory())
+				.map((entry) => entry.name)
+				.sort(compareVersionParts);
+			const latestVersion = versions.at(-1);
+			if (!latestVersion) continue;
+			return path.join(root, latestVersion);
+		} catch {
+			// try next candidate root
+		}
+	}
+	return null;
+}
+
+async function loadDevtoolsExtensionByPath(extensionPath: string, sourceLabel: string): Promise<boolean> {
+	try {
+		const extension = await session.defaultSession.loadExtension(extensionPath, {allowFileAccess: true});
+		logger.info(
+			'React DevTools loaded from %s: name=%s id=%s',
+			sourceLabel,
+			String(extension?.name || ''),
+			String(extension?.id || ''),
+		);
+		return true;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		logger.warn('React DevTools load failed from %s: %s', sourceLabel, message);
+		return false;
+	}
+}
+
+async function installReactDevToolsInDev(): Promise<void> {
+	if (!isDev) return;
+	const installed = session.defaultSession.getAllExtensions();
+	for (const extension of installed) {
+		const extensionName = String(extension?.name || '');
+		if (!/react/i.test(extensionName)) continue;
+		try {
+			session.defaultSession.removeExtension(extension.id);
+			logger.info('Removed preloaded React extension id=%s name=%s', extension.id, extensionName);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			logger.warn('Failed to remove preloaded React extension id=%s: %s', extension.id, message);
+		}
+	}
+
+	try {
+		const moduleName = 'electron-devtools-installer';
+		const installer = (await import(moduleName)) as any;
+		const installExtension = installer.default ?? installer.installExtension;
+		const reactDevTools = installer.REACT_DEVELOPER_TOOLS;
+		if (typeof installExtension !== 'function' || !reactDevTools) {
+			logger.warn('React DevTools installer module loaded but missing expected exports');
+			return;
+		}
+		const installedName = await installExtension(reactDevTools, {
+			loadExtensionOptions: {allowFileAccess: true},
+		});
+		logger.info('React DevTools installed: %s', String(installedName || 'React Developer Tools'));
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		logger.warn('React DevTools WebStore install failed: %s', message);
+		const localPath = resolveLocalReactDevToolsPath();
+		if (!localPath) {
+			logger.warn('React DevTools local fallback not found in Chrome/Chromium extension folders');
+			return;
+		}
+		await loadDevtoolsExtensionByPath(localPath, 'Chrome/Chromium profile');
+	}
+}
+
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
 	logger.warn('Single instance lock unavailable, quitting');
@@ -951,6 +1064,7 @@ if (!gotSingleInstanceLock) {
 
 	app.whenReady().then(async () => {
 		logger.info('App ready start');
+		await installReactDevToolsInDev();
 		// Initialize database and IPC handlers
 		initDb();
 		logger.info('Database initialized');
@@ -984,6 +1098,7 @@ if (!gotSingleInstanceLock) {
 			}
 		});
 		registerAccountIpc();
+		registerCloudIpc();
 		registerSettingsIpc((settings) => {
 			const previousTitleBarMode = mainWindowUsesNativeTitleBar;
 			applyRuntimeSettings();

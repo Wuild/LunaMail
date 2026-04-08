@@ -242,7 +242,7 @@ function MainWindowShell() {
 						<img src={lunaLogo} alt="" className="h-4 w-4 rounded-sm object-contain" draggable={false}/>
 						<span>LunaMail</span>
 						<span className="text-[10px] font-semibold uppercase tracking-wide text-white/55">
-							v{appVersion}
+							{appVersion}
 						</span>
 					</div>
 					<span aria-hidden className="h-3.5 w-px shrink-0 bg-white/25"/>

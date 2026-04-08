@@ -16,6 +16,7 @@ export default function NavRailItem({to, icon, label, badgeCount = 0}: NavRailIt
             to={to}
             title={label}
             aria-label={label}
+            draggable={false}
             className={({isActive}) =>
                 cn(
                     'inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-white/10 hover:text-white',

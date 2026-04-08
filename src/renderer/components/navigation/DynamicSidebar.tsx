@@ -28,7 +28,7 @@ export default function DynamicSidebar({sections, selectedItemId, onSelectItem, 
     return (
         <aside
             className={cn(
-                'h-full min-h-0 w-80 shrink-0 border-r border-slate-200 bg-white p-3 dark:border-[#3a3d44] dark:bg-[#2b2d31]',
+                'h-full min-h-0 w-full shrink-0 border-r border-slate-200 bg-white p-3 dark:border-[#3a3d44] dark:bg-[#2b2d31]',
                 className,
             )}
         >
@@ -59,6 +59,8 @@ export default function DynamicSidebar({sections, selectedItemId, onSelectItem, 
                                             key={item.id}
                                             to={item.to}
                                             className={itemClassName}
+                                            draggable={false}
+                                            onDragStart={(event) => event.preventDefault()}
                                             onClick={() => onSelectItem?.(item.id)}
                                         >
                                             {item.label}

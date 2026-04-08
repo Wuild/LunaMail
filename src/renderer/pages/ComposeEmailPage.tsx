@@ -1,20 +1,27 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+    ChevronRight,
+    Cloud,
     File,
     FileArchive,
     FileAudio2,
+    Folder,
     FileCode,
     FileImage,
     FileSpreadsheet,
     FileText,
     FileVideo,
+    Home,
+    Loader2,
     Paperclip,
     PenSquare,
+    RefreshCw,
     SendHorizonal,
 } from 'lucide-react';
-import type {ComposeDraftPayload, ContactItem, PublicAccount, RecentRecipientItem} from '../../preload/index';
+import type {CloudItem, ComposeDraftPayload, ContactItem, PublicAccount, PublicCloudAccount, RecentRecipientItem} from '../../preload/index';
 import MarkdownLexicalEditor from '../components/MarkdownLexicalEditor';
 import WindowTitleBar from '../components/WindowTitleBar';
+import {formatSystemDateTime} from '../lib/dateTime';
 import {formatBytes} from '../lib/format';
 import {useAppTheme} from '../hooks/useAppTheme';
 import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
@@ -35,6 +42,8 @@ type RecipientSuggestion = {
 };
 
 const EMAIL_ADDRESS_REGEX = /^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/;
+const CLOUD_FOLDER_CACHE_PREFIX = 'lunamail.cloud.folder.cache.v1';
+const CONTACT_META_PREFIX = '[LUNAMAIL_CONTACT_META_V1]';
 
 function ComposeEmailPage() {
     useAppTheme();
@@ -54,7 +63,18 @@ function ComposeEmailPage() {
     const [status, setStatus] = useState<string | null>(null);
     const [showCcBcc, setShowCcBcc] = useState(false);
     const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
+    const [showCloudPicker, setShowCloudPicker] = useState(false);
+    const [cloudAccounts, setCloudAccounts] = useState<PublicCloudAccount[]>([]);
+    const [cloudAccountId, setCloudAccountId] = useState<number | ''>('');
+    const [cloudPath, setCloudPath] = useState<string | null>(null);
+    const [cloudItems, setCloudItems] = useState<CloudItem[]>([]);
+    const [cloudLoading, setCloudLoading] = useState(false);
+    const [cloudAttaching, setCloudAttaching] = useState(false);
+    const [cloudStatus, setCloudStatus] = useState<string | null>(null);
+    const [cloudFilesCache, setCloudFilesCache] = useState<Record<string, CloudItem[]>>({});
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const cloudFilesCacheRef = useRef<Record<string, CloudItem[]>>({});
+    const cloudRequestSeqRef = useRef(0);
     const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSavedSignatureRef = useRef<string>('');
     const draftSessionIdRef = useRef<string>(`draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
@@ -120,6 +140,95 @@ function ComposeEmailPage() {
     useIpcEvent(ipcClient.onComposeDraft, (draft) => {
         applyDraft(draft);
     });
+
+    useEffect(() => {
+        cloudFilesCacheRef.current = cloudFilesCache;
+    }, [cloudFilesCache]);
+
+    const selectedCloudAccount = useMemo(
+        () => (typeof cloudAccountId === 'number' ? cloudAccounts.find((account) => account.id === cloudAccountId) ?? null : null),
+        [cloudAccountId, cloudAccounts],
+    );
+    const selectedCloudProvider = selectedCloudAccount?.provider ?? 'webdav';
+
+    const loadCloudItems = useCallback(async (
+        selectedAccountId: number,
+        nextPath: string | null,
+        options?: { force?: boolean },
+    ) => {
+        const selectedCloudAccount = cloudAccounts.find((account) => account.id === selectedAccountId);
+        const provider = selectedCloudAccount?.provider ?? 'webdav';
+        const requestedPath = normalizeRequestedCloudPath(nextPath, provider);
+        const folderToken = normalizeCloudFolderToken(requestedPath, provider);
+        const cacheKey = `${selectedAccountId}:${folderToken}`;
+        const memoryCached = cloudFilesCacheRef.current[cacheKey];
+        const persistedCached = memoryCached || readPersistedCloudFolderCache(selectedAccountId, folderToken);
+        const forceReload = Boolean(options?.force);
+        if (persistedCached && !forceReload) {
+            if (!memoryCached) {
+                setCloudFilesCache((prev) => ({...prev, [cacheKey]: persistedCached}));
+            }
+            setCloudPath(requestedPath);
+            setCloudItems(sortCloudItemsForPicker(persistedCached));
+        } else {
+            setCloudPath(requestedPath);
+            setCloudItems([]);
+        }
+        const requestSeq = ++cloudRequestSeqRef.current;
+        setCloudLoading(true);
+        setCloudStatus(forceReload ? 'Refreshing cloud files...' : null);
+        try {
+            const response = await ipcClient.listCloudItems(selectedAccountId, requestedPath);
+            if (requestSeq !== cloudRequestSeqRef.current) return;
+            const resolvedPath = response.path || requestedPath;
+            const normalizedResolvedPath = normalizeRequestedCloudPath(resolvedPath, provider);
+            setCloudPath(normalizedResolvedPath);
+            const resolvedToken = normalizeCloudFolderToken(normalizedResolvedPath, provider);
+            const resolvedKey = `${selectedAccountId}:${resolvedToken}`;
+            const nextItems = sortCloudItemsForPicker(response.items ?? []);
+            setCloudItems(nextItems);
+            setCloudFilesCache((prev) => ({...prev, [resolvedKey]: nextItems}));
+            writePersistedCloudFolderCache(selectedAccountId, resolvedToken, nextItems);
+            setCloudStatus(null);
+        } catch (e: any) {
+            if (requestSeq !== cloudRequestSeqRef.current) return;
+            setCloudStatus(`Cloud browser failed: ${e?.message || String(e)}`);
+            if (!persistedCached || forceReload) {
+                setCloudItems([]);
+            }
+        } finally {
+            if (requestSeq === cloudRequestSeqRef.current) {
+                setCloudLoading(false);
+            }
+        }
+    }, [cloudAccounts]);
+
+    const openCloudAttachmentPicker = useCallback(async () => {
+        setCloudStatus(null);
+        setShowCloudPicker(true);
+        try {
+            const rows = await ipcClient.getCloudAccounts();
+            setCloudAccounts(rows);
+            if (!rows.length) {
+                setCloudAccountId('');
+                setCloudItems([]);
+                setCloudPath(null);
+                return;
+            }
+            const initialAccountId = typeof cloudAccountId === 'number' && rows.some((row) => row.id === cloudAccountId)
+                ? cloudAccountId
+                : rows[0].id;
+            setCloudAccountId(initialAccountId);
+            const initialAccount = rows.find((row) => row.id === initialAccountId) ?? null;
+            void loadCloudItems(initialAccountId, cloudRootToken(initialAccount?.provider ?? 'webdav'));
+        } catch (e: any) {
+            setCloudStatus(`Failed to load cloud accounts: ${e?.message || String(e)}`);
+            setCloudAccounts([]);
+            setCloudAccountId('');
+            setCloudItems([]);
+            setCloudPath(null);
+        }
+    }, [cloudAccountId, loadCloudItems]);
 
     const words = useMemo(() => plainBody.trim().split(/\s+/).filter(Boolean).length, [plainBody]);
     const draftPayload = useMemo(() => {
@@ -298,6 +407,61 @@ function ComposeEmailPage() {
         }
     }
 
+    async function onCloudAccountChange(nextAccountIdRaw: string) {
+        const nextAccountId = Number(nextAccountIdRaw);
+        if (!Number.isInteger(nextAccountId) || nextAccountId <= 0) {
+            setCloudAccountId('');
+            setCloudPath(null);
+            setCloudItems([]);
+            return;
+        }
+        setCloudAccountId(nextAccountId);
+        const selectedCloudAccount = cloudAccounts.find((account) => account.id === nextAccountId) ?? null;
+        await loadCloudItems(nextAccountId, cloudRootToken(selectedCloudAccount?.provider ?? 'webdav'));
+    }
+
+    async function onOpenCloudFolder(itemPathOrToken: string) {
+        if (typeof cloudAccountId !== 'number') return;
+        await loadCloudItems(cloudAccountId, itemPathOrToken);
+    }
+
+    async function onCloudGoUp() {
+        if (typeof cloudAccountId !== 'number') return;
+        const provider = selectedCloudProvider;
+        const current = normalizeRequestedCloudPath(cloudPath, provider);
+        const nextPath = getCloudParentPath(current, provider);
+        await loadCloudItems(cloudAccountId, nextPath);
+    }
+
+    async function onCloudRefresh() {
+        if (typeof cloudAccountId !== 'number') return;
+        const provider = selectedCloudProvider;
+        await loadCloudItems(cloudAccountId, normalizeRequestedCloudPath(cloudPath, provider), {force: true});
+    }
+
+    async function onAttachCloudItem(item: CloudItem) {
+        if (typeof cloudAccountId !== 'number') return;
+        try {
+            setCloudAttaching(true);
+            setCloudStatus(null);
+            const picked = await ipcClient.pickCloudAttachment(cloudAccountId, item.path || item.id, item.name);
+            appendAttachments([
+                {
+                    id: picked.path,
+                    path: picked.path,
+                    filename: picked.filename || item.name || 'attachment',
+                    contentType: picked.contentType || null,
+                    size: item.size ?? null,
+                },
+            ]);
+            setShowCloudPicker(false);
+        } catch (e: any) {
+            setCloudStatus(`Cloud attachment failed: ${e?.message || String(e)}`);
+        } finally {
+            setCloudAttaching(false);
+        }
+    }
+
     function removeAttachment(id: string) {
         setAttachments((prev) => prev.filter((attachment) => attachment.id !== id));
     }
@@ -305,7 +469,7 @@ function ComposeEmailPage() {
     return (
         <div className="h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
             <div className="flex h-full flex-col">
-                <WindowTitleBar title="Compose Email"/>
+                <WindowTitleBar title="Compose Email" showMaximize/>
                 <header
                     className="border-b border-slate-200 bg-white/90 px-5 py-3 backdrop-blur dark:border-[#3a3d44] dark:bg-[#1f2125]/95">
                     <div className="flex items-center justify-between gap-3">
@@ -450,14 +614,24 @@ function ComposeEmailPage() {
                             )}
 
                             <div className="flex items-center justify-between gap-2">
-                                <button
-                                    className="inline-flex h-9 w-fit items-center rounded-md border border-slate-300 px-3 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
-                                    onClick={() => void onPickAttachments()}
-                                    type="button"
-                                >
-                                    <Paperclip size={14} className="mr-2"/>
-                                    Attach
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        className="inline-flex h-9 w-fit items-center rounded-md border border-slate-300 px-3 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+                                        onClick={() => void onPickAttachments()}
+                                        type="button"
+                                    >
+                                        <Paperclip size={14} className="mr-2"/>
+                                        Attach
+                                    </button>
+                                    <button
+                                        className="inline-flex h-9 w-fit items-center rounded-md border border-slate-300 px-3 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+                                        onClick={() => void openCloudAttachmentPicker()}
+                                        type="button"
+                                    >
+                                        <Cloud size={14} className="mr-2"/>
+                                        Add file from cloud
+                                    </button>
+                                </div>
                                 <button
                                     className="inline-flex h-9 items-center rounded-md bg-gradient-to-r from-sky-600 to-indigo-600 px-3 text-sm font-medium text-white transition-all hover:brightness-110 dark:from-[#5865f2] dark:to-[#4f5bd5]"
                                     onClick={() => void onSend()}
@@ -478,11 +652,236 @@ function ComposeEmailPage() {
                     </div>
                 </div>
             </div>
+            {showCloudPicker && (
+                <CloudAttachmentPickerModal
+                    cloudAccounts={cloudAccounts}
+                    selectedAccountId={cloudAccountId}
+                    selectedProvider={selectedCloudProvider}
+                    cloudPath={cloudPath}
+                    cloudItems={cloudItems}
+                    loading={cloudLoading}
+                    busy={cloudLoading || cloudAttaching}
+                    status={cloudStatus}
+                    onClose={() => setShowCloudPicker(false)}
+                    onAccountChange={(nextAccountId) => void onCloudAccountChange(nextAccountId)}
+                    onNavigate={(nextPath) => void onOpenCloudFolder(nextPath)}
+                    onUp={() => void onCloudGoUp()}
+                    onRefresh={() => void onCloudRefresh()}
+                    onAttach={(item) => void onAttachCloudItem(item)}
+                />
+            )}
         </div>
     );
 }
 
 export default ComposeEmailPage;
+
+function CloudAttachmentPickerModal({
+    cloudAccounts,
+    selectedAccountId,
+    selectedProvider,
+    cloudPath,
+    cloudItems,
+    loading,
+    busy,
+    status,
+    onClose,
+    onAccountChange,
+    onNavigate,
+    onUp,
+    onRefresh,
+    onAttach,
+}: {
+    cloudAccounts: PublicCloudAccount[];
+    selectedAccountId: number | '';
+    selectedProvider: PublicCloudAccount['provider'];
+    cloudPath: string | null;
+    cloudItems: CloudItem[];
+    loading: boolean;
+    busy: boolean;
+    status: string | null;
+    onClose: () => void;
+    onAccountChange: (value: string) => void;
+    onNavigate: (path: string) => void;
+    onUp: () => void;
+    onRefresh: () => void;
+    onAttach: (item: CloudItem) => void;
+}) {
+    const currentPath = normalizeRequestedCloudPath(cloudPath, selectedProvider);
+    const rootPath = cloudRootToken(selectedProvider);
+    const breadcrumbs = buildCloudBreadcrumbs(currentPath, selectedProvider);
+    const isAtRoot = currentPath === rootPath;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xl dark:border-[#3a3d44] dark:bg-[#1f2125]">
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-[#3a3d44]">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Add file from cloud</h2>
+                    <button
+                        type="button"
+                        className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#2a2d31]"
+                        onClick={onClose}
+                    >
+                        Close
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 border-b border-slate-200 px-4 py-3 dark:border-[#3a3d44] md:grid-cols-[280px_1fr_auto_auto_auto]">
+                    <select
+                        className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#2a2d31] dark:text-slate-100"
+                        value={selectedAccountId}
+                        onChange={(event) => onAccountChange(event.target.value)}
+                    >
+                        {cloudAccounts.length === 0 ? <option value="">No cloud accounts</option> : null}
+                        {cloudAccounts.map((account) => (
+                            <option key={account.id} value={account.id}>
+                                {account.name}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="flex h-9 min-w-0 items-center gap-1 overflow-x-auto rounded-md border border-slate-300 bg-slate-50 px-2 text-xs text-slate-600 dark:border-[#3a3d44] dark:bg-[#2a2d31] dark:text-slate-300">
+                        {breadcrumbs.map((crumb, index) => (
+                            <React.Fragment key={`${crumb.path}-${index}`}>
+                                {index > 0 ? <ChevronRight size={12} className="shrink-0 opacity-70"/> : null}
+                                <button
+                                    type="button"
+                                    className="shrink-0 rounded px-1 py-0.5 hover:bg-slate-200 dark:hover:bg-[#3a3d44]"
+                                    title={crumb.path}
+                                    onClick={() => onNavigate(crumb.path)}
+                                    disabled={busy}
+                                >
+                                    {crumb.label}
+                                </button>
+                            </React.Fragment>
+                        ))}
+                    </div>
+                    <button
+                        type="button"
+                        className="h-9 rounded-md border border-slate-300 px-3 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#2a2d31]"
+                        onClick={() => onNavigate(rootPath)}
+                        disabled={busy || isAtRoot}
+                        title="Go to root"
+                    >
+                        <span className="inline-flex items-center gap-1">
+                            <Home size={12}/>
+                            Root
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        className="h-9 rounded-md border border-slate-300 px-3 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#2a2d31]"
+                        onClick={onUp}
+                        disabled={busy || isAtRoot}
+                    >
+                        Up
+                    </button>
+                    <button
+                        type="button"
+                        className="h-9 rounded-md border border-slate-300 px-3 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#2a2d31]"
+                        onClick={onRefresh}
+                        disabled={busy || typeof selectedAccountId !== 'number'}
+                    >
+                        <span className="inline-flex items-center gap-1">
+                            {loading ? <Loader2 size={12} className="animate-spin"/> : <RefreshCw size={12}/>}
+                            Refresh
+                        </span>
+                    </button>
+                </div>
+
+                <div className="min-h-[16rem] max-h-[24rem] overflow-y-auto">
+                    {loading && cloudItems.length === 0 ? (
+                        <div className="flex min-h-[16rem] items-center justify-center gap-2 px-2 py-3 text-sm text-slate-500 dark:text-slate-400">
+                            <Loader2 size={16} className="animate-spin"/>
+                            <span>Loading cloud files...</span>
+                        </div>
+                    ) : cloudAccounts.length === 0 ? (
+                        <p className="px-2 py-3 text-sm text-slate-500 dark:text-slate-400">
+                            Add a cloud account in Cloud to attach files.
+                        </p>
+                    ) : cloudItems.length === 0 ? (
+                        <div className="flex min-h-[16rem] items-center justify-center px-2 py-3 text-sm text-slate-500 dark:text-slate-400">
+                            No files in this folder.
+                        </div>
+                    ) : (
+                        <table className="table-fixed border-collapse text-sm" style={{width: '100%'}}>
+                            <colgroup>
+                                <col style={{width: '42%'}}/>
+                                <col style={{width: '12%'}}/>
+                                <col style={{width: '12%'}}/>
+                                <col style={{width: '17%'}}/>
+                                <col style={{width: '17%'}}/>
+                                <col style={{width: '88px'}}/>
+                            </colgroup>
+                            <thead
+                                className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 text-xs uppercase tracking-wide text-slate-600 dark:border-[#3a3d44] dark:bg-[#2f3138] dark:text-slate-300">
+                            <tr className="text-left">
+                                <th className="px-3 py-2">Name</th>
+                                <th className="px-3 py-2">Type</th>
+                                <th className="px-3 py-2">Size</th>
+                                <th className="px-3 py-2">Modified</th>
+                                <th className="px-3 py-2">Created</th>
+                                <th className="px-2 py-2 text-right">Action</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {cloudItems.map((item) => (
+                                <tr
+                                    key={item.id || item.path}
+                                    className="border-b border-slate-100 hover:bg-slate-50/80 dark:border-[#2b2d32] dark:hover:bg-[#25272c]"
+                                >
+                                    <td className="px-3 py-2">
+                                        <button
+                                            type="button"
+                                            className="flex min-w-0 items-center gap-2 text-left text-slate-800 hover:underline dark:text-slate-100"
+                                            onClick={() => (item.isFolder ? onNavigate(item.path || item.id) : onAttach(item))}
+                                            disabled={busy}
+                                        >
+                                            <span className="shrink-0 text-slate-500 dark:text-slate-300">
+                                                {renderCloudItemIcon(item)}
+                                            </span>
+                                            <span className="truncate">{item.name}</span>
+                                        </button>
+                                    </td>
+                                    <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                                        {item.isFolder ? 'Folder' : cloudFileTypeLabel(item)}
+                                    </td>
+                                    <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                                        {item.isFolder ? '-' : formatBytes(item.size ?? 0)}
+                                    </td>
+                                    <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                                        {formatSystemDateTime(item.modifiedAt) || '-'}
+                                    </td>
+                                    <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                                        {formatSystemDateTime(item.createdAt) || '-'}
+                                    </td>
+                                    <td className="px-2 py-2 text-right">
+                                        {!item.isFolder && (
+                                            <button
+                                                type="button"
+                                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                                onClick={() => onAttach(item)}
+                                                disabled={busy}
+                                            >
+                                                Attach
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+
+                {status && (
+                    <div className="border-t border-slate-200 px-4 py-2 text-xs text-amber-600 dark:border-[#3a3d44] dark:text-amber-300">
+                        {status}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
 
 function parseRecipients(raw: string): string[] {
     return parseRecipientEntries(raw).valid;
@@ -571,6 +970,105 @@ function renderAttachmentTypeIcon(filename: string, contentType: string | null):
     )
         return <FileCode size={16}/>;
     return <File size={16}/>;
+}
+
+function renderCloudItemIcon(item: CloudItem): React.ReactNode {
+    if (item.isFolder) return <Folder size={16}/>;
+    return renderAttachmentTypeIcon(item.name, item.mimeType);
+}
+
+function cloudFileTypeLabel(item: CloudItem): string {
+    const mimeType = (item.mimeType || '').trim();
+    if (mimeType) return mimeType;
+    return fileExtensionLabel(item.name);
+}
+
+function cloudRootToken(provider: PublicCloudAccount['provider']): string {
+    if (provider === 'google-drive') return 'root';
+    if (provider === 'onedrive') return 'scope:home';
+    return '/';
+}
+
+function normalizeRequestedCloudPath(
+    path: string | null | undefined,
+    provider: PublicCloudAccount['provider'],
+): string {
+    const value = String(path || '').trim();
+    return value || cloudRootToken(provider);
+}
+
+function normalizeCloudFolderToken(
+    folderPath: string | null | undefined,
+    provider: PublicCloudAccount['provider'],
+): string {
+    return normalizeRequestedCloudPath(folderPath, provider);
+}
+
+function getCloudParentPath(currentPath: string, provider: PublicCloudAccount['provider']): string {
+    const root = cloudRootToken(provider);
+    const normalized = normalizeRequestedCloudPath(currentPath, provider);
+    if (normalized === root) return root;
+    if (normalized.startsWith('/')) {
+        const segments = normalized.split('/').filter(Boolean);
+        if (segments.length <= 1) return root;
+        return `/${segments.slice(0, -1).join('/')}`;
+    }
+    return root;
+}
+
+function buildCloudBreadcrumbs(
+    currentPath: string,
+    provider: PublicCloudAccount['provider'],
+): Array<{ path: string; label: string }> {
+    const root = cloudRootToken(provider);
+    const normalized = normalizeRequestedCloudPath(currentPath, provider);
+    if (!normalized.startsWith('/')) {
+        const label = normalized === root ? 'Root' : normalized;
+        return [{path: root, label}];
+    }
+    const segments = normalized.split('/').filter(Boolean);
+    const crumbs: Array<{ path: string; label: string }> = [{path: root, label: 'Root'}];
+    for (let index = 0; index < segments.length; index += 1) {
+        crumbs.push({
+            path: `/${segments.slice(0, index + 1).join('/')}`,
+            label: decodeURIComponent(segments[index]),
+        });
+    }
+    return crumbs;
+}
+
+function sortCloudItemsForPicker(items: CloudItem[]): CloudItem[] {
+    return [...items].sort((a, b) => {
+        if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+        return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
+    });
+}
+
+function buildCloudFolderCacheStorageKey(accountId: number, folderToken: string): string {
+    return `${CLOUD_FOLDER_CACHE_PREFIX}:${accountId}:${folderToken}`;
+}
+
+function readPersistedCloudFolderCache(accountId: number, folderToken: string): CloudItem[] | null {
+    try {
+        const raw = window.localStorage.getItem(buildCloudFolderCacheStorageKey(accountId, folderToken));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as { items?: CloudItem[] };
+        if (!Array.isArray(parsed.items)) return null;
+        return parsed.items;
+    } catch {
+        return null;
+    }
+}
+
+function writePersistedCloudFolderCache(accountId: number, folderToken: string, items: CloudItem[]): void {
+    try {
+        window.localStorage.setItem(
+            buildCloudFolderCacheStorageKey(accountId, folderToken),
+            JSON.stringify({updatedAt: Date.now(), items: items.slice(0, 500)}),
+        );
+    } catch {
+        // Ignore cache persistence failures.
+    }
 }
 
 function RecipientsInput({
@@ -827,14 +1325,17 @@ function mergeRecipientSuggestions(
     const deduped = new Map<string, RecipientSuggestion>();
 
     for (const contact of contacts) {
-        const email = normalizeRecipientAddress(contact.email);
-        if (!email || existingEmails.has(email) || deduped.has(email)) continue;
-        deduped.set(email, {
-            key: `contact:${contact.id}`,
-            email,
-            displayName: contact.full_name || null,
-        });
-        if (deduped.size >= limit) return Array.from(deduped.values());
+        const emails = extractContactEmails(contact);
+        for (let index = 0; index < emails.length; index += 1) {
+            const email = normalizeRecipientAddress(emails[index]);
+            if (!email || existingEmails.has(email) || deduped.has(email)) continue;
+            deduped.set(email, {
+                key: `contact:${contact.id}:${index}`,
+                email,
+                displayName: contact.full_name || null,
+            });
+            if (deduped.size >= limit) return Array.from(deduped.values());
+        }
     }
 
     for (const row of recentRecipients) {
@@ -849,4 +1350,33 @@ function mergeRecipientSuggestions(
     }
 
     return Array.from(deduped.values());
+}
+
+function extractContactEmails(contact: ContactItem): string[] {
+    const fromNote = parseContactMetaEmails(contact.note);
+    const combined = [contact.email, ...fromNote].filter(Boolean);
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const value of combined) {
+        const normalized = normalizeRecipientAddress(value);
+        if (!normalized || seen.has(normalized)) continue;
+        seen.add(normalized);
+        out.push(normalized);
+    }
+    return out;
+}
+
+function parseContactMetaEmails(note: string | null | undefined): string[] {
+    const raw = String(note || '');
+    const markerIndex = raw.lastIndexOf(CONTACT_META_PREFIX);
+    if (markerIndex < 0) return [];
+    const metaRaw = raw.slice(markerIndex + CONTACT_META_PREFIX.length).trim();
+    if (!metaRaw) return [];
+    try {
+        const parsed = JSON.parse(metaRaw) as { emails?: string[] };
+        if (!Array.isArray(parsed.emails)) return [];
+        return parsed.emails.map((value) => String(value || '').trim()).filter(Boolean);
+    } catch {
+        return [];
+    }
 }

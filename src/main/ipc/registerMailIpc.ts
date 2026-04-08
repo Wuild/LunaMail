@@ -277,29 +277,44 @@ export function registerMailIpc(deps: MailIpcDeps): void {
         const key = `${event.sender.id}:${requestId ?? `msg-${messageId}`}`;
         let cancelled = false;
         let clientRef: any = null;
+        const swallowClientCall = (call: (() => unknown) | null | undefined): void => {
+            if (!call) return;
+            try {
+                const result = call();
+                if (result && typeof (result as any).then === 'function') {
+                    void (result as Promise<unknown>).catch(() => undefined);
+                }
+            } catch {
+                // ignore
+            }
+        };
         deps.bodyRequests.set(key, {
             cancel: () => {
                 cancelled = true;
-                try {
-                    clientRef?.close?.();
-                } catch {
-                    // ignore
-                }
-                try {
-                    clientRef?.logout?.();
-                } catch {
-                    // ignore
-                }
+                swallowClientCall(clientRef?.close ? () => clientRef.close() : null);
+                swallowClientCall(clientRef?.logout ? () => clientRef.logout() : null);
             },
         });
 
         try {
-            return await deps.syncMessageBody(messageId, {
-                isCancelled: () => cancelled,
-                onClient: (client: any) => {
-                    clientRef = client;
-                },
-            });
+            try {
+                return await deps.syncMessageBody(messageId, {
+                    isCancelled: () => cancelled,
+                    onClient: (client: any) => {
+                        clientRef = client;
+                    },
+                });
+            } catch (error: any) {
+                const message = String(error?.message || '');
+                const code = String(error?.code || '');
+                if (cancelled && (code === 'NoConnection' || message.toLowerCase().includes('connection not available'))) {
+                    throw new Error('Message body request cancelled');
+                }
+                if (/^message\s+\d+\s+not\s+found$/i.test(message.trim())) {
+                    throw new Error('Message body request cancelled');
+                }
+                throw error;
+            }
         } finally {
             deps.bodyRequests.delete(key);
         }

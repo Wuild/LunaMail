@@ -1020,7 +1020,7 @@ export default function CloudFilesPage() {
 
     const sidebar = (
         <aside
-            className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#1f2125]">
+            className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
             <div className="flex items-center justify-between border-b border-slate-200 p-3 dark:border-[#3a3d44]">
                 <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Cloud Accounts</h2>
                 <button
@@ -1173,7 +1173,6 @@ export default function CloudFilesPage() {
     return (
         <div className="relative h-full w-full overflow-hidden">
             <WorkspaceLayout
-                className="bg-slate-100 dark:bg-[#2f3136]"
                 menubar={menubar}
                 showMenuBar
                 sidebar={sidebar}
@@ -1183,7 +1182,7 @@ export default function CloudFilesPage() {
                 statusBusy={loading || mutating || activeFileActionId !== null || deletingItemId !== null}
                 showStatusBar
                 showFooter={false}
-                contentClassName="min-h-0 flex flex-1 flex-col overflow-hidden bg-white p-0 dark:bg-[#34373d]"
+                contentClassName="min-h-0 flex flex-1 flex-col overflow-hidden bg-slate-50 p-0 dark:bg-[#26292f]"
             >
                 <div
                     className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-500 dark:border-[#3a3d44] dark:bg-[#25272c] dark:text-slate-400">
@@ -1235,7 +1234,7 @@ export default function CloudFilesPage() {
                     )}
                     {selectedAccount && !pendingFolderToken && items.length > 0 && (
                         <div
-                            className="h-full min-h-0 border-t border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#1f2125]">
+                            className="h-full min-h-0 border-t border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#26292f]">
                             <div className="h-full min-h-0 overflow-auto">
                                 <table
                                     key={`cloud-table-${visibleTableColumns.map((column) => column.key).join("|")}`}
@@ -1249,7 +1248,7 @@ export default function CloudFilesPage() {
                                         <col style={{width: "44px"}}/>
                                     </colgroup>
                                     <thead
-                                        className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 shadow-[inset_0_-1px_0_0_rgb(226_232_240)] dark:border-[#3a3d44] dark:bg-[#2f3138] dark:shadow-[inset_0_-1px_0_0_#3a3d44]"
+                                        className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 shadow-[inset_0_-1px_0_0_rgb(226_232_240)] dark:border-[#3a3d44] dark:bg-[#32353c] dark:shadow-[inset_0_-1px_0_0_#3a3d44]"
                                         onContextMenu={(event) => {
                                             event.preventDefault();
                                             openTableHeadMenuAt(event.clientX, event.clientY);
@@ -1259,7 +1258,7 @@ export default function CloudFilesPage() {
                                         {visibleTableColumns.map((column, index) => (
                                             <th
                                                 key={column.key}
-                                                className={`relative border-b border-slate-200 bg-slate-100 px-3 py-2 select-none dark:border-[#3a3d44] dark:bg-[#2f3138] ${
+                                                className={`relative border-b border-slate-200 bg-slate-100 px-3 py-2 select-none dark:border-[#3a3d44] dark:bg-[#32353c] ${
                                                     index < visibleTableColumns.length - 1
                                                         ? "border-r border-r-slate-200 dark:border-r-[#3a3d44]"
                                                         : ""
@@ -1326,7 +1325,7 @@ export default function CloudFilesPage() {
                                                 )}
                                             </th>
                                         ))}
-                                        <th className="border-b border-slate-200 bg-slate-100 px-1 py-1 text-right dark:border-[#3a3d44] dark:bg-[#2f3138]">
+                                        <th className="border-b border-slate-200 bg-slate-100 px-1 py-1 text-right dark:border-[#3a3d44] dark:bg-[#32353c]">
                                             <button
                                                 type="button"
                                                 className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-[#3a3d44] dark:hover:text-slate-100"
@@ -1344,7 +1343,7 @@ export default function CloudFilesPage() {
                                     </thead>
                                     <tbody>
                                     {nav.length > 1 && (
-                                        <tr className="border-b border-slate-100 hover:bg-slate-50/80 dark:border-[#2b2d32] dark:hover:bg-[#25272c]">
+                                        <tr className="border-b border-slate-100 hover:bg-slate-50/80 dark:border-[#3a3d44] dark:hover:bg-[#35373c]">
                                             {visibleTableColumns.map((column) => {
                                                 if (column.key === "name") {
                                                     return (

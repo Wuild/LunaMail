@@ -74,4 +74,23 @@
     body.is-resizing-sidebar iframe {
         pointer-events: none !important;
     }
+
+    body.is-resizing-sidebar,
+    body.is-resizing-sidebar * {
+        cursor: col-resize !important;
+    }
+
+    body.is-resizing-sidebar * {
+        pointer-events: none !important;
+        transition: none !important;
+    }
+
+    body.is-resizing-sidebar [role="separator"][aria-orientation="vertical"].is-active-resize-handle {
+        pointer-events: auto !important;
+        background-color: rgb(148 163 184 / 0.75) !important;
+    }
+
+    .dark body.is-resizing-sidebar [role="separator"][aria-orientation="vertical"].is-active-resize-handle {
+        background-color: rgb(100 116 139 / 0.75) !important;
+    }
 }

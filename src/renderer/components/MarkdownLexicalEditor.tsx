@@ -56,6 +56,7 @@ interface MarkdownLexicalEditorProps {
     value: string;
     placeholder?: string;
     onChange: (html: string, plainText: string) => void;
+    appearance?: 'default' | 'embedded';
 }
 
 const editorTheme = {
@@ -153,7 +154,7 @@ function ExternalHtmlSyncPlugin({value}: { value: string }) {
     return null;
 }
 
-function ToolbarPlugin() {
+function ToolbarPlugin({appearance = 'default'}: { appearance?: 'default' | 'embedded' }) {
     const [editor] = useLexicalComposerContext();
 
     const format = (kind: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'highlight') => {
@@ -233,80 +234,114 @@ function ToolbarPlugin() {
 
     return (
         <div
-            className="flex shrink-0 flex-wrap items-center gap-1 rounded-t-lg border border-slate-300 border-b-0 bg-slate-50 p-2 dark:border-[#3a3d44] dark:bg-[#25272c]">
-            <ToolbarIcon title="Bold" onClick={() => format('bold')}>
+            className={
+                appearance === 'embedded'
+                    ? 'flex shrink-0 flex-wrap items-center gap-1 border border-slate-300 border-b-0 bg-transparent p-2 dark:border-[#3a3d44]'
+                    : 'flex shrink-0 flex-wrap items-center gap-1 rounded-t-lg border border-slate-300 border-b-0 bg-slate-50 p-2 dark:border-[#3a3d44] dark:bg-[#25272c]'
+            }
+        >
+            <ToolbarIcon title="Bold" onClick={() => format('bold')} appearance={appearance}>
                 <Bold size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Italic" onClick={() => format('italic')}>
+            <ToolbarIcon title="Italic" onClick={() => format('italic')} appearance={appearance}>
                 <Italic size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Underline" onClick={() => format('underline')}>
+            <ToolbarIcon title="Underline" onClick={() => format('underline')} appearance={appearance}>
                 <Underline size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Strikethrough" onClick={() => format('strikethrough')}>
+            <ToolbarIcon title="Strikethrough" onClick={() => format('strikethrough')} appearance={appearance}>
                 <Strikethrough size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Highlight" onClick={() => format('highlight')}>
+            <ToolbarIcon title="Highlight" onClick={() => format('highlight')} appearance={appearance}>
                 <Highlighter size={18}/>
             </ToolbarIcon>
             <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
-            <ToolbarIcon title="H1" onClick={() => setHeading('h1')}>
+            <ToolbarIcon title="H1" onClick={() => setHeading('h1')} appearance={appearance}>
                 <Heading1 size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="H2" onClick={() => setHeading('h2')}>
+            <ToolbarIcon title="H2" onClick={() => setHeading('h2')} appearance={appearance}>
                 <Heading2 size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Paragraph" onClick={setParagraph}>
+            <ToolbarIcon title="Paragraph" onClick={setParagraph} appearance={appearance}>
                 <Pilcrow size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Quote" onClick={setQuote}>
+            <ToolbarIcon title="Quote" onClick={setQuote} appearance={appearance}>
                 <MessageSquareQuote size={18}/>
             </ToolbarIcon>
             <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
             <ToolbarIcon
                 title="Bulleted list"
                 onClick={() => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)}
+                appearance={appearance}
             >
                 <List size={18}/>
             </ToolbarIcon>
             <ToolbarIcon
                 title="Numbered list"
                 onClick={() => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)}
+                appearance={appearance}
             >
                 <ListOrdered size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Checklist" onClick={() => editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined)}>
+            <ToolbarIcon
+                title="Checklist"
+                onClick={() => editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined)}
+                appearance={appearance}
+            >
                 <ListChecks size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Remove list" onClick={() => editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)}>
+            <ToolbarIcon
+                title="Remove list"
+                onClick={() => editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)}
+                appearance={appearance}
+            >
                 <ListX size={18}/>
             </ToolbarIcon>
             <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
-            <ToolbarIcon title="Insert image" onClick={insertImage}>
+            <ToolbarIcon title="Insert image" onClick={insertImage} appearance={appearance}>
                 <ImagePlus size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Code block" onClick={insertCodeBlock}>
+            <ToolbarIcon title="Code block" onClick={insertCodeBlock} appearance={appearance}>
                 <Minus size={18}/>
             </ToolbarIcon>
         </div>
     );
 }
 
-function ToolbarIcon({title, onClick, children}: { title: string; onClick: () => void; children: React.ReactNode }) {
+function ToolbarIcon({
+                        title,
+                        onClick,
+                        children,
+                        appearance = 'default',
+                    }: {
+    title: string;
+    onClick: () => void;
+    children: React.ReactNode;
+    appearance?: 'default' | 'embedded';
+}) {
     return (
         <button
             type="button"
             title={title}
             onMouseDown={(event) => event.preventDefault()}
             onClick={onClick}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-300 dark:hover:bg-[#35373c] dark:hover:text-slate-100"
+            className={
+                appearance === 'embedded'
+                    ? 'inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-transparent text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#35373c] dark:hover:text-slate-100'
+                    : 'inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-300 dark:hover:bg-[#35373c] dark:hover:text-slate-100'
+            }
         >
             {children}
         </button>
     );
 }
 
-export default function MarkdownLexicalEditor({value, placeholder, onChange}: MarkdownLexicalEditorProps) {
+export default function MarkdownLexicalEditor({
+                                                  value,
+                                                  placeholder,
+                                                  onChange,
+                                                  appearance = 'default',
+                                              }: MarkdownLexicalEditorProps) {
     const initialConfig = useMemo(
         () => ({
             namespace: 'lunamail-html-editor',
@@ -322,12 +357,17 @@ export default function MarkdownLexicalEditor({value, placeholder, onChange}: Ma
     return (
         <LexicalComposer initialConfig={initialConfig}>
             <div className="flex h-full w-full flex-col">
-                <ToolbarPlugin/>
+                <ToolbarPlugin appearance={appearance}/>
                 <div className="relative min-h-0 flex-1">
                     <RichTextPlugin
                         contentEditable={
                             <ContentEditable
-                                className="lexical-editor-input h-full w-full overflow-auto rounded-b-lg border border-slate-300 border-t-0 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100"/>
+                                className={
+                                    appearance === 'embedded'
+                                        ? 'lexical-editor-input h-full w-full overflow-auto rounded-b-md border border-slate-300 border-t-0 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100'
+                                        : 'lexical-editor-input h-full w-full overflow-auto rounded-b-lg border border-slate-300 border-t-0 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100'
+                                }
+                            />
                         }
                         placeholder={
                             <div

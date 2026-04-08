@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
-import {Download, Pencil, Plus, RefreshCw, Trash2} from 'lucide-react';
+import {BookPlus, Download, Pencil, Plus, RefreshCw, Settings, Trash2, X} from 'lucide-react';
+import {useNavigate} from 'react-router-dom';
 import type {AddressBookItem, ContactItem, PublicAccount, SyncStatusEvent} from '../../preload';
 import {getAccountAvatarColors, getAccountMonogram} from '../lib/accountAvatar';
 import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
@@ -23,33 +24,45 @@ type ContactsRouteProps = {
     onSelectAccount: (accountId: number | null) => void;
 };
 
+type ContactMeta = {
+    emails: string[];
+    phones: string[];
+};
+
+const CONTACT_META_PREFIX = '[LUNAMAIL_CONTACT_META_V1]';
+
 export default function ContactsRoute({accountId, accounts, onSelectAccount}: ContactsRouteProps) {
+    const navigate = useNavigate();
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [contacts, setContacts] = useState<ContactItem[]>([]);
     const [addressBooks, setAddressBooks] = useState<AddressBookItem[]>([]);
     const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
     const [newContactName, setNewContactName] = useState('');
-    const [newContactEmail, setNewContactEmail] = useState('');
-    const [newContactPhone, setNewContactPhone] = useState('');
+    const [newContactEmails, setNewContactEmails] = useState<string[]>(['']);
+    const [newContactPhones, setNewContactPhones] = useState<string[]>(['']);
     const [newContactOrganization, setNewContactOrganization] = useState('');
     const [newContactTitle, setNewContactTitle] = useState('');
     const [newContactNote, setNewContactNote] = useState('');
     const [showAddContactModal, setShowAddContactModal] = useState(false);
+    const [showAddAddressBookModal, setShowAddAddressBookModal] = useState(false);
+    const [newAddressBookName, setNewAddressBookName] = useState('');
+    const [addingAddressBook, setAddingAddressBook] = useState(false);
     const [showExportContactsModal, setShowExportContactsModal] = useState(false);
     const [exportFormat, setExportFormat] = useState<'csv' | 'vcf'>('csv');
     const [exportBookMode, setExportBookMode] = useState<'all' | 'selected'>('selected');
     const [exportingContacts, setExportingContacts] = useState(false);
     const [editingContact, setEditingContact] = useState<ContactItem | null>(null);
     const [editContactName, setEditContactName] = useState('');
-    const [editContactEmail, setEditContactEmail] = useState('');
-    const [editContactPhone, setEditContactPhone] = useState('');
+    const [editContactEmails, setEditContactEmails] = useState<string[]>(['']);
+    const [editContactPhones, setEditContactPhones] = useState<string[]>(['']);
     const [editContactOrganization, setEditContactOrganization] = useState('');
     const [editContactTitle, setEditContactTitle] = useState('');
     const [editContactNote, setEditContactNote] = useState('');
     const [editContactBookId, setEditContactBookId] = useState<number | null>(null);
     const [savingEditContact, setSavingEditContact] = useState(false);
     const [syncing, setSyncing] = useState(false);
+    const [syncingAccountId, setSyncingAccountId] = useState<number | null>(null);
     const [syncStatusText, setSyncStatusText] = useState<string>('Contacts ready');
     const [contactError, setContactError] = useState<string | null>(null);
     const {sidebarWidth, onResizeStart} = useResizableSidebar();
@@ -65,9 +78,11 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
             setAddressBooks([]);
             setSelectedBookId(null);
             setShowAddContactModal(false);
+            setShowAddAddressBookModal(false);
             setShowExportContactsModal(false);
             setEditingContact(null);
             setSyncing(false);
+            setSyncingAccountId(null);
             setSyncStatusText(statusNoAccountSelected());
             setLoading(false);
             return;
@@ -84,7 +99,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                 const effectiveBookId =
                     selectedBookId && books.some((book) => book.id === selectedBookId)
                         ? selectedBookId
-                        : (books[0]?.id ?? null);
+                        : null;
                 setSelectedBookId(effectiveBookId);
                 const rows = await ipcClient.getContacts(accountId, query.trim() || null, 600, effectiveBookId);
                 if (!active) return;
@@ -124,6 +139,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
         if (!accountId) return;
         let active = true;
         setSyncing(true);
+        setSyncingAccountId(accountId);
         setSyncStatusText(statusSyncing());
         setContactError(null);
         void ipcClient
@@ -136,16 +152,18 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                 const effectiveBookId =
                     selectedBookId && books.some((book) => book.id === selectedBookId)
                         ? selectedBookId
-                        : (books[0]?.id ?? null);
+                        : null;
                 setSelectedBookId(effectiveBookId);
                 await loadContacts(accountId, query, effectiveBookId);
                 if (!active) return;
                 setSyncing(false);
+                setSyncingAccountId(null);
                 setSyncStatusText('Contacts synced');
             })
             .catch((error: any) => {
                 if (!active) return;
                 setSyncing(false);
+                setSyncingAccountId(null);
                 setContactError(toErrorMessage(error));
                 setSyncStatusText(statusAutoSyncFailed(error));
             });
@@ -156,7 +174,9 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 
     async function onAddContact() {
         if (!accountId) return;
-        const email = newContactEmail.trim();
+        const emails = normalizeContactValues(newContactEmails);
+        const phones = normalizeContactValues(newContactPhones);
+        const email = emails[0] || '';
         if (!email) return;
         setContactError(null);
         try {
@@ -164,14 +184,14 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                 addressBookId: selectedBookId,
                 fullName: newContactName.trim() || null,
                 email,
-                phone: newContactPhone.trim() || null,
+                phone: phones[0] || null,
                 organization: newContactOrganization.trim() || null,
                 title: newContactTitle.trim() || null,
-                note: newContactNote.trim() || null,
+                note: composeContactNote(newContactNote, emails, phones),
             });
             setNewContactName('');
-            setNewContactEmail('');
-            setNewContactPhone('');
+            setNewContactEmails(['']);
+            setNewContactPhones(['']);
             setNewContactOrganization('');
             setNewContactTitle('');
             setNewContactNote('');
@@ -184,6 +204,10 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 
     async function onDeleteContact(contactId: number) {
         if (!accountId) return;
+        const target = contacts.find((row) => row.id === contactId);
+        const label = target?.full_name?.trim() || target?.email || `#${contactId}`;
+        const confirmed = window.confirm(`Delete contact "${label}"?`);
+        if (!confirmed) return;
         setContactError(null);
         try {
             await ipcClient.deleteContact(contactId);
@@ -194,20 +218,23 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
     }
 
     function openEditContact(contact: ContactItem) {
+        const parsedNote = parseContactNote(contact.note);
         setEditingContact(contact);
         setEditContactName(contact.full_name || '');
-        setEditContactEmail(contact.email || '');
-        setEditContactPhone(contact.phone || '');
+        setEditContactEmails(parsedNote.emails.length ? parsedNote.emails : [contact.email || '']);
+        setEditContactPhones(parsedNote.phones.length ? parsedNote.phones : [contact.phone || '']);
         setEditContactOrganization(contact.organization || '');
         setEditContactTitle(contact.title || '');
-        setEditContactNote(contact.note || '');
+        setEditContactNote(parsedNote.noteText);
         setEditContactBookId(contact.address_book_id ?? selectedBookId ?? null);
         setContactError(null);
     }
 
     async function onSaveEditedContact() {
         if (!accountId || !editingContact) return;
-        const email = editContactEmail.trim();
+        const emails = normalizeContactValues(editContactEmails);
+        const phones = normalizeContactValues(editContactPhones);
+        const email = emails[0] || '';
         if (!email) return;
         setSavingEditContact(true);
         setContactError(null);
@@ -216,10 +243,10 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                 addressBookId: editContactBookId,
                 fullName: editContactName.trim() || null,
                 email,
-                phone: editContactPhone.trim() || null,
+                phone: phones[0] || null,
                 organization: editContactOrganization.trim() || null,
                 title: editContactTitle.trim() || null,
-                note: editContactNote.trim() || null,
+                note: composeContactNote(editContactNote, emails, phones),
             });
             setEditingContact(null);
             await loadContacts(accountId, query, selectedBookId);
@@ -227,6 +254,28 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
             setContactError(toErrorMessage(error));
         } finally {
             setSavingEditContact(false);
+        }
+    }
+
+    async function onAddAddressBook() {
+        if (!accountId || addingAddressBook) return;
+        const name = newAddressBookName.trim();
+        if (!name) return;
+        setAddingAddressBook(true);
+        setContactError(null);
+        try {
+            const added = await ipcClient.addAddressBook(accountId, name);
+            const books = await ipcClient.getAddressBooks(accountId);
+            setAddressBooks(books);
+            setSelectedBookId(added.id);
+            setShowAddAddressBookModal(false);
+            setNewAddressBookName('');
+            await loadContacts(accountId, query, added.id);
+            setSyncStatusText(`Address book "${added.name}" created`);
+        } catch (error: any) {
+            setContactError(toErrorMessage(error));
+        } finally {
+            setAddingAddressBook(false);
         }
     }
 
@@ -267,7 +316,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
             await ipcClient.deleteAddressBook(accountId, selectedBookId);
             const books = await ipcClient.getAddressBooks(accountId);
             setAddressBooks(books);
-            const nextBookId = books[0]?.id ?? null;
+            const nextBookId = null;
             setSelectedBookId(nextBookId);
             await loadContacts(accountId, query, nextBookId);
         } catch (error: any) {
@@ -275,54 +324,63 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
         }
     }
 
-    async function onManualSync() {
-        if (!accountId || syncing) return;
+    async function onManualSync(targetAccountId?: number) {
+        const effectiveAccountId = targetAccountId ?? accountId;
+        if (!effectiveAccountId || syncing) return;
         setContactError(null);
         setSyncing(true);
+        setSyncingAccountId(effectiveAccountId);
         setSyncStatusText(statusSyncing());
         try {
-            await ipcClient.syncAccount(accountId);
-            const books = await ipcClient.getAddressBooks(accountId);
-            setAddressBooks(books);
-            const effectiveBookId =
-                selectedBookId && books.some((book) => book.id === selectedBookId)
-                    ? selectedBookId
-                    : (books[0]?.id ?? null);
-            setSelectedBookId(effectiveBookId);
-            await loadContacts(accountId, query, effectiveBookId);
+            await ipcClient.syncAccount(effectiveAccountId);
+            if (accountId === effectiveAccountId) {
+                const books = await ipcClient.getAddressBooks(effectiveAccountId);
+                setAddressBooks(books);
+                const effectiveBookId =
+                    selectedBookId && books.some((book) => book.id === selectedBookId)
+                        ? selectedBookId
+                        : null;
+                setSelectedBookId(effectiveBookId);
+                await loadContacts(effectiveAccountId, query, effectiveBookId);
+            }
+            setSyncStatusText('Contacts synced');
         } catch (error: any) {
-            setSyncing(false);
             const message = toErrorMessage(error);
             setSyncStatusText(statusSyncFailed(message));
             setContactError(message);
+        } finally {
+            setSyncing(false);
+            setSyncingAccountId(null);
         }
     }
 
     const accountSidebar = (
-        <aside
-            className="flex h-full min-h-0 shrink-0 flex-col justify-between border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+        <aside className="flex h-full min-h-0 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
                 <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Accounts
                 </p>
                 <div className="space-y-1">
                     {accounts.map((account) => {
+                        const isSyncingAccount = syncing && syncingAccountId === account.id;
                         const avatarColors = getAccountAvatarColors(
                             account.email || account.display_name || String(account.id),
                         );
                         return (
-                            <button
+                            <div
                                 key={account.id}
-                                type="button"
-                                onClick={() => onSelectAccount(account.id)}
                                 className={cn(
-                                    'w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
+                                    'group flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                                     accountId === account.id
                                         ? 'bg-sky-100 text-sky-900 dark:bg-[#3d4153] dark:text-slate-100'
                                         : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
                                 )}
                             >
-                                <div className="flex min-w-0 items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => onSelectAccount(account.id)}
+                                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                >
 									<span
                                         className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1 ring-black/10 dark:ring-white/10"
                                         style={{
@@ -343,27 +401,39 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 											</span>
                                         )}
 									</span>
+                                </button>
+                                <div
+                                    className={cn(
+                                        'flex items-center gap-1 transition-opacity',
+                                        isSyncingAccount ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                                    )}
+                                >
+                                    <button
+                                        type="button"
+                                        className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                        onClick={() => void onManualSync(account.id)}
+                                        title="Sync account"
+                                        aria-label="Sync account"
+                                        disabled={isSyncingAccount}
+                                    >
+                                        <RefreshCw size={13} className={cn(isSyncingAccount && 'animate-spin')}/>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                        onClick={() => navigate(`/settings/account?accountId=${account.id}`)}
+                                        title="Edit account"
+                                        aria-label="Edit account"
+                                    >
+                                        <Settings size={13}/>
+                                    </button>
                                 </div>
-                            </button>
+                            </div>
                         );
                     })}
                     {accounts.length === 0 && (
                         <p className="px-2 py-2 text-sm text-slate-500 dark:text-slate-400">No accounts available.</p>
                     )}
-                </div>
-            </div>
-            <div className="shrink-0 border-t border-slate-200 px-2 py-3 dark:border-[#3a3d44]">
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        disabled={syncing}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
-                        onClick={() => void onManualSync()}
-                        title="Sync now"
-                        aria-label="Sync now"
-                    >
-                        <RefreshCw size={14} className={cn(syncing && 'animate-spin')}/>
-                    </button>
                 </div>
             </div>
         </aside>
@@ -376,12 +446,23 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                 className="h-10 min-w-52 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
                 disabled={!accountId}
             >
+                <option value="">All address books</option>
                 {addressBooks.map((book) => (
                     <option key={book.id} value={book.id}>
                         {book.name}
                     </option>
                 ))}
             </select>
+            <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                disabled={!accountId}
+                onClick={() => setShowAddAddressBookModal(true)}
+                title="Create address book"
+                aria-label="Create address book"
+            >
+                <BookPlus size={14}/>
+            </button>
             <button
                 type="button"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
@@ -456,32 +537,54 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                 <ul className="divide-y divide-slate-200 dark:divide-[#3a3d44]">
                                     {contacts.map((contact) => (
                                         <li key={contact.id} className="px-4 py-3">
+                                            {(() => {
+                                                const preview = getContactPreview(contact);
+                                                const avatarSeed = preview.primaryEmail || String(contact.id);
+                                                const avatarColors = getAccountAvatarColors(avatarSeed);
+                                                return (
                                             <div className="flex items-start justify-between gap-3">
-                                                <div>
+                                                <div className="flex min-w-0 items-start gap-3">
+                                                    <span
+                                                        className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-semibold ring-1 ring-black/10 dark:ring-white/10"
+                                                        style={{
+                                                            backgroundColor: avatarColors.background,
+                                                            color: avatarColors.foreground,
+                                                        }}
+                                                        aria-hidden
+                                                    >
+                                                        {getContactInitials(contact.full_name, preview.primaryEmail)}
+                                                    </span>
+                                                    <div className="min-w-0">
                                                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                                         {contact.full_name || '(No name)'}
                                                     </p>
                                                     <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
-                                                        {contact.email}
+                                                        {preview.primaryEmail}
+                                                        {preview.extraEmails > 0 ? ` (+${preview.extraEmails} more)` : ''}
                                                     </p>
-                                                    {(contact.phone || contact.organization || contact.title) && (
+                                                    {(preview.primaryPhone || contact.organization || contact.title) && (
                                                         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                                                            {[contact.phone, contact.organization, contact.title]
+                                                            {[preview.primaryPhone, contact.organization, contact.title]
                                                                 .filter(Boolean)
                                                                 .join(' • ')}
                                                         </p>
                                                     )}
+                                                    </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         type="button"
                                                         className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                                         onClick={() => openEditContact(contact)}
-                                                        disabled={!contact.source.startsWith('local:')}
+                                                        disabled={
+                                                            !contact.source.startsWith('local:') &&
+                                                            contact.source !== 'carddav'
+                                                        }
                                                         title={
-                                                            contact.source.startsWith('local:')
+                                                            contact.source.startsWith('local:') ||
+                                                            contact.source === 'carddav'
                                                                 ? 'Edit contact'
-                                                                : 'Only local contacts can be edited'
+                                                                : 'This contact source is read-only'
                                                         }
                                                     >
                                                         <Pencil size={12} className="mr-1 inline-block"/>
@@ -491,17 +594,23 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                                         type="button"
                                                         className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-700/50 dark:text-red-300 dark:hover:bg-red-900/30"
                                                         onClick={() => void onDeleteContact(contact.id)}
-                                                        disabled={!contact.source.startsWith('local:')}
+                                                        disabled={
+                                                            !contact.source.startsWith('local:') &&
+                                                            contact.source !== 'carddav'
+                                                        }
                                                         title={
-                                                            contact.source.startsWith('local:')
+                                                            contact.source.startsWith('local:') ||
+                                                            contact.source === 'carddav'
                                                                 ? 'Delete contact'
-                                                                : 'Only local contacts can be deleted'
+                                                                : 'This contact source is read-only'
                                                         }
                                                     >
                                                         Delete
                                                     </button>
                                                 </div>
                                             </div>
+                                                );
+                                            })()}
                                         </li>
                                     ))}
                                 </ul>
@@ -517,7 +626,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                     onClick={() => setShowAddContactModal(false)}
                 >
                     <div
-                        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        className="w-full max-w-5xl rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <form
@@ -530,79 +639,94 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                                 Create a contact for the selected account.
                             </p>
-                            <div className="mt-4 space-y-3">
-                                <label className="block text-sm">
+                            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div className="space-y-3">
+                                    <label className="block text-sm">
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Full name
 									</span>
-                                    <input
-                                        type="text"
-                                        value={newContactName}
-                                        onChange={(event) => setNewContactName(event.target.value)}
-                                        placeholder="Jane Doe"
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                    />
-                                </label>
-                                <label className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
-										Email
-									</span>
-                                    <input
+                                        <input
+                                            type="text"
+                                            value={newContactName}
+                                            onChange={(event) => setNewContactName(event.target.value)}
+                                            placeholder="Jane Doe"
+                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        />
+                                    </label>
+                                    <DynamicContactFieldList
+                                        label="Emails"
+                                        valueLabel="Email"
                                         type="email"
-                                        value={newContactEmail}
-                                        onChange={(event) => setNewContactEmail(event.target.value)}
                                         placeholder="jane@domain.com"
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                        required
+                                        values={newContactEmails}
+                                        onChange={setNewContactEmails}
+                                        requiredFirst
                                     />
-                                </label>
-                                <label className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
-										Phone
-									</span>
-                                    <input
+                                    <DynamicContactFieldList
+                                        label="Phone numbers"
+                                        valueLabel="Phone"
                                         type="text"
-                                        value={newContactPhone}
-                                        onChange={(event) => setNewContactPhone(event.target.value)}
                                         placeholder="+46 70 123 45 67"
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        values={newContactPhones}
+                                        onChange={setNewContactPhones}
                                     />
-                                </label>
-                                <label className="block text-sm">
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="block text-sm">
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Organization
 									</span>
-                                    <input
-                                        type="text"
-                                        value={newContactOrganization}
-                                        onChange={(event) => setNewContactOrganization(event.target.value)}
-                                        placeholder="Acme Inc."
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                    />
-                                </label>
-                                <label className="block text-sm">
+                                        <input
+                                            type="text"
+                                            value={newContactOrganization}
+                                            onChange={(event) => setNewContactOrganization(event.target.value)}
+                                            placeholder="Acme Inc."
+                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        />
+                                    </label>
+                                    <label className="block text-sm">
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Title
 									</span>
-                                    <input
-                                        type="text"
-                                        value={newContactTitle}
-                                        onChange={(event) => setNewContactTitle(event.target.value)}
-                                        placeholder="Sales Manager"
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                    />
-                                </label>
-                                <label className="block text-sm">
+                                        <input
+                                            type="text"
+                                            value={newContactTitle}
+                                            onChange={(event) => setNewContactTitle(event.target.value)}
+                                            placeholder="Sales Manager"
+                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        />
+                                    </label>
+                                    <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Address book
+									</span>
+                                        <select
+                                            value={selectedBookId ?? ''}
+                                            onChange={(event) =>
+                                                setSelectedBookId(event.target.value ? Number(event.target.value) : null)
+                                            }
+                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        >
+                                            <option value="">No address book</option>
+                                            {addressBooks.map((book) => (
+                                                <option key={book.id} value={book.id}>
+                                                    {book.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <label className="block text-sm">
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Notes
 									</span>
-                                    <textarea
-                                        value={newContactNote}
-                                        onChange={(event) => setNewContactNote(event.target.value)}
-                                        rows={3}
-                                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                    />
-                                </label>
+                                        <textarea
+                                            value={newContactNote}
+                                            onChange={(event) => setNewContactNote(event.target.value)}
+                                            rows={7}
+                                            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        />
+                                    </label>
+                                </div>
                             </div>
                             <div className="mt-4 flex items-center justify-end gap-2">
                                 <button
@@ -615,7 +739,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                 <button
                                     type="submit"
                                     className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
-                                    disabled={!newContactEmail.trim()}
+                                    disabled={!normalizeContactValues(newContactEmails).length}
                                 >
                                     Save Contact
                                 </button>
@@ -631,7 +755,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                     onClick={() => setEditingContact(null)}
                 >
                     <div
-                        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        className="w-full max-w-5xl rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <form
@@ -641,94 +765,92 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                             }}
                         >
                             <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Edit Contact</h3>
-                            <div className="mt-4 space-y-3">
-                                <label className="block text-sm">
+                            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div className="space-y-3">
+                                    <label className="block text-sm">
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Full name
 									</span>
-                                    <input
-                                        type="text"
-                                        value={editContactName}
-                                        onChange={(event) => setEditContactName(event.target.value)}
-                                        placeholder="Jane Doe"
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                    />
-                                </label>
-                                <label className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
-										Email
-									</span>
-                                    <input
+                                        <input
+                                            type="text"
+                                            value={editContactName}
+                                            onChange={(event) => setEditContactName(event.target.value)}
+                                            placeholder="Jane Doe"
+                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        />
+                                    </label>
+                                    <DynamicContactFieldList
+                                        label="Emails"
+                                        valueLabel="Email"
                                         type="email"
-                                        value={editContactEmail}
-                                        onChange={(event) => setEditContactEmail(event.target.value)}
                                         placeholder="jane@domain.com"
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                        required
+                                        values={editContactEmails}
+                                        onChange={setEditContactEmails}
+                                        requiredFirst
                                     />
-                                </label>
-                                <label className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
-										Phone
-									</span>
-                                    <input
+                                    <DynamicContactFieldList
+                                        label="Phone numbers"
+                                        valueLabel="Phone"
                                         type="text"
-                                        value={editContactPhone}
-                                        onChange={(event) => setEditContactPhone(event.target.value)}
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        values={editContactPhones}
+                                        onChange={setEditContactPhones}
                                     />
-                                </label>
-                                <label className="block text-sm">
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="block text-sm">
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Organization
 									</span>
-                                    <input
-                                        type="text"
-                                        value={editContactOrganization}
-                                        onChange={(event) => setEditContactOrganization(event.target.value)}
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                    />
-                                </label>
-                                <label className="block text-sm">
+                                        <input
+                                            type="text"
+                                            value={editContactOrganization}
+                                            onChange={(event) => setEditContactOrganization(event.target.value)}
+                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        />
+                                    </label>
+                                    <label className="block text-sm">
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Title
 									</span>
-                                    <input
-                                        type="text"
-                                        value={editContactTitle}
-                                        onChange={(event) => setEditContactTitle(event.target.value)}
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                    />
-                                </label>
-                                <label className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
-										Notes
-									</span>
-                                    <textarea
-                                        value={editContactNote}
-                                        onChange={(event) => setEditContactNote(event.target.value)}
-                                        rows={3}
-                                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                    />
-                                </label>
-                                <label className="block text-sm">
+                                        <input
+                                            type="text"
+                                            value={editContactTitle}
+                                            onChange={(event) => setEditContactTitle(event.target.value)}
+                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        />
+                                    </label>
+                                    <label className="block text-sm">
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Address book
 									</span>
-                                    <select
-                                        value={editContactBookId ?? ''}
-                                        onChange={(event) =>
-                                            setEditContactBookId(event.target.value ? Number(event.target.value) : null)
-                                        }
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
-                                    >
-                                        {addressBooks.map((book) => (
-                                            <option key={book.id} value={book.id}>
-                                                {book.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
+                                        <select
+                                            value={editContactBookId ?? ''}
+                                            onChange={(event) =>
+                                                setEditContactBookId(event.target.value ? Number(event.target.value) : null)
+                                            }
+                                            disabled={editingContact.source === 'carddav'}
+                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        >
+                                            <option value="">No address book</option>
+                                            {addressBooks.map((book) => (
+                                                <option key={book.id} value={book.id}>
+                                                    {book.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <label className="block text-sm">
+									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+										Notes
+									</span>
+                                        <textarea
+                                            value={editContactNote}
+                                            onChange={(event) => setEditContactNote(event.target.value)}
+                                            rows={7}
+                                            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        />
+                                    </label>
+                                </div>
                             </div>
                             <div className="mt-4 flex items-center justify-end gap-2">
                                 <button
@@ -741,9 +863,62 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                 <button
                                     type="submit"
                                     className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
-                                    disabled={savingEditContact || !editContactEmail.trim()}
+                                    disabled={savingEditContact || !normalizeContactValues(editContactEmails).length}
                                 >
                                     {savingEditContact ? 'Saving...' : 'Save changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {showAddAddressBookModal && accountId && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+                    onClick={() => setShowAddAddressBookModal(false)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <form
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                void onAddAddressBook();
+                            }}
+                        >
+                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                                Create Address Book
+                            </h3>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                Local address books can be used to organize manual contacts.
+                            </p>
+                            <label className="mt-4 block text-sm">
+								<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Name</span>
+                                <input
+                                    type="text"
+                                    value={newAddressBookName}
+                                    onChange={(event) => setNewAddressBookName(event.target.value)}
+                                    placeholder="Personal"
+                                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                    required
+                                />
+                            </label>
+                            <div className="mt-4 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                    onClick={() => setShowAddAddressBookModal(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                    disabled={addingAddressBook || !newAddressBookName.trim()}
+                                >
+                                    {addingAddressBook ? 'Creating...' : 'Create'}
                                 </button>
                             </div>
                         </form>
@@ -811,5 +986,137 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                 </div>
             )}
         </WorkspaceLayout>
+    );
+}
+
+function normalizeContactValues(values: string[]): string[] {
+    return values.map((value) => value.trim()).filter(Boolean);
+}
+
+function parseContactNote(note: string | null | undefined): { noteText: string; emails: string[]; phones: string[] } {
+    const raw = String(note || '');
+    const markerIndex = raw.lastIndexOf(CONTACT_META_PREFIX);
+    if (markerIndex < 0) {
+        return {noteText: raw.trim(), emails: [], phones: []};
+    }
+    const noteText = raw.slice(0, markerIndex).trimEnd();
+    const metaRaw = raw.slice(markerIndex + CONTACT_META_PREFIX.length).trim();
+    try {
+        const parsed = JSON.parse(metaRaw) as ContactMeta;
+        return {
+            noteText: noteText.trim(),
+            emails: Array.isArray(parsed.emails) ? normalizeContactValues(parsed.emails) : [],
+            phones: Array.isArray(parsed.phones) ? normalizeContactValues(parsed.phones) : [],
+        };
+    } catch {
+        return {noteText: raw.trim(), emails: [], phones: []};
+    }
+}
+
+function composeContactNote(noteText: string, emails: string[], phones: string[]): string | null {
+    const normalizedNote = noteText.trim();
+    const normalizedEmails = normalizeContactValues(emails);
+    const normalizedPhones = normalizeContactValues(phones);
+    const meta: ContactMeta = {emails: normalizedEmails, phones: normalizedPhones};
+    const hasMeta = normalizedEmails.length > 1 || normalizedPhones.length > 1;
+    if (!hasMeta) {
+        return normalizedNote || null;
+    }
+    const serializedMeta = `${CONTACT_META_PREFIX}\n${JSON.stringify(meta)}`;
+    if (!normalizedNote) return serializedMeta;
+    return `${normalizedNote}\n\n${serializedMeta}`;
+}
+
+function getContactPreview(contact: ContactItem): {
+    primaryEmail: string;
+    extraEmails: number;
+    primaryPhone: string;
+} {
+    const parsedNote = parseContactNote(contact.note);
+    const emailList = parsedNote.emails.length ? parsedNote.emails : [contact.email].filter(Boolean);
+    const phoneList = parsedNote.phones.length ? parsedNote.phones : [contact.phone].filter(Boolean);
+    return {
+        primaryEmail: emailList[0] || contact.email || '',
+        extraEmails: Math.max(0, emailList.length - 1),
+        primaryPhone: phoneList[0] || contact.phone || '',
+    };
+}
+
+function getContactInitials(fullName: string | null, email: string | null): string {
+    const name = String(fullName || '').trim();
+    if (name) {
+        const parts = name.split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+            return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+        }
+        return (parts[0].slice(0, 2) || '?').toUpperCase();
+    }
+    const emailValue = String(email || '').trim();
+    if (emailValue) {
+        const local = emailValue.split('@')[0] || '';
+        return (local.slice(0, 2) || '?').toUpperCase();
+    }
+    return '?';
+}
+
+function DynamicContactFieldList({
+    label,
+    valueLabel,
+    values,
+    onChange,
+    type,
+    placeholder,
+    requiredFirst = false,
+}: {
+    label: string;
+    valueLabel: string;
+    values: string[];
+    onChange: (next: string[]) => void;
+    type: 'text' | 'email';
+    placeholder?: string;
+    requiredFirst?: boolean;
+}) {
+    const safeValues = values.length ? values : [''];
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</span>
+                <button
+                    type="button"
+                    className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                    onClick={() => onChange([...safeValues, ''])}
+                >
+                    Add {valueLabel.toLowerCase()}
+                </button>
+            </div>
+            <div className="space-y-2">
+                {safeValues.map((value, index) => (
+                    <div key={`${valueLabel}-${index}`} className="flex items-center gap-2">
+                        <input
+                            type={type}
+                            value={value}
+                            onChange={(event) => {
+                                const next = [...safeValues];
+                                next[index] = event.target.value;
+                                onChange(next);
+                            }}
+                            placeholder={placeholder}
+                            required={requiredFirst && index === 0}
+                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                        />
+                        <button
+                            type="button"
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#35373c]"
+                            disabled={safeValues.length === 1}
+                            onClick={() => onChange(safeValues.filter((_, valueIndex) => valueIndex !== index))}
+                            title={`Remove ${valueLabel.toLowerCase()}`}
+                            aria-label={`Remove ${valueLabel.toLowerCase()}`}
+                        >
+                            <X size={14}/>
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }

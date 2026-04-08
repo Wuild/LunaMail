@@ -92,6 +92,7 @@ export function upsertContacts(
         title?: string | null;
         note?: string | null;
         etag?: string | null;
+        addressBookId?: number | null;
     }>,
     source: string = 'carddav',
 ): { upserted: number; removed: number } {
@@ -101,10 +102,11 @@ export function upsertContacts(
         const upsert = db.prepare(
             `
                 INSERT INTO contacts (
-                    account_id, source, source_uid, full_name, email, phone, organization, title, note, etag, last_seen_sync, updated_at
+                    account_id, address_book_id, source, source_uid, full_name, email, phone, organization, title, note, etag, last_seen_sync, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(account_id, source, source_uid, email) DO
-                UPDATE SET full_name      = excluded.full_name,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(account_id, source, source_uid, email) DO
+                UPDATE SET address_book_id = excluded.address_book_id,
+                           full_name      = excluded.full_name,
                            phone          = excluded.phone,
                            organization   = excluded.organization,
                            title          = excluded.title,
@@ -117,6 +119,7 @@ export function upsertContacts(
         for (const row of rows) {
             upsert.run(
                 accountId,
+                typeof row.addressBookId === 'number' && Number.isFinite(row.addressBookId) ? row.addressBookId : null,
                 source,
                 row.sourceUid,
                 row.fullName ?? null,
@@ -141,6 +144,89 @@ export function upsertContacts(
             )
             .run(accountId, source, seenAt);
         return {upserted: rows.length, removed: cleanup.changes};
+    });
+    return tx();
+}
+
+export function syncCardDavAddressBooks(
+    accountId: number,
+    rows: Array<{ remoteUrl: string; name?: string | null }>,
+): Record<string, number> {
+    const db = getDb();
+    const tx = db.transaction(() => {
+        const mapping: Record<string, number> = {};
+        const seenUrls = new Set<string>();
+        for (const row of rows) {
+            const remoteUrl = normalizeRemoteBookUrl(row.remoteUrl);
+            if (!remoteUrl) continue;
+            const name = normalizeBookName(row.name || deriveAddressBookNameFromUrl(remoteUrl));
+            if (!name) continue;
+            seenUrls.add(remoteUrl);
+            const existing = db
+                .prepare(
+                    `
+                    SELECT id
+                    FROM address_books
+                    WHERE account_id = ?
+                      AND source = 'carddav'
+                      AND remote_url = ?
+                    LIMIT 1
+                `,
+                )
+                .get(accountId, remoteUrl) as { id: number } | undefined;
+            if (existing) {
+                db.prepare(
+                    `
+                    UPDATE address_books
+                    SET name = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                `,
+                ).run(name, existing.id);
+                mapping[remoteUrl] = existing.id;
+                continue;
+            }
+            db.prepare(
+                `
+                INSERT INTO address_books (account_id, name, source, remote_url, created_at, updated_at)
+                VALUES (?, ?, 'carddav', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            `,
+            ).run(accountId, name, remoteUrl);
+            const inserted = db.prepare('SELECT last_insert_rowid() as id').get() as { id: number };
+            mapping[remoteUrl] = Number(inserted.id);
+        }
+
+        const existingRows = db
+            .prepare(
+                `
+                SELECT id, remote_url
+                FROM address_books
+                WHERE account_id = ?
+                  AND source = 'carddav'
+            `,
+            )
+            .all(accountId) as Array<{ id: number; remote_url: string | null }>;
+        for (const row of existingRows) {
+            const remoteUrl = normalizeRemoteBookUrl(row.remote_url);
+            if (!remoteUrl || seenUrls.has(remoteUrl)) continue;
+            db.prepare(
+                `
+                UPDATE contacts
+                SET address_book_id = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE account_id = ?
+                  AND address_book_id = ?
+            `,
+            ).run(accountId, row.id);
+            db.prepare(
+                `
+                DELETE FROM address_books
+                WHERE id = ?
+            `,
+            ).run(row.id);
+        }
+
+        return mapping;
     });
     return tx();
 }
@@ -495,6 +581,68 @@ export function upsertCardDavContact(
         .get(accountId, payload.sourceUid, normalizedEmail) as ContactRow;
 }
 
+export function getContactById(contactId: number): ContactRow | null {
+    const db = getDb();
+    const row = db
+        .prepare(
+            `
+            SELECT *
+            FROM contacts
+            WHERE id = ?
+            LIMIT 1
+        `,
+        )
+        .get(contactId) as ContactRow | undefined;
+    return row ?? null;
+}
+
+export function updateCardDavContact(
+    contactId: number,
+    payload: {
+        fullName?: string | null;
+        email?: string;
+        phone?: string | null;
+        organization?: string | null;
+        title?: string | null;
+        note?: string | null;
+        etag?: string | null;
+    },
+): ContactRow {
+    const db = getDb();
+    const current = getContactById(contactId);
+    if (!current) throw new Error('Contact not found.');
+    if (current.source !== 'carddav') {
+        throw new Error('Only CardDAV contacts can be updated with this method.');
+    }
+
+    const nextEmail = payload.email === undefined ? current.email : normalizeEmail(payload.email);
+    if (!nextEmail) throw new Error('A valid email is required.');
+    const nextName = payload.fullName === undefined ? current.full_name : normalizeDisplayName(payload.fullName);
+    const nextPhone = payload.phone === undefined ? current.phone : normalizeContactText(payload.phone);
+    const nextOrganization =
+        payload.organization === undefined ? current.organization : normalizeContactText(payload.organization);
+    const nextTitle = payload.title === undefined ? current.title : normalizeContactText(payload.title);
+    const nextNote = payload.note === undefined ? current.note : normalizeContactText(payload.note, 4000);
+    const nextEtag = payload.etag === undefined ? current.etag : normalizeContactText(payload.etag, 500);
+
+    db.prepare(
+        `
+            UPDATE contacts
+            SET full_name = ?,
+                email = ?,
+                phone = ?,
+                organization = ?,
+                title = ?,
+                note = ?,
+                etag = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `,
+    ).run(nextName, nextEmail, nextPhone, nextOrganization, nextTitle, nextNote, nextEtag, contactId);
+
+    return db.prepare('SELECT * FROM contacts WHERE id = ?').get(contactId) as ContactRow;
+}
+
 export function updateLocalContact(
     contactId: number,
     payload: {
@@ -570,6 +718,12 @@ export function deleteLocalContact(contactId: number): { removed: boolean } {
     return {removed: res.changes > 0};
 }
 
+export function deleteContactById(contactId: number): { removed: boolean } {
+    const db = getDb();
+    const res = db.prepare('DELETE FROM contacts WHERE id = ?').run(contactId);
+    return {removed: res.changes > 0};
+}
+
 export function listCalendarEvents(
     accountId: number,
     startIso?: string | null,
@@ -607,6 +761,12 @@ export function listCalendarEvents(
         .all(accountId, limit) as CalendarEventRow[];
 }
 
+export function getCalendarEventById(eventId: number): CalendarEventRow | null {
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(eventId) as CalendarEventRow | undefined;
+    return row ?? null;
+}
+
 export function createLocalCalendarEvent(
     accountId: number,
     payload: {
@@ -635,7 +795,59 @@ export function createLocalCalendarEvent(
     const summary = String(payload.summary || '').trim() || null;
     const description = String(payload.description || '').trim() || null;
     const location = String(payload.location || '').trim() || null;
-    const calendarUrl = `local://${accountId}/default`;
+    return createCalendarEvent({
+        accountId,
+        source: 'local',
+        calendarUrl: `local://${accountId}/default`,
+        uid,
+        summary,
+        description,
+        location,
+        startsAt,
+        endsAt,
+        etag: null,
+        rawIcs: null,
+        lastSeenSync: seenAt,
+    });
+}
+
+export function createCalendarEvent(payload: {
+    accountId: number;
+    source: string;
+    calendarUrl: string;
+    uid: string;
+    summary?: string | null;
+    description?: string | null;
+    location?: string | null;
+    startsAt: string;
+    endsAt: string;
+    etag?: string | null;
+    rawIcs?: string | null;
+    lastSeenSync?: string;
+}): CalendarEventRow {
+    const db = getDb();
+    const startsAt = String(payload.startsAt || '').trim();
+    const endsAt = String(payload.endsAt || '').trim();
+    if (!startsAt || Number.isNaN(Date.parse(startsAt))) {
+        throw new Error('Event start date/time is required.');
+    }
+    if (!endsAt || Number.isNaN(Date.parse(endsAt))) {
+        throw new Error('Event end date/time is required.');
+    }
+    if (Date.parse(endsAt) < Date.parse(startsAt)) {
+        throw new Error('Event end must be after start.');
+    }
+    const summary = String(payload.summary || '').trim() || null;
+    const description = String(payload.description || '').trim() || null;
+    const location = String(payload.location || '').trim() || null;
+    const source = String(payload.source || '').trim() || 'local';
+    const calendarUrl = String(payload.calendarUrl || '').trim();
+    if (!calendarUrl) throw new Error('Calendar URL is required.');
+    const uid = String(payload.uid || '').trim();
+    if (!uid) throw new Error('Calendar UID is required.');
+    const etag = payload.etag === undefined ? null : String(payload.etag || '').trim() || null;
+    const rawIcs = payload.rawIcs === undefined ? null : String(payload.rawIcs || '').trim() || null;
+    const lastSeenSync = String(payload.lastSeenSync || '').trim() || new Date().toISOString();
 
     db.prepare(
         `
@@ -643,11 +855,148 @@ export function createLocalCalendarEvent(
                 account_id, source, calendar_url, uid, summary, description, location,
                 starts_at, ends_at, etag, raw_ics, last_seen_sync, created_at, updated_at
             )
-            VALUES (?, 'local', ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `,
-    ).run(accountId, calendarUrl, uid, summary, description, location, startsAt, endsAt, seenAt);
+    ).run(
+        payload.accountId,
+        source,
+        calendarUrl,
+        uid,
+        summary,
+        description,
+        location,
+        startsAt,
+        endsAt,
+        etag,
+        rawIcs,
+        lastSeenSync,
+    );
 
     return db.prepare('SELECT * FROM calendar_events WHERE id = last_insert_rowid()').get() as CalendarEventRow;
+}
+
+export function updateLocalCalendarEvent(
+    eventId: number,
+    payload: {
+        summary?: string | null;
+        description?: string | null;
+        location?: string | null;
+        startsAt: string;
+        endsAt: string;
+    },
+): CalendarEventRow {
+    const db = getDb();
+    const current = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(eventId) as CalendarEventRow | undefined;
+    if (!current) throw new Error('Calendar event not found.');
+    if (current.source !== 'local') {
+        throw new Error('Only local calendar events can be edited directly.');
+    }
+
+    const startsAt = String(payload.startsAt || '').trim();
+    const endsAt = String(payload.endsAt || '').trim();
+    if (!startsAt || Number.isNaN(Date.parse(startsAt))) {
+        throw new Error('Event start date/time is required.');
+    }
+    if (!endsAt || Number.isNaN(Date.parse(endsAt))) {
+        throw new Error('Event end date/time is required.');
+    }
+    if (Date.parse(endsAt) < Date.parse(startsAt)) {
+        throw new Error('Event end must be after start.');
+    }
+
+    const summary = String(payload.summary || '').trim() || null;
+    const description = String(payload.description || '').trim() || null;
+    const location = String(payload.location || '').trim() || null;
+
+    db.prepare(
+        `
+            UPDATE calendar_events
+            SET summary = ?,
+                description = ?,
+                location = ?,
+                starts_at = ?,
+                ends_at = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `,
+    ).run(summary, description, location, startsAt, endsAt, eventId);
+
+    return db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(eventId) as CalendarEventRow;
+}
+
+export function updateCalendarEventById(
+    eventId: number,
+    payload: {
+        summary?: string | null;
+        description?: string | null;
+        location?: string | null;
+        startsAt: string;
+        endsAt: string;
+        etag?: string | null;
+        rawIcs?: string | null;
+    },
+): CalendarEventRow {
+    const db = getDb();
+    const current = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(eventId) as CalendarEventRow | undefined;
+    if (!current) throw new Error('Calendar event not found.');
+
+    const startsAt = String(payload.startsAt || '').trim();
+    const endsAt = String(payload.endsAt || '').trim();
+    if (!startsAt || Number.isNaN(Date.parse(startsAt))) {
+        throw new Error('Event start date/time is required.');
+    }
+    if (!endsAt || Number.isNaN(Date.parse(endsAt))) {
+        throw new Error('Event end date/time is required.');
+    }
+    if (Date.parse(endsAt) < Date.parse(startsAt)) {
+        throw new Error('Event end must be after start.');
+    }
+
+    const summary = String(payload.summary || '').trim() || null;
+    const description = String(payload.description || '').trim() || null;
+    const location = String(payload.location || '').trim() || null;
+    const seenAt = new Date().toISOString();
+    const nextEtag = payload.etag === undefined ? current.etag : String(payload.etag || '').trim() || null;
+    const nextRawIcs = payload.rawIcs === undefined ? current.raw_ics : String(payload.rawIcs || '').trim() || null;
+
+    db.prepare(
+        `
+            UPDATE calendar_events
+            SET summary = ?,
+                description = ?,
+                location = ?,
+                starts_at = ?,
+                ends_at = ?,
+                etag = ?,
+                raw_ics = ?,
+                last_seen_sync = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `,
+    ).run(summary, description, location, startsAt, endsAt, nextEtag, nextRawIcs, seenAt, eventId);
+
+    return db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(eventId) as CalendarEventRow;
+}
+
+export function deleteLocalCalendarEvent(eventId: number): { removed: boolean } {
+    const db = getDb();
+    const current = db.prepare('SELECT source FROM calendar_events WHERE id = ?').get(eventId) as
+        | {
+        source: string;
+    }
+        | undefined;
+    if (!current) return {removed: false};
+    if (current.source !== 'local') {
+        throw new Error('Only local calendar events can be deleted directly.');
+    }
+    const res = db.prepare('DELETE FROM calendar_events WHERE id = ?').run(eventId);
+    return {removed: res.changes > 0};
+}
+
+export function deleteCalendarEventById(eventId: number): { removed: boolean } {
+    const db = getDb();
+    const res = db.prepare('DELETE FROM calendar_events WHERE id = ?').run(eventId);
+    return {removed: res.changes > 0};
 }
 
 function ensureDefaultLocalAddressBook(accountId: number): number {
@@ -699,6 +1048,21 @@ function normalizeBookName(value: string): string {
         .trim()
         .replace(/\s+/g, ' ')
         .slice(0, 120);
+}
+
+function normalizeRemoteBookUrl(value: string | null | undefined): string {
+    const normalized = String(value || '').trim();
+    if (!normalized) return '';
+    return normalized.endsWith('/') ? normalized : `${normalized}/`;
+}
+
+function deriveAddressBookNameFromUrl(remoteUrl: string): string {
+    const normalized = normalizeRemoteBookUrl(remoteUrl);
+    if (!normalized) return 'Address Book';
+    const parts = normalized.split('/').filter(Boolean);
+    const tail = decodeURIComponent(parts[parts.length - 1] || '').trim();
+    if (!tail) return 'Address Book';
+    return tail;
 }
 
 function normalizeDisplayName(value: string | null | undefined): string | null {

@@ -10,6 +10,7 @@ export function useAccounts() {
         queryKey: ['accounts'],
         queryFn: () => ipcClient.getAccounts(),
         initialData: [] as PublicAccount[],
+        refetchOnMount: 'always',
     });
     const unreadCountQuery = useQuery({
         queryKey: ['unread-count'],

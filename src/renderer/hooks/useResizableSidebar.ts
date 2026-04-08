@@ -50,12 +50,19 @@ export function useResizableSidebar(options: ResizableSidebarOptions = {}) {
 		readSavedWidth(storageKey, minWidth, maxWidth, defaultWidth),
 	);
 	const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+	const activeHandleRef = useRef<HTMLElement | null>(null);
 	const widthRef = useRef(sidebarWidth);
 	const draggingClass = 'is-resizing-sidebar';
+	const activeHandleClass = 'is-active-resize-handle';
 
 	const onResizeStart = useCallback(
 		(event: React.MouseEvent<HTMLDivElement>) => {
 			event.preventDefault();
+			if (activeHandleRef.current) {
+				activeHandleRef.current.classList.remove(activeHandleClass);
+			}
+			activeHandleRef.current = event.currentTarget;
+			activeHandleRef.current.classList.add(activeHandleClass);
 			dragRef.current = {
 				startX: event.clientX,
 				startWidth: sidebarWidth,
@@ -74,6 +81,10 @@ export function useResizableSidebar(options: ResizableSidebarOptions = {}) {
 					writeSavedWidth(widthRef.current, storageKey, minWidth, maxWidth, defaultWidth);
 				}
 				dragRef.current = null;
+				if (activeHandleRef.current) {
+					activeHandleRef.current.classList.remove(activeHandleClass);
+					activeHandleRef.current = null;
+				}
 				document.body.classList.remove(draggingClass);
 				window.removeEventListener('mousemove', onMouseMove);
 				window.removeEventListener('mouseup', onMouseUp);
@@ -93,6 +104,10 @@ export function useResizableSidebar(options: ResizableSidebarOptions = {}) {
 	useEffect(() => {
 		return () => {
 			document.body.classList.remove(draggingClass);
+			if (activeHandleRef.current) {
+				activeHandleRef.current.classList.remove(activeHandleClass);
+				activeHandleRef.current = null;
+			}
 		};
 	}, []);
 

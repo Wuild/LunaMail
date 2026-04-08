@@ -57,6 +57,7 @@
     "drizzle-kit": "^0.24.0",
     "electron": "^41.1.1",
     "electron-builder": "^26.8.1",
+    "electron-devtools-installer": "^4.0.0",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -110,6 +111,7 @@
       "public/**/*",
       "resources/**/*",
       "build/**/*",
+      "drizzle/**/*",
       "preload.cjs",
       "package.json"
     ],

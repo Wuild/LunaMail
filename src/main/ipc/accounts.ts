@@ -44,10 +44,13 @@ import {
     addContact,
     type DavSyncSummary,
     discoverDav,
+    discoverDavPreview,
+    editCalendarEvent,
     editContact,
     getAddressBooks,
     getCalendarEvents,
     getContacts,
+    removeCalendarEvent,
     removeAddressBook,
     removeContact,
     syncDav,
@@ -251,6 +254,7 @@ export function registerAccountIpc(): void {
 
     registerDavIpc({
         discoverDav,
+        discoverDavPreview,
         syncDav,
         getContacts,
         listRecentRecipients,
@@ -264,6 +268,8 @@ export function registerAccountIpc(): void {
         toCsv,
         getCalendarEvents,
         addCalendarEvent,
+        editCalendarEvent,
+        removeCalendarEvent,
     });
 }
 
@@ -796,12 +802,22 @@ function scheduleFolderIdleReconnect(state: IdleWatcherState, folder: FolderIdle
     if (folder.reconnectTimer) return;
     if (folder.client) {
         try {
-            folder.client.close();
+            const closeResult = (folder.client as any).close?.();
+            if (closeResult && typeof closeResult.then === 'function') {
+                void closeResult.catch(() => {
+                    // ignore
+                });
+            }
         } catch {
             // ignore
         }
         try {
-            void folder.client.logout();
+            const logoutResult = folder.client.logout();
+            if (logoutResult && typeof (logoutResult as any).then === 'function') {
+                void (logoutResult as Promise<void>).catch(() => {
+                    // ignore
+                });
+            }
         } catch {
             // ignore
         }
@@ -824,12 +840,22 @@ function stopFolderIdleWatcher(state: IdleWatcherState, mailboxPath: string): vo
     }
     if (folder.client) {
         try {
-            folder.client.close();
+            const closeResult = (folder.client as any).close?.();
+            if (closeResult && typeof closeResult.then === 'function') {
+                void closeResult.catch(() => {
+                    // ignore
+                });
+            }
         } catch {
             // ignore
         }
         try {
-            void folder.client.logout();
+            const logoutResult = folder.client.logout();
+            if (logoutResult && typeof (logoutResult as any).then === 'function') {
+                void (logoutResult as Promise<void>).catch(() => {
+                    // ignore
+                });
+            }
         } catch {
             // ignore
         }

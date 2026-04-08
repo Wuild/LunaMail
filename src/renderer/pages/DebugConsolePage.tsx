@@ -10,7 +10,30 @@ const SOURCE_OPTIONS: Array<{ value: DebugLogEntry['source']; label: string }> =
     {value: 'smtp', label: 'SMTP'},
     {value: 'carddav', label: 'CardDav'},
     {value: 'caldav', label: 'CalDav'},
+    {value: 'cloud', label: 'Cloud'},
     {value: 'app', label: 'App'},
+];
+
+const LEVEL_OPTIONS: Array<{ value: DebugLogEntry['level']; label: string }> = [
+    {value: 'trace', label: 'Trace'},
+    {value: 'debug', label: 'Debug'},
+    {value: 'info', label: 'Info'},
+    {value: 'warn', label: 'Warn'},
+    {value: 'error', label: 'Error'},
+    {value: 'fatal', label: 'Fatal'},
+];
+
+type DebugCategory = 'all' | 'app-boot' | 'ipc' | 'mail' | 'dav' | 'cloud' | 'updater' | 'sync';
+
+const CATEGORY_OPTIONS: Array<{ value: DebugCategory; label: string }> = [
+    {value: 'all', label: 'All categories'},
+    {value: 'app-boot', label: 'App boot'},
+    {value: 'ipc', label: 'IPC'},
+    {value: 'mail', label: 'Mail'},
+    {value: 'dav', label: 'DAV'},
+    {value: 'cloud', label: 'Cloud'},
+    {value: 'updater', label: 'Updater'},
+    {value: 'sync', label: 'Sync'},
 ];
 
 export default function DebugConsolePage({embedded = false}: { embedded?: boolean }) {
@@ -20,6 +43,10 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
     const [selectedSources, setSelectedSources] = useState<DebugLogEntry['source'][]>(
         SOURCE_OPTIONS.map((option) => option.value),
     );
+    const [selectedLevels, setSelectedLevels] = useState<DebugLogEntry['level'][]>(
+        LEVEL_OPTIONS.map((option) => option.value),
+    );
+    const [selectedCategory, setSelectedCategory] = useState<DebugCategory>('all');
     const listRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
@@ -60,9 +87,14 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
         [logs],
     );
     const filteredLogs = useMemo(() => {
-        const selected = new Set(selectedSources);
-        return renderedLogs.filter((entry) => selected.has(entry.source));
-    }, [renderedLogs, selectedSources]);
+        const selectedSourceSet = new Set(selectedSources);
+        const selectedLevelSet = new Set(selectedLevels);
+        return renderedLogs.filter((entry) => {
+            if (!selectedSourceSet.has(entry.source)) return false;
+            if (!selectedLevelSet.has(entry.level)) return false;
+            return matchesCategory(entry, selectedCategory);
+        });
+    }, [renderedLogs, selectedSources, selectedLevels, selectedCategory]);
 
     function onClear(): void {
         void ipcClient
@@ -83,6 +115,16 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
         });
     }
 
+    function onToggleLevel(level: DebugLogEntry['level']): void {
+        setSelectedLevels((prev) => {
+            if (prev.includes(level)) {
+                if (prev.length === 1) return prev;
+                return prev.filter((item) => item !== level);
+            }
+            return [...prev, level];
+        });
+    }
+
     return (
         <div className="h-full w-full overflow-hidden bg-slate-100 dark:bg-[#23252b]">
             <div className="flex h-full flex-col">
@@ -92,7 +134,7 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
                     <div>
                         <h1 className="text-base font-semibold text-slate-900 dark:text-slate-100">Debug Console</h1>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Live logs with source filters (IMAP, SMTP, CardDav, CalDav, App)
+                            Live logs with source, level, and category filters (including App boot logs)
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -141,6 +183,35 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
                         );
                     })}
                 </div>
+                <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 dark:border-[#3a3d44] dark:bg-[#1a1c21]">
+                    <select
+                        value={selectedCategory}
+                        onChange={(event) => setSelectedCategory(event.target.value as DebugCategory)}
+                        className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-700 outline-none dark:border-[#3a3d44] dark:bg-[#111317] dark:text-slate-200"
+                    >
+                        {CATEGORY_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                    {LEVEL_OPTIONS.map((option) => {
+                        const checked = selectedLevels.includes(option.value);
+                        return (
+                            <label
+                                key={option.value}
+                                className="inline-flex items-center gap-1.5 rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-[#3a3d44] dark:text-slate-200"
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => onToggleLevel(option.value)}
+                                />
+                                {option.label}
+                            </label>
+                        );
+                    })}
+                </div>
                 <main className="min-h-0 flex-1 p-3">
                     <div
                         ref={listRef}
@@ -164,6 +235,42 @@ export default function DebugConsolePage({embedded = false}: { embedded?: boolea
             </div>
         </div>
     );
+}
+
+function matchesCategory(entry: DebugLogEntry & { timestampLabel?: string }, category: DebugCategory): boolean {
+    if (category === 'all') return true;
+    const scope = String(entry.scope || '').toLowerCase();
+    const message = String(entry.message || '').toLowerCase();
+    if (category === 'cloud') return entry.source === 'cloud' || scope.includes('cloud');
+    if (category === 'mail') return entry.source === 'imap' || entry.source === 'smtp';
+    if (category === 'dav') return entry.source === 'carddav' || entry.source === 'caldav';
+    if (category === 'updater') return scope.includes('updater') || message.includes('update');
+    if (category === 'ipc') return scope.startsWith('ipc:') || message.includes('ipc ');
+    if (category === 'sync') {
+        return (
+            message.includes('sync') ||
+            scope.includes('sync:') ||
+            message.includes('autosync') ||
+            message.includes('idle')
+        );
+    }
+    if (category === 'app-boot') {
+        if (entry.source !== 'app') return false;
+        return (
+            scope === 'main' ||
+            message.includes('app ready') ||
+            message.includes('ready start') ||
+            message.includes('database initialized') ||
+            message.includes('ipc handlers registered') ||
+            message.includes('auto updater initialized') ||
+            message.includes('loaded accounts count') ||
+            message.includes('creating main window') ||
+            message.includes('main window created') ||
+            message.includes('startup update flow result') ||
+            message.includes('auto sync started')
+        );
+    }
+    return true;
 }
 
 function levelClass(level: DebugLogEntry['level']): string {

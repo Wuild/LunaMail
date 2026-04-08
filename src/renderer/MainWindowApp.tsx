@@ -370,7 +370,11 @@ function MainWindowShell() {
 							);
 						})}
 					</div>
-					<div className="flex flex-col items-center gap-2">
+					<div className="flex w-full flex-col items-center gap-2">
+						<div
+							aria-hidden
+							className="my-0.5 h-px w-9 bg-gradient-to-r from-transparent via-white/30 to-transparent dark:via-white/20"
+						/>
 						<NavRailItem to="/settings/application" icon={<Settings size={16}/>} label="Settings"/>
 						<NavRailItem to="/debug" icon={<Bug size={16}/>} label="Debug"/>
 						<NavRailItem to="/help" icon={<CircleHelp size={16}/>} label="Help"/>

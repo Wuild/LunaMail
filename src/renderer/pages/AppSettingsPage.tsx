@@ -20,9 +20,9 @@ import WorkspaceLayout from '../layouts/WorkspaceLayout';
 import MarkdownLexicalEditor from '../components/MarkdownLexicalEditor';
 import {useResizableSidebar} from '../hooks/useResizableSidebar';
 import {normalizeAllowlistEntry} from '../features/mail/remoteContent';
+import {useAccounts} from '../hooks/ipc/useAccounts';
 import {useAppSettings as useIpcAppSettings} from '../hooks/ipc/useAppSettings';
 import {useAutoUpdateState} from '../hooks/ipc/useAutoUpdateState';
-import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
 import {ipcClient} from '../lib/ipcClient';
 import {DEFAULT_APP_SETTINGS} from '../../shared/defaults';
 import {normalizeSyncIntervalMinutes, parseAppLanguage} from '../../shared/settingsRules';
@@ -80,13 +80,7 @@ export default function AppSettingsPage({
 }: AppSettingsPageProps) {
 	const {appSettings: settings, setAppSettings: setSettings} = useIpcAppSettings(DEFAULT_APP_SETTINGS);
 	const {state: autoUpdateState, setState: setAutoUpdateState} = useAutoUpdateState();
-	const accountsQuery = useQuery({
-		queryKey: ['accounts', 'settings-page'],
-		queryFn: () => ipcClient.getAccounts(),
-		initialData: [],
-		refetchOnMount: 'always',
-	});
-	const accounts = accountsQuery.data;
+	const {accounts} = useAccounts();
 	const [updateActionBusy, setUpdateActionBusy] = useState(false);
 	const [appStatus, setAppStatus] = useState<string | null>(null);
 	const [panel, setPanel] = useState<SettingsPanel>(
@@ -103,7 +97,6 @@ export default function AppSettingsPage({
 	const [savingAccount, setSavingAccount] = useState(false);
 	const [deletingAccount, setDeletingAccount] = useState(false);
 	const [accountStatus, setAccountStatus] = useState<string | null>(null);
-	const [mailFilters, setMailFilters] = useState<MailFilter[]>([]);
 	const [mailFilterBusy, setMailFilterBusy] = useState(false);
 	const [runningFilterId, setRunningFilterId] = useState<number | null>(null);
 	const [developerStatus, setDeveloperStatus] = useState<string | null>(null);
@@ -125,18 +118,6 @@ export default function AppSettingsPage({
 		});
 
 	const saveRequestSeqRef = useRef(0);
-
-	useIpcEvent(ipcClient.onAccountAdded, () => {
-		void accountsQuery.refetch();
-	});
-
-	useIpcEvent(ipcClient.onAccountUpdated, () => {
-		void accountsQuery.refetch();
-	});
-
-	useIpcEvent(ipcClient.onAccountDeleted, () => {
-		void accountsQuery.refetch();
-	});
 
 	useEffect(() => {
 		setPanel((prev) => {
@@ -182,6 +163,13 @@ export default function AppSettingsPage({
 		initialData: [] as FolderItem[],
 	});
 	const accountFolders = accountFoldersQuery.data;
+	const mailFiltersQuery = useQuery({
+		queryKey: ['mail-filters', selectedAccount?.id ?? null],
+		queryFn: () => ipcClient.getMailFilters(selectedAccount!.id),
+		enabled: Boolean(selectedAccount),
+		initialData: [] as MailFilter[],
+	});
+	const mailFilters = mailFiltersQuery.data;
 
 	useEffect(() => {
 		if (!selectedAccount) {
@@ -216,22 +204,8 @@ export default function AppSettingsPage({
 
 	useEffect(() => {
 		if (!selectedAccount) {
-			setMailFilters([]);
 			setMailFilterModal(null);
-			return;
 		}
-		let active = true;
-		const accountId = selectedAccount.id;
-		void ipcClient
-			.getMailFilters(accountId)
-			.then((filters) => {
-				if (!active) return;
-				setMailFilters(filters);
-			})
-			.catch(() => undefined);
-		return () => {
-			active = false;
-		};
 	}, [selectedAccount]);
 
 	useThemePreference(settings.theme);
@@ -383,12 +357,7 @@ export default function AppSettingsPage({
 					value: action.value,
 				})),
 			});
-			setMailFilters((prev) => {
-				if (mode === 'create') return [...prev, saved];
-				const found = prev.some((row) => row.id === saved.id);
-				if (!found) return [...prev, saved];
-				return prev.map((row) => (row.id === saved.id ? saved : row));
-			});
+			await mailFiltersQuery.refetch();
 			setMailFilterModal(null);
 			setAccountStatus(mode === 'create' ? 'Filter created.' : 'Filter saved.');
 		} catch (e: any) {
@@ -405,7 +374,7 @@ export default function AppSettingsPage({
 		try {
 			const result = await ipcClient.deleteMailFilter(selectedAccount.id, filterId);
 			if (result.removed) {
-				setMailFilters((prev) => prev.filter((filter) => filter.id !== filterId));
+				await mailFiltersQuery.refetch();
 				setAccountStatus('Filter deleted.');
 			} else {
 				setAccountStatus('Filter was already removed.');

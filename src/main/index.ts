@@ -1075,9 +1075,12 @@ if (!gotSingleInstanceLock) {
 		});
 		setAccountCountChangedListener((count) => {
 			if (count > 0) return;
-			closeMainWindowForNoAccounts();
 			openAddAccountWindow(undefined);
 			attachAddAccountWindowCloseBehavior();
+			// Close the main window after requesting the wizard to avoid a transient zero-window app state.
+			setImmediate(() => {
+				closeMainWindowForNoAccounts();
+			});
 		});
 		setNewMailListener(({newMessages, source, target}) => {
 			if (newMessages <= 0) return;

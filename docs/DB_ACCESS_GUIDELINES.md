@@ -32,6 +32,17 @@ Migrate these first to Drizzle (unless benchmarked exceptions are documented):
 - Read/unread mutation flows
 - Move/archive/delete message flows
 
+## Current Raw SQL Hot Paths (Justified for now)
+
+The following paths are intentionally retained as raw SQL pending a larger repository decomposition:
+
+- `mailRepo.listThreadMessagesByFolder(...)`
+  - Uses multi-CTE + window-function ranking for thread collapse; currently clearer and faster in SQL form.
+- `mailRepo.searchMessages(...)`
+  - Uses dynamic folder scoping + optional body joins; SQL keeps branching and query plan control explicit.
+- Legacy DAV/contact/calendar repository operations (`davRepo.ts`)
+  - High churn and broad surface area; migration should happen in smaller, behavior-preserving slices.
+
 ## Review Checklist for DB PRs
 
 - New code is Drizzle-first unless exception documented.

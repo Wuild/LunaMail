@@ -1,24 +1,12 @@
 import React from 'react';
-import {
-	Bug,
-	CalendarDays,
-	ChevronLeft,
-	ChevronRight,
-	CircleHelp,
-	Mail,
-	PenSquare,
-	Search,
-	Settings,
-	Star,
-	Users,
-} from 'lucide-react';
+import {Star} from 'lucide-react';
 import type {FolderItem, MessageItem, PublicAccount} from '../../preload/index';
 import type {MailView} from '../../shared/ipcTypes';
-import {Button} from '../components/ui/button';
 import AccountContextMenu from '../components/mail/AccountContextMenu';
 import AccountFolderSidebar from '../components/mail/AccountFolderSidebar';
 import CreateFolderModal from '../components/mail/CreateFolderModal';
 import FolderEditModal from '../components/mail/FolderEditModal';
+import MainLayoutMenubar from '../components/mail/MainLayoutMenubar';
 import MailSearchModal from '../components/mail/MailSearchModal';
 import MessageFolderContextMenu from '../components/mail/MessageFolderContextMenu';
 import SideListMailPane from '../components/mail/SideListMailPane';
@@ -36,8 +24,16 @@ import {
 	getThreadCount,
 } from '../lib/mailMessageFormat';
 import {getFolderColorClass, getFolderIcon, getFolderSwatchClass} from '../lib/mail/folderPresentation';
+import {
+	DEFAULT_TABLE_COLUMNS,
+	DEFAULT_TABLE_COLUMN_WIDTHS,
+	normalizeColumnWidth,
+	TABLE_COLUMN_OPTIONS,
+	type MailTableColumnKey,
+} from '../lib/mail/tableConfig';
 import {getTagDotClass, getTagLabel} from '../lib/mail/tagPresentation';
 import {useResizableSidebar} from '../hooks/useResizableSidebar';
+import {ipcClient} from '../lib/ipcClient';
 import {cn} from '../lib/utils';
 import type {Workspace} from '../lib/workspace';
 import WorkspaceLayout from './WorkspaceLayout';
@@ -140,55 +136,6 @@ const SIDE_LIST_SPLIT_BREAKPOINT_PX = 1320;
 const SIDE_LIST_SIDEBAR_WINDOW_FRACTION = 0.5;
 const SIDE_LIST_MIN_SIDEBAR_WIDTH_PX = 180;
 const TOP_TABLE_COMPACT_BREAKPOINT_PX = 860;
-
-type MailTableColumnKey =
-	| 'subject'
-	| 'from'
-	| 'recipient'
-	| 'date'
-	| 'read_status'
-	| 'flagged'
-	| 'tag'
-	| 'account'
-	| 'location'
-	| 'size';
-const DEFAULT_TABLE_COLUMNS: MailTableColumnKey[] = ['subject', 'from', 'date'];
-const DEFAULT_TABLE_COLUMN_WIDTHS: Record<MailTableColumnKey, number> = {
-	subject: 360,
-	from: 220,
-	recipient: 220,
-	date: 170,
-	read_status: 96,
-	flagged: 72,
-	tag: 120,
-	account: 180,
-	location: 180,
-	size: 92,
-};
-const MIN_TABLE_COLUMN_WIDTHS: Record<MailTableColumnKey, number> = {
-	subject: 16,
-	from: 16,
-	recipient: 16,
-	date: 16,
-	read_status: 16,
-	flagged: 16,
-	tag: 16,
-	account: 16,
-	location: 16,
-	size: 16,
-};
-const TABLE_COLUMN_OPTIONS: Array<{ key: MailTableColumnKey; label: string }> = [
-	{key: 'subject', label: 'Subject'},
-	{key: 'from', label: 'From'},
-	{key: 'recipient', label: 'Recipient'},
-	{key: 'date', label: 'Date'},
-	{key: 'read_status', label: 'Read status'},
-	{key: 'flagged', label: 'Starred'},
-	{key: 'tag', label: 'Tag'},
-	{key: 'account', label: 'Account'},
-	{key: 'location', label: 'Location'},
-	{key: 'size', label: 'Size'},
-];
 
 const MESSAGE_TAG_OPTIONS: Array<{ value: string; label: string; dotClass: string }> = [
 	{value: 'important', label: 'Important', dotClass: 'bg-red-500'},
@@ -878,7 +825,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 			next.add(accountId);
 			return next;
 		});
-		void window.electronAPI
+		void ipcClient
 			.syncAccount(accountId)
 			.catch((error) => {
 				console.error('Failed to sync account', accountId, error);
@@ -1175,117 +1122,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				className="bg-slate-100 dark:bg-[#2f3136]"
 				showMenuBar={!hideHeader}
 				menubar={
-					<div className="flex h-full items-center justify-between gap-3 px-4">
-						<div className="min-w-0 flex items-center gap-3">
-							<div className="flex items-center gap-2">
-								<Button
-									variant="ghost"
-									className="h-9 w-9 rounded-md p-0 text-white/90 hover:bg-white/15 hover:text-white disabled:opacity-40"
-									onClick={() => onNavigateBack?.()}
-									title="Back"
-									aria-label="Back"
-									disabled={!canNavigateBack}
-								>
-									<ChevronLeft size={16}/>
-								</Button>
-								<Button
-									variant="ghost"
-									className="h-9 w-9 rounded-md p-0 text-white/90 hover:bg-white/15 hover:text-white disabled:opacity-40"
-									onClick={() => onNavigateForward?.()}
-									title="Forward"
-									aria-label="Forward"
-									disabled={!canNavigateForward}
-								>
-									<ChevronRight size={16}/>
-								</Button>
-								<Mail size={18} className="opacity-90"/>
-								<p className="truncate text-base font-semibold tracking-tight text-white">LunaMail</p>
-							</div>
-							<Button
-								variant="ghost"
-								className="h-9 rounded-md px-3 text-white/90 hover:bg-white/15 hover:text-white"
-								onClick={() => window.electronAPI.openComposeWindow()}
-								title="Compose"
-								aria-label="Compose"
-							>
-								<PenSquare size={16} className="mr-2"/>
-								<span className="text-sm font-medium">Compose</span>
-							</Button>
-							<Button
-								variant="ghost"
-								className={cn(
-									'h-9 rounded-md px-3 text-white/90 hover:bg-white/15 hover:text-white',
-									activeWorkspace === 'calendar' && 'bg-white/20 text-white',
-								)}
-								onClick={onOpenCalendar}
-								title="Open calendar"
-								aria-label="Open calendar"
-							>
-								<CalendarDays size={16} className="mr-2"/>
-								<span className="text-sm font-medium">Calendar</span>
-							</Button>
-							<Button
-								variant="ghost"
-								className={cn(
-									'h-9 rounded-md px-3 text-white/90 hover:bg-white/15 hover:text-white',
-									activeWorkspace === 'contacts' && 'bg-white/20 text-white',
-								)}
-								onClick={onOpenContacts}
-								title="Open contacts"
-								aria-label="Open contacts"
-							>
-								<Users size={16} className="mr-2"/>
-								<span className="text-sm font-medium">Contacts</span>
-							</Button>
-						</div>
-						<div className="flex items-center justify-end">
-							<Button
-								variant="ghost"
-								className={cn(
-									'mr-1 h-9 w-9 rounded-md p-0 text-white/90 hover:bg-white/15 hover:text-white',
-									searchModalOpen && 'bg-white/20 text-white',
-								)}
-								onClick={() => setSearchModalOpen(true)}
-								title="Search mail"
-								aria-label="Search mail"
-							>
-								<Search size={15}/>
-							</Button>
-							<Button
-								variant="ghost"
-								className="mr-1 h-9 w-9 rounded-md p-0 text-white/90 hover:bg-white/15 hover:text-white"
-								onClick={() => {
-									window.location.hash = '/settings/application';
-								}}
-								title="App settings"
-								aria-label="App settings"
-							>
-								<Settings size={17}/>
-							</Button>
-							<Button
-								variant="ghost"
-								className="h-9 w-9 rounded-md p-0 text-white/90 hover:bg-white/15 hover:text-white"
-								onClick={() => {
-									window.location.hash = '/debug';
-								}}
-								title="Debug console"
-								aria-label="Debug console"
-							>
-								<Bug size={17}/>
-							</Button>
-							<Button
-								variant="ghost"
-								className="h-9 w-9 rounded-md p-0 text-white/90 hover:bg-white/15 hover:text-white"
-								onClick={() => {
-									window.location.hash = '/help';
-								}}
-								title="Support"
-								aria-label="Support"
-							>
-								<CircleHelp size={17}/>
-							</Button>
-						</div>
-					</div>
+					<MainLayoutMenubar
+						canNavigateBack={canNavigateBack}
+						canNavigateForward={canNavigateForward}
+						onNavigateBack={onNavigateBack}
+						onNavigateForward={onNavigateForward}
+						activeWorkspace={activeWorkspace}
+						searchModalOpen={searchModalOpen}
+						onOpenSearch={() => setSearchModalOpen(true)}
+						onOpenCalendar={onOpenCalendar}
+						onOpenContacts={onOpenContacts}
+					/>
 				}
 				showStatusBar
 				statusText={syncStatusText || 'Ready'}
@@ -1322,7 +1169,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 							setAccountMenu({x, y, account});
 						}}
 						onOpenCompose={(accountId) => {
-							void window.electronAPI.openComposeWindow(accountId ? {accountId} : null);
+							void ipcClient.openComposeWindow(accountId ? {accountId} : undefined);
 						}}
 						onHandleMessageDropOnFolder={handleMessageDropOnFolder}
 						onOpenFolderContextMenu={(accountId, folder, x, y) => {
@@ -1370,7 +1217,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 								setMenu({kind: 'message', x, y, message});
 							}}
 							onOpenMessageWindow={(messageId) => {
-								void window.electronAPI.openMessageWindow(messageId);
+								void ipcClient.openMessageWindow(messageId);
 							}}
 							onResizeStart={onMailListResizeStart}
 							getThreadCount={getThreadCount}
@@ -1434,7 +1281,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 								setMenu({kind: 'message', x, y, message});
 							}}
 							onOpenMessageWindow={(messageId) => {
-								void window.electronAPI.openMessageWindow(messageId);
+								void ipcClient.openMessageWindow(messageId);
 							}}
 							renderTableCell={renderTableCell}
 							onTopListResizeStart={onTopListResizeStart}
@@ -1547,7 +1394,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				isProtectedFolder={isProtectedFolder}
 				onClose={() => setMenu(null)}
 				onOpenMessageWindow={(messageId) => {
-					void window.electronAPI.openMessageWindow(messageId);
+					void ipcClient.openMessageWindow(messageId);
 				}}
 				onMessageMarkReadToggle={onMessageMarkReadToggle}
 				onMessageFlagToggle={onMessageFlagToggle}
@@ -1624,13 +1471,6 @@ function renderTagCell(tag: string | null): React.ReactNode {
 			<span className="truncate">{label}</span>
 		</span>
 	);
-}
-
-function normalizeColumnWidth(value: unknown, key: MailTableColumnKey): number {
-	const numeric = Number(value);
-	if (!Number.isFinite(numeric)) return DEFAULT_TABLE_COLUMN_WIDTHS[key];
-	const min = MIN_TABLE_COLUMN_WIDTHS[key];
-	return Math.max(min, Math.round(numeric));
 }
 
 function constrainToViewport(x: number, y: number, width: number, height: number): { left: number; top: number } {

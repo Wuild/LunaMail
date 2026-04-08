@@ -280,7 +280,7 @@ function ComposeEmailPage() {
         autosaveTimerRef.current = setTimeout(() => {
             const payload = draftPayload;
             const currentSignature = signature;
-            void window.electronAPI
+            void ipcClient
                 .saveDraft(payload)
                 .then(() => {
                     lastSavedSignatureRef.current = currentSignature;

@@ -3,6 +3,8 @@ import {eq} from 'drizzle-orm';
 import {getDb, getDrizzle} from '../drizzle.js';
 import {accounts, type InsertAccount} from '../schema.js';
 
+// This repository still contains parameterized raw SQL for a few multi-step cleanup paths while Drizzle migration is
+// completed incrementally. Keep new data access Drizzle-first unless there is a documented exception.
 const SERVICE_NAME = 'LunaMail';
 
 export interface PublicAccount {

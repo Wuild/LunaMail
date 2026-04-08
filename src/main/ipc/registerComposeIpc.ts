@@ -1,4 +1,5 @@
 import {ipcMain} from 'electron';
+import {parseOptionalPositiveInt, parsePositiveInt, parseRequiredObject} from './validation.js';
 
 type ComposeIpcDeps = {
     appLogger: { debug: (...args: any[]) => void; info: (...args: any[]) => void };
@@ -9,16 +10,20 @@ type ComposeIpcDeps = {
 
 export function registerComposeIpc(deps: ComposeIpcDeps): void {
     ipcMain.handle('send-email', async (_event, payload: any) => {
-        deps.appLogger.info('IPC send-email accountId=%d toLen=%d', payload.accountId, String(payload.to || '').length);
-        const result = await deps.sendEmail(payload);
-        void deps.runSyncAndBroadcast(payload.accountId, 'send').catch((error) => {
+        const safePayload = parseRequiredObject(payload, 'payload');
+        const accountId = parsePositiveInt(safePayload.accountId, 'payload.accountId');
+        deps.appLogger.info('IPC send-email accountId=%d toLen=%d', accountId, String(safePayload.to || '').length);
+        const result = await deps.sendEmail(safePayload);
+        void deps.runSyncAndBroadcast(accountId, 'send').catch((error) => {
             console.warn('Post-send sync failed:', (error as any)?.message || String(error));
         });
         return result;
     });
 
     ipcMain.handle('save-draft', async (_event, payload: any) => {
-        deps.appLogger.debug('IPC save-draft accountId=%d', payload.accountId);
-        return await deps.saveDraftEmail(payload);
+        const safePayload = parseRequiredObject(payload, 'payload');
+        const accountId = parseOptionalPositiveInt(safePayload.accountId, 'payload.accountId');
+        deps.appLogger.debug('IPC save-draft accountId=%s', accountId ?? '');
+        return await deps.saveDraftEmail(safePayload);
     });
 }

@@ -10,6 +10,8 @@ import type {
     UpsertMailFilterPayload,
 } from '../../../shared/ipcTypes.js';
 
+// Filter CRUD remains intentionally raw SQL for now because it spans parent/child tables with transactional upsert
+// semantics. Keep all statements parameterized and scoped to repository functions.
 export type {
     MailFilter,
     MailFilterAction,

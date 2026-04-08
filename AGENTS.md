@@ -106,12 +106,14 @@ src/
 - If a view is reachable as a route in the main app shell, do not create a separate Electron window for it.
 - Window bootstraps must live under `src/renderer/entrypoints/` and mount through shared helpers.
 - Prefer shared hooks/components over page-local copies when logic/UI appears in more than one page.
-- Use the existing shared page layout system (`WorkspaceLayout` + existing sidebar/status patterns) for new or
-  refactored main-window pages by default. Only introduce a custom page shell/layout when explicitly requested.
+- Use `WorkspaceLayout` as the default page shell for new/refactored main-window routes.
+- If a request references `WorkPageLayout`, treat it as `WorkspaceLayout` in this codebase.
+- Keep existing sidebar/status/titlebar patterns unless a change request explicitly asks for a new shell.
 - Required shared primitives currently in use:
     - Theme synchronization: `src/renderer/hooks/useAppTheme.ts`
     - Reusable grouped server settings card: `src/renderer/components/settings/ServiceSettingsCard.tsx`
     - Reusable data-driven sidebar: `src/renderer/components/navigation/DynamicSidebar.tsx`
+    - Renderer bridge client: `src/renderer/lib/ipcClient.ts` (avoid direct `window.electronAPI` usage outside this module)
 
 ---
 
@@ -383,11 +385,13 @@ Use electron-builder:
 ## ⚠️ Important Rules for Agents
 
 - NEVER bypass preload layer
+- NEVER call `window.electronAPI` directly from pages/components/hooks; use `src/renderer/lib/ipcClient.ts`
 - NEVER store plain passwords
 - ALWAYS sanitize HTML
 - KEEP logic out of React (UI only)
 - USE SQLite for offline-first behavior
-- USE Drizzle ORM for database queries; avoid raw SQL in app code except inside migrations
+- USE Drizzle ORM for repository queries by default
+- Raw SQL is allowed only when justified (complex CTE/window queries or measured hot paths), and must include a short inline rationale comment
 - MAKE all user-visible app actions truly optimistic: apply local/UI state changes immediately and run remote sync in
   the background in good faith (reconcile on failure, but do not block primary UX on network/server roundtrips)
 - FORMAT code by default using PhpStorm-style formatting conventions (consistent spacing, wrapping, and brace style as
@@ -408,6 +412,7 @@ Use this as the default process for all future development work.
 - Track work in `docs/OPTIMIZATION_ROADMAP.md` (or add a new roadmap/checklist doc for non-optimization epics).
 - Work in small, behavior-preserving slices. Check off only what is actually complete.
 - Prefer extracting pure logic into reusable modules/hooks before adding more page-level code.
+- Keep `docs/OPTIMIZATION_ROADMAP.md` and `docs/SMOKE_TEST_CHECKLIST.md` in sync with actual completed work.
 
 ### 2) Contract-First IPC Changes
 
@@ -428,6 +433,7 @@ Use this as the default process for all future development work.
 - Keep optimistic UX for user-visible actions (read/unread, tag/flag, move/delete/archive, etc.).
 - Use Zustand only for cross-route UI state that must persist beyond a single page scope.
 - Prefer shared IPC hooks/clients over direct page-local subscription boilerplate.
+- Remove redundant manual loading/error/event wiring where Query/shared hooks already cover it.
 
 ### 4) Data Layer Rules
 

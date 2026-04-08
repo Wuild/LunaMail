@@ -1,6 +1,8 @@
 import {getDb} from '../drizzle.js';
 import {randomUUID} from 'node:crypto';
 
+// DAV repository currently uses parameterized raw SQL due to breadth/legacy surface (contacts, address books,
+// calendar events). Migration to Drizzle should be done in small behavior-preserving slices.
 export interface ContactRow {
     id: number;
     account_id: number;

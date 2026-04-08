@@ -3,6 +3,8 @@ import {eq} from "drizzle-orm";
 import {getDb, getDrizzle} from "../drizzle.js";
 import {cloudAccounts, type InsertCloudAccount} from "../schema.js";
 
+// This repository keeps some parameterized raw SQL where cloud/DAV bridge cleanup is still transitioning to Drizzle.
+// Retain SQL only in this layer and prefer Drizzle for new queries.
 const SERVICE_NAME = "LunaMail";
 export const CLOUD_DAV_ACCOUNT_ID_OFFSET = 1_000_000;
 

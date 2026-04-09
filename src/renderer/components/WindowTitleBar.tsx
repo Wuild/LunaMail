@@ -1,10 +1,12 @@
+import {Button} from './ui/button';
 import React from 'react';
 import {Copy, Minus, Square, X} from 'lucide-react';
 import {cn} from '../lib/utils';
-import lunaLogo from '../../resources/luna.png';
+import llamaLogo from '../../resources/llamatray.png';
 import {useWindowControlsState} from '../hooks/ipc/useWindowControlsState';
 import {useAppSettings} from '../hooks/ipc/useAppSettings';
 import {DEFAULT_APP_SETTINGS} from '../../shared/defaults';
+import {APP_NAME} from '../../shared/appConfig';
 
 interface WindowTitleBarProps {
     title: string;
@@ -12,6 +14,7 @@ interface WindowTitleBarProps {
     showMinimize?: boolean;
     showMaximize?: boolean;
     showClose?: boolean;
+    onRequestClose?: () => boolean;
 }
 
 export default function WindowTitleBar({
@@ -20,6 +23,7 @@ export default function WindowTitleBar({
                                            showMinimize = true,
                                            showMaximize = false,
                                            showClose = true,
+                                           onRequestClose,
                                        }: WindowTitleBarProps) {
     const {appSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
     const {isMaximized, toggleMaximize, minimize, close} = useWindowControlsState();
@@ -41,8 +45,14 @@ export default function WindowTitleBar({
         >
             <div className="pointer-events-none flex min-w-0 flex-1 items-center justify-start gap-3">
                 <div className="flex shrink-0 items-center gap-2 text-xs font-medium text-white/80">
-                    <img src={lunaLogo} alt="" className="h-4 w-4 rounded-sm object-contain" draggable={false}/>
-                    <span>LunaMail</span>
+                    <img
+                        src={llamaLogo}
+                        alt=""
+                        className="h-5 w-5 object-contain contrast-125 saturate-125"
+                        style={{imageRendering: '-webkit-optimize-contrast'}}
+                        draggable={false}
+                    />
+                    <span>{APP_NAME}</span>
                 </div>
                 <span aria-hidden className="h-3.5 w-px shrink-0 bg-white/25"/>
                 <span className="block min-w-0 flex-1 truncate text-xs font-semibold tracking-wide text-white/80">
@@ -54,7 +64,7 @@ export default function WindowTitleBar({
                 style={{WebkitAppRegion: 'no-drag'} as React.CSSProperties}
             >
                 {showMinimize && (
-                    <button
+                    <Button
                         type="button"
                         className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/15 hover:text-white"
                         onClick={() => void minimize()}
@@ -62,10 +72,10 @@ export default function WindowTitleBar({
                         title="Minimize"
                     >
                         <Minus size={14}/>
-                    </button>
+                    </Button>
                 )}
                 {showMaximize && (
-                    <button
+                    <Button
                         type="button"
                         className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/15 hover:text-white"
                         onClick={() => void toggleMaximize()}
@@ -73,18 +83,21 @@ export default function WindowTitleBar({
                         title={isMaximized ? 'Restore' : 'Maximize'}
                     >
                         {isMaximized ? <Copy size={13}/> : <Square size={13}/>}
-                    </button>
+                    </Button>
                 )}
                 {showClose && (
-                    <button
+                    <Button
                         type="button"
                         className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-red-600 hover:text-white"
-                        onClick={() => void close()}
+                        onClick={() => {
+                            if (onRequestClose && !onRequestClose()) return;
+                            void close();
+                        }}
                         aria-label="Close"
                         title="Close"
                     >
                         <X size={14}/>
-                    </button>
+                    </Button>
                 )}
             </div>
         </div>

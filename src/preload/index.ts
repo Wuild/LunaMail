@@ -1,4 +1,4 @@
-import {contextBridge, ipcRenderer} from 'electron';
+import {contextBridge, ipcRenderer, webUtils} from 'electron';
 import type {
 	AppSettings,
 	AppSettingsPatch,
@@ -450,6 +450,23 @@ export interface SendEmailResult {
 	messageId: string;
 }
 
+export interface SendEmailBackgroundResult {
+	ok: true;
+	queued: true;
+	jobId: string;
+	queuedAt: number;
+}
+
+export interface SendEmailBackgroundStatusEvent {
+    jobId: string;
+    accountId: number;
+    phase: 'queued' | 'sending' | 'sent' | 'failed';
+    progress: number;
+    message: string;
+    error?: string | null;
+    timestamp: string;
+}
+
 export interface SaveDraftPayload {
 	accountId: number;
 	to?: string | null;
@@ -692,6 +709,8 @@ const api = {
 	deleteMessage: (messageId: number): Promise<{ accountId: number; folders: number; messages: number }> =>
 		ipcRenderer.invoke('delete-message', messageId),
 	sendEmail: (payload: SendEmailPayload): Promise<SendEmailResult> => ipcRenderer.invoke('send-email', payload),
+	sendEmailBackground: (payload: SendEmailPayload): Promise<SendEmailBackgroundResult> =>
+		ipcRenderer.invoke('send-email-background', payload),
 	saveDraft: (payload: SaveDraftPayload): Promise<SaveDraftResult> => ipcRenderer.invoke('save-draft', payload),
 	openAddAccountWindow: (): Promise<{ ok: true }> => ipcRenderer.invoke('open-add-account-window'),
 	openComposeWindow: (draft?: ComposeDraftPayload | null): Promise<{ ok: true }> =>
@@ -707,6 +726,7 @@ const api = {
 	restartApp: (): Promise<{ ok: true }> => ipcRenderer.invoke('app-restart'),
 	openMessageWindow: (messageId?: number | null): Promise<{ ok: true }> =>
 		ipcRenderer.invoke('open-message-window', messageId ?? null),
+	openDebugWindow: (): Promise<{ ok: true }> => ipcRenderer.invoke('open-debug-window'),
 	getDebugLogs: (limit?: number): Promise<DebugLogEntry[]> => ipcRenderer.invoke('get-debug-logs', limit),
 	clearDebugLogs: (): Promise<{ ok: true }> => ipcRenderer.invoke('clear-debug-logs'),
 	getComposeDraft: (): Promise<ComposeDraftPayload | null> => ipcRenderer.invoke('get-compose-draft'),
@@ -716,6 +736,13 @@ const api = {
 	updateAppSettings: (patch: AppSettingsPatch): Promise<AppSettings> =>
 		ipcRenderer.invoke('update-app-settings', patch),
 	pickComposeAttachments: (): Promise<PickedAttachment[]> => ipcRenderer.invoke('pick-compose-attachments'),
+	getPathForFile: (file: File): string => {
+		try {
+			return String(webUtils.getPathForFile(file) || '');
+		} catch {
+			return '';
+		}
+	},
 	getAutoUpdateState: (): Promise<AutoUpdateState> => ipcRenderer.invoke('get-auto-update-state'),
 	checkForUpdates: (): Promise<AutoUpdateState> => ipcRenderer.invoke('check-for-updates'),
 	downloadUpdate: (): Promise<AutoUpdateState> => ipcRenderer.invoke('download-update'),
@@ -725,6 +752,10 @@ const api = {
 	devPlayNotificationSound: (): Promise<{ ok: true; played: boolean }> =>
 		ipcRenderer.invoke('dev-play-notification-sound'),
 	devOpenUpdaterWindow: (): Promise<{ ok: true; opened: boolean }> => ipcRenderer.invoke('dev-open-updater-window'),
+	setDefaultEmailClient: (): Promise<{ ok: boolean; isDefault: boolean; error?: string }> =>
+		ipcRenderer.invoke('set-default-email-client'),
+	getDefaultEmailClientStatus: (): Promise<{ ok: boolean; isDefault: boolean; error?: string }> =>
+		ipcRenderer.invoke('get-default-email-client-status'),
 	onAccountAdded: (callback: (payload: { id: number; email: string }) => void): (() => void) => {
 		const listener = (
 			_event: Electron.IpcRendererEvent,
@@ -771,6 +802,11 @@ const api = {
 		ipcRenderer.on('compose-draft', listener);
 		return () => ipcRenderer.removeListener('compose-draft', listener);
 	},
+    onSendEmailBackgroundStatus: (callback: (payload: SendEmailBackgroundStatusEvent) => void): (() => void) => {
+        const listener = (_event: Electron.IpcRendererEvent, payload: SendEmailBackgroundStatusEvent) => callback(payload);
+        ipcRenderer.on('send-email-background-status', listener);
+        return () => ipcRenderer.removeListener('send-email-background-status', listener);
+    },
 	onAppSettingsUpdated: (callback: (payload: AppSettings) => void): (() => void) => {
 		const listener = (_event: Electron.IpcRendererEvent, payload: AppSettings) => callback(payload);
 		ipcRenderer.on('app-settings-updated', listener);

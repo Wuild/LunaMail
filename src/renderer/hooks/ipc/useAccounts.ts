@@ -29,7 +29,30 @@ export function useAccounts() {
         [queryClient],
     );
     const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
-    const totalUnreadCount = unreadCountQuery.data;
+    const [foldersUnreadFallback, setFoldersUnreadFallback] = useState(0);
+    const totalUnreadCount = Math.max(
+        0,
+        Math.max(Number(unreadCountQuery.data) || 0, Number(foldersUnreadFallback) || 0),
+    );
+
+    const refreshFoldersUnreadFallback = useCallback(async (rows: PublicAccount[]) => {
+        if (!rows.length) {
+            setFoldersUnreadFallback(0);
+            return;
+        }
+        const results = await Promise.allSettled(
+            rows.map((account) => ipcClient.getFolders(account.id)),
+        );
+        const total = results.reduce((sum, result) => {
+            if (result.status !== 'fulfilled') return sum;
+            const next = result.value.reduce(
+                (acc, folder) => acc + Math.max(0, Number(folder.unread_count) || 0),
+                0,
+            );
+            return sum + next;
+        }, 0);
+        setFoldersUnreadFallback(Math.max(0, total));
+    }, []);
 
     useEffect(() => {
         setSelectedAccountId((prev) => {
@@ -37,6 +60,10 @@ export function useAccounts() {
             return accounts[0]?.id ?? null;
         });
     }, [accounts]);
+
+    useEffect(() => {
+        void refreshFoldersUnreadFallback(accounts).catch(() => undefined);
+    }, [accounts, refreshFoldersUnreadFallback]);
 
     useIpcEvent(ipcClient.onAccountAdded, () => {
         void ipcClient
@@ -58,6 +85,17 @@ export function useAccounts() {
 
     useIpcEvent(ipcClient.onUnreadCountUpdated, (count) => {
         queryClient.setQueryData(['unread-count'], Math.max(0, Number(count) || 0));
+        void refreshFoldersUnreadFallback(accounts).catch(() => undefined);
+    });
+
+    useIpcEvent(ipcClient.onMessageReadUpdated, () => {
+        void ipcClient
+            .getUnreadCount()
+            .then((count) => {
+                queryClient.setQueryData(['unread-count'], Math.max(0, Number(count) || 0));
+                void refreshFoldersUnreadFallback(accounts).catch(() => undefined);
+            })
+            .catch(() => undefined);
     });
 
     return {

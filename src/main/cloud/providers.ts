@@ -1145,7 +1145,7 @@ async function uploadGoogleDriveFile(
 ): Promise<CloudUploadedItem> {
     const bearerToken = await resolveCloudBearerToken(account);
     const parentId = String(parentPathOrToken || "root").trim() || "root";
-    const boundary = `lunamail-${Date.now().toString(16)}`;
+    const boundary = `llamamail-${Date.now().toString(16)}`;
     const metadata = JSON.stringify({
         name: fileName,
         parents: [parentId],

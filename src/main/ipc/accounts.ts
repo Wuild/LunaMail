@@ -216,6 +216,7 @@ export function registerAccountIpc(): void {
         sendEmail,
         saveDraftEmail,
         runSyncAndBroadcast,
+        broadcastSendEmailBackgroundStatus: (payload) => broadcastToAllWindows('send-email-background-status', payload),
     });
 
     registerMailIpc({

@@ -31,7 +31,7 @@ import {queueCloudOAuthCallbackUrl, registerCloudIpc} from './ipc/cloud.js';
 import {registerSettingsIpc} from './ipc/settings.js';
 import {broadcastAutoUpdateState, registerUpdaterIpc} from './ipc/updater.js';
 import {registerWindowIpc} from './ipc/windows.js';
-import {getAppSettings, getAppSettingsSync, getSpellCheckerLanguages} from './settings/store.js';
+import {getAppSettings, getAppSettingsBootSnapshotSync, getAppSettingsSync, getSpellCheckerLanguages} from './settings/store.js';
 import {checkForUpdates, initAutoUpdater, runStartupUpdateFlow, setAutoUpdateEnabled} from './updater/autoUpdate.js';
 import type {GlobalErrorEvent, GlobalErrorSource} from '../shared/ipcTypes.js';
 import {broadcastGlobalError} from './ipc/broadcast.js';
@@ -46,6 +46,7 @@ import {
 	createAppWindow,
 	createFramelessAppWindow,
 } from './windows/windowFactory.js';
+import {APP_NAME, APP_PROTOCOL} from './config.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -55,6 +56,8 @@ let tray: Tray | null = null;
 let isQuitting = false;
 let currentUnreadCount = 0;
 const pendingMailtoUrls: string[] = [];
+let pendingStartupRoute: string | null = null;
+let pendingStartupCompose = false;
 let stopDebugForwarding: (() => void) | null = null;
 let backgroundUpdateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let initialBackgroundUpdateCheckTimer: ReturnType<typeof setTimeout> | null = null;
@@ -68,6 +71,10 @@ const mainWindowStatePath = path.join(app.getPath('userData'), 'main-window-stat
 const logger = createAppLogger('main');
 const MAIN_WINDOW_MIN_WIDTH = 900;
 const MAIN_WINDOW_MIN_HEIGHT = 600;
+const bootSettings = getAppSettingsBootSnapshotSync();
+if (!bootSettings.hardwareAcceleration) {
+	app.disableHardwareAcceleration();
+}
 
 type MainWindowState = {
 	width: number;
@@ -184,7 +191,7 @@ function createWindow() {
 		icon: appIconPath || undefined,
 		webPreferences: buildSecureWebPreferences({
 			preloadPath,
-			spellcheck: true,
+			spellcheck: currentSettings.spellcheckEnabled,
 		}),
 	};
 	const win = useNativeTitleBar ? createAppWindow(windowOptions) : createFramelessAppWindow(windowOptions);
@@ -205,6 +212,8 @@ function createWindow() {
 	win.on('maximize', scheduleSaveState);
 	win.on('unmaximize', scheduleSaveState);
 	win.webContents.session.setSpellCheckerLanguages(getSpellCheckerLanguages(currentSettings.language));
+	(win.webContents.session as typeof win.webContents.session & {setSpellCheckerEnabled?: (enabled: boolean) => void})
+		.setSpellCheckerEnabled?.(currentSettings.spellcheckEnabled);
 	win.on('minimize', () => {
 		const settings = getAppSettingsSync();
 		if (!settings.minimizeToTray) return;
@@ -370,23 +379,13 @@ function rectsIntersect(
 }
 
 function buildTrayIcon(unreadCount: number) {
-	if (process.platform === 'win32') {
-		const trayPath = windowsTrayIconPath || appIconPath;
-		if (trayPath) {
-			const image = nativeImage.createFromPath(trayPath);
-			if (!image.isEmpty()) {
-				return image.resize({width: 16, height: 16});
-			}
-		}
-	}
-
-	if (process.platform === 'linux') {
-		const trayPath = linuxTrayIconPath || appIconPath || path.join(app.getAppPath(), 'build/icons/64x64.png');
-		const image = nativeImage.createFromPath(trayPath);
-		if (!image.isEmpty()) {
-			return image.resize({width: 22, height: 22});
-		}
-	}
+	const trayPath =
+		process.platform === 'win32'
+			? windowsTrayIconPath || appIconPath
+			: process.platform === 'linux'
+				? linuxTrayIconPath || appIconPath || path.join(app.getAppPath(), 'build/icons/64x64.png')
+				: appIconPath;
+	const trayBaseImage = trayPath ? nativeImage.createFromPath(trayPath) : null;
 
 	const badgeText = unreadCount > 99 ? '99+' : String(unreadCount);
 	const showBadge = unreadCount > 0;
@@ -394,12 +393,32 @@ function buildTrayIcon(unreadCount: number) {
 	const badge = showBadge
 		? `<circle cx="24" cy="8" r="7" fill="#ef4444"/><text x="24" y="11" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="#fff">${badgeText}</text>`
 		: '';
-	const baseIcon = appIconPngBase64
-		? `<image href="data:image/png;base64,${appIconPngBase64}" x="0" y="0" width="32" height="32"/>`
-		: `<rect x="3" y="3" width="26" height="26" rx="7" fill="#5865f2"/><path d="M8 11h16v10H8z" fill="#fff" opacity="0.96"/><path d="M8 11l8 6 8-6" fill="none" stroke="#5865f2" stroke-width="2"/>`;
+	const baseIcon = trayBaseImage && !trayBaseImage.isEmpty()
+		? `<image href="data:image/png;base64,${trayBaseImage.resize({width: 32, height: 32}).toPNG().toString('base64')}" x="0" y="0" width="32" height="32"/>`
+		: appIconPngBase64
+			? `<image href="data:image/png;base64,${appIconPngBase64}" x="0" y="0" width="32" height="32"/>`
+			: `<rect x="3" y="3" width="26" height="26" rx="7" fill="#5865f2"/><path d="M8 11h16v10H8z" fill="#fff" opacity="0.96"/><path d="M8 11l8 6 8-6" fill="none" stroke="#5865f2" stroke-width="2"/>`;
 	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">${baseIcon}${badge}</svg>`;
 	const encoded = Buffer.from(svg).toString('base64');
-	return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${encoded}`);
+	let composed = nativeImage.createFromDataURL(`data:image/svg+xml;base64,${encoded}`);
+	if (composed.isEmpty() && unreadCount > 0) {
+		const fallbackSvg =
+			`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">` +
+			`<rect x="3" y="3" width="26" height="26" rx="7" fill="#5865f2"/>` +
+			`<path d="M8 11h16v10H8z" fill="#fff" opacity="0.96"/>` +
+			`<path d="M8 11l8 6 8-6" fill="none" stroke="#5865f2" stroke-width="2"/>` +
+			`<circle cx="24" cy="8" r="7" fill="#ef4444"/>` +
+			`<text x="24" y="11" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="#fff">${badgeText}</text>` +
+			`</svg>`;
+		const fallbackEncoded = Buffer.from(fallbackSvg).toString('base64');
+		composed = nativeImage.createFromDataURL(`data:image/svg+xml;base64,${fallbackEncoded}`);
+	}
+	if (composed.isEmpty() && trayBaseImage && !trayBaseImage.isEmpty()) {
+		composed = trayBaseImage;
+	}
+	if (process.platform === 'win32') return composed.resize({width: 16, height: 16});
+	if (process.platform === 'linux') return composed.resize({width: 22, height: 22});
+	return composed;
 }
 
 function ensureTray(): void {
@@ -408,17 +427,43 @@ function ensureTray(): void {
 	tray.setToolTip(buildTrayTooltip(currentUnreadCount));
 	const contextMenu = Menu.buildFromTemplate([
 		{
-			label: 'Show LunaMail',
+			label: `Show ${APP_NAME}`,
 			click: () => {
 				showMainWindow();
 			},
 		},
 		{
-			label: 'Open Debug Console',
+			label: 'Compose Email',
 			click: () => {
-				showMainWindow();
-				if (!mainWindow || mainWindow.isDestroyed()) return;
-				void mainWindow.webContents.executeJavaScript("window.location.hash = '/debug'");
+				openComposeQuickAction();
+			},
+		},
+		{type: 'separator'},
+		{
+			label: 'Mail',
+			click: () => navigateMainWindowToRoute('/email'),
+		},
+		{
+			label: 'Contacts',
+			click: () => navigateMainWindowToRoute('/contacts'),
+		},
+		{
+			label: 'Calendar',
+			click: () => navigateMainWindowToRoute('/calendar'),
+		},
+		{
+			label: 'Cloud',
+			click: () => navigateMainWindowToRoute('/cloud'),
+		},
+		{type: 'separator'},
+			{
+				label: 'Settings',
+				click: () => navigateMainWindowToRoute('/settings/application'),
+			},
+			{
+				label: 'Help',
+				click: () => {
+					navigateMainWindowToRoute('/help');
 			},
 		},
 		{
@@ -435,9 +480,92 @@ function ensureTray(): void {
 	});
 }
 
+function navigateMainWindowToRoute(route: string): void {
+	showMainWindow();
+	if (!mainWindow || mainWindow.isDestroyed()) return;
+	void mainWindow.webContents.executeJavaScript(`window.location.hash = ${JSON.stringify(route)}`);
+}
+
+function openComposeQuickAction(): void {
+	showMainWindow();
+	const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+	openComposeWindow(parent);
+}
+
+function toMainProcessLaunchArgs(extraArgs: string[]): string[] {
+	if (process.defaultApp && process.argv.length >= 2) {
+		return [path.resolve(process.argv[1]), ...extraArgs];
+	}
+	return extraArgs;
+}
+
+function configurePlatformQuickActions(): void {
+	if (process.platform === 'darwin' && app.dock) {
+		const dockMenu = Menu.buildFromTemplate([
+			{label: 'Compose Email', click: () => openComposeQuickAction()},
+			{type: 'separator'},
+			{label: 'Mail', click: () => navigateMainWindowToRoute('/email')},
+			{label: 'Contacts', click: () => navigateMainWindowToRoute('/contacts')},
+			{label: 'Calendar', click: () => navigateMainWindowToRoute('/calendar')},
+			{label: 'Cloud', click: () => navigateMainWindowToRoute('/cloud')},
+			{type: 'separator'},
+			{label: 'Settings', click: () => navigateMainWindowToRoute('/settings/application')},
+			{label: 'Debug', click: () => navigateMainWindowToRoute('/debug')},
+			{label: 'Help', click: () => navigateMainWindowToRoute('/help')},
+		]);
+		app.dock.setMenu(dockMenu);
+	}
+
+	if (process.platform === 'win32') {
+		const jumpPath = process.execPath;
+		void app.setJumpList([
+			{
+				type: 'tasks',
+				items: [
+					{
+						type: 'task',
+						title: 'Compose Email',
+						description: 'Open a compose window',
+						program: jumpPath,
+						args: toMainProcessLaunchArgs(['--action=compose']).join(' '),
+					},
+					{
+						type: 'task',
+						title: 'Mail',
+						description: 'Open mail',
+						program: jumpPath,
+						args: toMainProcessLaunchArgs(['--route=/email']).join(' '),
+					},
+					{
+						type: 'task',
+						title: 'Contacts',
+						description: 'Open contacts',
+						program: jumpPath,
+						args: toMainProcessLaunchArgs(['--route=/contacts']).join(' '),
+					},
+					{
+						type: 'task',
+						title: 'Calendar',
+						description: 'Open calendar',
+						program: jumpPath,
+						args: toMainProcessLaunchArgs(['--route=/calendar']).join(' '),
+					},
+					{
+						type: 'task',
+						title: 'Cloud',
+						description: 'Open cloud files',
+						program: jumpPath,
+						args: toMainProcessLaunchArgs(['--route=/cloud']).join(' '),
+					},
+				],
+			},
+		]);
+	}
+}
+
 function buildTrayTooltip(unreadCount: number): string {
-	if (unreadCount <= 0) return 'LunaMail';
-	return `LunaMail (${unreadCount} unread)`;
+	if (unreadCount <= 0) return APP_NAME;
+	return `${APP_NAME} (${unreadCount} unread)`;
 }
 
 function buildTaskbarOverlayIcon(unreadCount: number) {
@@ -457,6 +585,8 @@ function buildTaskbarOverlayIcon(unreadCount: number) {
 
 function updateUnreadIndicators(unreadCount: number): void {
 	currentUnreadCount = Math.max(0, Number(unreadCount) || 0);
+	const settings = getAppSettingsSync();
+	const showUnreadInTitleBar = settings.showUnreadInTitleBar;
 	ensureTray();
 
 	if (tray) {
@@ -478,7 +608,7 @@ function updateUnreadIndicators(unreadCount: number): void {
 		if (process.platform === 'win32') {
 			win.setOverlayIcon(overlayIcon, label ? `${label} unread` : '');
 		}
-		win.setTitle(currentUnreadCount > 0 ? `LunaMail (${currentUnreadCount})` : 'LunaMail');
+		win.setTitle(showUnreadInTitleBar && currentUnreadCount > 0 ? `${APP_NAME} (${currentUnreadCount})` : APP_NAME);
 	}
 }
 
@@ -551,13 +681,19 @@ function resolveAppIconPath(): string | null {
 		path.join(app.getAppPath(), 'build/icon.ico'),
 		path.join(app.getAppPath(), 'build/icons/512x512.png'),
 		path.join(app.getAppPath(), 'build/icon.png'),
+		path.join(app.getAppPath(), 'src/resources/llama.ico'),
+		path.join(app.getAppPath(), 'src/resources/llama.png'),
 		path.join(app.getAppPath(), 'src/resources/luna.ico'),
 		path.join(app.getAppPath(), 'src/resources/luna.png'),
+		path.join(__dirname, '../resources/llama.ico'),
+		path.join(__dirname, '../resources/llama.png'),
 		path.join(__dirname, '../resources/luna.ico'),
 		path.join(__dirname, '../resources/luna.png'),
 		path.join(process.cwd(), 'build/icon.ico'),
 		path.join(process.cwd(), 'build/icons/512x512.png'),
 		path.join(process.cwd(), 'build/icon.png'),
+		path.join(process.cwd(), 'src/resources/llama.ico'),
+		path.join(process.cwd(), 'src/resources/llama.png'),
 		path.join(process.cwd(), 'src/resources/luna.ico'),
 		path.join(process.cwd(), 'src/resources/luna.png'),
 	];
@@ -569,10 +705,16 @@ function resolveAppIconPath(): string | null {
 
 function resolveLinuxTrayIconPath(): string | null {
 	const candidates = [
+		path.join(app.getAppPath(), 'src/resources/llamatray.png'),
+		path.join(__dirname, '../resources/llamatray.png'),
+		path.join(process.cwd(), 'src/resources/llamatray.png'),
 		path.join(app.getAppPath(), 'build/lunatray.png'),
+		path.join(app.getAppPath(), 'src/resources/llama.png'),
 		path.join(app.getAppPath(), 'src/resources/lunatray.png'),
+		path.join(__dirname, '../resources/llama.png'),
 		path.join(__dirname, '../resources/lunatray.png'),
 		path.join(process.cwd(), 'build/lunatray.png'),
+		path.join(process.cwd(), 'src/resources/llama.png'),
 		path.join(process.cwd(), 'src/resources/lunatray.png'),
 	];
 	for (const candidate of candidates) {
@@ -585,12 +727,15 @@ function resolveWindowsTrayIconPath(): string | null {
 	const candidates = [
 		path.join(app.getAppPath(), 'build/lunatray.ico'),
 		path.join(app.getAppPath(), 'build/icon.ico'),
+		path.join(app.getAppPath(), 'src/resources/llama.ico'),
 		path.join(app.getAppPath(), 'src/resources/lunatray.ico'),
 		path.join(app.getAppPath(), 'src/resources/luna.ico'),
+		path.join(__dirname, '../resources/llama.ico'),
 		path.join(__dirname, '../resources/lunatray.ico'),
 		path.join(__dirname, '../resources/luna.ico'),
 		path.join(process.cwd(), 'build/lunatray.ico'),
 		path.join(process.cwd(), 'build/icon.ico'),
+		path.join(process.cwd(), 'src/resources/llama.ico'),
 		path.join(process.cwd(), 'src/resources/lunatray.ico'),
 		path.join(process.cwd(), 'src/resources/luna.ico'),
 	];
@@ -601,6 +746,8 @@ function resolveWindowsTrayIconPath(): string | null {
 }
 
 function playNotificationSound(): void {
+	const settings = getAppSettingsSync();
+	if (!settings.playNotificationSound) return;
 	try {
 		shell.beep();
 	} catch {
@@ -611,17 +758,21 @@ function playNotificationSound(): void {
 function applyRuntimeSettings(): void {
 	const settings = getAppSettingsSync();
 	logger.info(
-		'Applying runtime settings theme=%s syncInterval=%d autoUpdate=%s',
+		'Applying runtime settings theme=%s syncInterval=%d autoUpdate=%s spellcheck=%s',
 		settings.theme,
 		settings.syncIntervalMinutes,
 		settings.autoUpdateEnabled,
+		settings.spellcheckEnabled,
 	);
 	nativeTheme.themeSource = settings.theme === 'system' ? 'system' : settings.theme;
 	setAutoSyncIntervalMinutes(settings.syncIntervalMinutes);
 	setAutoUpdateEnabled(settings.autoUpdateEnabled);
 	for (const win of BrowserWindow.getAllWindows()) {
 		win.webContents.session.setSpellCheckerLanguages(getSpellCheckerLanguages(settings.language));
+		(win.webContents.session as typeof win.webContents.session & {setSpellCheckerEnabled?: (enabled: boolean) => void})
+			.setSpellCheckerEnabled?.(settings.spellcheckEnabled);
 	}
+	updateUnreadIndicators(currentUnreadCount);
 	ensureTray();
 }
 
@@ -635,6 +786,16 @@ function registerProtocolHandlers(): void {
 
 	app.on('second-instance', (_event, argv) => {
 		logger.info('Received second-instance event args=%d', argv.length);
+		const actionArg = findActionArg(argv);
+		if (actionArg === 'compose') {
+			openComposeQuickAction();
+			return;
+		}
+		const routeArg = findRouteArg(argv);
+		if (routeArg) {
+			navigateMainWindowToRoute(routeArg);
+			return;
+		}
 		const protocolUrl = findCustomProtocolArg(argv);
 		if (protocolUrl && queueCloudOAuthCallbackUrl(protocolUrl)) {
 			showMainWindow();
@@ -681,23 +842,74 @@ function installExternalNavigationPolicy(): void {
 			});
 		});
 		contents.on('context-menu', (_menuEvent, params) => {
-			const frameUrl = String((params as any)?.frameURL || '');
-			const pageUrl = String((params as any)?.pageURL || contents.getURL() || '');
-			const isIframeContext = Boolean(frameUrl) && frameUrl !== pageUrl;
-			const isMailContentFrame = isIframeContext && /^about:srcdoc/i.test(frameUrl);
-			if (!isMailContentFrame) {
-				// Renderer-level custom menus handle non-iframe contexts.
+			const canEdit = Boolean(params.isEditable);
+			const editFlags = params.editFlags ?? {};
+			if (canEdit) {
+				const nativeEditMenu = Menu.buildFromTemplate([
+					{label: 'Undo', role: 'undo', enabled: Boolean(editFlags.canUndo)},
+					{label: 'Redo', role: 'redo', enabled: Boolean(editFlags.canRedo)},
+					{type: 'separator'},
+					{label: 'Cut', role: 'cut', enabled: Boolean(editFlags.canCut)},
+					{label: 'Copy', role: 'copy', enabled: Boolean(editFlags.canCopy)},
+					{label: 'Paste', role: 'paste', enabled: Boolean(editFlags.canPaste)},
+					{type: 'separator'},
+					{label: 'Select All', role: 'selectAll'},
+				]);
+				const owner = BrowserWindow.fromWebContents(contents) ?? undefined;
+				if (owner) {
+					nativeEditMenu.popup({window: owner});
+				} else {
+					nativeEditMenu.popup();
+				}
 				return;
 			}
 
-			const template: Electron.MenuItemConstructorOptions[] = [];
-			const hasSelection = Boolean((params.selectionText || '').trim());
+				const frameUrl = String((params as any)?.frameURL || '');
+				const pageUrl = String((params as any)?.pageURL || contents.getURL() || '');
+				const isDebugConsolePage = /#\/debug(?:$|[/?])/.test(pageUrl);
+				const isIframeContext = Boolean(frameUrl) && frameUrl !== pageUrl;
+				const isMailContentFrame = isIframeContext && /^about:srcdoc/i.test(frameUrl);
+				const template: Electron.MenuItemConstructorOptions[] = [];
+				const hasSelection = Boolean((params.selectionText || '').trim());
 			const linkUrl = String(params.linkURL || '').trim();
 			const hasLink = /^(https?:|mailto:)/i.test(linkUrl);
-			const canEdit = Boolean(params.isEditable);
-			const editFlags = params.editFlags ?? {};
+			const imageUrl = String((params.srcURL || '').trim());
+			const hasImage = Boolean(imageUrl);
+			const imageCanOpenExternally = /^(https?:|file:)/i.test(imageUrl);
+			const imageHasAddress = !/^data:/i.test(imageUrl);
 
-			if (hasLink) {
+				if (!isMailContentFrame && !hasImage && !(isDebugConsolePage && hasSelection)) {
+					// Renderer-level custom menus handle non-iframe contexts unless this is an image context.
+					return;
+				}
+
+			if (hasImage) {
+				template.push({
+					label: 'Copy Image',
+					click: () => {
+						contents.copyImageAt(params.x, params.y);
+					},
+				});
+				if (imageCanOpenExternally) {
+					template.push({
+						label: 'Open Image',
+						click: () => {
+							handleExternalUrl(imageUrl);
+						},
+					});
+				}
+				if (imageHasAddress) {
+					template.push({
+						label: 'Copy Image Address',
+						click: () => {
+							clipboard.writeText(imageUrl);
+						},
+					});
+				}
+				template.push({type: 'separator'});
+			}
+
+			if (isMailContentFrame && hasLink) {
 				template.push({
 					label: 'Open Link',
 					click: () => {
@@ -713,16 +925,19 @@ function installExternalNavigationPolicy(): void {
 				template.push({type: 'separator'});
 			}
 
-			if (canEdit) {
-				template.push({label: 'Cut', role: 'cut', enabled: Boolean(editFlags.canCut)});
-				template.push({label: 'Copy', role: 'copy', enabled: Boolean(editFlags.canCopy)});
-				template.push({label: 'Paste', role: 'paste', enabled: Boolean(editFlags.canPaste)});
-				template.push({type: 'separator'});
-			} else if (hasSelection) {
-				template.push({label: 'Copy', role: 'copy'});
-				template.push({type: 'separator'});
-			}
+				if (isMailContentFrame && hasSelection) {
+					template.push({label: 'Copy', role: 'copy'});
+					template.push({type: 'separator'});
+				}
+				if (isDebugConsolePage && hasSelection) {
+					template.push({label: 'Copy', role: 'copy'});
+					template.push({label: 'Select All', role: 'selectAll'});
+					template.push({type: 'separator'});
+				}
 
+			while (template[template.length - 1]?.type === 'separator') {
+				template.pop();
+			}
 			if (template.length === 0) return;
 			const menu = Menu.buildFromTemplate(template);
 			const owner = BrowserWindow.fromWebContents(contents) ?? undefined;
@@ -794,6 +1009,22 @@ function registerMailtoProtocolClient(): void {
 	} catch (error) {
 		logger.warn('Failed to register mailto protocol: %s', (error as any)?.message || String(error));
 		console.warn('Failed to register mailto protocol:', error);
+	}
+}
+
+function registerAppProtocolClient(): void {
+	try {
+		logger.info('Registering %s protocol client', APP_PROTOCOL);
+		if (process.defaultApp) {
+			if (process.argv.length >= 2) {
+				app.setAsDefaultProtocolClient(APP_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+			}
+			return;
+		}
+		app.setAsDefaultProtocolClient(APP_PROTOCOL);
+	} catch (error) {
+		logger.warn('Failed to register %s protocol: %s', APP_PROTOCOL, (error as any)?.message || String(error));
+		console.warn(`Failed to register ${APP_PROTOCOL} protocol:`, error);
 	}
 }
 
@@ -887,7 +1118,24 @@ function findMailtoArg(argv: string[]): string | null {
 
 function findCustomProtocolArg(argv: string[]): string | null {
 	for (const arg of argv) {
-		if (/^lunamail:\/\//i.test(arg)) return arg;
+		if (new RegExp(`^${APP_PROTOCOL}:\\/\\/`, 'i').test(arg)) return arg;
+	}
+	return null;
+}
+
+function findRouteArg(argv: string[]): string | null {
+	for (const arg of argv) {
+		if (!arg.startsWith('--route=')) continue;
+		const route = arg.slice('--route='.length).trim();
+		if (!route.startsWith('/')) continue;
+		return route;
+	}
+	return null;
+}
+
+function findActionArg(argv: string[]): 'compose' | null {
+	for (const arg of argv) {
+		if (arg === '--action=compose') return 'compose';
 	}
 	return null;
 }
@@ -999,7 +1247,13 @@ async function loadDevtoolsExtensionByPath(extensionPath: string, sourceLabel: s
 
 async function installReactDevToolsInDev(): Promise<void> {
 	if (!isDev) return;
-	const installed = session.defaultSession.getAllExtensions();
+	const extensionsApi = (session.defaultSession as typeof session.defaultSession & {
+		extensions?: { getAllExtensions?: () => Electron.Extension[] };
+	}).extensions;
+	const installed =
+		typeof extensionsApi?.getAllExtensions === 'function'
+			? extensionsApi.getAllExtensions()
+			: session.defaultSession.getAllExtensions();
 	for (const extension of installed) {
 		const extensionName = String(extension?.name || '');
 		if (!/react/i.test(extensionName)) continue;
@@ -1091,9 +1345,11 @@ if (!gotSingleInstanceLock) {
 			applyRuntimeSettings();
 		});
 		registerUpdaterIpc();
-		registerWindowIpc();
-		logger.info('IPC handlers registered');
-		registerMailtoProtocolClient();
+			registerWindowIpc();
+			logger.info('IPC handlers registered');
+			registerMailtoProtocolClient();
+			registerAppProtocolClient();
+			configurePlatformQuickActions();
 		initAutoUpdater((state) => {
 			broadcastAutoUpdateState(state);
 		});
@@ -1113,19 +1369,33 @@ if (!gotSingleInstanceLock) {
 		}
 		closeSplashWindow();
 
-		const accounts = await getAccounts();
-		logger.info('Loaded accounts count=%d', accounts.length);
-		if (accounts.length === 0) {
-			openAddAccountWindow(undefined);
-			attachAddAccountWindowCloseBehavior();
-		} else {
-			createWindow();
-		}
-		const initialMailtoUrl = findMailtoArg(process.argv);
-		if (initialMailtoUrl) {
-			queueMailtoUrl(initialMailtoUrl);
-		}
-		flushPendingMailtoUrls();
+			const accounts = await getAccounts();
+			logger.info('Loaded accounts count=%d', accounts.length);
+			pendingStartupRoute = findRouteArg(process.argv);
+			pendingStartupCompose = findActionArg(process.argv) === 'compose';
+			if (accounts.length === 0) {
+				openAddAccountWindow(undefined);
+				attachAddAccountWindowCloseBehavior();
+			} else {
+				createWindow();
+				if (pendingStartupRoute) {
+					navigateMainWindowToRoute(pendingStartupRoute);
+					pendingStartupRoute = null;
+				}
+				if (pendingStartupCompose) {
+					openComposeQuickAction();
+					pendingStartupCompose = false;
+				}
+			}
+			const initialMailtoUrl = findMailtoArg(process.argv);
+			if (initialMailtoUrl) {
+				queueMailtoUrl(initialMailtoUrl);
+			}
+			const initialProtocolUrl = findCustomProtocolArg(process.argv);
+			if (initialProtocolUrl && queueCloudOAuthCallbackUrl(initialProtocolUrl)) {
+				showMainWindow();
+			}
+			flushPendingMailtoUrls();
 		updateUnreadIndicators(getCurrentUnreadCount());
 		startAccountAutoSync();
 		logger.info('Auto sync started');

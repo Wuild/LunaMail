@@ -53,7 +53,7 @@ export default function MainLayoutMenubar({
                         <ChevronRight size={16}/>
                     </Button>
                     <Mail size={18} className="opacity-90"/>
-                    <p className="truncate text-base font-semibold tracking-tight text-white">LunaMail</p>
+                    <p className="truncate text-base font-semibold tracking-tight text-white">LlamaMail</p>
                 </div>
                 <Button
                     variant="ghost"

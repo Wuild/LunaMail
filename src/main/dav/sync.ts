@@ -1655,7 +1655,7 @@ function buildCalDavEventIcs(payload: {
     const lines = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//LunaMail//Calendar//EN',
+        'PRODID:-//LlamaMail//Calendar//EN',
         'CALSCALE:GREGORIAN',
         'BEGIN:VEVENT',
         `UID:${payload.uid}`,

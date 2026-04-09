@@ -2,6 +2,7 @@ import {app, BrowserWindow, ipcMain, Notification, shell} from 'electron';
 import {getAccounts} from '../db/repositories/accountsRepo.js';
 import {listFoldersByAccount, listMessagesByFolder} from '../db/repositories/mailRepo.js';
 import {createAppLogger} from '../debug/debugLog.js';
+import {APP_NAME} from '../config.js';
 import {type AppSettingsPatch, getAppSettings, updateAppSettings} from '../settings/store.js';
 import {openSplashWindow} from '../windows/splashWindow.js';
 
@@ -47,8 +48,8 @@ export function registerSettingsIpc(
 			const target = await resolveFirstMessageTarget();
 			const title = target?.subject
 				? `Test: ${target.subject}`
-				: String(payload?.title || 'LunaMail developer notification').trim() ||
-				'LunaMail developer notification';
+				: String(payload?.title || `${APP_NAME} developer notification`).trim() ||
+				`${APP_NAME} developer notification`;
 			const body = target
 				? `${target.from || 'Unknown sender'} -> ${target.accountEmail}`
 				: String(payload?.body || 'No message found in first account/folder.').trim() ||
@@ -86,7 +87,7 @@ export function registerSettingsIpc(
 		try {
 			if (Notification.isSupported()) {
 				const notification = new Notification({
-					title: 'LunaMail sound test',
+					title: `${APP_NAME} sound test`,
 					body: 'Testing notification sound',
 					silent: false,
 				});
@@ -108,6 +109,36 @@ export function registerSettingsIpc(
 		const updaterWin = openSplashWindow({forceTitleBar: true});
 		focusWindow(updaterWin);
 		return {ok: true, opened: true} as const;
+	});
+
+	ipcMain.handle('set-default-email-client', async () => {
+		logger.info('IPC set-default-email-client');
+		try {
+			const ok = app.setAsDefaultProtocolClient('mailto');
+			const isDefault = app.isDefaultProtocolClient('mailto');
+			return {ok, isDefault} as const;
+		} catch (error: any) {
+			logger.warn('Failed to set default email client: %s', error?.message || String(error));
+			return {
+				ok: false,
+				isDefault: false,
+				error: error?.message || String(error),
+			} as const;
+		}
+	});
+
+	ipcMain.handle('get-default-email-client-status', async () => {
+		logger.debug('IPC get-default-email-client-status');
+		try {
+			return {ok: true, isDefault: app.isDefaultProtocolClient('mailto')} as const;
+		} catch (error: any) {
+			logger.warn('Failed to check default email client: %s', error?.message || String(error));
+			return {
+				ok: false,
+				isDefault: false,
+				error: error?.message || String(error),
+			} as const;
+		}
 	});
 }
 

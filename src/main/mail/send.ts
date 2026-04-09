@@ -2,12 +2,12 @@ import nodemailer from 'nodemailer';
 import {ImapFlow} from 'imapflow';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {getAccountSendCredentials, getAccountSyncCredentials} from '../db/repositories/accountsRepo.js';
+import {getAccountSendCredentials, getAccountSyncCredentials, getLocalAccountVCardPath} from '../db/repositories/accountsRepo.js';
 import {createMailDebugLogger} from '../debug/debugLog.js';
 import {markdownToEmailHtml} from './markdown.js';
 import {resolveImapSecurity, resolveSmtpSecurity} from './security.js';
 
-const DRAFT_SESSION_HEADER = 'X-LunaMail-Draft-Session';
+const DRAFT_SESSION_HEADER = 'X-LlamaMail-Draft-Session';
 
 export interface EmailAttachmentPayload {
     path: string;
@@ -77,8 +77,10 @@ export async function sendEmail(payload: SendEmailPayload): Promise<SendEmailRes
         account.signature_text,
         account.signature_is_html,
     );
-    const attachments = normalizeAttachments(payload.attachments);
-    const messageId = `<${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}@lunamail.local>`;
+    const regularAttachments = normalizeAttachments(payload.attachments);
+    const attachmentsWithVCard = await withOptionalAccountVCardAttachment(account, regularAttachments);
+    const inlineImagePrep = extractInlineDataImageAttachments(signedBodies.html);
+    const messageId = `<${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}@llamamail.local>`;
     const date = new Date();
     const message = {
         from: account.email,
@@ -88,22 +90,41 @@ export async function sendEmail(payload: SendEmailPayload): Promise<SendEmailRes
         subject: payload.subject?.trim() || '(No subject)',
         replyTo: normalizeRecipients(account.reply_to),
         text: signedBodies.text || undefined,
-        html: signedBodies.html || (signedBodies.text ? textToHtml(signedBodies.text) : undefined),
+        html: inlineImagePrep.html || (signedBodies.text ? textToHtml(signedBodies.text) : undefined),
         inReplyTo: normalizeMessageId(payload.inReplyTo),
         references: normalizeReferences(payload.references),
-        attachments: attachments.map((attachment) => ({
-            path: attachment.path,
-            filename: attachment.filename,
-            contentType: attachment.contentType,
-        })),
+        attachments: [
+            ...attachmentsWithVCard.map((attachment) => ({
+                path: attachment.path,
+                filename: attachment.filename,
+                contentType: attachment.contentType,
+            })),
+            ...inlineImagePrep.attachments.map((attachment) => ({
+                filename: attachment.filename,
+                contentType: attachment.contentType,
+                content: attachment.content,
+                cid: attachment.cid,
+                contentDisposition: 'inline' as const,
+            })),
+        ],
         messageId,
         date,
     };
     const info = await transporter.sendMail(message);
     try {
+        const regularAttachmentBodies = await readAttachmentBodies(attachmentsWithVCard);
         const raw = await buildRawMessage({
             ...message,
-            attachments: await readAttachmentBodies(attachments),
+            attachments: [
+                ...regularAttachmentBodies,
+                ...inlineImagePrep.attachments.map((attachment) => ({
+                    filename: attachment.filename,
+                    contentType: attachment.contentType,
+                    content: attachment.content,
+                    cid: attachment.cid,
+                    contentDisposition: 'inline' as const,
+                })),
+            ],
         });
         await appendToSentMailbox(payload.accountId, raw, date);
     } catch (error) {
@@ -129,6 +150,9 @@ function appendAccountSignature(
     if (!signatureRaw) return {text, html};
 
     const signatureTextPart = signatureIsHtml ? htmlToText(signatureRaw).trim() : signatureRaw;
+    if (signatureTextPart && normalizeSignatureCompare(text).includes(normalizeSignatureCompare(signatureTextPart))) {
+        return {text, html};
+    }
     const nextText = [text.trim(), signatureTextPart].filter(Boolean).join('\n\n');
 
     const signatureHtml = signatureIsHtml
@@ -137,8 +161,15 @@ function appendAccountSignature(
             .split(/\r?\n/)
             .map((line) => escapeHtml(line))
             .join('<br/>');
+    const signatureHtmlWithDivider = withSignatureDivider(signatureHtml);
     const bodyHtml = (html || '').trim();
-    const nextHtml = [bodyHtml, signatureHtml].filter(Boolean).join('<br/><br/>');
+    if (
+        signatureHtmlWithDivider &&
+        normalizeSignatureCompare(bodyHtml).includes(normalizeSignatureCompare(signatureHtmlWithDivider))
+    ) {
+        return {text: nextText || text, html: html || null};
+    }
+    const nextHtml = [bodyHtml, signatureHtmlWithDivider].filter(Boolean).join('<br/><br/>');
     return {
         text: nextText,
         html: nextHtml || null,
@@ -162,6 +193,13 @@ function htmlToText(html: string): string {
         .trim();
 }
 
+function withSignatureDivider(signatureHtml: string): string {
+    const normalized = String(signatureHtml || '').trim();
+    if (!normalized) return normalized;
+    if (/<hr[\s/>]/i.test(normalized)) return normalized;
+    return `<hr/>${normalized}`;
+}
+
 export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDraftResult> {
     if (!payload.accountId) throw new Error('Account is required');
     const text = payload.text?.trim() ?? '';
@@ -170,6 +208,9 @@ export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDra
     const to = normalizeRecipients(payload.to);
     const cc = normalizeRecipients(payload.cc);
     const bcc = normalizeRecipients(payload.bcc);
+    if (!to) {
+        return {ok: true};
+    }
     const attachments = normalizeAttachments(payload.attachments);
     const hasContent = Boolean(to || cc || bcc || subject || text || html || attachments.length > 0);
     if (!hasContent) {
@@ -188,7 +229,7 @@ export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDra
         inReplyTo: normalizeMessageId(payload.inReplyTo),
         references: normalizeReferences(payload.references),
         attachments: await readAttachmentBodies(attachments),
-        messageId: `<draft.${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}@lunamail.local>`,
+        messageId: `<draft.${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}@llamamail.local>`,
         date: new Date(),
         headers: payload.draftSessionId?.trim() ? {[DRAFT_SESSION_HEADER]: payload.draftSessionId.trim()} : undefined,
     };
@@ -228,7 +269,13 @@ async function buildRawMessage(message: {
     inReplyTo?: string;
     references?: string[];
     headers?: Record<string, string>;
-    attachments?: Array<{ filename: string; contentType: string; content: Buffer }>;
+    attachments?: Array<{
+        filename: string;
+        contentType: string;
+        content: Buffer;
+        cid?: string;
+        contentDisposition?: 'attachment' | 'inline';
+    }>;
     messageId?: string;
     date: Date;
 }): Promise<Buffer> {
@@ -288,7 +335,12 @@ async function buildRawMessage(message: {
             parts.push(`--${mixedBoundary}`);
             parts.push(`Content-Type: ${attachment.contentType}; name="${escapeMimeParam(attachment.filename)}"`);
             parts.push('Content-Transfer-Encoding: base64');
-            parts.push(`Content-Disposition: attachment; filename="${escapeMimeParam(attachment.filename)}"`);
+            const disposition = attachment.contentDisposition === 'inline' ? 'inline' : 'attachment';
+            parts.push(`Content-Disposition: ${disposition}; filename="${escapeMimeParam(attachment.filename)}"`);
+            if (attachment.cid) {
+                const cidValue = attachment.cid.replace(/^<|>$/g, '');
+                parts.push(`Content-ID: <${cidValue}>`);
+            }
             parts.push('');
             parts.push(encodeBase64Buffer(attachment.content));
             parts.push('');
@@ -468,6 +520,75 @@ function escapeMimeParam(value: string): string {
     return value.replace(/["\r\n]/g, '_');
 }
 
+function normalizeSignatureCompare(value: string): string {
+    return String(value || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function extensionFromImageMime(contentType: string): string {
+    if (contentType === 'image/jpeg') return 'jpg';
+    if (contentType === 'image/gif') return 'gif';
+    if (contentType === 'image/webp') return 'webp';
+    if (contentType === 'image/svg+xml') return 'svg';
+    return 'png';
+}
+
+function extractInlineDataImageAttachments(
+    inputHtml: string | null,
+): {
+    html: string | null;
+    attachments: Array<{ filename: string; contentType: string; content: Buffer; cid: string }>;
+} {
+    const html = (inputHtml || '').trim();
+    if (!html) return {html: inputHtml, attachments: []};
+
+    const dataUrlRegex = /data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=\r\n]+)/g;
+    const replacements = new Map<string, string>();
+    const attachments: Array<{ filename: string; contentType: string; content: Buffer; cid: string }> = [];
+    let match: RegExpExecArray | null;
+    let nextIndex = 1;
+
+    while ((match = dataUrlRegex.exec(html)) !== null) {
+        const fullDataUrl = match[0];
+        if (replacements.has(fullDataUrl)) continue;
+
+        const contentType = String(match[1] || '').toLowerCase() || 'image/png';
+        const encoded = String(match[2] || '').replace(/\s+/g, '');
+        if (!encoded) continue;
+
+        let content: Buffer;
+        try {
+            content = Buffer.from(encoded, 'base64');
+        } catch {
+            continue;
+        }
+        if (content.length === 0) continue;
+
+        const cid = `inline-image-${Date.now().toString(36)}-${nextIndex}@llamamail.local`;
+        const filename = `inline-image-${nextIndex}.${extensionFromImageMime(contentType)}`;
+        nextIndex += 1;
+
+        replacements.set(fullDataUrl, `cid:${cid}`);
+        attachments.push({
+            filename,
+            contentType,
+            content,
+            cid,
+        });
+    }
+
+    if (attachments.length === 0) return {html: inputHtml, attachments};
+
+    let nextHtml = html;
+    for (const [from, to] of replacements) {
+        nextHtml = nextHtml.split(from).join(to);
+    }
+    return {html: nextHtml, attachments};
+}
+
 function normalizeAttachments(
     input?: EmailAttachmentPayload[] | null,
 ): Array<{ filename: string; contentType: string; path: string }> {
@@ -481,6 +602,40 @@ function normalizeAttachments(
             return {path: filePath, filename, contentType};
         })
         .filter((item): item is { path: string; filename: string; contentType: string } => Boolean(item));
+}
+
+async function withOptionalAccountVCardAttachment(
+    account: {
+        id: number;
+        email: string;
+        display_name: string | null;
+        attach_vcard: number;
+    },
+    attachments: Array<{ filename: string; contentType: string; path: string }>,
+): Promise<Array<{ filename: string; contentType: string; path: string }>> {
+    if (!account.attach_vcard) return attachments;
+    const vcardPath = getLocalAccountVCardPath(account.id, account.email);
+    try {
+        await fs.access(vcardPath);
+    } catch {
+        return attachments;
+    }
+
+    const normalizedVCardPath = path.resolve(vcardPath);
+    const alreadyAttached = attachments.some((attachment) => path.resolve(attachment.path) === normalizedVCardPath);
+    if (alreadyAttached) return attachments;
+
+    const displayName = String(account.display_name || '').trim();
+    const fallbackName = path.basename(vcardPath, '.vcf');
+    const safeBaseName = (displayName || fallbackName).replace(/[\\/:*?"<>|]+/g, '_').trim() || fallbackName;
+    return [
+        ...attachments,
+        {
+            path: vcardPath,
+            filename: `${safeBaseName}.vcf`,
+            contentType: 'text/vcard',
+        },
+    ];
 }
 
 async function readAttachmentBodies(

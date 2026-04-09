@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import type {AutoUpdateState} from '../../preload';
-import lunaLogo from '../../resources/luna.png';
+import llamaLogo from '../../resources/llamarun.png';
 import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
 import {ipcClient} from '../lib/ipcClient';
 import {SPLASH_BOOT_AUTO_UPDATE_STATE} from '../lib/autoUpdateState';
@@ -28,8 +28,8 @@ export default function SplashScreenPage() {
 				<div
 					className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(255,255,255,0.05),transparent_55%)]"/>
 				<div className="mx-auto flex w-full max-w-[360px] flex-col items-center">
-					<img src={lunaLogo} alt="" className="h-24 w-24 object-contain opacity-95" draggable={false}/>
-					<p className="mt-5 text-center text-[22px] font-semibold tracking-wide text-white/90">LunaMail</p>
+					<img src={llamaLogo} alt="" className="h-80 w-80 object-contain" draggable={false}/>
+					<p className="text-center text-[22px] font-semibold tracking-wide text-white/90">LlamaMail</p>
 					<p className="mt-2 text-center text-[11px] font-medium uppercase tracking-wide text-slate-400">
 						{progressText}
 					</p>

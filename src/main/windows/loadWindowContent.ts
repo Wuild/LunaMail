@@ -41,6 +41,7 @@ export async function loadWindowContent(
             }
             return;
         } catch (error) {
+            if (isDestroyedObjectError(error)) return;
             if (win.isDestroyed()) return;
             lastError = error;
         }
@@ -59,7 +60,13 @@ function appendQuery(target: string, query?: Record<string, string>): string {
     return url.toString();
 }
 
+function isDestroyedObjectError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error ?? '');
+    return /object has been destroyed/i.test(message);
+}
+
 function attachWindowDiagnostics(win: BrowserWindow, windowName: string): void {
+    if (win.isDestroyed()) return;
     const wc = win.webContents as BrowserWindow['webContents'] & { __lunaDiagAttached?: boolean };
     if (wc.__lunaDiagAttached) return;
     wc.__lunaDiagAttached = true;
@@ -81,7 +88,9 @@ function attachWindowDiagnostics(win: BrowserWindow, windowName: string): void {
         console.error(`[${windowName}] render-process-gone`, details);
     });
 
-    wc.on('console-message', (_event, level, message, line, sourceId) => {
-        console.log(`[${windowName}] console(${level}) ${sourceId}:${line} ${message}`);
+    wc.on('console-message', (details) => {
+        console.log(
+            `[${windowName}] console(${details.level}) ${details.sourceId}:${details.lineNumber} ${details.message}`,
+        );
     });
 }

@@ -7,8 +7,7 @@ const sharp = require('sharp');
 const execFileAsync = promisify(execFile);
 
 const projectRoot = path.resolve(__dirname, '..');
-const lunaSource = path.join(projectRoot, 'src', 'resources', 'luna.png');
-const lunaTraySource = path.join(projectRoot, 'src', 'resources', 'lunatray.png');
+const llamaSource = path.join(projectRoot, 'src', 'resources', 'llama.png');
 const buildDir = path.join(projectRoot, 'build');
 const iconsDir = path.join(buildDir, 'icons');
 const appIconOut = path.join(buildDir, 'icon.png');
@@ -19,8 +18,7 @@ const trayIconIcoOut = path.join(buildDir, 'lunatray.ico');
 const iconSizes = [16, 32, 48, 64, 128, 256, 512, 1024];
 
 async function ensureSourceFiles() {
-    await fs.access(lunaSource);
-    await fs.access(lunaTraySource);
+    await fs.access(llamaSource);
 }
 
 async function ensureDirectories() {
@@ -30,14 +28,14 @@ async function ensureDirectories() {
 async function writeAppIcons() {
     for (const size of iconSizes) {
         const outPath = path.join(iconsDir, `${size}x${size}.png`);
-        await sharp(lunaSource).resize(size, size, {fit: 'contain'}).png().toFile(outPath);
+        await sharp(llamaSource).resize(size, size, {fit: 'contain'}).png().toFile(outPath);
     }
 
-    await sharp(lunaSource).resize(1024, 1024, {fit: 'contain'}).png().toFile(appIconOut);
+    await sharp(llamaSource).resize(1024, 1024, {fit: 'contain'}).png().toFile(appIconOut);
 }
 
 async function writeTrayIcon() {
-    await sharp(lunaTraySource).resize(64, 64, {fit: 'contain'}).png().toFile(trayIconOut);
+    await sharp(llamaSource).resize(64, 64, {fit: 'contain'}).png().toFile(trayIconOut);
 }
 
 async function writeWindowsIco() {

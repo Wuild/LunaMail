@@ -2,11 +2,13 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {CalendarDays, ChevronLeft, ChevronRight, List, Pencil, Plus, RefreshCw, Settings, Trash2} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
 import type {CalendarEventItem, PublicAccount} from '../../preload';
-import {getAccountAvatarColors, getAccountMonogram} from '../lib/accountAvatar';
+import {getAccountAvatarColorsForAccount, getAccountMonogram} from '../lib/accountAvatar';
 import {formatSystemDateTime} from '../lib/dateTime';
 import {clampToViewport} from '../lib/format';
 import {useResizableSidebar} from '../hooks/useResizableSidebar';
 import {ipcClient} from '../lib/ipcClient';
+import {Button} from '../components/ui/button';
+import {FormInput, FormSelect, FormTextarea} from '../components/ui/FormControls';
 import {
     statusAutoSyncFailed,
     statusNoAccountSelected,
@@ -38,7 +40,7 @@ type CalendarRouteProps = {
 };
 
 export default function CalendarRoute({accountId, accounts, onSelectAccount}: CalendarRouteProps) {
-    const CALENDAR_VIEW_STORAGE_KEY = 'lunamail.calendar.view.mode';
+    const CALENDAR_VIEW_STORAGE_KEY = 'llamamail.calendar.view.mode';
     const WEEK_HOUR_ROW_HEIGHT = 56;
     const WEEK_GRID_COLUMNS = 'grid-cols-[88px_repeat(7,minmax(0,1fr))]';
     const MONTH_GRID_COLUMNS = 'grid-cols-[42px_repeat(7,minmax(0,1fr))]';
@@ -108,7 +110,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
         defaultWidth: 360,
         minWidth: 280,
         maxWidth: 520,
-        storageKey: 'lunamail.calendar.events.width',
+        storageKey: 'llamamail.calendar.events.width',
     });
 
     useEffect(() => {
@@ -627,9 +629,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                 <div className="space-y-1">
                     {accounts.map((account) => {
                         const isSyncingAccount = syncing && syncingAccountId === account.id;
-                        const avatarColors = getAccountAvatarColors(
-                            account.email || account.display_name || String(account.id),
-                        );
+                        const avatarColors = getAccountAvatarColorsForAccount(account);
                         return (
                             <div
                                 key={account.id}
@@ -640,7 +640,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                         : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
                                 )}
                             >
-                                <button
+                                <Button
                                     type="button"
                                     onClick={() => onSelectAccount(account.id)}
                                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -665,14 +665,14 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 											</span>
                                         )}
 									</span>
-                                </button>
+                                </Button>
                                 <div
                                     className={cn(
                                         'flex items-center gap-1 transition-opacity',
                                         isSyncingAccount ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
                                     )}
                                 >
-                                    <button
+                                    <Button
                                         type="button"
                                         className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
                                         onClick={() => void onManualSync(account.id)}
@@ -681,8 +681,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                         disabled={isSyncingAccount}
                                     >
                                         <RefreshCw size={13} className={cn(isSyncingAccount && 'animate-spin')}/>
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         type="button"
                                         className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
                                         onClick={() => navigate(`/settings/account?accountId=${account.id}`)}
@@ -690,7 +690,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                         aria-label="Edit account"
                                     >
                                         <Settings size={13}/>
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         );
@@ -707,7 +707,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
         <div className="flex h-10 min-w-0 items-center gap-2">
             <div
                 className="flex items-center rounded-md border border-slate-300 bg-white dark:border-[#3a3d44] dark:bg-[#1e1f22]">
-                <button
+                <Button
                     type="button"
                     className="inline-flex h-10 w-10 items-center justify-center text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
                     onClick={() =>
@@ -720,13 +720,13 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                     aria-label={calendarViewMode === 'month' ? 'Previous month' : 'Previous week'}
                 >
                     <ChevronLeft size={16}/>
-                </button>
+                </Button>
                 <div className="min-w-44 px-2 text-center text-sm font-medium text-slate-800 dark:text-slate-100">
                     {calendarViewMode === 'month'
                         ? visibleMonth.toLocaleDateString(systemLocale, {month: 'long', year: 'numeric'})
                         : weekRangeLabel}
                 </div>
-                <button
+                <Button
                     type="button"
                     className="inline-flex h-10 w-10 items-center justify-center text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
                     onClick={() =>
@@ -739,17 +739,17 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                     aria-label={calendarViewMode === 'month' ? 'Next month' : 'Next week'}
                 >
                     <ChevronRight size={16}/>
-                </button>
+                </Button>
             </div>
-            <button
+            <Button
                 type="button"
                 className="inline-flex h-10 items-center rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
                 onClick={() => setVisibleMonth(calendarViewMode === 'month' ? startOfMonth(new Date()) : new Date())}
             >
                 Today
-            </button>
+            </Button>
             <div className="inline-flex items-center overflow-hidden rounded-md border border-slate-300 bg-white dark:border-[#3a3d44] dark:bg-[#1e1f22]">
-                <button
+                <Button
                     type="button"
                     className={cn(
                         'px-3 py-2 text-xs font-medium',
@@ -760,8 +760,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                     onClick={() => setCalendarViewMode('month')}
                 >
                     Month
-                </button>
-                <button
+                </Button>
+                <Button
                     type="button"
                     className={cn(
                         'inline-flex items-center gap-1 px-3 py-2 text-xs font-medium',
@@ -773,9 +773,9 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                 >
                     <CalendarDays size={12}/>
                     Week
-                </button>
+                </Button>
             </div>
-            <button
+            <Button
                 type="button"
                 disabled={!accountId}
                 className="ml-auto inline-flex h-10 items-center gap-2 rounded-md bg-sky-600 px-3 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-60 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
@@ -785,7 +785,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
             >
                 <Plus size={14}/>
                 Add event
-            </button>
+            </Button>
         </div>
     );
 
@@ -835,7 +835,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                     key={event.id}
                                                     className="flex items-center gap-2 px-3 py-2"
                                                 >
-                                                    <button
+                                                    <Button
                                                         type="button"
                                                         className={cn(
                                                             'min-w-0 flex-1 rounded px-1 py-1 text-left',
@@ -850,8 +850,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                         <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                                                             {formatSystemDateTime(event.starts_at, systemLocale)}
                                                         </p>
-                                                    </button>
-                                                    <button
+                                                    </Button>
+                                                    <Button
                                                         type="button"
                                                         className="rounded p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#35373c] dark:hover:text-slate-100"
                                                         onClick={() => openEditEventModal(event)}
@@ -859,8 +859,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                         aria-label="Edit event"
                                                     >
                                                         <Pencil size={14}/>
-                                                    </button>
-                                                    <button
+                                                    </Button>
+                                                    <Button
                                                         type="button"
                                                         className="rounded p-2 text-slate-500 transition-colors hover:bg-red-100 hover:text-red-700 dark:text-slate-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
                                                         onClick={() => setEventToDelete(event)}
@@ -868,7 +868,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                         aria-label="Delete event"
                                                     >
                                                         <Trash2 size={14}/>
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                             ))}
                                         </div>
@@ -960,7 +960,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                                 <div
                                                                     className="max-h-[calc(100%-1.75rem)] space-y-1 overflow-y-auto">
                                                                     {dayEvents.slice(0, 3).map((event) => (
-                                                                        <button
+                                                                        <Button
                                                                             key={event.id}
                                                                             type="button"
                                                                             className="block w-full truncate rounded bg-sky-100 px-2 py-1 text-left text-xs text-sky-800 hover:bg-sky-200 dark:bg-[#3d4153] dark:text-slate-100 dark:hover:bg-[#4b5064]"
@@ -968,7 +968,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                                             title={event.summary || '(No title)'}
                                                                         >
                                                                             {formatEventTime(event.starts_at)} {event.summary || '(No title)'}
-                                                                        </button>
+                                                                        </Button>
                                                                     ))}
                                                                     {dayEvents.length > 3 && (
                                                                         <p className="px-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1107,7 +1107,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                                 />
                                                             ))}
                                                             {dayLayouts.map((layout, idx) => (
-                                                                <button
+                                                                <Button
                                                                     key={`${layout.event.id}-${idx}`}
                                                                     type="button"
                                                                     className="absolute left-1 right-1 z-10 overflow-hidden rounded bg-sky-100 px-2 py-1 text-left text-xs text-sky-800 hover:bg-sky-200 dark:bg-[#3d4153] dark:text-slate-100 dark:hover:bg-[#4b5064]"
@@ -1124,7 +1124,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                                     <span className="block truncate opacity-80">
                                                                         {formatEventTime(layout.event.starts_at)} - {formatEventTime(layout.event.ends_at)}
                                                                     </span>
-                                                                </button>
+                                                                </Button>
                                                             ))}
                                                         </div>
                                                     );
@@ -1146,7 +1146,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                     style={{left: dayContextMenu.x, top: dayContextMenu.y}}
                     onContextMenu={(event) => event.preventDefault()}
                 >
-                    <button
+                    <Button
                         type="button"
                         className="block w-full rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
                         onClick={() => {
@@ -1155,8 +1155,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                         }}
                     >
                         View all events ({(eventsByDay.get(dayContextMenu.dayKey) ?? []).length})
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
                         className="block w-full rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
                         onClick={() => {
@@ -1165,7 +1165,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                         }}
                     >
                         New event on this day
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -1194,7 +1194,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                             </p>
                         )}
                         <div className="mt-4 flex justify-end gap-2">
-                            <button
+                            <Button
                                 type="button"
                                 className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                 onClick={() => {
@@ -1204,8 +1204,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                             >
                                 <Pencil size={14}/>
                                 Edit
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 className="inline-flex items-center gap-1 rounded-md border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/30"
                                 onClick={() => {
@@ -1215,14 +1215,14 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                             >
                                 <Trash2 size={14}/>
                                 Delete
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                 onClick={() => setSelectedEvent(null)}
                             >
                                 Close
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -1248,7 +1248,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                 <ul className="space-y-2">
                                     {selectedDayEvents.map((event) => (
                                         <li key={event.id}>
-                                            <button
+                                            <Button
                                                 type="button"
                                                 className="w-full rounded border border-slate-200 px-3 py-2 text-left hover:bg-slate-50 dark:border-[#3a3d44] dark:hover:bg-[#35373c]"
                                                 onClick={() => {
@@ -1264,14 +1264,14 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                         {event.location}
                                                     </p>
                                                 )}
-                                            </button>
+                                            </Button>
                                         </li>
                                     ))}
                                 </ul>
                             )}
                         </div>
                         <div className="mt-4 flex justify-end gap-2">
-                            <button
+                            <Button
                                 type="button"
                                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                 onClick={() => {
@@ -1280,14 +1280,14 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                 }}
                             >
                                 New event on this day
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                 onClick={() => setSelectedDayForModal(null)}
                             >
                                 Close
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -1314,7 +1314,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Title
 									</span>
-                                    <input
+                                    <FormInput
                                         type="text"
                                         value={editEventTitle}
                                         onChange={(event) => setEditEventTitle(event.target.value)}
@@ -1327,7 +1327,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 										Start
 									</span>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <input
+                                        <FormInput
                                             type="date"
                                             lang={inputLocale}
                                             value={editEventStartDate}
@@ -1335,7 +1335,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
                                             required
                                         />
-                                        <input
+                                        <FormInput
                                             type="time"
                                             lang={inputLocale}
                                             value={editEventStartTime}
@@ -1353,7 +1353,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 										End
 									</span>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <input
+                                        <FormInput
                                             type="date"
                                             lang={inputLocale}
                                             value={editEventEndDate}
@@ -1361,7 +1361,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
                                             required
                                         />
-                                        <input
+                                        <FormInput
                                             type="time"
                                             lang={inputLocale}
                                             value={editEventEndTime}
@@ -1378,7 +1378,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Location
 									</span>
-                                    <input
+                                    <FormInput
                                         type="text"
                                         value={editEventLocation}
                                         onChange={(event) => setEditEventLocation(event.target.value)}
@@ -1390,7 +1390,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Description
 									</span>
-                                    <textarea
+                                    <FormTextarea
                                         value={editEventDescription}
                                         onChange={(event) => setEditEventDescription(event.target.value)}
                                         rows={4}
@@ -1399,20 +1399,20 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                 </label>
                             </div>
                             <div className="mt-4 flex items-center justify-end gap-2">
-                                <button
+                                <Button
                                     type="button"
                                     className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                     onClick={() => setShowEditEventModal(false)}
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
                                     className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                                     disabled={savingEditEvent}
                                 >
                                     {savingEditEvent ? 'Saving...' : 'Save Changes'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>
@@ -1433,21 +1433,21 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                             This will remove "{eventToDelete.summary || '(No title)'}" from your calendar.
                         </p>
                         <div className="mt-4 flex justify-end gap-2">
-                            <button
+                            <Button
                                 type="button"
                                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                 onClick={() => setEventToDelete(null)}
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
                                 onClick={() => void onDeleteEvent()}
                                 disabled={deletingEvent}
                             >
                                 {deletingEvent ? 'Deleting...' : 'Delete'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -1474,7 +1474,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Title
 									</span>
-                                    <input
+                                    <FormInput
                                         type="text"
                                         value={eventTitle}
                                         onChange={(event) => setEventTitle(event.target.value)}
@@ -1487,7 +1487,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 										Start
 									</span>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <input
+                                        <FormInput
                                             type="date"
                                             lang={inputLocale}
                                             value={eventStartDate}
@@ -1495,7 +1495,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
                                             required
                                         />
-                                        <input
+                                        <FormInput
                                             type="time"
                                             lang={inputLocale}
                                             value={eventStartTime}
@@ -1513,7 +1513,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 										End
 									</span>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <input
+                                        <FormInput
                                             type="date"
                                             lang={inputLocale}
                                             value={eventEndDate}
@@ -1521,7 +1521,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
                                             required
                                         />
-                                        <input
+                                        <FormInput
                                             type="time"
                                             lang={inputLocale}
                                             value={eventEndTime}
@@ -1538,7 +1538,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Location
 									</span>
-                                    <input
+                                    <FormInput
                                         type="text"
                                         value={eventLocation}
                                         onChange={(event) => setEventLocation(event.target.value)}
@@ -1550,7 +1550,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Description
 									</span>
-                                    <textarea
+                                    <FormTextarea
                                         value={eventDescription}
                                         onChange={(event) => setEventDescription(event.target.value)}
                                         rows={4}
@@ -1559,20 +1559,20 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                 </label>
                             </div>
                             <div className="mt-4 flex items-center justify-end gap-2">
-                                <button
+                                <Button
                                     type="button"
                                     className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                     onClick={() => setShowAddEventModal(false)}
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
                                     className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                                     disabled={savingEvent}
                                 >
                                     {savingEvent ? 'Saving...' : 'Save Event'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>

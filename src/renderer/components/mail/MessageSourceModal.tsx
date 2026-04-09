@@ -1,3 +1,4 @@
+import {Button} from '../ui/button';
 import React from 'react';
 
 type MessageSourceModalProps = {
@@ -26,13 +27,13 @@ export default function MessageSourceModal({open, loading, error, source, onClos
                 <div
                     className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-[#3a3d44]">
                     <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Message source</h2>
-                    <button
+                    <Button
                         type="button"
                         className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
                         onClick={onClose}
                     >
                         Close
-                    </button>
+                    </Button>
                 </div>
                 <div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-3 dark:bg-[#181a1f]">
                     {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Loading message source...</p>}

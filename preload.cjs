@@ -1,4 +1,4 @@
-const {contextBridge, ipcRenderer} = require('electron');
+const {contextBridge, ipcRenderer, webUtils} = require('electron');
 const api = {
     getAccounts: () => ipcRenderer.invoke('get-accounts'),
     addAccount: (account) => ipcRenderer.invoke('add-account', account),
@@ -64,6 +64,7 @@ const api = {
     archiveMessage: (messageId) => ipcRenderer.invoke('archive-message', messageId),
     deleteMessage: (messageId) => ipcRenderer.invoke('delete-message', messageId),
     sendEmail: (payload) => ipcRenderer.invoke('send-email', payload),
+    sendEmailBackground: (payload) => ipcRenderer.invoke('send-email-background', payload),
     saveDraft: (payload) => ipcRenderer.invoke('save-draft', payload),
     openAddAccountWindow: () => ipcRenderer.invoke('open-add-account-window'),
     openComposeWindow: (draft) => ipcRenderer.invoke('open-compose-window', draft ?? null),
@@ -74,6 +75,7 @@ const api = {
     openDevTools: () => ipcRenderer.invoke('window-open-dev-tools'),
     restartApp: () => ipcRenderer.invoke('app-restart'),
     openMessageWindow: (messageId) => ipcRenderer.invoke('open-message-window', messageId ?? null),
+    openDebugWindow: () => ipcRenderer.invoke('open-debug-window'),
     getDebugLogs: (limit) => ipcRenderer.invoke('get-debug-logs', limit),
     clearDebugLogs: () => ipcRenderer.invoke('clear-debug-logs'),
     getComposeDraft: () => ipcRenderer.invoke('get-compose-draft'),
@@ -82,6 +84,14 @@ const api = {
     getSystemLocale: () => ipcRenderer.invoke('get-system-locale'),
     updateAppSettings: (patch) => ipcRenderer.invoke('update-app-settings', patch),
     pickComposeAttachments: () => ipcRenderer.invoke('pick-compose-attachments'),
+    getPathForFile: (file) => {
+        try {
+            return String(webUtils.getPathForFile(file) || '');
+        }
+        catch {
+            return '';
+        }
+    },
     getAutoUpdateState: () => ipcRenderer.invoke('get-auto-update-state'),
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     downloadUpdate: () => ipcRenderer.invoke('download-update'),
@@ -89,6 +99,8 @@ const api = {
     devShowNotification: (payload) => ipcRenderer.invoke('dev-show-notification', payload ?? null),
     devPlayNotificationSound: () => ipcRenderer.invoke('dev-play-notification-sound'),
     devOpenUpdaterWindow: () => ipcRenderer.invoke('dev-open-updater-window'),
+    setDefaultEmailClient: () => ipcRenderer.invoke('set-default-email-client'),
+    getDefaultEmailClientStatus: () => ipcRenderer.invoke('get-default-email-client-status'),
     onAccountAdded: (callback) => {
         const listener = (_event, payload) => callback(payload);
         ipcRenderer.on('account-added', listener);
@@ -128,6 +140,11 @@ const api = {
         const listener = (_event, payload) => callback(payload);
         ipcRenderer.on('compose-draft', listener);
         return () => ipcRenderer.removeListener('compose-draft', listener);
+    },
+    onSendEmailBackgroundStatus: (callback) => {
+        const listener = (_event, payload) => callback(payload);
+        ipcRenderer.on('send-email-background-status', listener);
+        return () => ipcRenderer.removeListener('send-email-background-status', listener);
     },
     onAppSettingsUpdated: (callback) => {
         const listener = (_event, payload) => callback(payload);

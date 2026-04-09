@@ -5,6 +5,7 @@ import {clearDebugLogs, createAppLogger, getDebugLogs} from "../debug/debugLog.j
 import {type ComposeDraftPayload, getComposeDraft, openComposeWindow} from "../windows/composeWindow.js";
 import {getMessageWindowTargetId, openMessageWindow} from "../windows/messageWindow.js";
 import {openAddAccountWindow} from "../windows/addAccountWindow.js";
+import {openDebugWindow} from "../windows/debugWindow.js";
 
 const logger = createAppLogger("ipc:windows");
 
@@ -43,6 +44,13 @@ export function registerWindowIpc(): void {
         logger.info("IPC open-message-window messageId=%s", messageId ?? "");
         const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
         openMessageWindow(parentWindow, messageId ?? null);
+        return {ok: true} as const;
+    });
+
+    ipcMain.handle("open-debug-window", async (event) => {
+        logger.info("IPC open-debug-window");
+        const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+        openDebugWindow(parentWindow);
         return {ok: true} as const;
     });
 

@@ -1,6 +1,6 @@
-# LunaMail DB Access Guidelines
+# LlamaMail DB Access Guidelines
 
-This document defines repository-level DB access rules for LunaMail.
+This document defines repository-level DB access rules for LlamaMail.
 
 ## Primary Rule
 

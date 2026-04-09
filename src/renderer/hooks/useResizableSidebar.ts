@@ -3,7 +3,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 const DEFAULT_WIDTH = 360;
 const MIN_WIDTH = 300;
 const MAX_WIDTH = 520;
-const STORAGE_KEY = 'lunamail.sidebar.width';
+const STORAGE_KEY = 'llamamail.sidebar.width';
 
 type ResizableSidebarOptions = {
 	defaultWidth?: number;

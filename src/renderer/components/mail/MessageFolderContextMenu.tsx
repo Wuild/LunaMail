@@ -1,3 +1,4 @@
+import {Button} from '../ui/button';
 import React from 'react';
 import {
     Archive,
@@ -133,7 +134,7 @@ export default function MessageFolderContextMenu({
                         }}
                     />
                     <div className="group relative">
-                        <button
+                        <Button
                             type="button"
                             className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
                         >
@@ -149,7 +150,7 @@ export default function MessageFolderContextMenu({
 								Tag
 							</span>
                             <ChevronRight size={14}/>
-                        </button>
+                        </Button>
                         <div
                             className={cn(
                                 'absolute top-0 z-[1010] hidden min-w-52 rounded-md border border-slate-200 bg-white p-1 shadow-xl group-hover:block group-focus-within:block dark:border-[#3a3d44] dark:bg-[#313338]',
@@ -158,7 +159,7 @@ export default function MessageFolderContextMenu({
                             style={{transform: `translateY(${moveSubmenuOffsetY}px)`}}
                         >
                             {messageTagOptions.map((tag) => (
-                                <button
+                                <Button
                                     key={tag.value}
                                     type="button"
                                     className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
@@ -175,10 +176,10 @@ export default function MessageFolderContextMenu({
                                         tag.value && (
                                             <span className="text-xs text-emerald-600 dark:text-emerald-300">On</span>
                                         )}
-                                </button>
+                                </Button>
                             ))}
                             <div className="my-1 h-px bg-slate-200 dark:bg-[#3a3d44]"/>
-                            <button
+                            <Button
                                 type="button"
                                 className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
                                 onClick={() => {
@@ -187,7 +188,7 @@ export default function MessageFolderContextMenu({
                                 }}
                             >
                                 Clear tag
-                            </button>
+                            </Button>
                         </div>
                     </div>
                     <ContextItem
@@ -200,7 +201,7 @@ export default function MessageFolderContextMenu({
                     />
                     <div className="my-1 h-px bg-slate-200"/>
                     <div className="group relative">
-                        <button
+                        <Button
                             ref={moveToTriggerRef}
                             type="button"
                             className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
@@ -210,7 +211,7 @@ export default function MessageFolderContextMenu({
 								Move to
 							</span>
                             <ChevronRight size={14}/>
-                        </button>
+                        </Button>
                         <div
                             className={cn(
                                 'absolute top-0 z-[1010] hidden min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl group-hover:block group-focus-within:block dark:border-[#3a3d44] dark:bg-[#313338]',

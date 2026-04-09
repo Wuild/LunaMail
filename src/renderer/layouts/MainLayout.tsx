@@ -44,6 +44,7 @@ interface MainLayoutProps {
 	selectedAccountId: number | null;
 	accountFoldersById: Record<number, FolderItem[]>;
 	onSelectAccount: (id: number) => void;
+	onReorderAccounts: (orderedAccountIds: number[]) => void;
 	folders: FolderItem[];
 	selectedFolderPath: string | null;
 	onSelectFolder: (path: string, accountId?: number) => void;
@@ -128,9 +129,9 @@ const FOLDER_TYPE_OPTIONS = [
 	{value: 'trash', label: 'Trash'},
 ] as const;
 
-const ACCOUNT_COLLAPSE_STORAGE_KEY = 'lunamail.accountCollapseState.v1';
-const MAIL_TABLE_COLUMNS_STORAGE_KEY = 'lunamail.mailTableColumns.v1';
-const MAIL_TABLE_COLUMN_WIDTHS_STORAGE_KEY = 'lunamail.mailTableColumnWidths.v1';
+const ACCOUNT_COLLAPSE_STORAGE_KEY = 'llamamail.accountCollapseState.v1';
+const MAIL_TABLE_COLUMNS_STORAGE_KEY = 'llamamail.mailTableColumns.v1';
+const MAIL_TABLE_COLUMN_WIDTHS_STORAGE_KEY = 'llamamail.mailTableColumnWidths.v1';
 const MAIL_TABLE_RESIZE_HANDLE_CLASS = 'absolute inset-y-0 right-[-8px] z-10 w-4 cursor-col-resize hover:bg-sky-400/20';
 const SIDE_LIST_SPLIT_BREAKPOINT_PX = 1320;
 const SIDE_LIST_SIDEBAR_WINDOW_FRACTION = 0.5;
@@ -151,6 +152,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 												   selectedAccountId,
 												   accountFoldersById,
 												   onSelectAccount,
+												   onReorderAccounts,
 												   folders,
 												   selectedFolderPath,
 												   onSelectFolder,
@@ -236,16 +238,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 			return new Set();
 		}
 	});
-	const [draggingMessage, setDraggingMessage] = React.useState<{ id: number; accountId: number } | null>(null);
-	const [dragTargetFolder, setDragTargetFolder] = React.useState<{ accountId: number; path: string } | null>(null);
-	const [draggingCustomFolder, setDraggingCustomFolder] = React.useState<{
-		accountId: number;
-		path: string;
-	} | null>(null);
-	const [customFolderDropTarget, setCustomFolderDropTarget] = React.useState<{
-		accountId: number;
-		path: string;
-	} | null>(null);
 	const [searchModalOpen, setSearchModalOpen] = React.useState(false);
 	const [advancedSearchOpen, setAdvancedSearchOpen] = React.useState(false);
 	const [fromFilter, setFromFilter] = React.useState('');
@@ -302,7 +294,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 	});
 	const [topListHeight, setTopListHeight] = React.useState<number>(() => {
 		if (typeof window === 'undefined') return 300;
-		const stored = Number(window.localStorage.getItem('lunamail.mailTopList.height') || '');
+		const stored = Number(window.localStorage.getItem('llamamail.mailTopList.height') || '');
 		if (!Number.isFinite(stored)) return 300;
 		return Math.max(220, Math.min(640, stored));
 	});
@@ -328,11 +320,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 			return DEFAULT_TABLE_COLUMN_WIDTHS;
 		}
 	});
-	const [draggingColumn, setDraggingColumn] = React.useState<MailTableColumnKey | null>(null);
-	const [dragPlaceholder, setDragPlaceholder] = React.useState<{
-		column: MailTableColumnKey;
-		side: 'before' | 'after';
-	} | null>(null);
 	const topListResizeRef = React.useRef<{ startY: number; startHeight: number } | null>(null);
 	const tableColumnResizeRef = React.useRef<{
 		column: MailTableColumnKey;
@@ -341,7 +328,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 	} | null>(null);
 	const {sidebarWidth, onResizeStart} = useResizableSidebar();
 	const {sidebarWidth: mailListWidth, onResizeStart: onMailListResizeStart} = useResizableSidebar({
-		storageKey: 'lunamail.mailList.width',
+		storageKey: 'llamamail.mailList.width',
 		defaultWidth: 420,
 		minWidth: 300,
 		maxWidth: 760,
@@ -490,39 +477,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		};
 	}, []);
 
-	const parseDraggedMessageIds = React.useCallback((event: React.DragEvent<HTMLElement>): number[] => {
-		const idsRaw = event.dataTransfer.getData('application/x-lunamail-message-ids');
-		if (idsRaw) {
-			try {
-				const parsed = JSON.parse(idsRaw);
-				if (Array.isArray(parsed)) {
-					const normalized = parsed.map((value) => Number(value)).filter((value) => Number.isFinite(value));
-					if (normalized.length > 0) return Array.from(new Set(normalized));
-				}
-			} catch {
-				// fall back to single-id payload
-			}
-		}
-
-		const idRaw =
-			event.dataTransfer.getData('application/x-lunamail-message-id') || event.dataTransfer.getData('text/plain');
-		const parsed = Number(idRaw);
-		return Number.isFinite(parsed) ? [parsed] : [];
-	}, []);
-
 	const handleMessageDropOnFolder = React.useCallback(
-		(event: React.DragEvent<HTMLElement>, folder: FolderItem) => {
-			if (!draggingMessage) return;
-			if (draggingMessage.accountId !== folder.account_id) return;
+		(folder: FolderItem, draggedIds: number[], dragAccountId: number) => {
+			if (dragAccountId !== folder.account_id) return;
 			if (folder.path === selectedFolderPath) return;
-
-			event.preventDefault();
-			const draggedIds = parseDraggedMessageIds(event);
-			if (draggedIds.length === 0) {
-				setDragTargetFolder(null);
-				setDraggingMessage(null);
-				return;
-			}
 
 			const draggedSet = new Set(draggedIds);
 			const draggedMessages = messages.filter(
@@ -536,11 +494,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 					folder.path,
 				);
 			}
-
-			setDragTargetFolder(null);
-			setDraggingMessage(null);
 		},
-		[draggingMessage, messages, onBulkMove, onMessageMove, parseDraggedMessageIds, selectedFolderPath],
+		[messages, onBulkMove, onMessageMove, selectedFolderPath],
 	);
 
 	React.useEffect(() => {
@@ -585,7 +540,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
 	React.useEffect(() => {
 		try {
-			window.localStorage.setItem('lunamail.mailTopList.height', String(topListHeight));
+			window.localStorage.setItem('llamamail.mailTopList.height', String(topListHeight));
 		} catch {
 			// ignore storage failures
 		}
@@ -637,11 +592,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		};
 		window.addEventListener('click', close);
 		window.addEventListener('keydown', close);
-		window.addEventListener('lunamail-close-overlays', close as EventListener);
+		window.addEventListener('llamamail-close-overlays', close as EventListener);
 		return () => {
 			window.removeEventListener('click', close);
 			window.removeEventListener('keydown', close);
-			window.removeEventListener('lunamail-close-overlays', close as EventListener);
+			window.removeEventListener('llamamail-close-overlays', close as EventListener);
 		};
 	}, []);
 
@@ -886,56 +841,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		document.body.classList.add('is-resizing-mail-columns');
 	}
 
-	function moveTableColumnBefore(dragged: MailTableColumnKey, target: MailTableColumnKey): void {
-		if (dragged === target) return;
+	function reorderVisibleTableColumns(orderedVisibleColumns: MailTableColumnKey[]): void {
 		setTableColumns((prev) => {
-			const fromIndex = prev.indexOf(dragged);
-			const targetIndex = prev.indexOf(target);
-			if (fromIndex < 0 || targetIndex < 0) return prev;
-			const next = prev.filter((column) => column !== dragged);
-			const insertAt = next.indexOf(target);
-			if (insertAt < 0) return prev;
-			next.splice(insertAt, 0, dragged);
-			return next;
+			const visibleSet = new Set(orderedVisibleColumns);
+			let visibleIndex = 0;
+			return prev.map((column) => {
+				if (!visibleSet.has(column)) return column;
+				const next = orderedVisibleColumns[visibleIndex] ?? column;
+				visibleIndex += 1;
+				return next;
+			});
 		});
-	}
-
-	function moveTableColumnAfter(dragged: MailTableColumnKey, target: MailTableColumnKey): void {
-		if (dragged === target) return;
-		setTableColumns((prev) => {
-			const fromIndex = prev.indexOf(dragged);
-			const targetIndex = prev.indexOf(target);
-			if (fromIndex < 0 || targetIndex < 0) return prev;
-			const next = prev.filter((column) => column !== dragged);
-			const insertAt = next.indexOf(target);
-			if (insertAt < 0) return prev;
-			next.splice(insertAt + 1, 0, dragged);
-			return next;
-		});
-	}
-
-	function onTableHeaderDragStart(event: React.DragEvent, column: MailTableColumnKey): void {
-		if (tableColumnResizeRef.current) {
-			event.preventDefault();
-			return;
-		}
-		setDraggingColumn(column);
-		event.dataTransfer.effectAllowed = 'move';
-		event.dataTransfer.setData('text/plain', column);
-	}
-
-	function onTableHeaderDrop(event: React.DragEvent, target: MailTableColumnKey): void {
-		event.preventDefault();
-		const dragged = draggingColumn || (event.dataTransfer.getData('text/plain') as MailTableColumnKey);
-		if (!dragged) return;
-		const side = dragPlaceholder?.column === target ? dragPlaceholder.side : 'before';
-		if (side === 'after') {
-			moveTableColumnAfter(dragged, target);
-		} else {
-			moveTableColumnBefore(dragged, target);
-		}
-		setDragPlaceholder(null);
-		setDraggingColumn(null);
 	}
 
 	function navigateToMessage(message: MessageItem): void {
@@ -955,42 +871,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		if (!multiGesture) {
 			navigateToMessage(message);
 		}
-	}
-
-	function onMessageRowDragStart(event: React.DragEvent, message: MessageItem): void {
-		const dragIds =
-			selectedMessageIds.length > 1 && selectedMessageIds.includes(message.id)
-				? selectedMessageIds
-				: [message.id];
-		setDraggingMessage({id: message.id, accountId: message.account_id});
-		event.dataTransfer.effectAllowed = 'move';
-		event.dataTransfer.setData('application/x-lunamail-message-id', String(message.id));
-		event.dataTransfer.setData('application/x-lunamail-message-ids', JSON.stringify(dragIds));
-		event.dataTransfer.setData('text/plain', String(message.id));
-
-		const ghost = document.createElement('div');
-		ghost.textContent =
-			dragIds.length > 1 ? `Move ${dragIds.length} emails` : `Move: ${message.subject || '(No subject)'}`;
-		ghost.style.position = 'fixed';
-		ghost.style.top = '-1000px';
-		ghost.style.left = '-1000px';
-		ghost.style.padding = '6px 10px';
-		ghost.style.maxWidth = '280px';
-		ghost.style.borderRadius = '8px';
-		ghost.style.background = 'rgba(3, 105, 161, 0.92)';
-		ghost.style.color = '#fff';
-		ghost.style.fontSize = '12px';
-		ghost.style.fontWeight = '600';
-		ghost.style.whiteSpace = 'nowrap';
-		ghost.style.overflow = 'hidden';
-		ghost.style.textOverflow = 'ellipsis';
-		ghost.style.pointerEvents = 'none';
-		ghost.style.zIndex = '9999';
-		document.body.appendChild(ghost);
-		event.dataTransfer.setDragImage(ghost, 12, 12);
-		setTimeout(() => {
-			ghost.remove();
-		}, 0);
 	}
 
 	function onTopListResizeStart(event: React.MouseEvent<HTMLDivElement>): void {
@@ -1152,15 +1032,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 						syncingAccountIds={syncingAccountIds}
 						localSyncingAccountIds={localSyncingAccountIds}
 						collapsedAccountIds={collapsedAccountIds}
-						draggingMessage={draggingMessage}
-						dragTargetFolder={dragTargetFolder}
-						draggingCustomFolder={draggingCustomFolder}
-						customFolderDropTarget={customFolderDropTarget}
-						onSetDragTargetFolder={setDragTargetFolder}
-						onSetDraggingCustomFolder={setDraggingCustomFolder}
-						onSetCustomFolderDropTarget={setCustomFolderDropTarget}
 						onToggleAccountExpanded={toggleAccountExpanded}
 						onSelectAccount={onSelectAccount}
+						onReorderAccounts={onReorderAccounts}
 						onSyncAccount={syncAccountNow}
 						onOpenAccountSettings={(accountId) => {
 							window.location.hash = `/settings/account/${accountId}`;
@@ -1198,7 +1072,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 							selectedMessageIds={selectedMessageIds}
 							selectedMessageId={selectedMessageId}
 							messages={messages}
-							draggingMessage={draggingMessage}
 							hasMoreMessages={hasMoreMessages}
 							loadingMoreMessages={loadingMoreMessages}
 							dateLocale={dateLocale}
@@ -1208,11 +1081,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 							onClearMessageSelection={onClearMessageSelection}
 							onLoadMoreMessages={onLoadMoreMessages}
 							onMessageRowClick={onMessageRowClick}
-							onMessageRowDragStart={onMessageRowDragStart}
-							onResetDragState={() => {
-								setDraggingMessage(null);
-								setDragTargetFolder(null);
-							}}
 							onOpenMessageMenu={(message, x, y) => {
 								setMenu({kind: 'message', x, y, message});
 							}}
@@ -1239,44 +1107,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 							hasMoreMessages={hasMoreMessages}
 							visibleTableColumns={visibleTableColumns}
 							tableColumnOptions={TABLE_COLUMN_OPTIONS}
-							effectiveTableColumnWidths={effectiveTableColumnWidths}
-							tableMinWidth={tableMinWidth}
-							mailTableResizeHandleClass={MAIL_TABLE_RESIZE_HANDLE_CLASS}
-							draggingColumn={draggingColumn}
-							dragPlaceholder={dragPlaceholder}
-							onOpenSearchModal={() => setSearchModalOpen(true)}
-							onBulkMarkRead={onBulkMarkRead}
-							onBulkDelete={onBulkDelete}
-							onClearMessageSelection={onClearMessageSelection}
-							onLoadMoreMessages={onLoadMoreMessages}
-							onOpenTableHeadMenuAt={openTableHeadMenuAt}
-							onTableHeaderDragStart={onTableHeaderDragStart}
-							onTableHeaderDragOver={(event, column) => {
-								event.preventDefault();
-								if (draggingColumn && draggingColumn !== column) {
-									const rect = event.currentTarget.getBoundingClientRect();
-									const side = event.clientX >= rect.left + rect.width / 2 ? 'after' : 'before';
-									setDragPlaceholder((prev) => {
-										if (prev?.column === column && prev.side === side) return prev;
-										return {column, side};
-									});
-								}
-							}}
-							onTableHeaderDragLeave={(column) => {
-								setDragPlaceholder((prev) => (prev?.column === column ? null : prev));
-							}}
-							onTableHeaderDrop={onTableHeaderDrop}
-							onTableHeaderDragEnd={() => {
-								setDraggingColumn(null);
-								setDragPlaceholder(null);
-							}}
-							onBeginTableColumnResize={beginTableColumnResize}
-							onMessageRowClick={onMessageRowClick}
-							onMessageRowDragStart={onMessageRowDragStart}
-							onResetMessageDragState={() => {
-								setDraggingMessage(null);
-								setDragTargetFolder(null);
-							}}
+								effectiveTableColumnWidths={effectiveTableColumnWidths}
+								tableMinWidth={tableMinWidth}
+								mailTableResizeHandleClass={MAIL_TABLE_RESIZE_HANDLE_CLASS}
+								onOpenSearchModal={() => setSearchModalOpen(true)}
+								onBulkMarkRead={onBulkMarkRead}
+								onBulkDelete={onBulkDelete}
+								onClearMessageSelection={onClearMessageSelection}
+								onLoadMoreMessages={onLoadMoreMessages}
+								onOpenTableHeadMenuAt={openTableHeadMenuAt}
+								onReorderVisibleTableColumns={reorderVisibleTableColumns}
+								onBeginTableColumnResize={beginTableColumnResize}
+								onMessageRowClick={onMessageRowClick}
 							onOpenMessageMenu={(message, x, y) => {
 								setMenu({kind: 'message', x, y, message});
 							}}

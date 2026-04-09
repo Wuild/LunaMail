@@ -7,7 +7,7 @@ export default {
     driver: "better-sqlite",
     dbCredentials: {
         // For migrations during development; Electron will use userData path at runtime
-        url: "./lunamail.dev.db",
+        url: "./llamamail.dev.db",
     },
     strict: true,
     verbose: true,

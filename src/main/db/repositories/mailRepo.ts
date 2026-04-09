@@ -672,12 +672,23 @@ export function listRecentRecipients(
 
 export function getTotalUnreadCount(): number {
     const db = getDb();
-    const row = db.prepare('SELECT COALESCE(SUM(unread_count), 0) as unread FROM folders').get() as
+    const foldersRow = db
+        .prepare('SELECT COALESCE(SUM(unread_count), 0) as unread FROM folders')
+        .get() as
         | {
         unread: number;
     }
         | undefined;
-    return Number(row?.unread ?? 0);
+    const messagesRow = db
+        .prepare('SELECT COALESCE(SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), 0) as unread FROM messages')
+        .get() as
+        | {
+        unread: number;
+    }
+        | undefined;
+    const folderUnread = Math.max(0, Number(foldersRow?.unread ?? 0));
+    const messageUnread = Math.max(0, Number(messagesRow?.unread ?? 0));
+    return Math.max(folderUnread, messageUnread);
 }
 
 function parseRecipientHeaderList(value: string): Array<{ email: string; displayName: string | null }> {

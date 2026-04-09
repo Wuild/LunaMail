@@ -13,8 +13,8 @@ export function getAccountMonogram(account: PublicAccount): string {
 export function getAccountAvatarColors(seed: string): { background: string; foreground: string } {
     const hash = hashString(seed.trim().toLowerCase() || "account");
     const hue = hash % 360;
-    const saturation = 58 + (hash % 15);
-    const lightness = 44 + (Math.floor(hash / 11) % 12);
+    const saturation = 58 + ((hash >>> 9) % 20);
+    const lightness = 40 + ((hash >>> 17) % 18);
     const background = `hsl(${hue} ${saturation}% ${lightness}%)`;
 
     const [r, g, b] = hslToRgb(hue, saturation, lightness);
@@ -22,6 +22,16 @@ export function getAccountAvatarColors(seed: string): { background: string; fore
     const darkContrast = contrastRatio([r, g, b], [15, 23, 42]);
     const foreground = whiteContrast >= darkContrast ? "#ffffff" : "#0f172a";
     return {background, foreground};
+}
+
+export function getAccountAvatarSeed(account: PublicAccount): string {
+    const email = String(account.email || "").trim().toLowerCase();
+    if (email) return `account-email:${email}`;
+    return `account-id:${account.id}`;
+}
+
+export function getAccountAvatarColorsForAccount(account: PublicAccount): { background: string; foreground: string } {
+    return getAccountAvatarColors(getAccountAvatarSeed(account));
 }
 
 function hashString(value: string): number {

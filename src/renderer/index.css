@@ -37,7 +37,7 @@
         overflow-wrap: normal;
     }
 
-    button:has(svg) {
+    button:has(svg):not([aria-label]) {
         min-width: 2.25rem;
     }
 

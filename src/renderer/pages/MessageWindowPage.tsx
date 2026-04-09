@@ -1,3 +1,4 @@
+import {Button} from '../components/ui/button';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {FileText, Forward, MailOpen, Paperclip, Reply, ReplyAll, Star, Tag, Trash2} from 'lucide-react';
 import type {MessageBodyResult, MessageDetails} from '../../preload';
@@ -153,10 +154,10 @@ export default function MessageWindowPage() {
     <base target="_blank" />
     <style>
       html, body { width: 100%; margin: 0; box-sizing: border-box; }
-      #lunamail-frame-content { box-sizing: border-box; padding: 16px; }
+      #llamamail-frame-content { box-sizing: border-box; padding: 16px; }
     </style>
   </head>
-  <body><div id="lunamail-frame-content">${html}</div></body>
+  <body><div id="llamamail-frame-content">${html}</div></body>
 </html>`;
 	}, [allowRemoteForMessage, body]);
 	const attachments = body?.attachments ?? [];
@@ -303,47 +304,47 @@ export default function MessageWindowPage() {
 					aria-label="Message actions"
 					className="shrink-0 flex w-full flex-wrap items-center gap-1.5 border-b border-slate-200 bg-white px-3 py-2 dark:border-[#3a3d44] dark:bg-[#2b2d31]"
 				>
-					<button
+					<Button
 						type="button"
 						className="inline-flex h-8 items-center gap-1.5 rounded-md bg-sky-600 px-2.5 text-xs font-medium text-white transition-colors hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
 						onClick={onReply}
 					>
 						<Reply size={14}/>
 						<span>Reply</span>
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
 						className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3d44]"
 						onClick={onReplyAll}
 					>
 						<ReplyAll size={14}/>
 						<span>Reply all</span>
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
 						className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3d44]"
 						onClick={onForward}
 					>
 						<Forward size={14}/>
 						<span>Forward</span>
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
 						className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3d44]"
 						onClick={onViewSource}
 					>
 						<FileText size={14}/>
 						<span>View source</span>
-					</button>
+					</Button>
 					<span className="mx-1 h-6 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
-					<button
+					<Button
 						type="button"
 						className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/30"
 						onClick={onDelete}
 					>
 						<Trash2 size={14}/>
 						<span>Delete</span>
-					</button>
+					</Button>
 				</div>
 				<header
 					className="shrink-0 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-indigo-50/40 px-4 py-3 dark:border-[#393c41] dark:from-[#34373d] dark:via-[#34373d] dark:to-[#3a3550]">
@@ -404,12 +405,12 @@ export default function MessageWindowPage() {
 									{formatSystemDateTime(message.date, systemLocale)}
 								</div>
 							</div>
-							<button
+							<Button
 								className="mt-2 inline-flex h-7 items-center rounded-md border border-slate-300 px-2 text-[11px] text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
 								onClick={() => setShowMessageDetails((prev) => !prev)}
 							>
 								{showMessageDetails ? 'Hide message details' : 'Show message details'}
-							</button>
+							</Button>
 							{showMessageDetails && (
 								<div
 									className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
@@ -452,20 +453,20 @@ export default function MessageWindowPage() {
 							className="w-full shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-300">
 							<div className="flex flex-wrap items-center gap-2">
 								<span>Remote content blocked for privacy.</span>
-								<button
+								<Button
 									type="button"
 									className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200 dark:border-amber-600/70 dark:bg-amber-900/30 dark:hover:bg-amber-900/45"
 									onClick={() => setSessionRemoteAllowed(true)}
 								>
 									Load once
-								</button>
-								<button
+								</Button>
+								<Button
 									type="button"
 									className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200 dark:border-amber-600/70 dark:bg-amber-900/30 dark:hover:bg-amber-900/45"
 									onClick={allowRemoteContentForSender}
 								>
 									Always allow sender
-								</button>
+								</Button>
 							</div>
 						</div>
 					)}
@@ -504,7 +505,7 @@ export default function MessageWindowPage() {
 						<div className="overflow-x-auto overflow-y-hidden">
 							<div className="flex min-w-full w-max gap-2 pb-1">
 								{attachments.map((attachment, index) => (
-									<button
+									<Button
 										key={`${attachment.filename || 'attachment'}-${index}`}
 										type="button"
 										className="group flex w-[17rem] shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white p-2 text-left text-xs text-slate-700 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-200"
@@ -535,7 +536,7 @@ export default function MessageWindowPage() {
 													: ''}
 											</span>
 										</span>
-									</button>
+									</Button>
 								))}
 							</div>
 						</div>
@@ -556,7 +557,7 @@ export default function MessageWindowPage() {
 						}}
 						onClick={(event) => event.stopPropagation()}
 					>
-						<button
+						<Button
 							className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
 							onClick={() => {
 								if (!message) return;
@@ -567,8 +568,8 @@ export default function MessageWindowPage() {
 							}}
 						>
 							Open
-						</button>
-						<button
+						</Button>
+						<Button
 							className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
 							onClick={() => {
 								if (!message) return;
@@ -579,7 +580,7 @@ export default function MessageWindowPage() {
 							}}
 						>
 							Save As...
-						</button>
+						</Button>
 					</div>
 				)}
 				{showSourceModal && (
@@ -599,13 +600,13 @@ export default function MessageWindowPage() {
 								<h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
 									Message source
 								</h2>
-								<button
+								<Button
 									type="button"
 									className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
 									onClick={() => setShowSourceModal(false)}
 								>
 									Close
-								</button>
+								</Button>
 							</div>
 							<div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-3 dark:bg-[#181a1f]">
 								{sourceLoading && (

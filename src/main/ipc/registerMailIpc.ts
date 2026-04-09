@@ -358,7 +358,7 @@ export function registerMailIpc(deps: MailIpcDeps): void {
             const safeName = deps.sanitizeAttachmentFilename(attachment.filename);
             const requestedAction = action ?? 'prompt';
             if (requestedAction === 'open') {
-                const targetPath = path.join(os.tmpdir(), `lunamail-${Date.now()}-${safeName}`);
+                const targetPath = path.join(os.tmpdir(), `llamamail-${Date.now()}-${safeName}`);
                 await fs.writeFile(targetPath, attachment.content);
                 const openError = await shell.openPath(targetPath);
                 if (openError) throw new Error(openError);
@@ -397,7 +397,7 @@ export function registerMailIpc(deps: MailIpcDeps): void {
             }
 
             if (openOrSave.response === 0) {
-                const targetPath = path.join(os.tmpdir(), `lunamail-${Date.now()}-${safeName}`);
+                const targetPath = path.join(os.tmpdir(), `llamamail-${Date.now()}-${safeName}`);
                 await fs.writeFile(targetPath, attachment.content);
                 const openError = await shell.openPath(targetPath);
                 if (openError) throw new Error(openError);
@@ -470,7 +470,9 @@ export function registerMailIpc(deps: MailIpcDeps): void {
         const safeMessageId = parsePositiveInt(messageId, 'messageId');
         const safeTargetFolderPath = parseFolderPath(targetFolderPath, 'targetFolderPath');
         deps.appLogger.info('IPC move-message messageId=%d targetFolderPath=%s', safeMessageId, safeTargetFolderPath);
-        return await deps.moveServerMessage(safeMessageId, safeTargetFolderPath);
+        const result = await deps.moveServerMessage(safeMessageId, safeTargetFolderPath);
+        deps.notifyUnreadCountChanged();
+        return result;
     });
 
     ipcMain.handle('archive-message', async (_event, messageId: number) => {
@@ -480,7 +482,9 @@ export function registerMailIpc(deps: MailIpcDeps): void {
         if (!ctx) throw new Error(`Message ${safeMessageId} not found`);
         const archivePath = deps.resolveArchiveFolderPath(ctx.accountId, ctx.folderPath);
         if (!archivePath) throw new Error('No archive folder available for this account.');
-        return await deps.moveServerMessage(safeMessageId, archivePath);
+        const result = await deps.moveServerMessage(safeMessageId, archivePath);
+        deps.notifyUnreadCountChanged();
+        return result;
     });
 
     ipcMain.handle('delete-message', async (_event, messageId: number) => {

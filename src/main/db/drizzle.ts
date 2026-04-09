@@ -21,11 +21,11 @@ export function getSqlitePath(): string {
   try {
     const electron = require("electron") as { app?: { getPath: (name: string) => string } };
     const userData = electron?.app?.getPath?.("userData");
-    if (userData) return path.join(userData, "lunamail.db");
+    if (userData) return path.join(userData, "llamamail.db");
   } catch {
     // Worker/non-electron context fallback.
   }
-  return path.join(process.cwd(), "lunamail.db");
+  return path.join(process.cwd(), "llamamail.db");
 }
 
 export function getDb() {

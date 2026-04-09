@@ -34,6 +34,8 @@ import type {
     SaveDraftPayload,
     SaveDraftResult,
     SendEmailPayload,
+    SendEmailBackgroundResult,
+    SendEmailBackgroundStatusEvent,
     SendEmailResult,
     SetMessageReadResult,
     SyncStatusEvent,
@@ -96,12 +98,18 @@ export const ipcClient = {
     devShowNotification: () => window.electronAPI.devShowNotification(),
     devPlayNotificationSound: () => window.electronAPI.devPlayNotificationSound(),
     devOpenUpdaterWindow: () => window.electronAPI.devOpenUpdaterWindow(),
+    setDefaultEmailClient: (): Promise<{ ok: boolean; isDefault: boolean; error?: string }> =>
+        window.electronAPI.setDefaultEmailClient(),
+    getDefaultEmailClientStatus: (): Promise<{ ok: boolean; isDefault: boolean; error?: string }> =>
+        window.electronAPI.getDefaultEmailClientStatus(),
     onAutoUpdateStatus: (cb: (state: AutoUpdateState) => void): (() => void) =>
         window.electronAPI.onAutoUpdateStatus?.(cb) ?? noopUnsubscribe,
     onGlobalError: (cb: (payload: GlobalErrorEvent) => void): (() => void) =>
         window.electronAPI.onGlobalError?.(cb) ?? noopUnsubscribe,
     onComposeDraft: (cb: (draft: ComposeDraftPayload | null) => void): (() => void) =>
         window.electronAPI.onComposeDraft?.(cb) ?? noopUnsubscribe,
+    onSendEmailBackgroundStatus: (cb: (payload: SendEmailBackgroundStatusEvent) => void): (() => void) =>
+        window.electronAPI.onSendEmailBackgroundStatus?.(cb) ?? noopUnsubscribe,
     onDebugLog: (cb: (entry: DebugLogEntry) => void): (() => void) =>
         window.electronAPI.onDebugLog?.(cb) ?? noopUnsubscribe,
     getDebugLogs: (limit?: number): Promise<DebugLogEntry[]> => window.electronAPI.getDebugLogs(limit),
@@ -181,12 +189,16 @@ export const ipcClient = {
     getMessage: (messageId: number) => window.electronAPI.getMessage(messageId),
     getMessageSource: (messageId: number) => window.electronAPI.getMessageSource(messageId),
     openMessageWindow: (messageId?: number) => window.electronAPI.openMessageWindow(messageId),
+    openDebugWindow: () => window.electronAPI.openDebugWindow(),
     openComposeWindow: (draft?: ComposeDraftPayload | Record<string, unknown>) =>
         window.electronAPI.openComposeWindow(draft),
     getComposeDraft: (): Promise<ComposeDraftPayload | null> => window.electronAPI.getComposeDraft(),
     sendEmail: (payload: SendEmailPayload): Promise<SendEmailResult> => window.electronAPI.sendEmail(payload),
+    sendEmailBackground: (payload: SendEmailPayload): Promise<SendEmailBackgroundResult> =>
+        window.electronAPI.sendEmailBackground(payload),
     saveDraft: (payload: SaveDraftPayload): Promise<SaveDraftResult> => window.electronAPI.saveDraft(payload),
     pickComposeAttachments: (): Promise<PickedAttachment[]> => window.electronAPI.pickComposeAttachments(),
+    getPathForFile: (file: File): string => window.electronAPI.getPathForFile(file),
     updateAppSettings: (patch: Partial<AppSettings>) => window.electronAPI.updateAppSettings(patch),
     createFolder: (accountId: number, folderPath: string) => window.electronAPI.createFolder(accountId, folderPath),
     updateFolderSettings: (

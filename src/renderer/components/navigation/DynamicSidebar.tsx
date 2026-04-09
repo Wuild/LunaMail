@@ -1,3 +1,4 @@
+import {Button} from '../ui/button';
 import React from 'react';
 import {NavLink} from 'react-router-dom';
 import {cn} from '../../lib/utils';
@@ -8,6 +9,8 @@ export type DynamicSidebarItem = {
     description?: string | null;
     disabled?: boolean;
     to?: string;
+    icon?: React.ReactNode;
+    avatar?: React.ReactNode;
 };
 
 export type DynamicSidebarSection = {
@@ -63,33 +66,51 @@ export default function DynamicSidebar({sections, selectedItemId, onSelectItem, 
                                             onDragStart={(event) => event.preventDefault()}
                                             onClick={() => onSelectItem?.(item.id)}
                                         >
-                                            {item.label}
-                                            {item.description && (
-                                                <span
-                                                    className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
-													{item.description}
-												</span>
-                                            )}
+                                            <span className="flex min-w-0 items-center gap-2">
+                                                {item.avatar ? (
+                                                    <span className="shrink-0">{item.avatar}</span>
+                                                ) : item.icon ? (
+                                                    <span className="shrink-0 text-slate-500 dark:text-slate-400">{item.icon}</span>
+                                                ) : null}
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block truncate">{item.label}</span>
+                                                    {item.description && (
+                                                        <span
+                                                            className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
+															{item.description}
+														</span>
+                                                    )}
+                                                </span>
+                                            </span>
                                         </NavLink>
                                     );
                                 }
 
                                 return (
-                                    <button
+                                    <Button
                                         key={item.id}
                                         type="button"
                                         disabled={item.disabled}
                                         className={itemClassName}
                                         onClick={() => onSelectItem?.(item.id)}
                                     >
-                                        {item.label}
-                                        {item.description && (
-                                            <span
-                                                className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
-												{item.description}
-											</span>
-                                        )}
-                                    </button>
+                                        <span className="flex min-w-0 items-center gap-2">
+                                            {item.avatar ? (
+                                                <span className="shrink-0">{item.avatar}</span>
+                                            ) : item.icon ? (
+                                                <span className="shrink-0 text-slate-500 dark:text-slate-400">{item.icon}</span>
+                                            ) : null}
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block truncate">{item.label}</span>
+                                                {item.description && (
+                                                    <span
+                                                        className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
+														{item.description}
+													</span>
+                                                )}
+                                            </span>
+                                        </span>
+                                    </Button>
                                 );
                             })}
                             {section.items.length === 0 && section.emptyLabel && (

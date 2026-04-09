@@ -1,11 +1,15 @@
 import keytar from 'keytar';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import {eq} from 'drizzle-orm';
-import {getDb, getDrizzle} from '../drizzle.js';
+import {getDb, getDrizzle, getSqlitePath} from '../drizzle.js';
 import {accounts, type InsertAccount} from '../schema.js';
+import {APP_NAME} from '../../config.js';
 
 // This repository still contains parameterized raw SQL for a few multi-step cleanup paths while Drizzle migration is
 // completed incrementally. Keep new data access Drizzle-first unless there is a documented exception.
-const SERVICE_NAME = 'LunaMail';
+const SERVICE_NAME = APP_NAME;
+const VCARD_DIR_NAME = 'vcards';
 
 export interface PublicAccount {
     id: number;
@@ -163,6 +167,16 @@ export async function addAccount(payload: AddAccountPayload): Promise<{ id: numb
     const accountId = result?.id as number;
 
     await keytar.setPassword(SERVICE_NAME, `${accountId}:${email}`, password);
+    await ensureLocalAccountVCard(
+        accountId,
+        {
+            email,
+            display_name,
+            organization,
+            reply_to,
+        },
+        null,
+    );
 
     return {id: Number(accountId), email};
 }
@@ -180,7 +194,10 @@ export interface AccountSyncCredentials {
 export interface AccountSendCredentials {
     id: number;
     email: string;
+    display_name: string | null;
+    organization: string | null;
     reply_to: string | null;
+    attach_vcard: number;
     signature_text: string | null;
     signature_is_html: number;
     smtp_host: string;
@@ -220,7 +237,10 @@ export async function getAccountSendCredentials(accountId: number): Promise<Acco
     return {
         id: row.id,
         email: row.email,
+        display_name: row.displayName ?? null,
+        organization: row.organization ?? null,
         reply_to: row.replyTo ?? null,
+        attach_vcard: row.attachVcard ?? 0,
         signature_text: row.signatureText ?? null,
         signature_is_html: row.signatureIsHtml ?? 0,
         smtp_host: row.smtpHost,
@@ -280,6 +300,16 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
     if (oldServiceAccount !== newServiceAccount) {
         await keytar.deletePassword(SERVICE_NAME, oldServiceAccount);
     }
+    await ensureLocalAccountVCard(
+        accountId,
+        {
+            email,
+            display_name: payload.display_name ?? null,
+            organization: payload.organization ?? null,
+            reply_to: payload.reply_to ?? null,
+        },
+        existing.email,
+    );
 
     const updated = await db.select().from(accounts).where(eq(accounts.id, accountId)).get();
     if (!updated?.id) throw new Error(`Account ${accountId} not found after update`);
@@ -344,5 +374,80 @@ export async function deleteAccount(accountId: number): Promise<{ id: number; em
 
     tx(accountId);
     await keytar.deletePassword(SERVICE_NAME, `${accountId}:${existing.email}`);
+    await removeLocalAccountVCard(accountId, existing.email);
     return {id: accountId, email: existing.email};
+}
+
+export function getLocalAccountVCardPath(accountId: number, email: string): string {
+    const safeEmail = String(email || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 96);
+    const suffix = safeEmail || `account-${accountId}`;
+    const dbPath = getSqlitePath();
+    const baseDir = path.dirname(dbPath);
+    return path.join(baseDir, VCARD_DIR_NAME, `account-${accountId}-${suffix}.vcf`);
+}
+
+function escapeVCardValue(value: string): string {
+    return String(value || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/\n/g, '\\n')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,');
+}
+
+function buildAccountVCard(input: {
+    email: string;
+    display_name?: string | null;
+    organization?: string | null;
+    reply_to?: string | null;
+}): string {
+    const email = String(input.email || '').trim();
+    const displayName = String(input.display_name || '').trim();
+    const organization = String(input.organization || '').trim();
+    const replyTo = String(input.reply_to || '').trim();
+    const fullName = displayName || email;
+
+    const lines = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${escapeVCardValue(fullName)}`, `EMAIL;TYPE=INTERNET:${escapeVCardValue(email)}`];
+    if (organization) lines.push(`ORG:${escapeVCardValue(organization)}`);
+    if (replyTo && replyTo.toLowerCase() !== email.toLowerCase()) {
+        lines.push(`EMAIL;TYPE=OTHER:${escapeVCardValue(replyTo)}`);
+    }
+    lines.push('END:VCARD');
+    return `${lines.join('\n')}\n`;
+}
+
+async function ensureLocalAccountVCard(
+    accountId: number,
+    input: {
+        email: string;
+        display_name?: string | null;
+        organization?: string | null;
+        reply_to?: string | null;
+    },
+    oldEmail: string | null,
+): Promise<void> {
+    try {
+        const nextPath = getLocalAccountVCardPath(accountId, input.email);
+        await fs.mkdir(path.dirname(nextPath), {recursive: true});
+        await fs.writeFile(nextPath, buildAccountVCard(input), 'utf8');
+        if (oldEmail && oldEmail.trim() && oldEmail !== input.email) {
+            await removeLocalAccountVCard(accountId, oldEmail);
+        }
+    } catch (error) {
+        console.warn(`Failed to write local vCard for account ${accountId}:`, error);
+    }
+}
+
+async function removeLocalAccountVCard(accountId: number, email: string): Promise<void> {
+    const vcardPath = getLocalAccountVCardPath(accountId, email);
+    try {
+        await fs.unlink(vcardPath);
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+            console.warn(`Failed to remove local vCard for account ${accountId}:`, error);
+        }
+    }
 }

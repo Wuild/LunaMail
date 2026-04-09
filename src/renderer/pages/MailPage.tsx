@@ -1,3 +1,5 @@
+import {FormInput} from '../components/ui/FormControls';
+import {Button} from '../components/ui/button';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
 	FileText,
@@ -70,12 +72,63 @@ import type {
 const MESSAGE_PAGE_SIZE = 100;
 const MIN_INLINE_MAIL_BODY_WIDTH = 520;
 const MIN_INLINE_MAIL_BODY_HEIGHT = 260;
+const ACCOUNT_ORDER_STORAGE_KEY = 'llamamail.mail.accountOrder.v1';
+
+function arraysEqual(a: number[], b: number[]): boolean {
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i += 1) {
+		if (a[i] !== b[i]) return false;
+	}
+	return true;
+}
+
+function readPersistedAccountOrder(): number[] {
+	if (typeof window === 'undefined') return [];
+	try {
+		const raw = window.localStorage.getItem(ACCOUNT_ORDER_STORAGE_KEY);
+		if (!raw) return [];
+		const parsed = JSON.parse(raw);
+		if (!Array.isArray(parsed)) return [];
+		const next = parsed.map((value) => Number(value)).filter((value) => Number.isFinite(value));
+		return Array.from(new Set(next));
+	} catch {
+		return [];
+	}
+}
+
+function normalizeAccountOrder(order: number[], accounts: PublicAccount[]): number[] {
+	const availableIds = new Set(accounts.map((account) => account.id));
+	const ordered: number[] = [];
+	for (const id of order) {
+		if (!availableIds.has(id)) continue;
+		if (ordered.includes(id)) continue;
+		ordered.push(id);
+	}
+	for (const account of accounts) {
+		if (!ordered.includes(account.id)) {
+			ordered.push(account.id);
+		}
+	}
+	return ordered;
+}
+
+function sortAccountsByOrder(accounts: PublicAccount[], order: number[]): PublicAccount[] {
+	if (accounts.length <= 1) return accounts;
+	const normalizedOrder = normalizeAccountOrder(order, accounts);
+	const positionById = new Map<number, number>(normalizedOrder.map((id, index) => [id, index]));
+	return [...accounts].sort((left, right) => {
+		const leftPos = positionById.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+		const rightPos = positionById.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+		return leftPos - rightPos;
+	});
+}
 
 function MailPage() {
 	const params = useParams<{ accountId?: string; folderId?: string; emailId?: string }>();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [accounts, setAccounts] = useState<PublicAccount[]>([]);
+	const [accountOrder, setAccountOrder] = useState<number[]>(() => readPersistedAccountOrder());
 	const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
 	const [folders, setFolders] = useState<FolderItem[]>([]);
 	const [accountFoldersById, setAccountFoldersById] = useState<Record<number, FolderItem[]>>({});
@@ -102,6 +155,7 @@ function MailPage() {
 	const pendingDeleteMessageIdsRef = useRef<Set<number>>(new Set());
 	const pendingOpenMessageTargetRef = useRef<OpenMessageTargetEvent | null>(null);
 	const sourceRequestSeqRef = useRef(0);
+	const accountOrderRef = useRef<number[]>(accountOrder);
 	const mailBodyViewportRef = useRef<HTMLDivElement | null>(null);
 	const autoOpenedForSmallPreviewMessageIdRef = useRef<number | null>(null);
 	const [systemLocale, setSystemLocale] = useState<string>('en-US');
@@ -185,6 +239,18 @@ function MailPage() {
 		mailBodyViewport.height > 0 &&
 		(mailBodyViewport.width < MIN_INLINE_MAIL_BODY_WIDTH || mailBodyViewport.height < MIN_INLINE_MAIL_BODY_HEIGHT);
 
+	useEffect(() => {
+		accountOrderRef.current = accountOrder;
+	}, [accountOrder]);
+
+	useEffect(() => {
+		try {
+			window.localStorage.setItem(ACCOUNT_ORDER_STORAGE_KEY, JSON.stringify(accountOrder));
+		} catch {
+			// ignore storage failures
+		}
+	}, [accountOrder]);
+
 	const renderedBodyHtml = useMemo(() => {
 		if (!selectedMessageBody) return null;
 		if (selectedMessageBody.html) return selectedMessageBody.html;
@@ -220,11 +286,11 @@ function MailPage() {
     <style>
       html, body { width: 100%; margin: 0; }
       body { box-sizing: border-box; }
-      #lunamail-frame-content { box-sizing: border-box; padding: 16px; }
+      #llamamail-frame-content { box-sizing: border-box; padding: 16px; }
       ${defaultReadableCss}
     </style>
   </head>
-  <body><div id="lunamail-frame-content">${rawHtml}</div></body>
+  <body><div id="llamamail-frame-content">${rawHtml}</div></body>
 </html>`;
 	}, [allowRemoteForSelectedMessage, selectedMessageBody, renderedBodyHtml]);
 
@@ -276,12 +342,18 @@ function MailPage() {
 	const refreshAccountsAndFolders = useCallback(async (isActive: () => boolean = () => true): Promise<void> => {
 		const list = await ipcClient.getAccounts();
 		if (!isActive()) return;
-		setAccounts(list);
-		void Promise.all(list.map((account) => ipcClient.getFolders(account.id)))
+		const sortedAccounts = sortAccountsByOrder(list, accountOrderRef.current);
+		const normalizedOrder = normalizeAccountOrder(accountOrderRef.current, sortedAccounts);
+		if (!arraysEqual(normalizedOrder, accountOrderRef.current)) {
+			accountOrderRef.current = normalizedOrder;
+			setAccountOrder(normalizedOrder);
+		}
+		setAccounts(sortedAccounts);
+		void Promise.all(sortedAccounts.map((account) => ipcClient.getFolders(account.id)))
 			.then((folderLists) => {
 				if (!isActive()) return;
 				const next: Record<number, FolderItem[]> = {};
-				list.forEach((account, idx) => {
+				sortedAccounts.forEach((account, idx) => {
 					next[account.id] = folderLists[idx] ?? [];
 				});
 				setAccountFoldersById(next);
@@ -290,8 +362,8 @@ function MailPage() {
 				// ignore background preload errors
 			});
 		setSelectedAccountId((prev) => {
-			if (prev && list.some((a) => a.id === prev)) return prev;
-			return list.length > 0 ? list[0].id : null;
+			if (prev && sortedAccounts.some((a) => a.id === prev)) return prev;
+			return sortedAccounts.length > 0 ? sortedAccounts[0].id : null;
 		});
 	}, []);
 
@@ -330,6 +402,7 @@ function MailPage() {
 
 	useIpcEvent(ipcClient.onAccountDeleted, (deleted) => {
 		setAccounts((prev) => prev.filter((account) => account.id !== deleted.id));
+		setAccountOrder((prev) => prev.filter((id) => id !== deleted.id));
 		setAccountFoldersById((prev) => {
 			const next = {...prev};
 			delete next[deleted.id];
@@ -362,6 +435,18 @@ function MailPage() {
 			setSyncStatusText(statusSyncFailed(evt.error));
 		}
 	});
+
+	const reorderAccounts = useCallback((orderedAccountIds: number[]) => {
+		setAccounts((prev) => {
+			const normalizedOrder = normalizeAccountOrder(orderedAccountIds, prev);
+			accountOrderRef.current = normalizedOrder;
+			setAccountOrder(normalizedOrder);
+			const accountById = new Map<number, PublicAccount>(prev.map((account) => [account.id, account]));
+			return normalizedOrder
+				.map((id) => accountById.get(id))
+				.filter((account): account is PublicAccount => Boolean(account));
+		});
+	}, []);
 
 	useIpcEvent(ipcClient.onMessageReadUpdated, (evt) => {
 		const pending = getPendingRead(evt.messageId);
@@ -975,7 +1060,7 @@ function MailPage() {
 	}
 
 	function requestCloseMainOverlays(): void {
-		window.dispatchEvent(new Event('lunamail-close-overlays'));
+		window.dispatchEvent(new Event('llamamail-close-overlays'));
 	}
 
 	function allowRemoteContentOnceForSelected(): void {
@@ -1101,6 +1186,7 @@ function MailPage() {
 					navigate(target);
 				}
 			}}
+			onReorderAccounts={reorderAccounts}
 			canNavigateBack={historyIndex > 0}
 			canNavigateForward={historyIndex < historyMaxIndex}
 			onNavigateBack={() => {
@@ -1608,7 +1694,7 @@ function MailPage() {
 							{selectedAccountId && (
 								<>
 									<div className="mt-4">
-										<input
+										<FormInput
 											type="text"
 											value={contactsQuery}
 											onChange={(event) => setContactsQuery(event.target.value)}
@@ -1741,12 +1827,12 @@ function MailPage() {
 									{formatSystemDateTime(selectedMessage.date, systemLocale)}
 								</div>
 							</div>
-							<button
+							<Button
 								className="mt-2 inline-flex h-7 items-center rounded-md border border-slate-300 px-2 text-[11px] text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
 								onClick={() => setShowMessageDetails((prev) => !prev)}
 							>
 								{showMessageDetails ? 'Hide message details' : 'Show message details'}
-							</button>
+							</Button>
 							{showMessageDetails && (
 								<div
 									className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
@@ -1803,20 +1889,20 @@ function MailPage() {
 									className="w-full shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-300">
 									<div className="flex flex-wrap items-center gap-2">
 										<span>Remote content blocked for privacy.</span>
-										<button
+										<Button
 											type="button"
 											className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200 dark:border-amber-600/70 dark:bg-amber-900/30 dark:hover:bg-amber-900/45"
 											onClick={allowRemoteContentOnceForSelected}
 										>
 											Load once
-										</button>
-										<button
+										</Button>
+										<Button
 											type="button"
 											className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200 dark:border-amber-600/70 dark:bg-amber-900/30 dark:hover:bg-amber-900/45"
 											onClick={allowRemoteContentForSender}
 										>
 											Always allow sender
-										</button>
+										</Button>
 									</div>
 								</div>
 							)}
@@ -1829,14 +1915,14 @@ function MailPage() {
 												Preview is too small ({mailBodyViewport.width}x{mailBodyViewport.height}
 												). Message opened in a separate window.
 											</p>
-											<button
+											<Button
 												type="button"
 												className="mt-3 inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 px-3 text-xs text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
 												onClick={onOpenInNewWindow}
 											>
 												<SquareArrowOutUpRight size={13}/>
 												Open message window
-											</button>
+											</Button>
 										</div>
 									</div>
 								)}
@@ -1883,7 +1969,7 @@ function MailPage() {
 								<div className="overflow-x-auto overflow-y-hidden">
 									<div className="flex min-w-full w-max gap-2 pb-1">
 										{messageAttachments.map((attachment, index) => (
-											<button
+											<Button
 												key={`${attachment.filename || 'attachment'}-${index}`}
 												type="button"
 												className="group flex w-[17rem] shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white p-2 text-left text-xs text-slate-700 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-200"
@@ -1922,7 +2008,7 @@ function MailPage() {
 															: ''}
 													</span>
 												</span>
-											</button>
+											</Button>
 										))}
 									</div>
 								</div>
@@ -1947,7 +2033,7 @@ function MailPage() {
 					}}
 					onClick={(event) => event.stopPropagation()}
 				>
-					<button
+					<Button
 						className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
 						onClick={() => {
 							runAttachmentAction(attachmentMenu.index, 'open');
@@ -1955,8 +2041,8 @@ function MailPage() {
 						}}
 					>
 						Open
-					</button>
-					<button
+					</Button>
+					<Button
 						className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
 						onClick={() => {
 							runAttachmentAction(attachmentMenu.index, 'save');
@@ -1964,7 +2050,7 @@ function MailPage() {
 						}}
 					>
 						Save As...
-					</button>
+					</Button>
 				</div>
 			)}
 		</MainLayout>

@@ -1,6 +1,6 @@
-# LunaMail
+# LlamaMail
 
-LunaMail is a modern, offline-first desktop email client for Linux built with:
+LlamaMail is a modern, offline-first desktop email client for Linux built with:
 
 - Electron
 - React + TypeScript

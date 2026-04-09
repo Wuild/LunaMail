@@ -27,6 +27,14 @@ import {
     uploadCloudFile,
 } from "../cloud/providers.js";
 import {syncCloudDav} from "../cloud/davSync.js";
+import {
+    APP_NAME,
+    ONEDRIVE_APP_ID,
+    ONEDRIVE_AUTHORITY,
+    ONEDRIVE_REDIRECT_URI,
+    ONEDRIVE_RESOURCE,
+    ONEDRIVE_SCOPES,
+} from "../config.js";
 
 const logger = createMailDebugLogger("cloud", "ipc:cloud");
 type OAuthProvider = "google-drive" | "onedrive";
@@ -34,7 +42,6 @@ type LinkCloudOAuthPayload = {
     clientId?: string | null;
     tenantId?: string | null;
 };
-const ONEDRIVE_PROTOCOL_REDIRECT_URI = "lunamail://azure/auth";
 const pendingOAuthProtocolUrls: string[] = [];
 const oauthProtocolWaiters = new Set<(url: string) => void>();
 
@@ -75,7 +82,8 @@ export function registerCloudIpc(): void {
         if (provider !== "google-drive" && provider !== "onedrive") {
             throw new Error("OAuth linking is only supported for Google Drive and OneDrive.");
         }
-        const clientId = String(payload?.clientId || "").trim();
+        const rawClientId = String(payload?.clientId || "").trim();
+        const clientId = provider === "onedrive" ? rawClientId || ONEDRIVE_APP_ID : rawClientId;
         if (!clientId) throw new Error("Client ID is required.");
         const tenantId = String(payload?.tenantId || "").trim() || "common";
         const linked =
@@ -217,7 +225,7 @@ export function registerCloudIpc(): void {
                 await fs.writeFile(saveResult.filePath, downloaded.content);
                 return {ok: true as const, action: "saved" as const, path: saveResult.filePath};
             }
-            const targetPath = path.join(os.tmpdir(), `lunamail-cloud-${Date.now()}-${safeName}`);
+            const targetPath = path.join(os.tmpdir(), `llamamail-cloud-${Date.now()}-${safeName}`);
             await fs.writeFile(targetPath, downloaded.content);
             const openError = await shell.openPath(targetPath);
             if (openError) throw new Error(openError);
@@ -232,7 +240,7 @@ export function registerCloudIpc(): void {
             const credentials = await getCloudAccountCredentials(accountId);
             const downloaded = await downloadCloudItem(credentials, itemPathOrToken);
             const safeName = sanitizeCloudFilename(downloaded.name || fallbackName || "cloud-attachment");
-            const targetPath = path.join(os.tmpdir(), `lunamail-cloud-attachment-${Date.now()}-${safeName}`);
+            const targetPath = path.join(os.tmpdir(), `llamamail-cloud-attachment-${Date.now()}-${safeName}`);
             await fs.writeFile(targetPath, downloaded.content);
             return {
                 path: targetPath,
@@ -334,20 +342,21 @@ async function linkOneDriveOAuth(clientId: string, tenantId: string): Promise<Li
     const state = randomBytes(16).toString("hex");
     const verifier = randomBytes(48).toString("base64url");
     const challenge = createHash("sha256").update(verifier).digest("base64url");
-    const callback = createProtocolOAuthCallbackWaiter(state, ONEDRIVE_PROTOCOL_REDIRECT_URI);
+    const callback = createProtocolOAuthCallbackWaiter(state, ONEDRIVE_REDIRECT_URI);
     const tenant = tenantId || "common";
-    const authUrl = new URL(`https://login.microsoftonline.com/${encodeURIComponent(tenant)}/oauth2/v2.0/authorize`);
+    const authorityBase = ONEDRIVE_AUTHORITY.replace(/\/common$/i, `/${encodeURIComponent(tenant)}`);
+    const authUrl = new URL(`${authorityBase}/oauth2/v2.0/authorize`);
     authUrl.searchParams.set("client_id", clientId);
     authUrl.searchParams.set("redirect_uri", callback.redirectUri);
     authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set("scope", "offline_access openid profile email Files.ReadWrite");
+    authUrl.searchParams.set("scope", `offline_access openid profile email ${ONEDRIVE_SCOPES[0]}`);
     authUrl.searchParams.set("response_mode", "query");
     authUrl.searchParams.set("state", state);
     authUrl.searchParams.set("code_challenge", challenge);
     authUrl.searchParams.set("code_challenge_method", "S256");
     await shell.openExternal(authUrl.toString());
     const code = await callback.waitForCode();
-    const tokenRes = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(tenant)}/oauth2/v2.0/token`, {
+    const tokenRes = await fetch(`${authorityBase}/oauth2/v2.0/token`, {
         method: "POST",
         headers: {"Content-Type": "application/x-www-form-urlencoded"},
         body: new URLSearchParams({
@@ -356,7 +365,7 @@ async function linkOneDriveOAuth(clientId: string, tenantId: string): Promise<Li
             code,
             redirect_uri: callback.redirectUri,
             code_verifier: verifier,
-            scope: "offline_access openid profile email Files.ReadWrite",
+            scope: `offline_access openid profile email ${ONEDRIVE_SCOPES[0]}`,
         }),
     });
     if (!tokenRes.ok) throw new Error(`OneDrive OAuth token exchange failed (${tokenRes.status}).`);
@@ -369,7 +378,7 @@ async function linkOneDriveOAuth(clientId: string, tenantId: string): Promise<Li
     };
     const accessToken = String(token.access_token || "").trim();
     if (!accessToken) throw new Error("OneDrive OAuth response did not include an access token.");
-    const meRes = await fetch("https://graph.microsoft.com/v1.0/me", {
+    const meRes = await fetch(`${ONEDRIVE_RESOURCE}/v1.0/me`, {
         headers: {Authorization: `Bearer ${accessToken}`},
     });
     let displayName: string | null = null;
@@ -463,7 +472,8 @@ function createProtocolOAuthCallbackWaiter(
 function isSupportedOAuthProtocolUrl(url: string): boolean {
     try {
         const parsed = new URL(url);
-        return parsed.protocol === "lunamail:" && parsed.hostname === "azure" && parsed.pathname === "/auth";
+        const redirect = new URL(ONEDRIVE_REDIRECT_URI);
+        return parsed.protocol === redirect.protocol && parsed.hostname === redirect.hostname && parsed.pathname === redirect.pathname;
     } catch {
         return false;
     }
@@ -544,7 +554,7 @@ async function createOAuthCallbackWaiter(state: string): Promise<{
             return;
         }
         res.statusCode = 200;
-        res.end("LunaMail account linked successfully. You can close this tab.");
+        res.end(`${APP_NAME} account linked successfully. You can close this tab.`);
         finish(undefined, callbackCode);
     });
     await new Promise<void>((resolve, reject) => {

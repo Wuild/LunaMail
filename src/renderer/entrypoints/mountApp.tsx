@@ -1,9 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import {QueryClientProvider} from '@tanstack/react-query';
+import {DndProvider} from 'react-dnd';
+import {HTML5Backend} from 'react-dnd-html5-backend';
 import '../index.css';
 import {installMiddleMousePan} from '../lib/middleMousePan';
 import {queryClient} from '../lib/queryClient';
+import MailDragOverlay from '../components/dnd/MailDragOverlay';
 
 function isInternalAppHref(rawHref: string): boolean {
     const href = String(rawHref || '').trim();
@@ -26,7 +29,7 @@ function isInternalAppHref(rawHref: string): boolean {
 }
 
 function installInternalLinkDragGuard(): void {
-    const guardKey = '__lunamailInternalLinkDragGuardInstalled';
+    const guardKey = '__llamamailInternalLinkDragGuardInstalled';
     if ((window as any)[guardKey]) return;
     (window as any)[guardKey] = true;
 
@@ -35,6 +38,8 @@ function installInternalLinkDragGuard(): void {
         if (!target) return;
         const anchor = target.closest('a[href]') as HTMLAnchorElement | null;
         if (!anchor) return;
+        const draggableAncestor = target.closest('[draggable="true"]');
+        if (draggableAncestor && draggableAncestor !== anchor) return;
         if (!isInternalAppHref(anchor.getAttribute('href') || '')) return;
         event.preventDefault();
     });
@@ -45,7 +50,12 @@ export function mountApp(node: React.ReactNode): void {
     installInternalLinkDragGuard();
     ReactDOM.createRoot(document.getElementById('root')!).render(
         <React.StrictMode>
-            <QueryClientProvider client={queryClient}>{node}</QueryClientProvider>
+            <DndProvider backend={HTML5Backend}>
+                <QueryClientProvider client={queryClient}>
+                    <MailDragOverlay/>
+                    {node}
+                </QueryClientProvider>
+            </DndProvider>
         </React.StrictMode>,
     );
 }

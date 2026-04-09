@@ -1,4 +1,6 @@
+import {Button} from '../components/ui/button';
 import React, {useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
+import {useDrag, useDrop} from "react-dnd";
 import {
     ArrowDown,
     ArrowUp,
@@ -64,6 +66,7 @@ import {
     type NavigationEntry,
     type OneDriveDriveScope,
 } from "./cloudFilesHelpers";
+import {DND_ITEM} from "../lib/dndTypes";
 
 type CloudTableSortDirection = "asc" | "desc";
 type EditCloudAccountDraft = {
@@ -74,13 +77,127 @@ type EditCloudAccountDraft = {
     user: string;
     secret: string;
 };
+type CloudColumnDragItem = {type: typeof DND_ITEM.CLOUD_TABLE_COLUMN; column: CloudTableColumnKey};
+
+type SortableCloudHeaderCellProps = {
+    columnKey: CloudTableColumnKey;
+    label: string;
+    index: number;
+    visibleColumnCount: number;
+    draggingColumn: CloudTableColumnKey | null;
+    dragPlaceholder: {column: CloudTableColumnKey; side: "before" | "after"} | null;
+    tableSort: {column: CloudTableColumnKey; direction: CloudTableSortDirection};
+    onToggleSort: (column: CloudTableColumnKey) => void;
+    onColumnResizeStart: (key: CloudTableColumnKey, event: React.MouseEvent) => void;
+    onDragStart: (column: CloudTableColumnKey) => void;
+    onHover: (column: CloudTableColumnKey, side: "before" | "after", dragged?: CloudTableColumnKey) => void;
+    onDrop: (column: CloudTableColumnKey, side: "before" | "after", dragged?: CloudTableColumnKey) => void;
+    onDragEnd: () => void;
+};
+
+function SortableCloudHeaderCell({
+    columnKey,
+    label,
+    index,
+    visibleColumnCount,
+    draggingColumn,
+    dragPlaceholder,
+    tableSort,
+    onToggleSort,
+    onColumnResizeStart,
+    onDragStart,
+    onHover,
+    onDrop,
+    onDragEnd,
+}: SortableCloudHeaderCellProps) {
+    const headerRef = useRef<HTMLTableCellElement | null>(null);
+    const [, dragRef] = useDrag<CloudColumnDragItem, unknown, {isDragging: boolean}>(
+        () => ({
+            type: DND_ITEM.CLOUD_TABLE_COLUMN,
+            item: () => {
+                onDragStart(columnKey);
+                return {type: DND_ITEM.CLOUD_TABLE_COLUMN, column: columnKey};
+            },
+            end: () => onDragEnd(),
+        }),
+        [columnKey, onDragEnd, onDragStart],
+    );
+    const [, dropRef] = useDrop<CloudColumnDragItem>(
+        () => ({
+            accept: DND_ITEM.CLOUD_TABLE_COLUMN,
+            hover: (item, monitor) => {
+                if (item.column === columnKey || !headerRef.current) return;
+                const rect = headerRef.current.getBoundingClientRect();
+                const client = monitor.getClientOffset();
+                if (!client) return;
+                onHover(
+                    columnKey,
+                    client.x < rect.left + rect.width / 2 ? "before" : "after",
+                    item.column,
+                );
+            },
+            drop: (item, monitor) => {
+                if (monitor.didDrop() || !headerRef.current) return;
+                const rect = headerRef.current.getBoundingClientRect();
+                const client = monitor.getClientOffset();
+                const side: "before" | "after" = client && client.x >= rect.left + rect.width / 2 ? "after" : "before";
+                onDrop(columnKey, side, item.column);
+            },
+        }),
+        [columnKey, onDrop, onHover],
+    );
+    dragRef(dropRef(headerRef));
+
+    return (
+        <th
+            ref={headerRef}
+            className={`relative border-b border-slate-200 bg-slate-100 px-3 py-2 select-none dark:border-[#3a3d44] dark:bg-[#32353c] ${
+                index < visibleColumnCount - 1 ? "border-r border-r-slate-200 dark:border-r-[#3a3d44]" : ""
+            }`}
+        >
+            {dragPlaceholder?.column === columnKey && dragPlaceholder.side === "before" && (
+                <span
+                    className="pointer-events-none absolute bottom-0 left-0 top-0 w-0.5 bg-sky-600 dark:bg-sky-400"
+                    aria-hidden="true"
+                />
+            )}
+            <Button
+                type="button"
+                className="inline-flex max-w-full items-center gap-1 truncate text-left hover:text-slate-900 dark:hover:text-slate-100"
+                onClick={() => onToggleSort(columnKey)}
+            >
+                <span className="truncate">{label}</span>
+                {tableSort.column === columnKey &&
+                    (tableSort.direction === "asc" ? (
+                        <ArrowUp size={12} className="shrink-0"/>
+                    ) : (
+                        <ArrowDown size={12} className="shrink-0"/>
+                    ))}
+            </Button>
+            {index < visibleColumnCount - 1 && (
+                <div
+                    role="separator"
+                    aria-orientation="vertical"
+                    className={CLOUD_TABLE_RESIZE_HANDLE_CLASS}
+                    onMouseDown={(event) => onColumnResizeStart(columnKey, event)}
+                />
+            )}
+            {dragPlaceholder?.column === columnKey && dragPlaceholder.side === "after" && (
+                <span
+                    className="pointer-events-none absolute bottom-0 right-0 top-0 w-0.5 bg-sky-600 dark:bg-sky-400"
+                    aria-hidden="true"
+                />
+            )}
+        </th>
+    );
+}
 
 export default function CloudFilesPage() {
     const {sidebarWidth, onResizeStart} = useResizableSidebar({
         defaultWidth: 300,
         minWidth: 260,
         maxWidth: 420,
-        storageKey: "lunamail.cloud.sidebar.width",
+        storageKey: "llamamail.cloud.sidebar.width",
     });
     const [searchParams, setSearchParams] = useSearchParams();
     const [accounts, setAccounts] = useState<PublicCloudAccount[]>([]);
@@ -597,21 +714,38 @@ export default function CloudFilesPage() {
         });
     }
 
-    function onTableHeaderDragStart(event: React.DragEvent, column: CloudTableColumnKey): void {
-        if (resizeRef.current) {
-            event.preventDefault();
-            return;
-        }
+    function onTableHeaderDragStart(column: CloudTableColumnKey): void {
+        if (resizeRef.current) return;
         setDraggingColumn(column);
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", column);
     }
 
-    function onTableHeaderDrop(event: React.DragEvent, target: CloudTableColumnKey): void {
-        event.preventDefault();
-        const dragged = draggingColumn || (event.dataTransfer.getData("text/plain") as CloudTableColumnKey);
+    function isTableColumnMoveNoop(
+        dragged: CloudTableColumnKey,
+        target: CloudTableColumnKey,
+        side: "before" | "after",
+    ): boolean {
+        if (dragged === target) return true;
+        const order = tableColumns;
+        const sourceIndex = order.indexOf(dragged);
+        const targetIndex = order.indexOf(target);
+        if (sourceIndex < 0 || targetIndex < 0) return true;
+        const rawInsertionIndex = targetIndex + (side === "after" ? 1 : 0);
+        const adjustedInsertionIndex = sourceIndex < rawInsertionIndex ? rawInsertionIndex - 1 : rawInsertionIndex;
+        return adjustedInsertionIndex === sourceIndex;
+    }
+
+    function onTableHeaderDrop(
+        target: CloudTableColumnKey,
+        side: "before" | "after",
+        draggedFromDrop?: CloudTableColumnKey,
+    ): void {
+        const dragged = draggedFromDrop || draggingColumn;
         if (!dragged) return;
-        const side = dragPlaceholder?.column === target ? dragPlaceholder.side : "before";
+        if (isTableColumnMoveNoop(dragged, target, side)) {
+            setDragPlaceholder(null);
+            setDraggingColumn(null);
+            return;
+        }
         if (side === "after") {
             moveTableColumnAfter(dragged, target);
         } else {
@@ -947,7 +1081,7 @@ export default function CloudFilesPage() {
                 steps: [
                     'Click "Sign in with OneDrive".',
                     "Complete Microsoft sign-in and consent in your browser.",
-                    "Return to LunaMail after the browser callback finishes.",
+                    "Return to LlamaMail after the browser callback finishes.",
                 ],
                 link: "https://support.microsoft.com/onedrive",
             }
@@ -999,7 +1133,7 @@ export default function CloudFilesPage() {
                 )}
             </div>
             <div className="flex items-center gap-2">
-                <button
+                <Button
                     type="button"
                     className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 px-2.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                     disabled={!selectedAccount || loading || mutating}
@@ -1010,8 +1144,8 @@ export default function CloudFilesPage() {
                 >
                     <FolderPlus size={14}/>
                     New Folder
-                </button>
-                <button
+                </Button>
+                <Button
                     type="button"
                     className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 px-2.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                     disabled={!selectedAccount || loading || mutating}
@@ -1019,7 +1153,7 @@ export default function CloudFilesPage() {
                 >
                     <Upload size={14}/>
                     Upload
-                </button>
+                </Button>
             </div>
         </div>
     );
@@ -1029,14 +1163,14 @@ export default function CloudFilesPage() {
             className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
             <div className="flex items-center justify-between border-b border-slate-200 p-3 dark:border-[#3a3d44]">
                 <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Cloud Accounts</h2>
-                <button
+                <Button
                     type="button"
                     className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                     onClick={() => setShowAddModal(true)}
                     title="Add cloud account"
                 >
                     <Plus size={15}/>
-                </button>
+                </Button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto p-2">
                 {accounts.length === 0 && (
@@ -1099,7 +1233,7 @@ export default function CloudFilesPage() {
                                 <div className="ml-auto flex items-center gap-1 pr-0">
                                     <div
                                         className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                                        <button
+                                        <Button
                                             type="button"
                                             className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
                                             title="Refresh account"
@@ -1114,8 +1248,8 @@ export default function CloudFilesPage() {
                                                 size={13}
                                                 className={refreshingAccountIds.has(account.id) ? "animate-spin" : undefined}
                                             />
-                                        </button>
-                                        <button
+                                        </Button>
+                                        <Button
                                             type="button"
                                             className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
                                             title="Account actions"
@@ -1126,10 +1260,10 @@ export default function CloudFilesPage() {
                                             }}
                                         >
                                             <Settings size={13}/>
-                                        </button>
+                                        </Button>
                                     </div>
                                     {isOneDrive && (
-                                        <button
+                                        <Button
                                             type="button"
                                             className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
                                             onClick={(event) => {
@@ -1145,7 +1279,7 @@ export default function CloudFilesPage() {
                                                 size={14}
                                                 className={isExpanded ? "rotate-90 transition-transform" : "transition-transform"}
                                             />
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                             </div>
@@ -1262,77 +1396,39 @@ export default function CloudFilesPage() {
                                     >
                                     <tr className="group text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-300">
                                         {visibleTableColumns.map((column, index) => (
-                                            <th
+                                            <SortableCloudHeaderCell
                                                 key={column.key}
-                                                className={`relative border-b border-slate-200 bg-slate-100 px-3 py-2 select-none dark:border-[#3a3d44] dark:bg-[#32353c] ${
-                                                    index < visibleTableColumns.length - 1
-                                                        ? "border-r border-r-slate-200 dark:border-r-[#3a3d44]"
-                                                        : ""
-                                                } ${draggingColumn === column.key ? "opacity-70" : ""} ${
-                                                    dragPlaceholder?.column === column.key && draggingColumn && draggingColumn !== column.key
-                                                        ? "bg-sky-100/50 dark:bg-[#3a4f72]/60"
-                                                        : ""
-                                                }`}
-                                                style={{width: columnWidths[column.key]}}
-                                                draggable
-                                                onDragStart={(event) => onTableHeaderDragStart(event, column.key)}
-                                                onDragOver={(event) => {
-                                                    event.preventDefault();
-                                                    if (draggingColumn && draggingColumn !== column.key) {
-                                                        const rect = event.currentTarget.getBoundingClientRect();
-                                                        const side = event.clientX >= rect.left + rect.width / 2 ? "after" : "before";
-                                                        setDragPlaceholder((prev) => {
-                                                            if (prev?.column === column.key && prev.side === side) return prev;
-                                                            return {column: column.key, side};
-                                                        });
+                                                columnKey={column.key}
+                                                label={column.label}
+                                                index={index}
+                                                visibleColumnCount={visibleTableColumns.length}
+                                                draggingColumn={draggingColumn}
+                                                dragPlaceholder={dragPlaceholder}
+                                                tableSort={tableSort}
+                                                onToggleSort={toggleTableSort}
+                                                onColumnResizeStart={onColumnResizeStart}
+                                                onDragStart={onTableHeaderDragStart}
+                                                onHover={(hoverColumn, side, draggedFromHover) => {
+                                                    const dragged = draggedFromHover || draggingColumn;
+                                                    if (!dragged) return;
+                                                    if (isTableColumnMoveNoop(dragged, hoverColumn, side)) {
+                                                        setDragPlaceholder(null);
+                                                        return;
                                                     }
+                                                    setDragPlaceholder((prev) => {
+                                                        if (prev?.column === hoverColumn && prev.side === side) return prev;
+                                                        return {column: hoverColumn, side};
+                                                    });
                                                 }}
-                                                onDragLeave={() => {
-                                                    setDragPlaceholder((prev) => (prev?.column === column.key ? null : prev));
-                                                }}
-                                                onDrop={(event) => onTableHeaderDrop(event, column.key)}
+                                                onDrop={onTableHeaderDrop}
                                                 onDragEnd={() => {
                                                     setDraggingColumn(null);
                                                     setDragPlaceholder(null);
                                                 }}
-                                            >
-                                                {dragPlaceholder?.column === column.key && dragPlaceholder.side === "before" && (
-                                                    <span
-                                                        className="pointer-events-none absolute bottom-0 left-0 top-0 w-0.5 bg-sky-600 dark:bg-sky-400"
-                                                        aria-hidden="true"
-                                                    />
-                                                )}
-                                                <button
-                                                    type="button"
-                                                    className="inline-flex max-w-full items-center gap-1 truncate text-left hover:text-slate-900 dark:hover:text-slate-100"
-                                                    onClick={() => toggleTableSort(column.key)}
-                                                >
-                                                    <span className="truncate">{column.label}</span>
-                                                    {tableSort.column === column.key &&
-                                                        (tableSort.direction === "asc" ? (
-                                                            <ArrowUp size={12} className="shrink-0"/>
-                                                        ) : (
-                                                            <ArrowDown size={12} className="shrink-0"/>
-                                                        ))}
-                                                </button>
-                                                {index < visibleTableColumns.length - 1 && (
-                                                    <div
-                                                        role="separator"
-                                                        aria-orientation="vertical"
-                                                        className={CLOUD_TABLE_RESIZE_HANDLE_CLASS}
-                                                        onMouseDown={(event) => onColumnResizeStart(column.key, event)}
-                                                    />
-                                                )}
-                                                {dragPlaceholder?.column === column.key && dragPlaceholder.side === "after" && (
-                                                    <span
-                                                        className="pointer-events-none absolute bottom-0 right-0 top-0 w-0.5 bg-sky-600 dark:bg-sky-400"
-                                                        aria-hidden="true"
-                                                    />
-                                                )}
-                                            </th>
+                                            />
                                         ))}
                                         <th className="border-b border-slate-200 bg-slate-100 px-1 py-1 text-right dark:border-[#3a3d44] dark:bg-[#32353c]">
-                                            <button
+                                            <Button
                                                 type="button"
                                                 className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-[#3a3d44] dark:hover:text-slate-100"
                                                 title="Table column options"
@@ -1343,7 +1439,7 @@ export default function CloudFilesPage() {
                                                 }}
                                             >
                                                 <Settings size={13}/>
-                                            </button>
+                                            </Button>
                                         </th>
                                     </tr>
                                     </thead>
@@ -1454,7 +1550,7 @@ export default function CloudFilesPage() {
                                                                     <span className="truncate">{item.name}</span>
                                                                 </Link>
                                                             ) : (
-                                                                <button
+                                                                <Button
                                                                     type="button"
                                                                     className="flex min-w-0 items-center gap-2 text-left text-slate-800 hover:underline dark:text-slate-100"
                                                                     onClick={() => void onViewItem(item)}
@@ -1466,7 +1562,7 @@ export default function CloudFilesPage() {
                                                                         renderCloudFileTypeIcon(item)
                                                                     )}
                                                                     <span className="truncate">{item.name}</span>
-                                                                </button>
+                                                                </Button>
                                                             )}
                                                         </td>
                                                     );
@@ -1515,7 +1611,7 @@ export default function CloudFilesPage() {
                                                 );
                                             })}
                                             <td className="relative px-2 py-2 text-right">
-                                                <button
+                                                <Button
                                                     type="button"
                                                     className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                                     title="Actions"
@@ -1531,7 +1627,7 @@ export default function CloudFilesPage() {
                                                     ) : (
                                                         <MoreHorizontal size={14}/>
                                                     )}
-                                                </button>
+                                                </Button>
                                             </td>
                                         </tr>
                                     ))}
@@ -1556,33 +1652,33 @@ export default function CloudFilesPage() {
                 >
                     {!rowMenu.item.isFolder && (
                         <>
-                            <button
+                            <Button
                                 type="button"
                                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
                                 onClick={() => void onViewItem(rowMenu.item)}
                             >
                                 <Eye size={14}/>
                                 View
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
                                 onClick={() => void onDownloadItem(rowMenu.item)}
                             >
                                 <Download size={14}/>
                                 Download
-                            </button>
+                            </Button>
                         </>
                     )}
-                    <button
+                    <Button
                         type="button"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
                         onClick={() => void onShareItem(rowMenu.item)}
                     >
                         <Share2 size={14}/>
                         Share
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-60 dark:text-red-300 dark:hover:bg-red-900/30"
                         onClick={() => void onDeleteItem(rowMenu.item)}
@@ -1591,7 +1687,7 @@ export default function CloudFilesPage() {
                         {deletingItemId === rowMenu.item.id ? <Loader2 size={14} className="animate-spin"/> :
                             <Trash2 size={14}/>}
                         {deletingItemId === rowMenu.item.id ? "Deleting..." : "Delete"}
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -1613,7 +1709,7 @@ export default function CloudFilesPage() {
                     {CLOUD_TABLE_COLUMN_OPTIONS.map((column) => {
                         const checked = tableColumns.includes(column.key);
                         return (
-                            <button
+                            <Button
                                 key={column.key}
                                 type="button"
                                 className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
@@ -1626,17 +1722,17 @@ export default function CloudFilesPage() {
                                 >
                   ✓
                 </span>
-                            </button>
+                            </Button>
                         );
                     })}
                     <div className="my-1 h-px bg-slate-200 dark:bg-[#3a3d44]"/>
-                    <button
+                    <Button
                         type="button"
                         className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
                         onClick={() => resetTableColumns()}
                     >
                         Reset Columns
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -1651,7 +1747,7 @@ export default function CloudFilesPage() {
                     }}
                     onClick={(event) => event.stopPropagation()}
                 >
-                    <button
+                    <Button
                         type="button"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
                         onClick={() => {
@@ -1660,35 +1756,35 @@ export default function CloudFilesPage() {
                         }}
                     >
                         Open
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
                         onClick={() => onOpenAccountInNewWindow(accountMenu.account)}
                     >
                         Open in new window
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
                         onClick={() => void onRefreshAccount(accountMenu.account)}
                     >
                         Refresh
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
                         onClick={() => onOpenAccountSettings(accountMenu.account)}
                     >
                         Edit account
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/30"
                         onClick={() => void onDeleteAccount(accountMenu.account)}
                     >
                         Delete account
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -1758,7 +1854,7 @@ export default function CloudFilesPage() {
                                     className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-[#3a3d44] dark:bg-[#26292f]">
                                     <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{tokenHelp.title}</p>
                                     <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                                        LunaMail handles OneDrive OAuth tokens automatically, including refresh when the
+                                        LlamaMail handles OneDrive OAuth tokens automatically, including refresh when the
                                         access token
                                         expires.
                                     </p>
@@ -1779,14 +1875,14 @@ export default function CloudFilesPage() {
                             )}
                         </div>
                         <div className="mt-4 flex items-center justify-between gap-2">
-                            <button
+                            <Button
                                 type="button"
                                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                 onClick={() => setShowAddModal(false)}
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                                 disabled={isOneDriveOAuthProvider ? linkingOAuth : adding || !draft.name.trim() || !draft.secret.trim()}
@@ -1805,7 +1901,7 @@ export default function CloudFilesPage() {
                                     : adding
                                         ? "Adding..."
                                         : "Add Cloud Account"}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -1882,7 +1978,7 @@ export default function CloudFilesPage() {
                             />
                         </div>
                         <div className="mt-4 flex items-center justify-between gap-2">
-                            <button
+                            <Button
                                 type="button"
                                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                 onClick={() => {
@@ -1891,15 +1987,15 @@ export default function CloudFilesPage() {
                                 }}
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                                 disabled={savingEdit || !editDraft.name.trim()}
                                 onClick={() => void onSaveEditedAccount()}
                             >
                                 {savingEdit ? "Saving..." : "Save"}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -1915,7 +2011,7 @@ export default function CloudFilesPage() {
                                    placeholder="New folder"/>
                         </div>
                         <div className="mt-4 flex items-center justify-between gap-2">
-                            <button
+                            <Button
                                 type="button"
                                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                 onClick={() => {
@@ -1924,8 +2020,8 @@ export default function CloudFilesPage() {
                                 }}
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                                 disabled={!newFolderName.trim() || mutating}
@@ -1937,7 +2033,7 @@ export default function CloudFilesPage() {
                                 }}
                             >
                                 Create
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -1959,14 +2055,14 @@ export default function CloudFilesPage() {
                             <p className="break-all text-xs text-slate-700 dark:text-slate-200">{shareModal.url}</p>
                         </div>
                         <div className="mt-4 flex items-center justify-between gap-2">
-                            <button
+                            <Button
                                 type="button"
                                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                 onClick={() => setShareModal(null)}
                             >
                                 Close
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                                 onClick={() => {
@@ -1981,7 +2077,7 @@ export default function CloudFilesPage() {
                                 }}
                             >
                                 Copy link
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>

@@ -2,10 +2,12 @@ import React, {useEffect, useState} from 'react';
 import {BookPlus, Download, Pencil, Plus, RefreshCw, Settings, Trash2, X} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
 import type {AddressBookItem, ContactItem, PublicAccount, SyncStatusEvent} from '../../preload';
-import {getAccountAvatarColors, getAccountMonogram} from '../lib/accountAvatar';
+import {getAccountAvatarColors, getAccountAvatarColorsForAccount, getAccountMonogram} from '../lib/accountAvatar';
 import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
 import {useResizableSidebar} from '../hooks/useResizableSidebar';
 import {ipcClient} from '../lib/ipcClient';
+import {Button} from '../components/ui/button';
+import {FormInput, FormSelect, FormTextarea} from '../components/ui/FormControls';
 import {
     statusAutoSyncFailed,
     statusNoAccountSelected,
@@ -363,9 +365,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                 <div className="space-y-1">
                     {accounts.map((account) => {
                         const isSyncingAccount = syncing && syncingAccountId === account.id;
-                        const avatarColors = getAccountAvatarColors(
-                            account.email || account.display_name || String(account.id),
-                        );
+                        const avatarColors = getAccountAvatarColorsForAccount(account);
                         return (
                             <div
                                 key={account.id}
@@ -376,7 +376,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                         : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
                                 )}
                             >
-                                <button
+                                <Button
                                     type="button"
                                     onClick={() => onSelectAccount(account.id)}
                                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -401,14 +401,14 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 											</span>
                                         )}
 									</span>
-                                </button>
+                                </Button>
                                 <div
                                     className={cn(
                                         'flex items-center gap-1 transition-opacity',
                                         isSyncingAccount ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
                                     )}
                                 >
-                                    <button
+                                    <Button
                                         type="button"
                                         className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
                                         onClick={() => void onManualSync(account.id)}
@@ -417,8 +417,8 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                         disabled={isSyncingAccount}
                                     >
                                         <RefreshCw size={13} className={cn(isSyncingAccount && 'animate-spin')}/>
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         type="button"
                                         className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
                                         onClick={() => navigate(`/settings/account?accountId=${account.id}`)}
@@ -426,7 +426,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                         aria-label="Edit account"
                                     >
                                         <Settings size={13}/>
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         );
@@ -440,7 +440,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
     );
     const contactsToolbar = (
         <div className="flex h-10 min-w-0 items-center gap-2">
-            <select
+            <FormSelect
                 value={selectedBookId ?? ''}
                 onChange={(event) => setSelectedBookId(event.target.value ? Number(event.target.value) : null)}
                 className="h-10 min-w-52 shrink-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
@@ -452,8 +452,8 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                         {book.name}
                     </option>
                 ))}
-            </select>
-            <button
+            </FormSelect>
+            <Button
                 type="button"
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
                 disabled={!accountId}
@@ -462,8 +462,8 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                 aria-label="Create address book"
             >
                 <BookPlus size={14}/>
-            </button>
-            <button
+            </Button>
+            <Button
                 type="button"
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
                 disabled={
@@ -476,8 +476,8 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                 aria-label="Delete address book"
             >
                 <Trash2 size={14}/>
-            </button>
-            <input
+            </Button>
+            <FormInput
                 type="text"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -485,7 +485,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                 className="h-10 min-w-[10rem] flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
                 disabled={!accountId}
             />
-            <button
+            <Button
                 type="button"
                 className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-sky-600 px-3 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-60 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                 onClick={() => setShowAddContactModal(true)}
@@ -495,8 +495,8 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
             >
                 <Plus size={14}/>
                 Add contact
-            </button>
-            <button
+            </Button>
+            <Button
                 type="button"
                 className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
                 onClick={() => setShowExportContactsModal(true)}
@@ -506,7 +506,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
             >
                 <Download size={14}/>
                 Export
-            </button>
+            </Button>
         </div>
     );
 
@@ -572,7 +572,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <button
+                                                    <Button
                                                         type="button"
                                                         className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                                         onClick={() => openEditContact(contact)}
@@ -589,8 +589,8 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                                     >
                                                         <Pencil size={12} className="mr-1 inline-block"/>
                                                         Edit
-                                                    </button>
-                                                    <button
+                                                    </Button>
+                                                    <Button
                                                         type="button"
                                                         className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-700/50 dark:text-red-300 dark:hover:bg-red-900/30"
                                                         onClick={() => void onDeleteContact(contact.id)}
@@ -606,7 +606,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                                         }
                                                     >
                                                         Delete
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                             </div>
                                                 );
@@ -645,7 +645,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Full name
 									</span>
-                                        <input
+                                        <FormInput
                                             type="text"
                                             value={newContactName}
                                             onChange={(event) => setNewContactName(event.target.value)}
@@ -676,7 +676,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Organization
 									</span>
-                                        <input
+                                        <FormInput
                                             type="text"
                                             value={newContactOrganization}
                                             onChange={(event) => setNewContactOrganization(event.target.value)}
@@ -688,7 +688,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Title
 									</span>
-                                        <input
+                                        <FormInput
                                             type="text"
                                             value={newContactTitle}
                                             onChange={(event) => setNewContactTitle(event.target.value)}
@@ -700,7 +700,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Address book
 									</span>
-                                        <select
+                                        <FormSelect
                                             value={selectedBookId ?? ''}
                                             onChange={(event) =>
                                                 setSelectedBookId(event.target.value ? Number(event.target.value) : null)
@@ -713,13 +713,13 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                                     {book.name}
                                                 </option>
                                             ))}
-                                        </select>
+                                        </FormSelect>
                                     </label>
                                     <label className="block text-sm">
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Notes
 									</span>
-                                        <textarea
+                                        <FormTextarea
                                             value={newContactNote}
                                             onChange={(event) => setNewContactNote(event.target.value)}
                                             rows={7}
@@ -729,20 +729,20 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                 </div>
                             </div>
                             <div className="mt-4 flex items-center justify-end gap-2">
-                                <button
+                                <Button
                                     type="button"
                                     className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                     onClick={() => setShowAddContactModal(false)}
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
                                     className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                                     disabled={!normalizeContactValues(newContactEmails).length}
                                 >
                                     Save Contact
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>
@@ -771,7 +771,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Full name
 									</span>
-                                        <input
+                                        <FormInput
                                             type="text"
                                             value={editContactName}
                                             onChange={(event) => setEditContactName(event.target.value)}
@@ -801,7 +801,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Organization
 									</span>
-                                        <input
+                                        <FormInput
                                             type="text"
                                             value={editContactOrganization}
                                             onChange={(event) => setEditContactOrganization(event.target.value)}
@@ -812,7 +812,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Title
 									</span>
-                                        <input
+                                        <FormInput
                                             type="text"
                                             value={editContactTitle}
                                             onChange={(event) => setEditContactTitle(event.target.value)}
@@ -823,7 +823,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Address book
 									</span>
-                                        <select
+                                        <FormSelect
                                             value={editContactBookId ?? ''}
                                             onChange={(event) =>
                                                 setEditContactBookId(event.target.value ? Number(event.target.value) : null)
@@ -837,13 +837,13 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                                     {book.name}
                                                 </option>
                                             ))}
-                                        </select>
+                                        </FormSelect>
                                     </label>
                                     <label className="block text-sm">
 									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 										Notes
 									</span>
-                                        <textarea
+                                        <FormTextarea
                                             value={editContactNote}
                                             onChange={(event) => setEditContactNote(event.target.value)}
                                             rows={7}
@@ -853,20 +853,20 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                 </div>
                             </div>
                             <div className="mt-4 flex items-center justify-end gap-2">
-                                <button
+                                <Button
                                     type="button"
                                     className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                     onClick={() => setEditingContact(null)}
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
                                     className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                                     disabled={savingEditContact || !normalizeContactValues(editContactEmails).length}
                                 >
                                     {savingEditContact ? 'Saving...' : 'Save changes'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>
@@ -896,7 +896,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                             </p>
                             <label className="mt-4 block text-sm">
 								<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Name</span>
-                                <input
+                                <FormInput
                                     type="text"
                                     value={newAddressBookName}
                                     onChange={(event) => setNewAddressBookName(event.target.value)}
@@ -906,20 +906,20 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                 />
                             </label>
                             <div className="mt-4 flex items-center justify-end gap-2">
-                                <button
+                                <Button
                                     type="button"
                                     className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                     onClick={() => setShowAddAddressBookModal(false)}
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
                                     className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                                     disabled={addingAddressBook || !newAddressBookName.trim()}
                                 >
                                     {addingAddressBook ? 'Creating...' : 'Create'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>
@@ -941,18 +941,18 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
 								<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
 									Format
 								</span>
-                                <select
+                                <FormSelect
                                     value={exportFormat}
                                     onChange={(event) => setExportFormat(event.target.value === 'vcf' ? 'vcf' : 'csv')}
                                     className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
                                 >
                                     <option value="csv">CSV (.csv)</option>
                                     <option value="vcf">vCard (.vcf)</option>
-                                </select>
+                                </FormSelect>
                             </label>
                             <label className="block text-sm">
                                 <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Scope</span>
-                                <select
+                                <FormSelect
                                     value={exportBookMode}
                                     onChange={(event) =>
                                         setExportBookMode(event.target.value === 'all' ? 'all' : 'selected')
@@ -961,18 +961,18 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                                 >
                                     <option value="selected">Current book</option>
                                     <option value="all">All books</option>
-                                </select>
+                                </FormSelect>
                             </label>
                         </div>
                         <div className="mt-4 flex items-center justify-end gap-2">
-                            <button
+                            <Button
                                 type="button"
                                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                 onClick={() => setShowExportContactsModal(false)}
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
                                 onClick={() => void onExportContacts()}
@@ -980,7 +980,7 @@ export default function ContactsRoute({accountId, accounts, onSelectAccount}: Co
                             >
                                 <Download size={14}/>
                                 {exportingContacts ? 'Exporting...' : 'Export'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -1081,18 +1081,18 @@ function DynamicContactFieldList({
         <div className="space-y-2">
             <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</span>
-                <button
+                <Button
                     type="button"
                     className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                     onClick={() => onChange([...safeValues, ''])}
                 >
                     Add {valueLabel.toLowerCase()}
-                </button>
+                </Button>
             </div>
             <div className="space-y-2">
                 {safeValues.map((value, index) => (
                     <div key={`${valueLabel}-${index}`} className="flex items-center gap-2">
-                        <input
+                        <FormInput
                             type={type}
                             value={value}
                             onChange={(event) => {
@@ -1104,7 +1104,7 @@ function DynamicContactFieldList({
                             required={requiredFirst && index === 0}
                             className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
                         />
-                        <button
+                        <Button
                             type="button"
                             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#35373c]"
                             disabled={safeValues.length === 1}
@@ -1113,7 +1113,7 @@ function DynamicContactFieldList({
                             aria-label={`Remove ${valueLabel.toLowerCase()}`}
                         >
                             <X size={14}/>
-                        </button>
+                        </Button>
                     </div>
                 ))}
             </div>

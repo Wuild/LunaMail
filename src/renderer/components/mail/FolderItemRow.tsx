@@ -1,3 +1,4 @@
+import {Button} from '../ui/button';
 import React from 'react';
 import {Link} from 'react-router-dom';
 import {Settings} from 'lucide-react';
@@ -15,17 +16,8 @@ type FolderItemRowProps = {
     customDragging?: boolean;
     count?: number;
     onEditFolder?: () => void;
-    draggableFolder?: boolean;
-    onFolderDragStart?: (event: React.DragEvent<HTMLElement>) => void;
-    onFolderDragEnd?: (event: React.DragEvent<HTMLElement>) => void;
-    onFolderDragOver?: (event: React.DragEvent<HTMLElement>) => void;
-    onFolderDrop?: (event: React.DragEvent<HTMLElement>) => void;
     onClick?: () => void;
     onContextMenu?: (event: React.MouseEvent<HTMLElement>) => void;
-    onDrop?: (event: React.DragEvent<HTMLElement>) => void;
-    onDragOver?: (event: React.DragEvent<HTMLElement>) => void;
-    onDragEnter?: (event: React.DragEvent<HTMLElement>) => void;
-    onDragLeave?: (event: React.DragEvent<HTMLElement>) => void;
 };
 
 export default function FolderItemRow({
@@ -39,17 +31,8 @@ export default function FolderItemRow({
                                           customDragging,
                                           count,
                                           onEditFolder,
-                                          draggableFolder,
-                                          onFolderDragStart,
-                                          onFolderDragEnd,
-                                          onFolderDragOver,
-                                          onFolderDrop,
                                           onClick,
                                           onContextMenu,
-                                          onDrop,
-                                          onDragOver,
-                                          onDragEnter,
-                                          onDragLeave,
                                       }: FolderItemRowProps) {
     return (
         <div
@@ -59,6 +42,7 @@ export default function FolderItemRow({
         >
             <Link
                 to={to || '#'}
+                draggable={false}
                 className={cn(
                     'relative flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left no-underline transition-all',
                     dropActive &&
@@ -69,21 +53,8 @@ export default function FolderItemRow({
                         : 'text-slate-700 dark:text-slate-200',
                     'hover:bg-slate-200/70 dark:hover:bg-[#3a3d44]',
                 )}
-                draggable={Boolean(draggableFolder)}
-                onDragStart={onFolderDragStart}
-                onDragEnd={onFolderDragEnd}
-                onDragOver={(event) => {
-                    onFolderDragOver?.(event);
-                    onDragOver?.(event);
-                }}
-                onDrop={(event) => {
-                    onFolderDrop?.(event);
-                    onDrop?.(event);
-                }}
                 onClick={onClick}
                 onContextMenu={onContextMenu}
-                onDragEnter={onDragEnter}
-                onDragLeave={onDragLeave}
                 style={{color: 'inherit'}}
             >
 				<span className="flex min-w-0 items-center gap-2.5">
@@ -115,7 +86,7 @@ export default function FolderItemRow({
 				</span>
             </Link>
             {onEditFolder && (
-                <button
+                <Button
                     type="button"
                     className="absolute right-1 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 opacity-0 transition-opacity hover:bg-slate-200 hover:text-slate-800 group-hover:opacity-100 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
                     onClick={(event) => {
@@ -126,7 +97,7 @@ export default function FolderItemRow({
                     aria-label="Edit folder"
                 >
                     <Settings size={13}/>
-                </button>
+                </Button>
             )}
             {customDragActive && (
                 <div

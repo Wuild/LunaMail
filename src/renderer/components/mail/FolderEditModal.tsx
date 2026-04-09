@@ -1,6 +1,7 @@
 import React from 'react';
 import type {FolderItem} from '../../../preload';
 import {Button} from '../ui/button';
+import {FormInput, FormSelect} from '../ui/FormControls';
 import {cn} from '../../lib/utils';
 
 type Option = {
@@ -56,8 +57,7 @@ export default function FolderEditModal({
                 <div className="mt-4 space-y-3">
                     <label className="block text-sm">
                         <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Display name</span>
-                        <input
-                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                        <FormInput
                             value={editor.customName}
                             onChange={(event) => onCustomNameChange(event.target.value)}
                         />
@@ -65,8 +65,7 @@ export default function FolderEditModal({
 
                     <label className="block text-sm">
                         <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Folder type</span>
-                        <select
-                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2] dark:focus:ring-[#5865f2]/30"
+                        <FormSelect
                             value={editor.type}
                             onChange={(event) => onTypeChange(event.target.value)}
                         >
@@ -75,7 +74,7 @@ export default function FolderEditModal({
                                     {option.label}
                                 </option>
                             ))}
-                        </select>
+                        </FormSelect>
                     </label>
 
                     <label className="block text-sm">
@@ -83,7 +82,7 @@ export default function FolderEditModal({
                         <div
                             className="grid grid-cols-4 gap-2 rounded-md border border-slate-300 bg-white p-2 dark:border-[#3a3d44] dark:bg-[#1e1f22]">
                             {colorOptions.map((option) => (
-                                <button
+                                <Button
                                     key={option.value}
                                     type="button"
                                     onClick={() => onColorChange(option.value)}
@@ -103,7 +102,7 @@ export default function FolderEditModal({
                                         )}
                                     />
                                     <span className="truncate">{option.label}</span>
-                                </button>
+                                </Button>
                             ))}
                         </div>
                     </label>

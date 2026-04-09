@@ -21,7 +21,7 @@ export default function SettingsRoute() {
             />
         );
     }
-    const validTabs = new Set(['application', 'layout', 'developer', 'account']);
+    const validTabs = new Set(['application', 'layout', 'whitelist', 'developer', 'account']);
     if (!validTabs.has(normalizedTab)) {
         return <Navigate to="/settings/application" replace/>;
     }
@@ -30,7 +30,14 @@ export default function SettingsRoute() {
     if (normalizedTab === 'account' && targetAccountId === null) {
         return <Navigate to="/settings/application" replace/>;
     }
-    const panel = normalizedTab === 'developer' ? 'developer' : normalizedTab === 'layout' ? 'layout' : 'app';
+    const panel =
+        normalizedTab === 'developer'
+            ? 'developer'
+            : normalizedTab === 'layout'
+                ? 'layout'
+                : normalizedTab === 'whitelist'
+                    ? 'allowlist'
+                    : 'app';
     const openUpdaterToken = query.get('openUpdater');
     return (
         <AppSettingsPage

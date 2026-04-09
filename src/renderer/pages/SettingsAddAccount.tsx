@@ -2,6 +2,8 @@ import React, {useMemo, useState} from 'react';
 import type {DavDiscoveryResult} from '../../preload';
 import WindowTitleBar from '../components/WindowTitleBar';
 import ServiceSettingsCard, {type ServiceSecurityMode} from '../components/settings/ServiceSettingsCard';
+import {Button} from '../components/ui/button';
+import {FormInput} from '../components/ui/FormControls';
 import {useAppTheme} from '../hooks/useAppTheme';
 import {isEditableTarget} from '../lib/dom';
 import {ipcClient} from '../lib/ipcClient';
@@ -471,7 +473,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
                             </div>
                         </main>
                         <footer className="flex shrink-0 items-center justify-between border-t border-slate-200 px-8 py-4 dark:border-[#3a3d44]">
-                            <button
+                            <Button
                                 type="button"
                                 disabled={loading || (!canClose && step === 1)}
                                 onClick={() => {
@@ -484,8 +486,8 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
                                 className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                             >
                                 {step === 1 && canClose ? 'Cancel' : 'Back'}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="submit"
                                 disabled={primaryActionDisabled}
                                 className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -495,7 +497,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
                                 }`}
                             >
                                 {primaryActionLabel}
-                            </button>
+                            </Button>
                         </footer>
                     </form>
                 </div>
@@ -535,12 +537,12 @@ const Field: React.FC<{
 }> = ({label, value, onChange, placeholder, type = 'text', className = ''}) => (
     <label className={`block text-sm ${className}`}>
         <span className="font-medium text-slate-700 dark:text-slate-200">{label}</span>
-        <input
+        <FormInput
             type={type}
             value={value}
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder}
-            className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100 dark:focus:border-[#5865f2] dark:focus:ring-[#5865f2]/30"
+            className="mt-1.5 py-2.5"
         />
     </label>
 );

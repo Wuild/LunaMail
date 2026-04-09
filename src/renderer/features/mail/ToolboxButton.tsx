@@ -1,3 +1,4 @@
+import {Button} from '../../components/ui/button';
 import React from "react";
 
 export default function ToolboxButton({
@@ -20,13 +21,13 @@ export default function ToolboxButton({
             : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3d44]";
 
     return (
-        <button
+        <Button
             type="button"
             onClick={onClick}
             className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors ${className}`}
         >
             {icon}
             <span>{label}</span>
-        </button>
+        </Button>
     );
 }

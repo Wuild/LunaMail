@@ -1,8 +1,11 @@
-import React from 'react';
+import {FormControlGroup, FormInput, FormSelect} from '../ui/FormControls';
+import {Button} from '../ui/button';
+import React, {useMemo} from 'react';
 import {Link} from 'react-router-dom';
 import {Search, Star, X} from 'lucide-react';
 import type {FolderItem, MessageItem, PublicAccount} from '../../../preload';
 import {formatSystemDateTime} from '../../lib/dateTime';
+import {getAccountAvatarColorsForAccount, getAccountMonogram} from '../../lib/accountAvatar';
 
 type MailSearchModalProps = {
     open: boolean;
@@ -94,6 +97,31 @@ export default function MailSearchModal({
                                             formatMessageSender,
                                         }: MailSearchModalProps) {
     if (!open) return null;
+    const accountOptions = useMemo(
+        () => [
+            {value: 'all', label: 'All accounts', description: null as string | null, icon: null as React.ReactNode},
+            ...accounts.map((account) => {
+                const label = account.display_name?.trim() || account.email;
+                const description = account.display_name?.trim() ? account.email : null;
+                const monogram = getAccountMonogram(account);
+                const colors = getAccountAvatarColorsForAccount(account);
+                return {
+                    value: String(account.id),
+                    label,
+                    description,
+                    icon: (
+                        <span
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-semibold"
+                            style={{backgroundColor: colors.background, color: colors.foreground}}
+                        >
+                            {monogram}
+                        </span>
+                    ),
+                };
+            }),
+        ],
+        [accounts],
+    );
 
     return (
         <div
@@ -104,39 +132,63 @@ export default function MailSearchModal({
                 className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-[#3a3d44] dark:bg-[#25272c]"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div
-                    className="group flex h-11 items-center rounded-xl border border-slate-300 bg-white/90 px-3 shadow-sm transition-all focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-100 dark:border-[#40444b] dark:bg-[#1f2125] dark:focus-within:border-[#5865f2] dark:focus-within:ring-[#5865f2]/30">
-                    <Search size={16} className="mr-2 shrink-0 text-slate-400 dark:text-slate-500"/>
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={searchQuery}
-                        onChange={(event) => onSearchQueryChange(event.target.value)}
-                        placeholder="Search sender, subject, or content across all accounts..."
-                        className="h-full w-full border-0 bg-transparent px-0 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
-                    />
-                    <select
-                        value={accountFilter}
-                        onChange={(event) => onAccountFilterChange(event.target.value)}
-                        className="ml-2 h-8 shrink-0 rounded-md border border-slate-300 bg-white px-2 text-[11px] text-slate-700 outline-none focus:border-sky-500 dark:border-[#40444b] dark:bg-[#25272c] dark:text-slate-200 dark:focus:border-[#5865f2]"
-                    >
-                        <option value="all">All accounts</option>
-                        {accounts.map((account) => (
-                            <option key={account.id} value={String(account.id)}>
-                                {formatAccountSearchLabel(account)}
-                            </option>
-                        ))}
-                    </select>
+                <div className="flex items-center gap-2">
+                    <FormControlGroup className="flex min-w-0 flex-1">
+                        <div className="min-w-0 flex-1">
+                            <FormInput
+                                ref={inputRef}
+                                type="text"
+                                value={searchQuery}
+                                onChange={(event) => onSearchQueryChange(event.target.value)}
+                                placeholder="Search sender, subject, or content across all accounts..."
+                                leftIcon={<Search size={16}/>}
+                                groupPosition="first"
+                                className="rounded-r-none"
+                            />
+                        </div>
+                        <div className="-ml-px w-[11rem] shrink-0">
+                            <FormSelect
+                                value={accountFilter}
+                                onChange={(event) => onAccountFilterChange(event.target.value)}
+                                groupPosition="last"
+                                className="rounded-l-none text-xs"
+                                dropdownClassName="right-0 left-auto w-[18rem]"
+                                options={accountOptions}
+                                renderSelectedOption={(option) => {
+                                    if (!option) return <span className="truncate text-xs">All accounts</span>;
+                                    return (
+                                        <span className="flex min-w-0 items-center gap-2">
+                                            {option.icon ? <span className="shrink-0">{option.icon}</span> : null}
+                                            <span className="block min-w-0 truncate text-xs">{option.label}</span>
+                                        </span>
+                                    );
+                                }}
+                                renderOption={(option) => (
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        {option.icon ? <span className="shrink-0">{option.icon}</span> : null}
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block truncate">{option.label}</span>
+                                            {option.description ? (
+                                                <span className="block truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                                    {option.description}
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                    </div>
+                                )}
+                            />
+                        </div>
+                    </FormControlGroup>
                     {searchQuery.trim().length > 0 && (
-                        <button
+                        <Button
                             type="button"
-                            className="ml-2 inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#35373c] dark:hover:text-slate-200"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#35373c] dark:hover:text-slate-200"
                             onClick={() => onSearchQueryChange('')}
                             aria-label="Clear search"
                             title="Clear search"
                         >
                             <X size={14}/>
-                        </button>
+                        </Button>
                     )}
                 </div>
                 <div className="mt-2 flex items-center justify-between px-1 text-xs text-slate-500 dark:text-slate-400">
@@ -146,47 +198,47 @@ export default function MailSearchModal({
                             : `Searching ${formatAccountSearchLabel(accounts.find((account) => String(account.id) === accountFilter) ?? null)}`}
 					</span>
                     <div className="flex items-center gap-1">
-                        <button
+                        <Button
                             type="button"
                             className="rounded px-2 py-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#35373c] dark:hover:text-slate-200"
                             onClick={onToggleAdvancedSearch}
                         >
                             {advancedSearchOpen ? 'Basic' : 'Advanced'}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
                             className="rounded px-2 py-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#35373c] dark:hover:text-slate-200"
                             onClick={onClose}
                         >
                             Esc
-                        </button>
+                        </Button>
                     </div>
                 </div>
                 {advancedSearchOpen && (
                     <div
                         className="mt-2 grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 dark:border-[#3a3d44] dark:bg-[#1f2125] sm:grid-cols-3 lg:grid-cols-4">
-                        <input
+                        <FormInput
                             type="search"
                             value={fromFilter}
                             onChange={(event) => onFromFilterChange(event.target.value)}
                             placeholder="From address/name"
                             className="h-9 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus:border-sky-500 dark:border-[#40444b] dark:bg-[#25272c] dark:text-slate-100 dark:focus:border-[#5865f2]"
                         />
-                        <input
+                        <FormInput
                             type="search"
                             value={subjectFilter}
                             onChange={(event) => onSubjectFilterChange(event.target.value)}
                             placeholder="Subject"
                             className="h-9 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus:border-sky-500 dark:border-[#40444b] dark:bg-[#25272c] dark:text-slate-100 dark:focus:border-[#5865f2]"
                         />
-                        <input
+                        <FormInput
                             type="search"
                             value={toFilter}
                             onChange={(event) => onToFilterChange(event.target.value)}
                             placeholder="To address"
                             className="h-9 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus:border-sky-500 dark:border-[#40444b] dark:bg-[#25272c] dark:text-slate-100 dark:focus:border-[#5865f2]"
                         />
-                        <select
+                        <FormSelect
                             value={folderFilter}
                             onChange={(event) => onFolderFilterChange(event.target.value)}
                             disabled={accountFilter === 'all'}
@@ -198,8 +250,8 @@ export default function MailSearchModal({
                                     {folder.custom_name || folder.name}
                                 </option>
                             ))}
-                        </select>
-                        <select
+                        </FormSelect>
+                        <FormSelect
                             value={readFilter}
                             onChange={(event) => onReadFilterChange(event.target.value as 'all' | 'read' | 'unread')}
                             className="h-9 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus:border-sky-500 dark:border-[#40444b] dark:bg-[#25272c] dark:text-slate-100 dark:focus:border-[#5865f2]"
@@ -207,8 +259,8 @@ export default function MailSearchModal({
                             <option value="all">Read status: all</option>
                             <option value="read">Read only</option>
                             <option value="unread">Unread only</option>
-                        </select>
-                        <select
+                        </FormSelect>
+                        <FormSelect
                             value={starFilter}
                             onChange={(event) =>
                                 onStarFilterChange(event.target.value as 'all' | 'starred' | 'unstarred')
@@ -218,8 +270,8 @@ export default function MailSearchModal({
                             <option value="all">Star: all</option>
                             <option value="starred">Starred only</option>
                             <option value="unstarred">Unstarred only</option>
-                        </select>
-                        <select
+                        </FormSelect>
+                        <FormSelect
                             value={dateRangeFilter}
                             onChange={(event) =>
                                 onDateRangeFilterChange(event.target.value as 'all' | '7d' | '30d' | '365d')
@@ -230,8 +282,8 @@ export default function MailSearchModal({
                             <option value="7d">Last 7 days</option>
                             <option value="30d">Last 30 days</option>
                             <option value="365d">Last 12 months</option>
-                        </select>
-                        <input
+                        </FormSelect>
+                        <FormInput
                             type="number"
                             min={0}
                             step={1}
@@ -241,7 +293,7 @@ export default function MailSearchModal({
                             className="h-9 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus:border-sky-500 dark:border-[#40444b] dark:bg-[#25272c] dark:text-slate-100 dark:focus:border-[#5865f2]"
                         />
                         <div className="flex items-center gap-2">
-                            <input
+                            <FormInput
                                 type="number"
                                 min={0}
                                 step={1}
@@ -250,13 +302,13 @@ export default function MailSearchModal({
                                 placeholder="Max size (KB)"
                                 className="h-9 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus:border-sky-500 dark:border-[#40444b] dark:bg-[#25272c] dark:text-slate-100 dark:focus:border-[#5865f2]"
                             />
-                            <button
+                            <Button
                                 type="button"
                                 className="h-9 shrink-0 rounded-md border border-slate-300 px-2 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                 onClick={onResetFilters}
                             >
                                 Reset
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}

@@ -1,4 +1,4 @@
-# LunaMail Smoke Test Checklist
+# LlamaMail Smoke Test Checklist
 
 Use this checklist after each refactor PR.
 
@@ -64,3 +64,7 @@ Use this checklist after each refactor PR.
 - 2026-04-08: `npm run check:architecture` passed after native/custom titlebar state sync fixes.
 - 2026-04-08: `npm run test:unit` passed after native/custom titlebar state sync fixes.
 - 2026-04-08: `npm run build` passed after native/custom titlebar state sync fixes.
+- 2026-04-09: `npm run check:architecture` failed due existing large-file threshold violations in
+  `src/renderer/pages/CloudFilesPage.tsx` (2064 lines) and `src/renderer/pages/MailPage.tsx` (2057 lines).
+- 2026-04-09: `npm run test:unit` passed after react-dnd migration fixes.
+- 2026-04-09: `npm run build` passed after react-dnd migration fixes.

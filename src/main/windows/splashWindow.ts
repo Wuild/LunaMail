@@ -3,6 +3,7 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import {loadWindowContent} from './loadWindowContent.js';
 import {attachWindowShortcuts, buildSecureWebPreferences, createAppWindow} from './windowFactory.js';
+import {APP_NAME} from '../config.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -33,7 +34,7 @@ export function openSplashWindow(options: OpenSplashWindowOptions = {}): Browser
         maximizable: false,
         fullscreenable: false,
         show: true,
-        title: 'LunaMail Updater',
+        title: `${APP_NAME} Updater`,
         webPreferences: buildSecureWebPreferences({preloadPath}),
     });
     attachWindowShortcuts(splashWin);
@@ -61,6 +62,8 @@ export function openSplashWindow(options: OpenSplashWindowOptions = {}): Browser
         ],
         windowName: 'splash',
     }).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error ?? '');
+        if (/object has been destroyed/i.test(message)) return;
         console.error('Failed to load splash window:', error);
     });
 

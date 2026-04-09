@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define a secure, maintainable extension system for LunaMail that can:
+Define a secure, maintainable extension system for LlamaMail that can:
 
 - Extend **main process** behavior (backend integrations, automation, sync helpers)
 - Extend **renderer** behavior (UI panels, commands, menus, views)
@@ -72,7 +72,7 @@ Execution model:
 
 - Run in `Worker`/child process
 - Communicate with main via typed RPC
-- No direct access to LunaMail internals beyond SDK capability surface
+- No direct access to LlamaMail internals beyond SDK capability surface
 
 ### 2) Renderer Plugins
 
@@ -116,7 +116,7 @@ Each plugin is a folder or archive (`.lunaplugin`) containing:
 	"name": "Mail Tags Enhancer",
 	"version": "1.0.0",
 	"engine": {
-		"lunamail": "^1.1.0",
+		"llamamail": "^1.1.0",
 		"pluginApi": "^1.0.0"
 	},
 	"entry": {
@@ -218,7 +218,7 @@ Error handling:
     - Namespace: `plugin:{pluginId}:*`
     - Backed by SQLite via core repository layer
 - Optional file cache directory:
-    - `~/.config/LunaMail/plugins-data/<pluginId>/`
+    - `~/.config/LlamaMail/plugins-data/<pluginId>/`
     - Quota-limited in later phase
 
 ---
@@ -332,7 +332,7 @@ Event streams:
 - [ ] Add menu/panel contribution pipeline
 - [ ] Add permission prompt + revocation UI
 - [ ] Add plugin crash supervision + auto-disable
-- [ ] Add plugin SDK package (`@lunamail/plugin-sdk`) and typings
+- [ ] Add plugin SDK package (`@llamamail/plugin-sdk`) and typings
 - [ ] Add example plugins (one main, one renderer, one hybrid)
 - [ ] Add E2E tests for install/enable/disable/uninstall and permission enforcement
 

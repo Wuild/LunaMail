@@ -1,6 +1,6 @@
 # Linux Packaging
 
-LunaMail can be packaged for Linux as:
+LlamaMail can be packaged for Linux as:
 
 - AppImage
 - deb

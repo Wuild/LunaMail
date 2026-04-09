@@ -2,10 +2,11 @@ import keytar from "keytar";
 import {eq} from "drizzle-orm";
 import {getDb, getDrizzle} from "../drizzle.js";
 import {cloudAccounts, type InsertCloudAccount} from "../schema.js";
+import {APP_NAME} from "../../config.js";
 
 // This repository keeps some parameterized raw SQL where cloud/DAV bridge cleanup is still transitioning to Drizzle.
 // Retain SQL only in this layer and prefer Drizzle for new queries.
-const SERVICE_NAME = "LunaMail";
+const SERVICE_NAME = APP_NAME;
 export const CLOUD_DAV_ACCOUNT_ID_OFFSET = 1_000_000;
 
 export type CloudProvider = "nextcloud" | "webdav" | "google-drive" | "onedrive";

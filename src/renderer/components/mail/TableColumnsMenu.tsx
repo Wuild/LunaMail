@@ -1,3 +1,4 @@
+import {Button} from '../ui/button';
 import React from 'react';
 import {cn} from '../../lib/utils';
 
@@ -37,7 +38,7 @@ function TableColumnsMenuInner<TColumn extends string>(
             {options.map((column) => {
                 const checked = selectedColumns.includes(column.key);
                 return (
-                    <button
+                    <Button
                         key={column.key}
                         type="button"
                         className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
@@ -53,17 +54,17 @@ function TableColumnsMenuInner<TColumn extends string>(
                         >
 							✓
 						</span>
-                    </button>
+                    </Button>
                 );
             })}
             <div className="my-1 h-px bg-slate-200 dark:bg-[#3a3d44]"/>
-            <button
+            <Button
                 type="button"
                 className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
                 onClick={onResetColumns}
             >
                 Reset Columns
-            </button>
+            </Button>
         </div>
     );
 }

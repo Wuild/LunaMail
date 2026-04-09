@@ -1,3 +1,4 @@
+import {FormInput,FormSelect} from '../components/ui/FormControls';
 import React from "react";
 import {
     File,
@@ -10,6 +11,7 @@ import {
     FileVideo,
 } from "lucide-react";
 import type {CloudItem, CloudProvider, CloudStorageUsage} from "../../preload";
+import {ONEDRIVE_DEFAULT_CLIENT_ID, ONEDRIVE_DEFAULT_TENANT_ID} from "../../shared/cloudConfig";
 
 export type NavigationEntry = { token: string; label: string };
 export type CloudTableColumnKey = "name" | "type" | "size" | "modified" | "created";
@@ -22,12 +24,12 @@ export const providerLabels: Record<CloudProvider, string> = {
     onedrive: "OneDrive",
 };
 
-export const DEFAULT_ONEDRIVE_CLIENT_ID = "63603077-288c-418e-9d1e-972b7f860ffc";
-export const DEFAULT_ONEDRIVE_TENANT_ID = "common";
+export const DEFAULT_ONEDRIVE_CLIENT_ID = ONEDRIVE_DEFAULT_CLIENT_ID;
+export const DEFAULT_ONEDRIVE_TENANT_ID = ONEDRIVE_DEFAULT_TENANT_ID;
 
-const CLOUD_FOLDER_CACHE_PREFIX = "lunamail.cloud.folder.cache.v1";
-const CLOUD_TABLE_COLUMNS_STORAGE_KEY = "lunamail.cloud.table.columns.v1";
-const CLOUD_ACCOUNT_COLLAPSE_STORAGE_KEY = "lunamail.cloud.accountCollapseState.v1";
+const CLOUD_FOLDER_CACHE_PREFIX = "llamamail.cloud.folder.cache.v1";
+const CLOUD_TABLE_COLUMNS_STORAGE_KEY = "llamamail.cloud.table.columns.v1";
+const CLOUD_ACCOUNT_COLLAPSE_STORAGE_KEY = "llamamail.cloud.accountCollapseState.v1";
 
 export const CLOUD_TABLE_RESIZE_HANDLE_CLASS =
     "absolute -right-1 top-1/2 h-[calc(100%-10px)] w-2 -translate-y-1/2 cursor-col-resize rounded bg-transparent after:absolute after:bottom-1 after:left-1/2 after:top-1 after:w-px after:-translate-x-1/2 after:bg-slate-300 after:content-[''] hover:after:bg-sky-500 dark:after:bg-[#4a4d55] dark:hover:after:bg-[#8ab4ff]";
@@ -323,7 +325,7 @@ export function Field(props: {
         <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">{label}</span>
             {as === "select" ? (
-                <select
+                <FormSelect
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                     className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
@@ -333,9 +335,9 @@ export function Field(props: {
                             {option.label}
                         </option>
                     ))}
-                </select>
+                </FormSelect>
             ) : (
-                <input
+                <FormInput
                     type={type}
                     value={value}
                     onChange={(event) => onChange(event.target.value)}

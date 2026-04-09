@@ -18,14 +18,25 @@ import {
     RefreshCw,
     SendHorizonal,
 } from 'lucide-react';
-import type {CloudItem, ComposeDraftPayload, ContactItem, PublicAccount, PublicCloudAccount, RecentRecipientItem} from '../../preload/index';
-import MarkdownLexicalEditor from '../components/MarkdownLexicalEditor';
+import type {
+    CloudItem,
+    ComposeDraftPayload,
+    ContactItem,
+    PublicAccount,
+    PublicCloudAccount,
+    RecentRecipientItem,
+} from '../../preload/index';
+import HtmlLexicalEditor from '../components/HtmlLexicalEditor';
+import AutoComplete, {type AutoCompleteRow} from '../components/inputs/AutoComplete';
+import {FormInput, FormSelect, type FormSelectOption} from '../components/ui/FormControls';
+import {Button, ButtonGroup} from '../components/ui/button';
 import WindowTitleBar from '../components/WindowTitleBar';
 import {formatSystemDateTime} from '../lib/dateTime';
 import {formatBytes} from '../lib/format';
 import {useAppTheme} from '../hooks/useAppTheme';
 import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
 import {ipcClient} from '../lib/ipcClient';
+import {getAccountAvatarColorsForAccount, getAccountMonogram} from '../lib/accountAvatar';
 
 type ComposeAttachment = {
     id: string;
@@ -35,15 +46,10 @@ type ComposeAttachment = {
     size: number | null;
 };
 
-type RecipientSuggestion = {
-    key: string;
-    email: string;
-    displayName: string | null;
-};
-
 const EMAIL_ADDRESS_REGEX = /^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/;
-const CLOUD_FOLDER_CACHE_PREFIX = 'lunamail.cloud.folder.cache.v1';
 const CONTACT_META_PREFIX = '[LUNAMAIL_CONTACT_META_V1]';
+const CLOUD_FOLDER_CACHE_PREFIX = 'llamamail.cloud.folder.cache.v1';
+type RecipientFieldKey = 'to' | 'cc' | 'bcc';
 
 function ComposeEmailPage() {
     useAppTheme();
@@ -71,13 +77,26 @@ function ComposeEmailPage() {
     const [cloudLoading, setCloudLoading] = useState(false);
     const [cloudAttaching, setCloudAttaching] = useState(false);
     const [cloudStatus, setCloudStatus] = useState<string | null>(null);
+    const [windowDragActive, setWindowDragActive] = useState(false);
     const [cloudFilesCache, setCloudFilesCache] = useState<Record<string, CloudItem[]>>({});
+    const [recipientDrafts, setRecipientDrafts] = useState<Record<RecipientFieldKey, string>>({to: '', cc: '', bcc: ''});
+    const [recipientRows, setRecipientRows] = useState<Record<RecipientFieldKey, AutoCompleteRow[]>>({to: [], cc: [], bcc: []});
+    const [recipientInvalidMessages, setRecipientInvalidMessages] = useState<Record<RecipientFieldKey, string | null>>({
+        to: null,
+        cc: null,
+        bcc: null,
+    });
+    const [activeRecipientField, setActiveRecipientField] = useState<RecipientFieldKey | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const cloudFilesCacheRef = useRef<Record<string, CloudItem[]>>({});
     const cloudRequestSeqRef = useRef(0);
     const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSavedSignatureRef = useRef<string>('');
     const draftSessionIdRef = useRef<string>(`draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+    const autoSignatureRef = useRef<{ accountId: number; html: string; text: string } | null>(null);
+    const windowDragDepthRef = useRef(0);
+    const allowWindowCloseRef = useRef(false);
+    const recipientSearchSeqRef = useRef(0);
 
     useEffect(() => {
         let active = true;
@@ -98,6 +117,85 @@ function ComposeEmailPage() {
             active = false;
         };
     }, []);
+
+    const selectedFromAccount = useMemo(
+        () => (typeof fromAccountId === 'number' ? accounts.find((account) => account.id === fromAccountId) ?? null : null),
+        [accounts, fromAccountId],
+    );
+    const fromAccountOptions = useMemo<FormSelectOption[]>(() => {
+        if (accounts.length === 0) {
+            return [{value: '', label: 'No accounts', description: null, disabled: true}];
+        }
+        return accounts.map((account) => {
+            const label = account.display_name?.trim() || account.email;
+            const description = account.display_name?.trim() ? account.email : null;
+            const monogram = getAccountMonogram(account);
+            const colors = getAccountAvatarColorsForAccount(account);
+            return {
+                value: String(account.id),
+                label,
+                description,
+                icon: (
+                    <span
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-semibold"
+                        style={{backgroundColor: colors.background, color: colors.foreground}}
+                    >
+                        {monogram}
+                    </span>
+                ),
+            };
+        });
+    }, [accounts]);
+
+    useEffect(() => {
+        if (!selectedFromAccount) return;
+        const signatureRaw = (selectedFromAccount.signature_text || '').trim();
+        if (!signatureRaw) {
+            autoSignatureRef.current = null;
+            return;
+        }
+
+        const signatureHtml = selectedFromAccount.signature_is_html
+            ? signatureRaw
+            : signatureRaw.split(/\r?\n/).map((line) => escapeSignatureHtml(line)).join('<br/>');
+        const signatureHtmlWithDivider = withSignatureDivider(signatureHtml);
+        const signatureText = selectedFromAccount.signature_is_html
+            ? htmlToPlainText(signatureRaw)
+            : signatureRaw;
+        const previousAuto = autoSignatureRef.current;
+        const currentBodyTrimmed = body.trim();
+        const currentPlainTrimmed = plainBody.trim();
+
+        const isBodyEmpty = !currentBodyTrimmed && !currentPlainTrimmed;
+        if (isBodyEmpty) {
+            setBody(`<p><br/></p>${signatureHtmlWithDivider}`);
+            setPlainBody(signatureText);
+            autoSignatureRef.current = {
+                accountId: selectedFromAccount.id,
+                html: signatureHtmlWithDivider,
+                text: signatureText,
+            };
+            return;
+        }
+
+        if (
+            previousAuto &&
+            previousAuto.accountId !== selectedFromAccount.id &&
+            normalizeSignatureCompare(currentBodyTrimmed).includes(normalizeSignatureCompare(previousAuto.html)) &&
+            normalizeSignatureCompare(currentPlainTrimmed).includes(normalizeSignatureCompare(previousAuto.text))
+        ) {
+            const nextBody = currentBodyTrimmed.replace(previousAuto.html, signatureHtmlWithDivider);
+            const nextPlain = currentPlainTrimmed.replace(previousAuto.text, signatureText);
+            if (nextBody === currentBodyTrimmed && nextPlain === currentPlainTrimmed) return;
+            setBody(nextBody);
+            setPlainBody(nextPlain);
+            autoSignatureRef.current = {
+                accountId: selectedFromAccount.id,
+                html: signatureHtmlWithDivider,
+                text: signatureText,
+            };
+        }
+    }, [selectedFromAccount, body, plainBody]);
 
     const applyDraft = useCallback((draft: ComposeDraftPayload | null | undefined) => {
         if (!draft) return;
@@ -144,6 +242,57 @@ function ComposeEmailPage() {
     useEffect(() => {
         cloudFilesCacheRef.current = cloudFilesCache;
     }, [cloudFilesCache]);
+
+    const recipientListsByField: Record<RecipientFieldKey, string[]> = {
+        to: toList,
+        cc: ccList,
+        bcc: bccList,
+    };
+
+    const blockedRecipientsByField: Record<RecipientFieldKey, string[]> = {
+        to: [...ccList, ...bccList],
+        cc: [...toList, ...bccList],
+        bcc: [...toList, ...ccList],
+    };
+
+    useEffect(() => {
+        if (!activeRecipientField || typeof fromAccountId !== 'number') {
+            return;
+        }
+        const query = recipientDrafts[activeRecipientField].trim();
+        const seq = ++recipientSearchSeqRef.current;
+        const timer = setTimeout(() => {
+            Promise.all([
+                ipcClient.getContacts(fromAccountId, query || null, 12, null),
+                ipcClient.getRecentRecipients(fromAccountId, query || null, 12),
+            ])
+                .then(([contacts, recentRecipients]) => {
+                    if (seq !== recipientSearchSeqRef.current) return;
+                    const existing = new Set(
+                        [...recipientListsByField[activeRecipientField], ...blockedRecipientsByField[activeRecipientField]]
+                            .map((entry) => normalizeRecipientAddress(entry))
+                            .filter((entry): entry is string => Boolean(entry)),
+                    );
+                    const nextRows: AutoCompleteRow[] = mergeRecipientSuggestions(contacts, recentRecipients, existing, 12).map(
+                        (row) => ({
+                            id: row.key,
+                            value: row.email,
+                            label: row.displayName || row.email,
+                            description: row.displayName ? row.email : null,
+                        }),
+                    );
+                    setRecipientRows((prev) => ({...prev, [activeRecipientField]: nextRows}));
+                })
+                .catch(() => {
+                    if (seq !== recipientSearchSeqRef.current) return;
+                    setRecipientRows((prev) => ({...prev, [activeRecipientField]: []}));
+                });
+        }, query.length > 0 ? 120 : 0);
+
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [activeRecipientField, blockedRecipientsByField, fromAccountId, recipientDrafts, recipientListsByField]);
 
     const selectedCloudAccount = useMemo(
         () => (typeof cloudAccountId === 'number' ? cloudAccounts.find((account) => account.id === cloudAccountId) ?? null : null),
@@ -231,6 +380,13 @@ function ComposeEmailPage() {
     }, [cloudAccountId, loadCloudItems]);
 
     const words = useMemo(() => plainBody.trim().split(/\s+/).filter(Boolean).length, [plainBody]);
+    const isComposeDirty = useMemo(() => {
+        if (toList.length || ccList.length || bccList.length) return true;
+        if (subject.trim().length > 0) return true;
+        if (attachments.length > 0) return true;
+        if (hasMeaningfulBodyContent(body, plainBody, autoSignatureRef.current?.text || null)) return true;
+        return false;
+    }, [attachments.length, bccList.length, body, ccList.length, plainBody, subject, toList.length]);
     const draftPayload = useMemo(() => {
         if (!fromAccountId) return null;
         return {
@@ -268,8 +424,7 @@ function ComposeEmailPage() {
     useEffect(() => {
         if (!draftPayload || sending) return;
         const hasRecipient = Boolean((draftPayload.to || '').trim());
-        const hasBody = Boolean((draftPayload.text || draftPayload.html || '').trim());
-        if (!hasRecipient || !hasBody) return;
+        if (!hasRecipient) return;
 
         const signature = JSON.stringify(draftPayload);
         if (signature === lastSavedSignatureRef.current) return;
@@ -301,6 +456,73 @@ function ComposeEmailPage() {
         };
     }, [draftPayload, sending]);
 
+    useEffect(() => {
+        const onBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (allowWindowCloseRef.current) return;
+            if (sending || !isComposeDirty) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', onBeforeUnload);
+        };
+    }, [isComposeDirty, sending]);
+
+    function setRecipientsForField(field: RecipientFieldKey, next: string[]) {
+        if (field === 'to') setToList(next);
+        if (field === 'cc') setCcList(next);
+        if (field === 'bcc') setBccList(next);
+    }
+
+    function commitRecipientDraft(field: RecipientFieldKey) {
+        const draft = recipientDrafts[field];
+        const parsed = parseRecipientEntries(draft);
+        const existing = new Set(
+            [...recipientListsByField[field], ...blockedRecipientsByField[field]]
+                .map((entry) => normalizeRecipientAddress(entry))
+                .filter((entry): entry is string => Boolean(entry)),
+        );
+        const next = [...recipientListsByField[field]];
+        for (const item of parsed.valid) {
+            if (existing.has(item)) continue;
+            next.push(item);
+            existing.add(item);
+        }
+        if (next.length !== recipientListsByField[field].length) {
+            setRecipientsForField(field, next);
+        }
+        setRecipientInvalidMessages((prev) => ({
+            ...prev,
+            [field]: parsed.invalid.length > 0 ? `Invalid address: ${parsed.invalid[0]}` : null,
+        }));
+        setRecipientDrafts((prev) => ({...prev, [field]: ''}));
+        setRecipientRows((prev) => ({...prev, [field]: []}));
+    }
+
+    function removeRecipient(field: RecipientFieldKey, recipient: string) {
+        setRecipientsForField(
+            field,
+            recipientListsByField[field].filter((entry) => entry !== recipient),
+        );
+    }
+
+    function applyRecipientSuggestion(field: RecipientFieldKey, row: AutoCompleteRow) {
+        const email = normalizeRecipientAddress(row.value);
+        if (!email) return;
+        const exists = [...recipientListsByField[field], ...blockedRecipientsByField[field]].some(
+            (entry) => normalizeRecipientAddress(entry) === email,
+        );
+        if (exists) {
+            setRecipientDrafts((prev) => ({...prev, [field]: ''}));
+            return;
+        }
+        setRecipientsForField(field, [...recipientListsByField[field], email]);
+        setRecipientInvalidMessages((prev) => ({...prev, [field]: null}));
+        setRecipientDrafts((prev) => ({...prev, [field]: ''}));
+        setRecipientRows((prev) => ({...prev, [field]: []}));
+    }
+
     async function onSend() {
         if (sending) return;
         if (!fromAccountId) {
@@ -320,13 +542,13 @@ function ComposeEmailPage() {
         }
 
         setSending(true);
-        setStatus('Sending...');
+        setStatus('Queueing send...');
         try {
             if (autosaveTimerRef.current) {
                 clearTimeout(autosaveTimerRef.current);
                 autosaveTimerRef.current = null;
             }
-            const res = await ipcClient.sendEmail({
+            await ipcClient.sendEmailBackground({
                 accountId: Number(fromAccountId),
                 to: joinRecipients(toList),
                 cc: ccList.length ? joinRecipients(ccList) : null,
@@ -345,14 +567,10 @@ function ComposeEmailPage() {
                     : null,
                 draftSessionId: draftSessionIdRef.current,
             });
-            setStatus(`Sent (${res.messageId})`);
-            setTimeout(() => {
-                window.close();
-            }, 600);
+            window.close();
         } catch (e: any) {
-            setStatus(`Send failed: ${e?.message || String(e)}`);
-        } finally {
             setSending(false);
+            setStatus(`Queue send failed: ${e?.message || String(e)}`);
         }
     }
 
@@ -369,6 +587,72 @@ function ComposeEmailPage() {
             return merged;
         });
     }
+
+    async function appendDroppedFilesAsAttachments(files: File[]) {
+        if (!files.length) return;
+        const resolved = await Promise.all(
+            files.map(async (file) => ({
+                file,
+                path: String(ipcClient.getPathForFile(file) || (file as any).path || '').trim(),
+            })),
+        );
+        const next: ComposeAttachment[] = [];
+        let skippedCount = 0;
+        for (const item of resolved) {
+            if (!item.path) {
+                skippedCount += 1;
+                continue;
+            }
+            next.push({
+                id: item.path,
+                path: item.path,
+                filename: item.file.name || 'attachment',
+                contentType: item.file.type || null,
+                size: Number.isFinite(item.file.size) ? item.file.size : null,
+            });
+        }
+        appendAttachments(next);
+        if (skippedCount > 0) {
+            setStatus(`Skipped ${skippedCount} dropped file${skippedCount > 1 ? 's' : ''} (no local file path).`);
+        }
+    }
+
+    async function onDropNonImageFiles(files: File[]) {
+        await appendDroppedFilesAsAttachments(files);
+    }
+
+    function isExternalDesktopFileDrag(dataTransfer: DataTransfer | null): boolean {
+        if (!dataTransfer) return false;
+        const types = Array.from(dataTransfer.types || []);
+        if (types.includes('application/x-llamamail-image')) return false;
+        if (types.includes('Files')) return true;
+        if (Array.from(dataTransfer.files || []).length > 0) return true;
+        return Array.from(dataTransfer.items || []).some((item) => item.kind === 'file');
+    }
+
+    function extractFilesFromDataTransfer(dataTransfer: DataTransfer | null): File[] {
+        if (!dataTransfer) return [];
+        const directFiles = Array.from(dataTransfer.files || []);
+        if (directFiles.length > 0) return directFiles;
+        return Array.from(dataTransfer.items || [])
+            .filter((item) => item.kind === 'file')
+            .map((item) => item.getAsFile())
+            .filter((file): file is File => Boolean(file));
+    }
+
+    useEffect(() => {
+        const resetWindowDragState = () => {
+            windowDragDepthRef.current = 0;
+            setWindowDragActive(false);
+        };
+        const captureOptions: AddEventListenerOptions = {capture: true};
+        window.addEventListener('drop', resetWindowDragState, captureOptions);
+        window.addEventListener('dragend', resetWindowDragState, captureOptions);
+        return () => {
+            window.removeEventListener('drop', resetWindowDragState, captureOptions);
+            window.removeEventListener('dragend', resetWindowDragState, captureOptions);
+        };
+    }, []);
 
     function onFallbackInputChange(event: React.ChangeEvent<HTMLInputElement>) {
         const files = Array.from(event.target.files ?? []);
@@ -467,11 +751,61 @@ function ComposeEmailPage() {
     }
 
     return (
-        <div className="h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
+        <div
+            className="relative h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]"
+            onDragEnterCapture={(event) => {
+                if (!isExternalDesktopFileDrag(event.dataTransfer)) return;
+                event.preventDefault();
+                windowDragDepthRef.current += 1;
+                setWindowDragActive(true);
+            }}
+            onDragOverCapture={(event) => {
+                if (!isExternalDesktopFileDrag(event.dataTransfer)) return;
+                event.preventDefault();
+                if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+                if (!windowDragActive) setWindowDragActive(true);
+            }}
+            onDragLeaveCapture={(event) => {
+                if (!windowDragActive) return;
+                if (!isExternalDesktopFileDrag(event.dataTransfer) && windowDragDepthRef.current === 0) return;
+                event.preventDefault();
+                windowDragDepthRef.current = Math.max(0, windowDragDepthRef.current - 1);
+                if (windowDragDepthRef.current === 0) {
+                    setWindowDragActive(false);
+                }
+            }}
+            onDrop={(event) => {
+                const files = extractFilesFromDataTransfer(event.dataTransfer);
+                const isExternalDrop = isExternalDesktopFileDrag(event.dataTransfer) || files.length > 0;
+                if (!isExternalDrop) return;
+                event.preventDefault();
+                windowDragDepthRef.current = 0;
+                setWindowDragActive(false);
+                event.stopPropagation();
+                if (!files.length) return;
+                void appendDroppedFilesAsAttachments(files);
+            }}
+        >
+            {windowDragActive && (
+                <div className="pointer-events-none absolute inset-x-3 bottom-3 top-[3.25rem] z-[90] flex items-center justify-center rounded-xl border-2 border-dashed border-sky-400 bg-sky-100/75 text-sm font-medium text-sky-900 dark:border-sky-500 dark:bg-sky-900/25 dark:text-sky-200">
+                    Drop files to attach. Drop on editor body to insert images inline.
+                </div>
+            )}
             <div className="flex h-full flex-col">
-                <WindowTitleBar title="Compose Email" showMaximize/>
+                <WindowTitleBar
+                    title="Compose Email"
+                    showMaximize
+                    onRequestClose={() => {
+                        if (sending || !isComposeDirty) return true;
+                        const confirmed = window.confirm('Discard this draft? You have unsent changes.');
+                        if (confirmed) {
+                            allowWindowCloseRef.current = true;
+                        }
+                        return confirmed;
+                    }}
+                />
                 <header
-                    className="border-b border-slate-200 bg-white/90 px-5 py-3 backdrop-blur dark:border-[#3a3d44] dark:bg-[#1f2125]/95">
+                    className="border-b border-slate-800 bg-slate-900 px-5 py-3 text-slate-100 dark:border-[#08090c] dark:bg-[#0b0c10]">
                     <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                             <div
@@ -479,15 +813,15 @@ function ComposeEmailPage() {
                                 <PenSquare size={16}/>
                             </div>
                             <div>
-                                <h1 className="text-base font-semibold text-slate-900 dark:text-slate-100">Compose</h1>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">{status || 'New message'}</p>
+                                <h1 className="text-base font-semibold text-white">Compose</h1>
+                                <p className="text-xs text-white/70">{status || 'New message'}</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                        <div className="flex items-center gap-2 text-xs text-white/70">
                             <span>{words} words</span>
-                            <span className="rounded-full border border-slate-300 px-2 py-0.5 dark:border-[#3a3d44]">
-								Draft
-							</span>
+                            <span className="rounded-full border border-white/25 px-2 py-0.5 text-white/80">
+									Draft
+								</span>
                         </div>
                     </div>
                 </header>
@@ -500,18 +834,25 @@ function ComposeEmailPage() {
 									<span className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
 										From
 									</span>
-                                    <select
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100"
-                                        value={fromAccountId}
+                                    <FormSelect
+                                        value={fromAccountId ? String(fromAccountId) : ''}
                                         onChange={(e) => setFromAccountId(e.target.value ? Number(e.target.value) : '')}
-                                    >
-                                        {accounts.length === 0 && <option value="">No accounts</option>}
-                                        {accounts.map((a) => (
-                                            <option key={a.id} value={a.id}>
-                                                {a.email}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        options={fromAccountOptions}
+                                        renderSelectedOption={(option) => {
+                                            if (!option) return <span className="truncate">No accounts</span>;
+                                            return (
+                                                <span className="flex min-w-0 items-center gap-2">
+                                                    {option.icon ? <span className="shrink-0">{option.icon}</span> : null}
+                                                    <span className="block min-w-0 truncate">
+                                                        {option.label}
+                                                        {option.description ? (
+                                                            <span className="text-slate-500 dark:text-slate-400"> · {option.description}</span>
+                                                        ) : null}
+                                                    </span>
+                                                </span>
+                                            );
+                                        }}
+                                    />
                                 </label>
 
                                 <label className="block text-sm">
@@ -519,21 +860,40 @@ function ComposeEmailPage() {
 										To
 									</span>
                                     <div className="flex gap-2">
-                                        <RecipientsInput
+                                        <RecipientMultiInput
                                             placeholder="recipient@example.com"
-                                            recipients={toList}
-                                            onChange={setToList}
-                                            accountId={typeof fromAccountId === 'number' ? fromAccountId : null}
-                                            blockedRecipients={[...ccList, ...bccList]}
-                                            className="min-h-10 min-w-0 flex-1"
+                                            recipients={recipientListsByField.to}
+                                            draft={recipientDrafts.to}
+                                            rows={recipientRows.to}
+                                            invalidMessage={recipientInvalidMessages.to}
+                                            onDraftChange={(next) => {
+                                                setRecipientDrafts((prev) => ({...prev, to: next}));
+                                                if (recipientInvalidMessages.to) {
+                                                    setRecipientInvalidMessages((prev) => ({...prev, to: null}));
+                                                }
+                                            }}
+                                            onRemoveRecipient={(recipient) => removeRecipient('to', recipient)}
+                                            onPickRow={(row) => applyRecipientSuggestion('to', row)}
+                                            onCommit={() => commitRecipientDraft('to')}
+                                            onFocus={() => setActiveRecipientField('to')}
+                                            onBlur={() => {
+                                                setActiveRecipientField((prev) => (prev === 'to' ? null : prev));
+                                                commitRecipientDraft('to');
+                                            }}
+                                            onBackspaceEmpty={() => {
+                                                if (recipientListsByField.to.length === 0) return;
+                                                setRecipientsForField('to', recipientListsByField.to.slice(0, -1));
+                                            }}
+                                            className="min-w-0 flex-1"
                                         />
-                                        <button
+                                        <Button
                                             type="button"
-                                            className="h-10 shrink-0 rounded-md border border-slate-300 px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#3a3d44]"
+                                            variant="outline"
+                                            className="h-11 shrink-0 px-3 text-xs font-medium text-slate-600 dark:text-slate-300"
                                             onClick={() => setShowCcBcc((prev) => !prev)}
                                         >
                                             {showCcBcc ? 'Hide Cc/Bcc' : 'Cc/Bcc'}
-                                        </button>
+                                        </Button>
                                     </div>
                                 </label>
                             </div>
@@ -545,12 +905,30 @@ function ComposeEmailPage() {
                                             className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
 											Cc
 										</span>
-                                        <RecipientsInput
+                                        <RecipientMultiInput
                                             placeholder="optional"
-                                            recipients={ccList}
-                                            onChange={setCcList}
-                                            accountId={typeof fromAccountId === 'number' ? fromAccountId : null}
-                                            blockedRecipients={[...toList, ...bccList]}
+                                            recipients={recipientListsByField.cc}
+                                            draft={recipientDrafts.cc}
+                                            rows={recipientRows.cc}
+                                            invalidMessage={recipientInvalidMessages.cc}
+                                            onDraftChange={(next) => {
+                                                setRecipientDrafts((prev) => ({...prev, cc: next}));
+                                                if (recipientInvalidMessages.cc) {
+                                                    setRecipientInvalidMessages((prev) => ({...prev, cc: null}));
+                                                }
+                                            }}
+                                            onRemoveRecipient={(recipient) => removeRecipient('cc', recipient)}
+                                            onPickRow={(row) => applyRecipientSuggestion('cc', row)}
+                                            onCommit={() => commitRecipientDraft('cc')}
+                                            onFocus={() => setActiveRecipientField('cc')}
+                                            onBlur={() => {
+                                                setActiveRecipientField((prev) => (prev === 'cc' ? null : prev));
+                                                commitRecipientDraft('cc');
+                                            }}
+                                            onBackspaceEmpty={() => {
+                                                if (recipientListsByField.cc.length === 0) return;
+                                                setRecipientsForField('cc', recipientListsByField.cc.slice(0, -1));
+                                            }}
                                         />
                                     </label>
 
@@ -559,12 +937,30 @@ function ComposeEmailPage() {
                                             className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
 											Bcc
 										</span>
-                                        <RecipientsInput
+                                        <RecipientMultiInput
                                             placeholder="optional"
-                                            recipients={bccList}
-                                            onChange={setBccList}
-                                            accountId={typeof fromAccountId === 'number' ? fromAccountId : null}
-                                            blockedRecipients={[...toList, ...ccList]}
+                                            recipients={recipientListsByField.bcc}
+                                            draft={recipientDrafts.bcc}
+                                            rows={recipientRows.bcc}
+                                            invalidMessage={recipientInvalidMessages.bcc}
+                                            onDraftChange={(next) => {
+                                                setRecipientDrafts((prev) => ({...prev, bcc: next}));
+                                                if (recipientInvalidMessages.bcc) {
+                                                    setRecipientInvalidMessages((prev) => ({...prev, bcc: null}));
+                                                }
+                                            }}
+                                            onRemoveRecipient={(recipient) => removeRecipient('bcc', recipient)}
+                                            onPickRow={(row) => applyRecipientSuggestion('bcc', row)}
+                                            onCommit={() => commitRecipientDraft('bcc')}
+                                            onFocus={() => setActiveRecipientField('bcc')}
+                                            onBlur={() => {
+                                                setActiveRecipientField((prev) => (prev === 'bcc' ? null : prev));
+                                                commitRecipientDraft('bcc');
+                                            }}
+                                            onBackspaceEmpty={() => {
+                                                if (recipientListsByField.bcc.length === 0) return;
+                                                setRecipientsForField('bcc', recipientListsByField.bcc.slice(0, -1));
+                                            }}
                                         />
                                     </label>
                                 </div>
@@ -575,21 +971,21 @@ function ComposeEmailPage() {
 									<span className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
 										Subject
 									</span>
-                                    <input
+                                    <FormInput
                                         placeholder="Add a subject"
                                         value={subject}
                                         onChange={(e) => setSubject(e.target.value)}
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100"
                                     />
                                 </label>
                             </div>
                         </div>
 
-                        <div className="min-h-0 flex-1 p-5">
-                            <div className="relative h-full">
-                                <MarkdownLexicalEditor
+                        <div className="min-h-0 flex-1">
+                            <div className="relative h-full w-full">
+                                <HtmlLexicalEditor
                                     value={body}
                                     placeholder="Write your message..."
+                                    onDropNonImageFiles={onDropNonImageFiles}
                                     onChange={(html, plainText) => {
                                         setBody(html);
                                         setPlainBody(plainText);
@@ -598,7 +994,7 @@ function ComposeEmailPage() {
                             </div>
                         </div>
 
-                        <footer className="border-t border-slate-200 px-5 py-3 dark:border-[#3a3d44]">
+                        <footer className="border-t border-slate-200 bg-slate-50 px-5 py-3 dark:border-[#2a2d31] dark:bg-[#1b1c20]">
                             {attachments.length > 0 && (
                                 <div className="mb-3 overflow-x-auto overflow-y-hidden pr-1">
                                     <div className="flex min-w-full w-max gap-2 pb-1">
@@ -615,33 +1011,40 @@ function ComposeEmailPage() {
 
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
-                                    <button
-                                        className="inline-flex h-9 w-fit items-center rounded-md border border-slate-300 px-3 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
-                                        onClick={() => void onPickAttachments()}
-                                        type="button"
-                                    >
-                                        <Paperclip size={14} className="mr-2"/>
-                                        Attach
-                                    </button>
-                                    <button
-                                        className="inline-flex h-9 w-fit items-center rounded-md border border-slate-300 px-3 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
-                                        onClick={() => void openCloudAttachmentPicker()}
-                                        type="button"
-                                    >
-                                        <Cloud size={14} className="mr-2"/>
-                                        Add file from cloud
-                                    </button>
+                                    <ButtonGroup>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            groupPosition="first"
+                                            leftIcon={<Paperclip size={14}/>}
+                                            onClick={() => void onPickAttachments()}
+                                        >
+                                            Attach
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            groupPosition="last"
+                                            leftIcon={<Cloud size={14}/>}
+                                            onClick={() => void openCloudAttachmentPicker()}
+                                        >
+                                            Add file from cloud
+                                        </Button>
+                                    </ButtonGroup>
                                 </div>
-                                <button
-                                    className="inline-flex h-9 items-center rounded-md bg-gradient-to-r from-sky-600 to-indigo-600 px-3 text-sm font-medium text-white transition-all hover:brightness-110 dark:from-[#5865f2] dark:to-[#4f5bd5]"
+                                <Button
+                                    size="sm"
+                                    variant="default"
+                                    rightIcon={<SendHorizonal size={14}/>}
                                     onClick={() => void onSend()}
                                     disabled={sending}
                                 >
-                                    <SendHorizonal size={14} className="mr-2"/>
                                     {sending ? 'Sending...' : 'Send'}
-                                </button>
+                                </Button>
                             </div>
-                            <input
+                            <FormInput
                                 ref={fileInputRef}
                                 type="file"
                                 multiple
@@ -717,18 +1120,20 @@ function CloudAttachmentPickerModal({
             <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xl dark:border-[#3a3d44] dark:bg-[#1f2125]">
                 <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-[#3a3d44]">
                     <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Add file from cloud</h2>
-                    <button
+                    <Button
                         type="button"
-                        className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#2a2d31]"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto px-2 py-1 text-xs text-slate-600 dark:text-slate-300"
                         onClick={onClose}
                     >
                         Close
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 border-b border-slate-200 px-4 py-3 dark:border-[#3a3d44] md:grid-cols-[280px_1fr_auto_auto_auto]">
-                    <select
-                        className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#2a2d31] dark:text-slate-100"
+                    <FormSelect
+                        className="h-9"
                         value={selectedAccountId}
                         onChange={(event) => onAccountChange(event.target.value)}
                     >
@@ -738,12 +1143,12 @@ function CloudAttachmentPickerModal({
                                 {account.name}
                             </option>
                         ))}
-                    </select>
+                    </FormSelect>
                     <div className="flex h-9 min-w-0 items-center gap-1 overflow-x-auto rounded-md border border-slate-300 bg-slate-50 px-2 text-xs text-slate-600 dark:border-[#3a3d44] dark:bg-[#2a2d31] dark:text-slate-300">
                         {breadcrumbs.map((crumb, index) => (
                             <React.Fragment key={`${crumb.path}-${index}`}>
                                 {index > 0 ? <ChevronRight size={12} className="shrink-0 opacity-70"/> : null}
-                                <button
+                                <Button
                                     type="button"
                                     className="shrink-0 rounded px-1 py-0.5 hover:bg-slate-200 dark:hover:bg-[#3a3d44]"
                                     title={crumb.path}
@@ -751,11 +1156,11 @@ function CloudAttachmentPickerModal({
                                     disabled={busy}
                                 >
                                     {crumb.label}
-                                </button>
+                                </Button>
                             </React.Fragment>
                         ))}
                     </div>
-                    <button
+                    <Button
                         type="button"
                         className="h-9 rounded-md border border-slate-300 px-3 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#2a2d31]"
                         onClick={() => onNavigate(rootPath)}
@@ -766,16 +1171,16 @@ function CloudAttachmentPickerModal({
                             <Home size={12}/>
                             Root
                         </span>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
                         className="h-9 rounded-md border border-slate-300 px-3 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#2a2d31]"
                         onClick={onUp}
                         disabled={busy || isAtRoot}
                     >
                         Up
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
                         className="h-9 rounded-md border border-slate-300 px-3 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#2a2d31]"
                         onClick={onRefresh}
@@ -785,7 +1190,7 @@ function CloudAttachmentPickerModal({
                             {loading ? <Loader2 size={12} className="animate-spin"/> : <RefreshCw size={12}/>}
                             Refresh
                         </span>
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="min-h-[16rem] max-h-[24rem] overflow-y-auto">
@@ -830,7 +1235,7 @@ function CloudAttachmentPickerModal({
                                     className="border-b border-slate-100 hover:bg-slate-50/80 dark:border-[#2b2d32] dark:hover:bg-[#25272c]"
                                 >
                                     <td className="px-3 py-2">
-                                        <button
+                                        <Button
                                             type="button"
                                             className="flex min-w-0 items-center gap-2 text-left text-slate-800 hover:underline dark:text-slate-100"
                                             onClick={() => (item.isFolder ? onNavigate(item.path || item.id) : onAttach(item))}
@@ -840,7 +1245,7 @@ function CloudAttachmentPickerModal({
                                                 {renderCloudItemIcon(item)}
                                             </span>
                                             <span className="truncate">{item.name}</span>
-                                        </button>
+                                        </Button>
                                     </td>
                                     <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
                                         {item.isFolder ? 'Folder' : cloudFileTypeLabel(item)}
@@ -856,14 +1261,14 @@ function CloudAttachmentPickerModal({
                                     </td>
                                     <td className="px-2 py-2 text-right">
                                         {!item.isFolder && (
-                                            <button
+                                            <Button
                                                 type="button"
                                                 className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
                                                 onClick={() => onAttach(item)}
                                                 disabled={busy}
                                             >
                                                 Attach
-                                            </button>
+                                            </Button>
                                         )}
                                     </td>
                                 </tr>
@@ -883,8 +1288,114 @@ function CloudAttachmentPickerModal({
     );
 }
 
+function RecipientMultiInput({
+    recipients,
+    draft,
+    rows,
+    placeholder,
+    invalidMessage,
+    onDraftChange,
+    onRemoveRecipient,
+    onPickRow,
+    onCommit,
+    onFocus,
+    onBlur,
+    onBackspaceEmpty,
+    className,
+}: {
+    recipients: string[];
+    draft: string;
+    rows: AutoCompleteRow[];
+    placeholder?: string;
+    invalidMessage: string | null;
+    onDraftChange: (next: string) => void;
+    onRemoveRecipient: (recipient: string) => void;
+    onPickRow: (row: AutoCompleteRow) => void;
+    onCommit: () => void;
+    onFocus: () => void;
+    onBlur: () => void;
+    onBackspaceEmpty: () => void;
+    className?: string;
+}) {
+    return (
+        <div
+            className={`relative flex min-h-11 w-full flex-wrap items-center gap-1 rounded-lg border border-slate-300/90 bg-white px-3 py-1 text-sm text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition-all focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-100 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus-within:border-[#5865f2] dark:focus-within:ring-[#5865f2]/30 ${className || ''}`}
+            onClick={(event) => {
+                const container = event.currentTarget;
+                const input = container.querySelector('input');
+                input?.focus();
+            }}
+        >
+            {recipients.map((recipient) => (
+                <span
+                    key={recipient}
+                    className="inline-flex h-7 max-w-full items-center gap-1 rounded-md bg-slate-200 px-2 text-xs text-slate-800 dark:bg-[#35373c] dark:text-slate-100"
+                >
+                    <span className="truncate">{recipient}</span>
+                    <Button
+                        type="button"
+                        className="text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onRemoveRecipient(recipient);
+                        }}
+                        aria-label={`Remove ${recipient}`}
+                        title="Remove"
+                    >
+                        x
+                    </Button>
+                </span>
+            ))}
+            <AutoComplete
+                value={draft}
+                onChange={onDraftChange}
+                rows={rows}
+                onPickRow={onPickRow}
+                onCommitValue={onCommit}
+                onInputKeyDown={(event) => {
+                    if (event.key === 'Backspace' && !draft && recipients.length > 0) {
+                        event.preventDefault();
+                        onBackspaceEmpty();
+                    }
+                    if (event.key === ' ') {
+                        event.preventDefault();
+                        onCommit();
+                    }
+                }}
+                placeholder={recipients.length === 0 ? placeholder : ''}
+                onFocus={onFocus}
+                onBlur={onBlur}
+                showRowsOnFocus
+                className="min-w-[180px] flex-1"
+                inputClassName="h-7 border-0 bg-transparent px-1 py-0 text-sm shadow-none focus:ring-0"
+            />
+            {invalidMessage ? (
+                <div className="w-full pl-1 text-[11px] text-rose-600 dark:text-rose-400">{invalidMessage}</div>
+            ) : null}
+        </div>
+    );
+}
+
 function parseRecipients(raw: string): string[] {
     return parseRecipientEntries(raw).valid;
+}
+
+function parseRecipientEntries(raw: string): { valid: string[]; invalid: string[] } {
+    const valid: string[] = [];
+    const invalid: string[] = [];
+    const deduped = new Set<string>();
+    for (const chunk of raw.split(/[;,]+/)) {
+        const normalized = normalizeRecipientAddress(chunk);
+        if (!normalized) {
+            const trimmed = chunk.trim();
+            if (trimmed) invalid.push(trimmed);
+            continue;
+        }
+        if (deduped.has(normalized)) continue;
+        deduped.add(normalized);
+        valid.push(normalized);
+    }
+    return {valid, invalid};
 }
 
 function joinRecipients(recipients: string[]): string {
@@ -920,7 +1431,7 @@ function AttachmentCard({attachment, onRemove}: { attachment: ComposeAttachment;
                     {typeof attachment.size === 'number' ? ` • ${formatBytes(attachment.size)}` : ''}
                 </p>
             </div>
-            <button
+            <Button
                 type="button"
                 className="rounded p-1 text-slate-500 opacity-80 transition hover:bg-slate-200 hover:text-slate-900 group-hover:opacity-100 dark:text-slate-400 dark:hover:bg-[#35373c] dark:hover:text-white"
                 onClick={onRemove}
@@ -928,7 +1439,7 @@ function AttachmentCard({attachment, onRemove}: { attachment: ComposeAttachment;
                 title="Remove attachment"
             >
                 x
-            </button>
+            </Button>
         </div>
     );
 }
@@ -1071,250 +1582,11 @@ function writePersistedCloudFolderCache(accountId: number, folderToken: string, 
     }
 }
 
-function RecipientsInput({
-                             recipients,
-                             onChange,
-                             placeholder,
-                             accountId,
-                             blockedRecipients = [],
-                             className = '',
-                         }: {
-    recipients: string[];
-    onChange: (next: string[]) => void;
-    placeholder?: string;
-    accountId?: number | null;
-    blockedRecipients?: string[];
-    className?: string;
-}) {
-    const [draft, setDraft] = useState('');
-    const [suggestions, setSuggestions] = useState<RecipientSuggestion[]>([]);
-    const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
-    const [showSuggestions, setShowSuggestions] = useState(false);
-    const [invalidMessage, setInvalidMessage] = useState<string | null>(null);
-    const searchSeqRef = useRef(0);
-    const inputRef = useRef<HTMLInputElement | null>(null);
-
-    useEffect(() => {
-        const query = draft.trim();
-        if (!accountId || query.length < 1) {
-            setSuggestions([]);
-            setShowSuggestions(false);
-            setActiveSuggestionIndex(0);
-            return;
-        }
-
-        const seq = ++searchSeqRef.current;
-        const timer = setTimeout(() => {
-            const recentRecipientsPromise = ipcClient.getRecentRecipients(accountId, query, 12);
-            Promise.all([ipcClient.getContacts(accountId, query, 12, null), recentRecipientsPromise])
-                .then(([contacts, recentRecipients]) => {
-                    if (seq !== searchSeqRef.current) return;
-                    const existing = new Set(
-                        [...recipients, ...blockedRecipients]
-                            .map((entry) => normalizeRecipientAddress(entry))
-                            .filter((entry): entry is string => Boolean(entry)),
-                    );
-                    const merged = mergeRecipientSuggestions(contacts, recentRecipients, existing, 12);
-                    setSuggestions(merged);
-                    setShowSuggestions(merged.length > 0);
-                    setActiveSuggestionIndex(0);
-                })
-                .catch(() => {
-                    if (seq !== searchSeqRef.current) return;
-                    setSuggestions([]);
-                    setShowSuggestions(false);
-                    setActiveSuggestionIndex(0);
-                });
-        }, 120);
-
-        return () => {
-            clearTimeout(timer);
-        };
-    }, [accountId, blockedRecipients, draft, recipients]);
-
-    const commitDraft = () => {
-        const parsed = parseRecipientEntries(draft);
-        const existing = new Set(
-            [...recipients, ...blockedRecipients]
-                .map((entry) => normalizeRecipientAddress(entry))
-                .filter((entry): entry is string => Boolean(entry)),
-        );
-        const next = [...recipients];
-        for (const item of parsed.valid) {
-            if (!existing.has(item)) {
-                next.push(item);
-                existing.add(item);
-            }
-        }
-        if (next.length !== recipients.length) {
-            onChange(next);
-        }
-        if (parsed.invalid.length > 0) {
-            setInvalidMessage(`Invalid address: ${parsed.invalid[0]}`);
-        } else {
-            setInvalidMessage(null);
-        }
-        setDraft('');
-        setShowSuggestions(false);
-    };
-
-    const removeRecipient = (target: string) => {
-        onChange(recipients.filter((r) => r !== target));
-    };
-
-    const applySuggestion = (suggestion: RecipientSuggestion) => {
-        const email = normalizeRecipientAddress(suggestion.email);
-        if (!email) return;
-        if ([...recipients, ...blockedRecipients].some((entry) => normalizeRecipientAddress(entry) === email)) {
-            setDraft('');
-            setShowSuggestions(false);
-            return;
-        }
-        onChange([...recipients, email]);
-        setInvalidMessage(null);
-        setDraft('');
-        setShowSuggestions(false);
-        setSuggestions([]);
-        setActiveSuggestionIndex(0);
-        inputRef.current?.focus();
-    };
-
-    return (
-        <div
-            className={`relative flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 transition-colors focus-within:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100 ${className}`}
-            onClick={(event) => {
-                const container = event.currentTarget;
-                const input = container.querySelector('input');
-                input?.focus();
-            }}
-        >
-            {recipients.map((recipient) => (
-                <span
-                    key={recipient}
-                    className="inline-flex max-w-full items-center gap-1 rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-800 dark:bg-[#35373c] dark:text-slate-100"
-                >
-					<span className="truncate">{recipient}</span>
-					<button
-                        type="button"
-                        className="text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            removeRecipient(recipient);
-                        }}
-                        aria-label={`Remove ${recipient}`}
-                        title="Remove"
-                    >
-						x
-					</button>
-				</span>
-            ))}
-            <input
-                ref={inputRef}
-                placeholder={recipients.length === 0 ? placeholder : ''}
-                value={draft}
-                onChange={(e) => {
-                    setDraft(e.target.value);
-                    if (invalidMessage) setInvalidMessage(null);
-                    if (!showSuggestions) setShowSuggestions(true);
-                }}
-                onBlur={() => {
-                    setTimeout(() => {
-                        commitDraft();
-                    }, 60);
-                }}
-                onKeyDown={(e) => {
-                    const trimmedDraft = draft.trim();
-                    if (showSuggestions && suggestions.length > 0) {
-                        if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            setActiveSuggestionIndex((prev) => (prev + 1) % suggestions.length);
-                            return;
-                        }
-                        if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            setActiveSuggestionIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length);
-                            return;
-                        }
-                        if ((e.key === 'Enter' || e.key === 'Tab') && trimmedDraft.length > 0) {
-                            e.preventDefault();
-                            applySuggestion(suggestions[activeSuggestionIndex] ?? suggestions[0]);
-                            return;
-                        }
-                    }
-                    if (e.key === 'Tab' && trimmedDraft.length === 0) {
-                        return;
-                    }
-                    if (e.key === 'Enter' || e.key === 'Tab' || e.key === ',' || e.key === ' ') {
-                        e.preventDefault();
-                        commitDraft();
-                        return;
-                    }
-                    if (e.key === 'Backspace' && !draft && recipients.length > 0) {
-                        onChange(recipients.slice(0, -1));
-                    }
-                }}
-                className="h-7 min-w-[180px] flex-1 border-0 bg-transparent px-1 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
-            />
-            {invalidMessage && (
-                <div className="w-full pl-1 text-[11px] text-rose-600 dark:text-rose-400">{invalidMessage}</div>
-            )}
-            {showSuggestions && suggestions.length > 0 && (
-                <div
-                    className="absolute left-0 top-[calc(100%+4px)] z-20 max-h-56 w-full overflow-auto rounded-md border border-slate-300 bg-white py-1 shadow-lg dark:border-[#3a3d44] dark:bg-[#1f2125]">
-                    {suggestions.map((contact, index) => (
-                        <button
-                            key={contact.key}
-                            type="button"
-                            className={`block w-full px-2 py-1.5 text-left transition-colors ${
-                                index === activeSuggestionIndex
-                                    ? 'bg-sky-100 text-slate-900 dark:bg-[#3d4153] dark:text-slate-100'
-                                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]'
-                            }`}
-                            onMouseDown={(event) => {
-                                event.preventDefault();
-                                applySuggestion(contact);
-                            }}
-                        >
-                            <div className="truncate text-sm">{contact.displayName || contact.email}</div>
-                            {contact.displayName && (
-                                <div className="truncate text-xs text-slate-500 dark:text-slate-400">
-                                    {contact.email}
-                                </div>
-                            )}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
-
-function parseRecipientEntries(raw: string): { valid: string[]; invalid: string[] } {
-    const valid: string[] = [];
-    const invalid: string[] = [];
-    const deduped = new Set<string>();
-    for (const chunk of raw.split(/[;,]+/)) {
-        const normalized = normalizeRecipientAddress(chunk);
-        if (!normalized) {
-            const trimmed = chunk.trim();
-            if (trimmed) invalid.push(trimmed);
-            continue;
-        }
-        if (deduped.has(normalized)) continue;
-        deduped.add(normalized);
-        valid.push(normalized);
-    }
-    return {valid, invalid};
-}
-
-function normalizeRecipientAddress(raw: string | null | undefined): string | null {
-    const trimmed = String(raw || '').trim();
-    if (!trimmed) return null;
-    const angleMatch = trimmed.match(/<([^<>]+)>/);
-    const candidate = (angleMatch?.[1] || trimmed).trim().replace(/^"+|"+$/g, '');
-    const normalized = candidate.toLowerCase();
-    return EMAIL_ADDRESS_REGEX.test(normalized) ? normalized : null;
-}
+type RecipientSuggestion = {
+    key: string;
+    email: string;
+    displayName: string | null;
+};
 
 function mergeRecipientSuggestions(
     contacts: ContactItem[],
@@ -1323,6 +1595,17 @@ function mergeRecipientSuggestions(
     limit: number,
 ): RecipientSuggestion[] {
     const deduped = new Map<string, RecipientSuggestion>();
+
+    for (const row of recentRecipients) {
+        const email = normalizeRecipientAddress(row.email);
+        if (!email || existingEmails.has(email) || deduped.has(email)) continue;
+        deduped.set(email, {
+            key: `recent:${email}`,
+            email,
+            displayName: row.display_name || null,
+        });
+        if (deduped.size >= limit) return Array.from(deduped.values());
+    }
 
     for (const contact of contacts) {
         const emails = extractContactEmails(contact);
@@ -1336,17 +1619,6 @@ function mergeRecipientSuggestions(
             });
             if (deduped.size >= limit) return Array.from(deduped.values());
         }
-    }
-
-    for (const row of recentRecipients) {
-        const email = normalizeRecipientAddress(row.email);
-        if (!email || existingEmails.has(email) || deduped.has(email)) continue;
-        deduped.set(email, {
-            key: `recent:${email}`,
-            email,
-            displayName: row.display_name || null,
-        });
-        if (deduped.size >= limit) break;
     }
 
     return Array.from(deduped.values());
@@ -1373,10 +1645,84 @@ function parseContactMetaEmails(note: string | null | undefined): string[] {
     const metaRaw = raw.slice(markerIndex + CONTACT_META_PREFIX.length).trim();
     if (!metaRaw) return [];
     try {
-        const parsed = JSON.parse(metaRaw) as { emails?: string[] };
-        if (!Array.isArray(parsed.emails)) return [];
-        return parsed.emails.map((value) => String(value || '').trim()).filter(Boolean);
+        const meta = JSON.parse(metaRaw) as { emails?: unknown };
+        if (!Array.isArray(meta.emails)) return [];
+        return meta.emails.map((entry) => String(entry || '').trim()).filter(Boolean);
     } catch {
         return [];
     }
+}
+
+function normalizeRecipientAddress(raw: string | null | undefined): string | null {
+    const trimmed = String(raw || '').trim();
+    if (!trimmed) return null;
+    const angleMatch = trimmed.match(/<([^<>]+)>/);
+    const candidate = (angleMatch?.[1] || trimmed).trim().replace(/^"+|"+$/g, '');
+    const normalized = candidate.toLowerCase();
+    return EMAIL_ADDRESS_REGEX.test(normalized) ? normalized : null;
+}
+
+function htmlToPlainText(html: string): string {
+    return String(html)
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, '\n')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+function normalizeSignatureCompare(value: string): string {
+    return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function hasMeaningfulBodyContent(bodyHtml: string, plainBody: string, autoSignatureText: string | null): boolean {
+    const plainNormalized = normalizeSignatureCompare(plainBody);
+    const signatureNormalized = normalizeSignatureCompare(autoSignatureText || '');
+    if (plainNormalized) {
+        if (!signatureNormalized) return true;
+        if (plainNormalized === signatureNormalized) return false;
+        const trailingSignaturePattern = new RegExp(`\\s*${escapeRegExp(signatureNormalized)}\\s*$`, 'i');
+        const withoutTrailingSignature = plainNormalized.replace(trailingSignaturePattern, '').trim();
+        if (withoutTrailingSignature.length > 0) return true;
+    }
+
+    const body = String(bodyHtml || '');
+    if (/<img[\s>]/i.test(body)) return true;
+    if (/<hr[\s>]/i.test(body)) return true;
+    const textOnly = body
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return textOnly.length > 0;
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function withSignatureDivider(signatureHtml: string): string {
+    const normalized = String(signatureHtml || '').trim();
+    if (!normalized) return normalized;
+    if (/<hr[\s/>]/i.test(normalized)) return normalized;
+    return `<hr/>${normalized}`;
+}
+
+function escapeSignatureHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }

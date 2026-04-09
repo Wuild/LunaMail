@@ -6,11 +6,20 @@ const builtPreloadPath = path.join(projectRoot, 'build', 'preload', 'index.js');
 const targetPreloadPath = path.join(projectRoot, 'preload.cjs');
 
 function normalizePreloadSource(input) {
-    const importLine = "import { contextBridge, ipcRenderer } from 'electron';";
-    if (!input.includes(importLine)) {
+    const electronImportPattern = /import\s*\{\s*([^}]+)\s*\}\s*from\s*'electron';/;
+    const match = input.match(electronImportPattern);
+    if (!match) {
         throw new Error('Unexpected build/preload/index.js format: missing electron import');
     }
-    return input.replace(importLine, "const {contextBridge, ipcRenderer} = require('electron');");
+    const importedSymbols = match[1]
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
+    if (!importedSymbols.includes('contextBridge') || !importedSymbols.includes('ipcRenderer')) {
+        throw new Error('Unexpected build/preload/index.js format: missing required electron imports');
+    }
+    const requireLine = `const {${importedSymbols.join(', ')}} = require('electron');`;
+    return input.replace(electronImportPattern, requireLine);
 }
 
 function main() {

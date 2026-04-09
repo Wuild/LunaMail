@@ -8,13 +8,23 @@ export interface AppSettings {
     theme: AppTheme;
     mailView: MailView;
     navRailOrder: NavRailItemId[];
+    hardwareAcceleration: boolean;
+    pendingHardwareAcceleration: boolean | null;
+    spellcheckEnabled: boolean;
+    playNotificationSound: boolean;
+    showUnreadInTitleBar: boolean;
     useNativeTitleBar: boolean;
+    pendingUseNativeTitleBar: boolean | null;
     blockRemoteContent: boolean;
     remoteContentAllowlist: string[];
     minimizeToTray: boolean;
     syncIntervalMinutes: number;
     autoUpdateEnabled: boolean;
     developerMode: boolean;
+    developerShowRouteOverlay: boolean;
+    developerShowSendNotifications: boolean;
+    developerShowSystemFailureNotifications: boolean;
+    developerShowDebugNavItem: boolean;
 }
 
 export type AppSettingsPatch = Partial<AppSettings>;

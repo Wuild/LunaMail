@@ -1,3 +1,4 @@
+import {Button} from '../ui/button';
 import React from 'react';
 import {cn} from '../../lib/utils';
 
@@ -10,7 +11,7 @@ type ContextItemProps = {
 
 export default function ContextItem({label, onClick, danger, icon}: ContextItemProps) {
     return (
-        <button
+        <Button
             className={cn(
                 'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors',
                 danger
@@ -21,6 +22,6 @@ export default function ContextItem({label, onClick, danger, icon}: ContextItemP
         >
             {icon && <span className="shrink-0">{icon}</span>}
             {label}
-        </button>
+        </Button>
     );
 }

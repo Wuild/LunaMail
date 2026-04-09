@@ -1,4 +1,4 @@
-# LunaMail Optimization Checklist
+# LlamaMail Optimization Checklist
 
 Use this as the step-by-step execution checklist for optimization and reuse work across `main` and `renderer`.
 

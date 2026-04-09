@@ -74,6 +74,7 @@ function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSe
     const showUnreadInTitleBar = parseBoolean(input?.showUnreadInTitleBar, DEFAULT_APP_SETTINGS.showUnreadInTitleBar);
     const autoUpdateEnabled = parseBoolean(input?.autoUpdateEnabled, DEFAULT_APP_SETTINGS.autoUpdateEnabled);
     const developerMode = parseBoolean(input?.developerMode, DEFAULT_APP_SETTINGS.developerMode);
+    const developerDemoMode = parseBoolean(input?.developerDemoMode, DEFAULT_APP_SETTINGS.developerDemoMode);
     const developerShowRouteOverlay = parseBoolean(
         input?.developerShowRouteOverlay,
         DEFAULT_APP_SETTINGS.developerShowRouteOverlay,
@@ -109,6 +110,7 @@ function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSe
         syncIntervalMinutes,
         autoUpdateEnabled,
         developerMode,
+        developerDemoMode,
         developerShowRouteOverlay,
         developerShowSendNotifications,
         developerShowSystemFailureNotifications,

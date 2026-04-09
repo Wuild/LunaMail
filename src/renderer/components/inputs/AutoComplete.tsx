@@ -109,7 +109,7 @@ export default function AutoComplete({
                 className={inputClassName}
             />
             {open && rows.length > 0 && (
-                <div className="absolute left-0 top-[calc(100%+4px)] z-20 max-h-56 w-full overflow-auto rounded-md border border-slate-300 bg-white py-1 shadow-lg dark:border-[#3a3d44] dark:bg-[#1f2125]">
+                <div className="absolute left-0 top-[calc(100%+4px)] z-20 max-h-56 w-full overflow-auto rounded-md border border-slate-300 bg-white py-1 shadow-lg dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-card-dark)]">
                     {rows.map((row, index) => (
                         <Button
                             key={row.id}
@@ -117,8 +117,8 @@ export default function AutoComplete({
                             className={cn(
                                 'block w-full px-2 py-1.5 text-left transition-colors',
                                 index === activeRowIndex
-                                    ? 'bg-sky-100 text-slate-900 dark:bg-[#3d4153] dark:text-slate-100'
-                                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
+                                    ? 'bg-sky-100 text-slate-900 dark:bg-[var(--lm-surface-selected-accent-dark)] dark:text-slate-100'
+                                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[var(--lm-surface-hover-dark)]',
                             )}
                             onMouseDown={(event) => {
                                 event.preventDefault();

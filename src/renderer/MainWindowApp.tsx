@@ -522,10 +522,10 @@ function MainWindowShell() {
 	};
 
 	return (
-		<div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
+		<div className="lm-shell flex h-screen w-screen flex-col overflow-hidden">
 			{appSettingsFetched && !useNativeTitleBar && (
 				<header
-					className="relative flex h-9 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-2 text-slate-100 dark:border-[#08090c] dark:bg-[#0b0c10]"
+					className="lm-titlebar relative flex h-9 shrink-0 items-center justify-between px-2"
 					style={{WebkitAppRegion: 'drag'} as React.CSSProperties}
 					onDoubleClick={() => {
 						void toggleMaximize();
@@ -638,7 +638,7 @@ function MainWindowShell() {
 
 				<div className="flex min-h-0 flex-1 overflow-hidden">
 					<aside
-						className="flex h-full w-16 shrink-0 flex-col items-center justify-between bg-slate-800 py-3 dark:bg-[#111216]">
+						className="lm-nav-rail flex h-full w-16 shrink-0 flex-col items-center justify-between py-3">
 						<DndContext
 							sensors={topNavSensors}
 							collisionDetection={closestCenter}
@@ -679,7 +679,7 @@ function MainWindowShell() {
 												? {width: topNavOverlaySize.width, height: topNavOverlaySize.height}
 												: undefined
 										}
-										className="rounded-lg border border-slate-300 bg-white opacity-85 shadow-xl dark:border-[#4a4d55] dark:bg-[#2b2d31]"
+										className="lm-overlay rounded-lg opacity-85 shadow-xl"
 									>
 										<NavRailItem
 											to={draggingTopNavItem.to}
@@ -802,14 +802,14 @@ function MainWindowShell() {
 			</div>
 			{showRouteOverlay && (
 				<div
-					className={`pointer-events-none fixed right-3 z-[1200] rounded-md border border-slate-300/80 bg-white/95 px-2.5 py-1.5 font-mono text-[11px] text-slate-700 shadow-sm dark:border-[#4a4d55] dark:bg-[#1e1f22]/95 dark:text-slate-200 ${
+					className={`lm-overlay pointer-events-none fixed right-3 z-[1200] rounded-md px-2.5 py-1.5 font-mono text-[11px] text-[var(--lm-text-secondary)] shadow-sm ${
                         sendStatus ? 'bottom-[5.25rem]' : 'bottom-3'
                     }`}>
 					{`#${location.pathname}${location.search || ''}`}
 				</div>
 			)}
             {showSendNotifications && sendStatus && (
-                <div className="fixed bottom-3 right-3 z-[1190] w-[320px] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-md border border-slate-300 bg-white/95 shadow-lg backdrop-blur dark:border-[#4a4d55] dark:bg-[#1e1f22]/95">
+                <div className="lm-overlay fixed bottom-3 right-3 z-[1190] w-[320px] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-md shadow-lg backdrop-blur">
                     <div className="px-3 py-2.5">
                         <div className="flex items-center justify-between gap-2">
                             <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
@@ -823,7 +823,7 @@ function MainWindowShell() {
                             {sendStatus.error ? `${sendStatus.message} ${sendStatus.error}` : sendStatus.message}
                         </p>
                     </div>
-                    <div className="h-1.5 w-full bg-slate-200/90 dark:bg-[#30343a]">
+                    <div className="h-1.5 w-full bg-slate-200/90 dark:bg-[var(--lm-surface-progress-track-dark)]">
                         <div
                             className={`h-full transition-all duration-300 ease-out ${
                                 sendStatus.phase === 'failed' ? 'bg-red-500' : 'bg-sky-500'
@@ -854,7 +854,7 @@ function MainWindowShell() {
 								event.preventDefault();
 								navigate(`/settings/account/${toast.accountId}`);
 							}}
-							className={`overflow-hidden rounded-md border border-red-300 bg-white/95 shadow-lg backdrop-blur dark:border-red-700/60 dark:bg-[#1e1f22]/95 ${
+							className={`lm-overlay overflow-hidden rounded-md border-red-300 shadow-lg backdrop-blur dark:border-red-700/60 ${
 								toast.accountId ? 'cursor-pointer' : ''
 							}`}
 						>
@@ -865,7 +865,7 @@ function MainWindowShell() {
 									</p>
 									<Button
 										type="button"
-										className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#35373c] dark:hover:text-slate-200"
+										className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[var(--lm-surface-hover-dark)] dark:hover:text-slate-200"
 										onClick={(event) => {
 											event.stopPropagation();
 											dismissSystemFailureToast(toast.id);
@@ -895,14 +895,14 @@ function MainWindowShell() {
 			{mainNavContextMenu && (
 				<div
 					ref={mainNavContextMenuRef}
-					className="fixed z-[1202] min-w-[220px] rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+					className="lm-context-menu fixed z-[1202] min-w-[220px] rounded-md p-1 shadow-xl"
 					style={{left: mainNavContextMenu.x, top: mainNavContextMenu.y}}
 					onClick={(event) => event.stopPropagation()}
 					onContextMenu={(event) => event.preventDefault()}
 				>
 					<button
 						type="button"
-						className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+						className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-[var(--lm-text-secondary)] transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[var(--lm-surface-active-dark)]"
 						onClick={() => {
 							navigate(mainNavContextMenu.to);
 							setMainNavContextMenu(null);
@@ -913,7 +913,7 @@ function MainWindowShell() {
 					{mainNavContextMenu.id === 'debug' && (
 						<button
 							type="button"
-							className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+							className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-[var(--lm-text-secondary)] transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[var(--lm-surface-active-dark)]"
 							onClick={() => {
 								void ipcClient.openDebugWindow();
 								setMainNavContextMenu(null);

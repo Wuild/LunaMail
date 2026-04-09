@@ -34,7 +34,7 @@ export default function AccountContextMenu({
     return (
         <div
             ref={menuRef}
-            className="fixed z-[1000] min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#313338]"
+            className="fixed z-[1000] min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-menu-dark)]"
             style={{
                 left: position.left,
                 top: position.top,
@@ -55,7 +55,7 @@ export default function AccountContextMenu({
                     onClose();
                 }}
             />
-            <div className="my-1 h-px bg-slate-200 dark:bg-[#3a3d44]"/>
+            <div className="my-1 h-px bg-slate-200 dark:bg-[var(--lm-border-default-dark)]"/>
             <ContextItem
                 label="Edit Account Settings"
                 icon={<Settings size={14}/>}

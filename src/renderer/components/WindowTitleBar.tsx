@@ -34,7 +34,7 @@ export default function WindowTitleBar({
     return (
         <div
             className={cn(
-                'relative flex h-9 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-2 text-slate-100 dark:border-[#08090c] dark:bg-[#0b0c10]',
+                'lm-titlebar relative flex h-9 shrink-0 items-center justify-between px-2',
                 className,
             )}
             style={{WebkitAppRegion: 'drag'} as React.CSSProperties}
@@ -44,7 +44,7 @@ export default function WindowTitleBar({
             }}
         >
             <div className="pointer-events-none flex min-w-0 flex-1 items-center justify-start gap-3">
-                <div className="flex shrink-0 items-center gap-2 text-xs font-medium text-white/80">
+                <div className="lm-text-titlebar flex shrink-0 items-center gap-2 text-xs font-medium">
                     <img
                         src={llamaLogo}
                         alt=""
@@ -54,8 +54,8 @@ export default function WindowTitleBar({
                     />
                     <span>{APP_NAME}</span>
                 </div>
-                <span aria-hidden className="h-3.5 w-px shrink-0 bg-white/25"/>
-                <span className="block min-w-0 flex-1 truncate text-xs font-semibold tracking-wide text-white/80">
+                <span aria-hidden className="lm-titlebar-divider h-3.5 w-px shrink-0"/>
+                <span className="lm-text-titlebar block min-w-0 flex-1 truncate text-xs font-semibold tracking-wide">
 					{title}
 				</span>
             </div>
@@ -66,7 +66,7 @@ export default function WindowTitleBar({
                 {showMinimize && (
                     <Button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/15 hover:text-white"
+                        className="lm-titlebar-btn inline-flex h-7 w-7 items-center justify-center rounded"
                         onClick={() => void minimize()}
                         aria-label="Minimize"
                         title="Minimize"
@@ -77,7 +77,7 @@ export default function WindowTitleBar({
                 {showMaximize && (
                     <Button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/15 hover:text-white"
+                        className="lm-titlebar-btn inline-flex h-7 w-7 items-center justify-center rounded"
                         onClick={() => void toggleMaximize()}
                         aria-label={isMaximized ? 'Restore' : 'Maximize'}
                         title={isMaximized ? 'Restore' : 'Maximize'}

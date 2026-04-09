@@ -15,16 +15,13 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantStyles: Record<ButtonVariant, string> = {
     unstyled: '',
-    default:
-        'border border-transparent bg-sky-600 text-white shadow-sm hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]',
-    secondary:
-        'border border-transparent bg-slate-200 text-slate-900 shadow-sm hover:bg-slate-300 dark:bg-[#3a3d44] dark:text-slate-100 dark:hover:bg-[#454952]',
-    outline:
-        'border border-slate-300 bg-white text-slate-800 shadow-sm hover:bg-slate-50 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:hover:bg-[#2a2d31]',
-    ghost: 'border border-transparent bg-transparent text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
-    danger: 'border border-transparent bg-red-600 text-white shadow-sm hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700',
+    default: 'lm-btn-primary shadow-sm',
+    secondary: 'lm-btn-secondary shadow-sm',
+    outline: 'border lm-border-default lm-bg-card lm-text-primary shadow-sm lm-bg-hover',
+    ghost: 'lm-btn-ghost',
+    danger: 'lm-btn-danger shadow-sm',
     success:
-        'border border-transparent bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700',
+        'border border-transparent bg-emerald-600 text-[var(--text-inverse)] shadow-sm hover:bg-emerald-700',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -63,7 +60,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             <button
                 ref={ref}
                 className={cn(
-                    'inline-flex items-center transition-colors focus:outline-none focus:ring-2 focus:ring-sky-100 disabled:pointer-events-none disabled:opacity-50 dark:focus:ring-[#5865f2]/30',
+                    'lm-focus-ring inline-flex items-center transition-colors disabled:pointer-events-none disabled:opacity-50',
                     wantsLeftAlignedContent ? 'justify-start' : 'justify-center',
                     (leftIcon || rightIcon) && 'gap-2',
                     variantStyles[variant],

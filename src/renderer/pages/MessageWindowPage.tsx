@@ -296,17 +296,18 @@ export default function MessageWindowPage() {
 	}
 
 	return (
-		<div className="h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]">
+		<div className="lm-shell h-screen w-screen overflow-hidden">
 			<div className="flex h-full flex-col">
 				<WindowTitleBar title={message?.subject || 'Message'} showMaximize/>
 				<div
 					role="toolbar"
 					aria-label="Message actions"
-					className="shrink-0 flex w-full flex-wrap items-center gap-1.5 border-b border-slate-200 bg-white px-3 py-2 dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+					className="lm-menubar shrink-0 flex w-full flex-wrap items-center gap-1.5 px-3 py-2"
 				>
 					<Button
 						type="button"
-						className="inline-flex h-8 items-center gap-1.5 rounded-md bg-sky-600 px-2.5 text-xs font-medium text-white transition-colors hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+						variant="default"
+						className="h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium"
 						onClick={onReply}
 					>
 						<Reply size={14}/>
@@ -314,7 +315,8 @@ export default function MessageWindowPage() {
 					</Button>
 					<Button
 						type="button"
-						className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+						variant="ghost"
+						className="h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium"
 						onClick={onReplyAll}
 					>
 						<ReplyAll size={14}/>
@@ -322,7 +324,8 @@ export default function MessageWindowPage() {
 					</Button>
 					<Button
 						type="button"
-						className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+						variant="ghost"
+						className="h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium"
 						onClick={onForward}
 					>
 						<Forward size={14}/>
@@ -330,16 +333,18 @@ export default function MessageWindowPage() {
 					</Button>
 					<Button
 						type="button"
-						className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+						variant="ghost"
+						className="h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium"
 						onClick={onViewSource}
 					>
 						<FileText size={14}/>
 						<span>View source</span>
 					</Button>
-					<span className="mx-1 h-6 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
+					<span className="mx-1 h-6 w-px bg-[var(--border-default)]"/>
 					<Button
 						type="button"
-						className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/30"
+						variant="danger"
+						className="h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium"
 						onClick={onDelete}
 					>
 						<Trash2 size={14}/>
@@ -347,29 +352,29 @@ export default function MessageWindowPage() {
 					</Button>
 				</div>
 				<header
-					className="shrink-0 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-indigo-50/40 px-4 py-3 dark:border-[#393c41] dark:from-[#34373d] dark:via-[#34373d] dark:to-[#3a3550]">
+					className="lm-message-header shrink-0 px-4 py-3">
 					{message && (
 						<>
 							<div className="mb-2 flex flex-wrap items-center gap-1.5">
 								<span
-									className="inline-flex h-5 items-center rounded-md bg-slate-200/90 px-2 text-[11px] font-medium text-slate-700 dark:bg-[#2a2d31] dark:text-slate-200">
+									className="inline-flex h-5 items-center rounded-md bg-[var(--surface-hover)] px-2 text-[11px] font-medium text-[var(--text-secondary)]">
 									Message
 								</span>
 								{Boolean(message.is_flagged) && (
 									<span
-										className="inline-flex h-5 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 text-[11px] font-medium text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-300">
+										className="inline-flex h-5 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 text-[11px] font-medium text-amber-800">
 										<Star size={11} className="fill-current"/>
 										Starred
 									</span>
 								)}
 								<span
-									className="inline-flex h-5 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
+									className="inline-flex h-5 items-center gap-1 rounded-md border lm-border-default lm-bg-card px-2 text-[11px] font-medium lm-text-secondary">
 									<MailOpen size={11}/>
 									{message.is_read ? 'Read' : 'Unread'}
 								</span>
 								{Boolean((message as MessageDetails & { tag?: string | null }).tag) && (
 									<span
-										className="inline-flex h-5 items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-800 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-300">
+										className="inline-flex h-5 items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-800">
 										<Tag size={11}/>
 										{formatMessageTagLabel(
 											(
@@ -382,38 +387,39 @@ export default function MessageWindowPage() {
 								)}
 								{attachments.length > 0 && (
 									<span
-										className="inline-flex h-5 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
+										className="inline-flex h-5 items-center gap-1 rounded-md border lm-border-default lm-bg-card px-2 text-[11px] font-medium lm-text-secondary">
 										<Paperclip size={11}/>
 										{attachments.length} attachment{attachments.length > 1 ? 's' : ''}
 									</span>
 								)}
 							</div>
-							<h2 className="truncate text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+							<h2 className="lm-text-primary truncate text-xl font-semibold tracking-tight">
 								{message.subject || '(No subject)'}
 							</h2>
-							<div className="mt-2 grid gap-1 text-xs text-slate-700 dark:text-slate-200">
+							<div className="lm-text-secondary mt-2 grid gap-1 text-xs">
 								<div className="select-text">
-									<span className="font-medium text-slate-500 dark:text-slate-400">From:</span>{' '}
+									<span className="lm-text-muted font-medium">From:</span>{' '}
 									<span className="select-text">{formatFromDisplay(message)}</span>
 								</div>
 								<div className="select-text">
-									<span className="font-medium text-slate-500 dark:text-slate-400">To:</span>{' '}
+									<span className="lm-text-muted font-medium">To:</span>{' '}
 									<span className="select-text">{message.to_address || '-'}</span>
 								</div>
 								<div>
-									<span className="font-medium text-slate-500 dark:text-slate-400">Date:</span>{' '}
+									<span className="lm-text-muted font-medium">Date:</span>{' '}
 									{formatSystemDateTime(message.date, systemLocale)}
 								</div>
 							</div>
 							<Button
-								className="mt-2 inline-flex h-7 items-center rounded-md border border-slate-300 px-2 text-[11px] text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+								variant="outline"
+								className="mt-2 inline-flex h-7 items-center rounded-md px-2 text-[11px]"
 								onClick={() => setShowMessageDetails((prev) => !prev)}
 							>
 								{showMessageDetails ? 'Hide message details' : 'Show message details'}
 							</Button>
 							{showMessageDetails && (
 								<div
-									className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
+									className="mt-3 rounded-md border lm-border-default bg-[var(--surface-content)] p-3 text-xs lm-text-secondary">
 									<div>
 										<span className="font-medium">From name:</span> {message.from_name || '-'}
 									</div>
@@ -447,22 +453,22 @@ export default function MessageWindowPage() {
 					)}
 				</header>
 
-				<main className="min-h-0 flex flex-1 flex-col bg-white">
+				<main className="lm-bg-card min-h-0 flex flex-1 flex-col">
 					{Boolean(iframeSrcDoc && message && appSettings.blockRemoteContent && !allowRemoteForMessage) && (
 						<div
-							className="w-full shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-300">
+							className="w-full shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-800">
 							<div className="flex flex-wrap items-center gap-2">
 								<span>Remote content blocked for privacy.</span>
 								<Button
 									type="button"
-									className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200 dark:border-amber-600/70 dark:bg-amber-900/30 dark:hover:bg-amber-900/45"
+									className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200"
 									onClick={() => setSessionRemoteAllowed(true)}
 								>
 									Load once
 								</Button>
 								<Button
 									type="button"
-									className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200 dark:border-amber-600/70 dark:bg-amber-900/30 dark:hover:bg-amber-900/45"
+									className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200"
 									onClick={allowRemoteContentForSender}
 								>
 									Always allow sender
@@ -472,7 +478,7 @@ export default function MessageWindowPage() {
 					)}
 					<div className="min-h-0 flex-1">
 						{loading && (
-							<div className="flex h-full items-center justify-center text-slate-500 dark:text-slate-400">
+							<div className="lm-text-muted flex h-full items-center justify-center">
 								Loading message...
 							</div>
 						)}
@@ -481,7 +487,7 @@ export default function MessageWindowPage() {
 								title={`message-window-body-${message?.id || 'unknown'}`}
 								srcDoc={iframeSrcDoc}
 								sandbox="allow-popups allow-popups-to-escape-sandbox"
-								className="h-full w-full border-0 bg-white"
+								className="h-full w-full border-0 bg-[var(--surface-card)]"
 								onMouseEnter={() => setIsPointerOverMessageFrame(true)}
 								onMouseLeave={() => {
 									setIsPointerOverMessageFrame(false);
@@ -490,7 +496,7 @@ export default function MessageWindowPage() {
 							/>
 						)}
 						{!loading && !iframeSrcDoc && (
-							<div className="h-full overflow-auto bg-white p-4 text-slate-900">
+							<div className="lm-bg-card h-full overflow-auto p-4 lm-text-primary">
 								<pre
 									className="select-text whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">
 									{body?.text || 'No body content available for this message.'}
@@ -501,14 +507,15 @@ export default function MessageWindowPage() {
 				</main>
 				{!loading && attachments.length > 0 && (
 					<div
-						className="shrink-0 border-t border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+						className="shrink-0 border-t lm-border-default bg-[color-mix(in_srgb,var(--surface-content)_80%,transparent)] px-4 py-3">
 						<div className="overflow-x-auto overflow-y-hidden">
 							<div className="flex min-w-full w-max gap-2 pb-1">
 								{attachments.map((attachment, index) => (
 									<Button
 										key={`${attachment.filename || 'attachment'}-${index}`}
 										type="button"
-										className="group flex w-[17rem] shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white p-2 text-left text-xs text-slate-700 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-200"
+										variant="outline"
+										className="group flex w-[17rem] shrink-0 items-center gap-2 rounded-lg p-2 text-left text-xs"
 										title={attachment.filename || 'Attachment'}
 										onClick={(event) => {
 											event.stopPropagation();
@@ -521,7 +528,7 @@ export default function MessageWindowPage() {
 										}}
 									>
 										<span
-											className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-slate-100 text-slate-500 dark:border-[#3a3d44] dark:bg-[#2a2d31] dark:text-slate-300">
+											className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border lm-border-default bg-[var(--surface-content)] lm-text-muted">
 											<Paperclip size={15}/>
 										</span>
 										<span className="min-w-0 flex-1">
@@ -529,7 +536,7 @@ export default function MessageWindowPage() {
 												{attachment.filename || 'Attachment'}
 											</span>
 											<span
-												className="block truncate text-[11px] text-slate-500 dark:text-slate-400">
+												className="lm-text-muted block truncate text-[11px]">
 												{attachment.contentType || 'FILE'}
 												{typeof attachment.size === 'number'
 													? ` • ${formatBytes(attachment.size)}`
@@ -544,13 +551,13 @@ export default function MessageWindowPage() {
 				)}
 				{isPointerOverMessageFrame && Boolean(hoveredLinkUrl) && (
 					<div
-						className="pointer-events-none fixed bottom-3 left-3 z-[1210] max-w-[min(60vw,56rem)] rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-xs text-slate-700 shadow-md backdrop-blur dark:border-[#3a3d44] dark:bg-[#1f2125]/95 dark:text-slate-200">
+						className="pointer-events-none fixed bottom-3 left-3 z-[1210] max-w-[min(60vw,56rem)] rounded-md border lm-border-default bg-[color-mix(in_srgb,var(--surface-card)_95%,transparent)] px-2.5 py-1.5 text-xs lm-text-secondary shadow-md backdrop-blur">
 						<span className="block truncate">{hoveredLinkUrl}</span>
 					</div>
 				)}
 				{attachmentMenu && (
 					<div
-						className="fixed z-[1100] min-w-44 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#313338]"
+						className="lm-context-menu fixed z-[1100] min-w-44 rounded-md p-1 shadow-xl"
 						style={{
 							left: clampToViewport(attachmentMenu.x, 184, window.innerWidth),
 							top: clampToViewport(attachmentMenu.y, 108, window.innerHeight),
@@ -558,7 +565,8 @@ export default function MessageWindowPage() {
 						onClick={(event) => event.stopPropagation()}
 					>
 						<Button
-							className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+							variant="ghost"
+							className="block w-full rounded px-2 py-1.5 text-left text-sm"
 							onClick={() => {
 								if (!message) return;
 								void ipcClient
@@ -570,7 +578,8 @@ export default function MessageWindowPage() {
 							Open
 						</Button>
 						<Button
-							className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+							variant="ghost"
+							className="block w-full rounded px-2 py-1.5 text-left text-sm"
 							onClick={() => {
 								if (!message) return;
 								void ipcClient
@@ -592,36 +601,37 @@ export default function MessageWindowPage() {
 							role="dialog"
 							aria-modal="true"
 							aria-label="Message source"
-							className="flex h-full max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xl dark:border-[#3a3d44] dark:bg-[#1f2125]"
+							className="lm-overlay flex h-full max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl shadow-2xl"
 							onClick={(event) => event.stopPropagation()}
 						>
 							<div
-								className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-[#3a3d44]">
-								<h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+								className="flex items-center justify-between border-b lm-border-default px-4 py-3">
+								<h2 className="lm-text-primary text-sm font-semibold">
 									Message source
 								</h2>
 								<Button
 									type="button"
-									className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+									variant="outline"
+									className="rounded-md px-2 py-1 text-xs"
 									onClick={() => setShowSourceModal(false)}
 								>
 									Close
 								</Button>
 							</div>
-							<div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-3 dark:bg-[#181a1f]">
+							<div className="lm-bg-content min-h-0 flex-1 overflow-auto p-3">
 								{sourceLoading && (
-									<p className="text-sm text-slate-500 dark:text-slate-400">
+									<p className="lm-text-muted text-sm">
 										Loading message source...
 									</p>
 								)}
 								{!sourceLoading && sourceError && (
-									<p className="text-sm text-red-700 dark:text-red-300">
+									<p className="text-sm text-red-700">
 										Failed to load source: {sourceError}
 									</p>
 								)}
 								{!sourceLoading && !sourceError && (
 									<pre
-										className="select-text whitespace-pre-wrap break-words rounded-md border border-slate-200 bg-white p-3 font-mono text-xs leading-5 text-slate-900 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-100">
+										className="lm-card select-text whitespace-pre-wrap break-words rounded-md p-3 font-mono text-xs leading-5 lm-text-primary">
 										{messageSource || '(No source available)'}
 									</pre>
 								)}

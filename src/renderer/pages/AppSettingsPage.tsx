@@ -27,13 +27,12 @@ import {useAccounts} from '../hooks/ipc/useAccounts';
 import {useAppSettings as useIpcAppSettings} from '../hooks/ipc/useAppSettings';
 import {useAutoUpdateState} from '../hooks/ipc/useAutoUpdateState';
 import {ipcClient} from '../lib/ipcClient';
+import AppSettingsGeneralPanel from './AppSettingsGeneralPanel';
+import {Field, Label} from './AppSettingsFormParts';
 import {DEFAULT_APP_SETTINGS} from '../../shared/defaults';
-import {normalizeSyncIntervalMinutes, parseAppLanguage} from '../../shared/settingsRules';
 import {
-	APP_LANGUAGE_OPTIONS,
 	APP_THEME_OPTIONS,
 	MAIL_VIEW_OPTIONS,
-	SYNC_INTERVAL_OPTIONS,
 } from '../../shared/settingsOptions';
 import {getAccountAvatarColorsForAccount, getAccountMonogram} from '../lib/accountAvatar';
 
@@ -46,7 +45,6 @@ type AppSettingsPageProps = {
 
 type AccountEditor = UpdateAccountPayload & {id: number};
 type AccountPanelSection = 'identity' | 'server' | 'filters';
-
 type SettingsPanel =
 	| {kind: 'app'}
 	| {kind: 'layout'}
@@ -652,13 +650,14 @@ export default function AppSettingsPage({
 	const footerActions = (
 		<div className="flex items-center justify-between">
 			<div className="flex items-center gap-2">
-				{hasStatusText && <span className="text-xs text-slate-500 dark:text-slate-400">{activeStatus}</span>}
+				{hasStatusText && <span className="lm-text-muted text-xs">{activeStatus}</span>}
 			</div>
 			<div className="flex items-center gap-2">
 				{!embedded && (
 					<Button
 						type="button"
-						className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+						variant="outline"
+						className="rounded-md px-3 py-2 text-sm"
 						onClick={() => window.close()}
 					>
 						Close
@@ -671,8 +670,8 @@ export default function AppSettingsPage({
 	const menubar = (
 		<div className="flex items-start gap-3">
 			<div>
-				<h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">App Settings</h1>
-				<p className="text-xs text-slate-500 dark:text-slate-400">
+				<h1 className="lm-text-primary text-lg font-semibold">App Settings</h1>
+				<p className="lm-text-muted text-xs">
 						{isAccountPanel
 							? 'Manage account configuration and credentials'
 							: isLayoutPanel
@@ -688,11 +687,11 @@ export default function AppSettingsPage({
 	);
 
 	return (
-		<div className="h-full w-full overflow-hidden bg-slate-50 dark:bg-[#26292f]">
+		<div className="lm-bg-content h-full w-full overflow-hidden">
 			<div className="flex h-full flex-col">
 				{!embedded && <WindowTitleBar title="App Settings" />}
 				<WorkspaceLayout
-					className="bg-slate-50 dark:bg-[#26292f]"
+					className="lm-bg-content"
 					menubar={menubar}
 					showMenuBar
 					sidebar={
@@ -713,271 +712,38 @@ export default function AppSettingsPage({
 					)}
 				>
 						{panel.kind === 'app' && (
-							<div className="mx-auto w-full max-w-5xl">
-								<div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-									<div className="flex items-start justify-between gap-3">
-										<div className="min-w-0">
-											<p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-												Updates
-											</p>
-											<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-												Current version: {autoUpdateState.currentVersion}
-											</p>
-											<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-												{autoUpdateState.message || describeUpdatePhase(autoUpdateState)}
-											</p>
-										</div>
-										<div className="flex shrink-0 items-center gap-2">
-											{autoUpdateState.phase === 'downloaded' ? (
-												<Button
-													type="button"
-													className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-													onClick={() => void onInstallUpdate()}
-												>
-													Restart to Update
-												</Button>
-											) : autoUpdateState.phase === 'available' ||
-											  autoUpdateState.phase === 'downloading' ? (
-												<Button
-													type="button"
-													className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
-													onClick={() => void onDownloadUpdate()}
-													disabled={updateActionBusy || autoUpdateState.phase === 'downloading'}
-												>
-													{autoUpdateState.phase === 'downloading'
-														? `Downloading${autoUpdateState.percent !== null ? ` ${Math.round(autoUpdateState.percent)}%` : '...'}`
-														: 'Download Update'}
-												</Button>
-											) : (
-												<Button
-													type="button"
-													className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
-													onClick={() => void onCheckForUpdates()}
-													disabled={updateActionBusy || !autoUpdateState.enabled}
-												>
-													Check for Updates
-												</Button>
-											)}
-										</div>
-									</div>
-									<label className="mt-3 flex w-full items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
-										<div className="pr-3">
-											<span className="text-slate-700 dark:text-slate-200">Auto update</span>
-											<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-												Automatically checks for new versions and prepares update downloads.
-											</p>
-										</div>
-										<FormCheckbox
-											checked={settings.autoUpdateEnabled}
-											onChange={(e) =>
-												void applySettingsPatch({autoUpdateEnabled: e.target.checked})
-											}
-										/>
-									</label>
-								</div>
-								<div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-									<div className="flex items-center justify-between gap-3">
-										<div className="min-w-0">
-											<p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-												Default Email App
-											</p>
-											<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-												Use LlamaMail for `mailto:` links from browsers and other apps.
-											</p>
-											{isDefaultEmailClient === true && (
-												<p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
-													LlamaMail is already your default email app.
-												</p>
-											)}
-										</div>
-										{isDefaultEmailClient !== true && (
-											<Button
-												type="button"
-												className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-60 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
-												onClick={() => void onSetDefaultEmailClient()}
-												disabled={defaultEmailClientBusy}
-											>
-												{defaultEmailClientBusy ? 'Setting...' : 'Set as default'}
-											</Button>
-										)}
-									</div>
-								</div>
-									<div className="space-y-4">
-										<section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-											<h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-												General
-											</h2>
-											<label className="block text-sm">
-												<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
-													Language
-												</span>
-												<p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
-													Sets the app interface language for menus, labels, and settings.
-												</p>
-												<FormSelect
-													className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2] dark:focus:ring-[#5865f2]/30"
-													value={settings.language}
-													onChange={(e) =>
-														void applySettingsPatch({
-															language: parseAppLanguage(e.target.value),
-														})
-													}
-												>
-													{APP_LANGUAGE_OPTIONS.map((option) => (
-														<option key={option.value} value={option.value}>
-															{option.label}
-														</option>
-													))}
-												</FormSelect>
-											</label>
-											<label className="block text-sm">
-												<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
-													Auto sync interval (minutes)
-												</span>
-												<p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
-													How often the app checks mail and updates unread counts in the background.
-												</p>
-												<FormSelect
-													className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2] dark:focus:ring-[#5865f2]/30"
-													value={settings.syncIntervalMinutes}
-													onChange={(e) =>
-														void applySettingsPatch({
-															syncIntervalMinutes: normalizeSyncIntervalMinutes(e.target.value),
-														})
-													}
-												>
-													{SYNC_INTERVAL_OPTIONS.map((m) => (
-														<option key={m} value={m}>
-															Every {m} minute{m > 1 ? 's' : ''}
-														</option>
-													))}
-												</FormSelect>
-											</label>
-										</section>
-
-										<section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-											<h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-												Window And Startup
-											</h2>
-											<label className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
-												<div className="pr-3">
-													<span className="text-slate-700 dark:text-slate-200">Minimize to tray</span>
-													<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-														Keeps LunaMail running in the background when minimized.
-													</p>
-												</div>
-												<FormCheckbox
-													checked={settings.minimizeToTray}
-													onChange={(e) =>
-														void applySettingsPatch({minimizeToTray: e.target.checked})
-													}
-												/>
-											</label>
-											<label className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
-												<div className="pr-3">
-													<span className="text-slate-700 dark:text-slate-200">
-														Show unread in titlebar
-													</span>
-													<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-														Adds unread count to the window title when new mail is available.
-													</p>
-												</div>
-												<FormCheckbox
-													checked={settings.showUnreadInTitleBar}
-													onChange={(event) =>
-														void applySettingsPatch({
-															showUnreadInTitleBar: event.target.checked,
-														})
-													}
-												/>
-											</label>
-										</section>
-
-										<section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-											<h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-												Composer And Notifications
-											</h2>
-											<label className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
-												<div className="pr-3">
-													<span className="text-slate-700 dark:text-slate-200">Spell check</span>
-													<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-														Highlights misspelled words in editors and compose fields.
-													</p>
-												</div>
-												<FormCheckbox
-													checked={settings.spellcheckEnabled}
-													onChange={(event) =>
-														void applySettingsPatch({spellcheckEnabled: event.target.checked})
-													}
-												/>
-											</label>
-											<label className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
-												<div className="pr-3">
-													<span className="text-slate-700 dark:text-slate-200">
-														Notification sound
-													</span>
-													<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-														Plays an alert sound for new mail notifications.
-													</p>
-												</div>
-												<FormCheckbox
-													checked={settings.playNotificationSound}
-													onChange={(event) =>
-														void applySettingsPatch({
-															playNotificationSound: event.target.checked,
-														})
-													}
-												/>
-											</label>
-										</section>
-
-										<section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-											<h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-												Performance
-											</h2>
-											<label className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
-												<div className="pr-3">
-													<span className="text-slate-700 dark:text-slate-200">
-														Hardware acceleration
-													</span>
-													<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-														Uses your GPU to render the app. Disable if you see flickering, blank windows, or driver issues.
-													</p>
-												</div>
-												<FormCheckbox
-													checked={effectiveHardwareAcceleration}
-													onChange={(event) =>
-														void onHardwareAccelerationChange(event.target.checked)
-													}
-												/>
-											</label>
-											{settings.pendingHardwareAcceleration !== null && (
-												<p className="text-xs text-amber-700 dark:text-amber-300">
-													Restart queued: will switch to {settings.pendingHardwareAcceleration ? 'enabled' : 'disabled'}.
-												</p>
-											)}
-										</section>
-
-									</div>
-
-							</div>
+							<AppSettingsGeneralPanel
+								settings={settings}
+								autoUpdateState={autoUpdateState}
+								updateActionBusy={updateActionBusy}
+								isDefaultEmailClient={isDefaultEmailClient}
+								defaultEmailClientBusy={defaultEmailClientBusy}
+								effectiveHardwareAcceleration={effectiveHardwareAcceleration}
+								describeUpdatePhase={describeUpdatePhase}
+								onInstallUpdate={onInstallUpdate}
+								onDownloadUpdate={onDownloadUpdate}
+								onCheckForUpdates={onCheckForUpdates}
+								onSetDefaultEmailClient={onSetDefaultEmailClient}
+								onHardwareAccelerationChange={onHardwareAccelerationChange}
+								applySettingsPatch={applySettingsPatch}
+							/>
 						)}
 
 						{panel.kind === 'allowlist' && (
 							<div className="mx-auto w-full max-w-5xl space-y-4">
-								<div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-									<h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+								<div className="lm-card space-y-3 rounded-xl p-4">
+									<h2 className="lm-text-primary text-base font-semibold">
 										Remote Content Whitelist
 									</h2>
-									<p className="text-sm text-slate-500 dark:text-slate-400">
+									<p className="lm-text-muted text-sm">
 										Control remote image loading and sender/domain exceptions used while viewing emails.
 									</p>
-									<label className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
+									<label className="lm-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 										<div className="pr-3">
-											<span className="text-slate-700 dark:text-slate-200">
+											<span className="lm-text-secondary">
 												Block remote content in emails
 											</span>
-											<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+											<p className="lm-text-muted mt-1 text-xs">
 												Protects privacy by blocking external images and trackers until explicitly allowed.
 											</p>
 										</div>
@@ -991,7 +757,7 @@ export default function AppSettingsPage({
 										/>
 									</label>
 									<div className="pt-1">
-										<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+										<span className="lm-text-muted mb-1 block text-xs font-medium uppercase tracking-wide">
 											Allowlist senders/domains
 										</span>
 										<div className="flex flex-wrap items-center gap-2">
@@ -1011,14 +777,14 @@ export default function AppSettingsPage({
 											<Button
 												type="button"
 												onClick={() => void addRemoteAllowlistEntry()}
-												className="rounded-md bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+												className="lm-btn-primary rounded-md px-3 py-2 text-xs font-medium"
 											>
 												Add
 											</Button>
 										</div>
 										<div className="mt-2 flex flex-wrap items-center gap-2">
 											{(settings.remoteContentAllowlist || []).length === 0 && (
-												<p className="text-xs text-slate-500 dark:text-slate-400">
+												<p className="lm-text-muted text-xs">
 													No allowlist entries yet.
 												</p>
 											)}
@@ -1026,7 +792,7 @@ export default function AppSettingsPage({
 												<Button
 													key={entry}
 													type="button"
-													className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-200 dark:hover:bg-[#35373c]"
+													className="lm-btn-secondary inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs"
 													onClick={() => void removeRemoteAllowlistEntry(entry)}
 													title="Remove from allowlist"
 												>
@@ -1042,12 +808,12 @@ export default function AppSettingsPage({
 
 					{panel.kind === 'layout' && (
 						<div className="mx-auto w-full max-w-5xl space-y-4">
-							<div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+							<div className="lm-card space-y-3 rounded-xl p-4">
 								<div className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										Theme
 									</span>
-									<div className="inline-flex w-full overflow-hidden rounded-md border border-slate-300 dark:border-[#3a3d44]">
+									<div className="lm-border-default inline-flex w-full overflow-hidden rounded-md border">
 										{APP_THEME_OPTIONS.map((option) => {
 											const active = settings.theme === option.value;
 											return (
@@ -1055,10 +821,10 @@ export default function AppSettingsPage({
 													key={option.value}
 													type="button"
 													className={cn(
-														'h-10 flex-1 border-r border-slate-300 text-sm transition-colors last:border-r-0 dark:border-[#3a3d44]',
+														'h-10 flex-1 border-r lm-border-default text-sm transition-colors last:border-r-0',
 														active
-															? 'bg-sky-600 text-white dark:bg-[#5865f2]'
-															: 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]',
+															? 'lm-btn-primary'
+															: 'lm-btn-secondary',
 													)}
 													onClick={() => void applySettingsPatch({theme: option.value})}
 												>
@@ -1069,17 +835,17 @@ export default function AppSettingsPage({
 									</div>
 								</div>
 								<div className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										Titlebar
 									</span>
-									<div className="inline-flex w-full overflow-hidden rounded-md border border-slate-300 dark:border-[#3a3d44]">
+									<div className="lm-border-default inline-flex w-full overflow-hidden rounded-md border">
 										<Button
 											type="button"
 											className={cn(
-												'h-10 flex-1 border-r border-slate-300 text-sm transition-colors dark:border-[#3a3d44]',
+												'h-10 flex-1 border-r lm-border-default text-sm transition-colors',
 												!effectiveUseNativeTitleBar
-													? 'bg-sky-600 text-white dark:bg-[#5865f2]'
-													: 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]',
+													? 'lm-btn-primary'
+													: 'lm-btn-secondary',
 											)}
 											onClick={() => void onTitlebarModeChange(false)}
 										>
@@ -1090,30 +856,30 @@ export default function AppSettingsPage({
 											className={cn(
 												'h-10 flex-1 text-sm transition-colors',
 												effectiveUseNativeTitleBar
-													? 'bg-sky-600 text-white dark:bg-[#5865f2]'
-													: 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]',
+													? 'lm-btn-primary'
+													: 'lm-btn-secondary',
 											)}
 											onClick={() => void onTitlebarModeChange(true)}
 										>
 											Native titlebar
 										</Button>
 									</div>
-									<p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+									<p className="mt-2 lm-text-muted text-xs">
 										Changing titlebar mode requires restarting the app.
 									</p>
 									{settings.pendingUseNativeTitleBar !== null && (
-										<p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+										<p className="mt-2 text-xs text-amber-700">
 											Restart queued: will switch to {settings.pendingUseNativeTitleBar ? 'native' : 'custom'} titlebar.
 										</p>
 									)}
 								</div>
 							</div>
-							<div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+							<div className="lm-card space-y-3 rounded-xl p-4">
 								<div className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										Mail view
 									</span>
-									<div className="inline-flex w-full overflow-hidden rounded-md border border-slate-300 dark:border-[#3a3d44]">
+									<div className="lm-border-default inline-flex w-full overflow-hidden rounded-md border">
 										{MAIL_VIEW_OPTIONS.map((option) => {
 											const active = settings.mailView === option.value;
 											return (
@@ -1121,10 +887,10 @@ export default function AppSettingsPage({
 													key={option.value}
 													type="button"
 													className={cn(
-														'h-10 flex-1 border-r border-slate-300 text-sm transition-colors last:border-r-0 dark:border-[#3a3d44]',
+														'h-10 flex-1 border-r lm-border-default text-sm transition-colors last:border-r-0',
 														active
-															? 'bg-sky-600 text-white dark:bg-[#5865f2]'
-															: 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]',
+															? 'lm-btn-primary'
+															: 'lm-btn-secondary',
 													)}
 													onClick={() => void applySettingsPatch({mailView: option.value})}
 												>
@@ -1133,7 +899,7 @@ export default function AppSettingsPage({
 											);
 										})}
 									</div>
-									<p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+									<p className="mt-2 lm-text-muted text-xs">
 										Side List keeps folders and message list side-by-side. Top Table places a
 										compact table above message preview.
 									</p>
@@ -1144,24 +910,24 @@ export default function AppSettingsPage({
 
 					{panel.kind === 'developer' && (
 						<div className="mx-auto w-full max-w-5xl space-y-4">
-							<section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-								<h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+							<section className="lm-card rounded-xl p-4">
+								<h2 className="lm-text-primary text-base font-semibold">
 									Developer Settings
 								</h2>
-								<p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+								<p className="mt-1 lm-text-muted text-sm">
 									Enable runtime diagnostics for in-app overlays and debug features.
 								</p>
-									<label className="mt-3 flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
-										<span className="text-slate-700 dark:text-slate-200">Developer mode</span>
+									<label className="lm-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
+										<span className="lm-text-secondary">Developer mode</span>
 										<FormCheckbox
 											checked={settings.developerMode}
 											onChange={(e) => void applySettingsPatch({developerMode: e.target.checked})}
 										/>
 									</label>
-									<label className="mt-3 flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
+									<label className="lm-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 										<div className="pr-3">
-											<span className="text-slate-700 dark:text-slate-200">Show Debug in main nav</span>
-											<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+											<span className="lm-text-secondary">Show Debug in main nav</span>
+											<p className="mt-1 lm-text-muted text-xs">
 												Adds or removes the Debug item from the left navigation rail.
 											</p>
 										</div>
@@ -1175,10 +941,10 @@ export default function AppSettingsPage({
 											}
 										/>
 									</label>
-									<label className="mt-3 flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
+									<label className="lm-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 										<div className="pr-3">
-											<span className="text-slate-700 dark:text-slate-200">Show route overlay</span>
-											<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+											<span className="lm-text-secondary">Show route overlay</span>
+											<p className="mt-1 lm-text-muted text-xs">
 												Displays current route hash in the bottom-right for navigation/debugging.
 											</p>
 										</div>
@@ -1189,10 +955,10 @@ export default function AppSettingsPage({
 											}
 										/>
 									</label>
-									<label className="mt-3 flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
+									<label className="lm-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 										<div className="pr-3">
-											<span className="text-slate-700 dark:text-slate-200">Show send notifications</span>
-											<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+											<span className="lm-text-secondary">Show send notifications</span>
+											<p className="mt-1 lm-text-muted text-xs">
 												Shows bottom-right progress cards for background email sending.
 											</p>
 										</div>
@@ -1205,12 +971,12 @@ export default function AppSettingsPage({
 											}
 										/>
 									</label>
-									<label className="mt-3 flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
+									<label className="lm-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 										<div className="pr-3">
-											<span className="text-slate-700 dark:text-slate-200">
+											<span className="lm-text-secondary">
 												Show system failure notifications
 											</span>
-											<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+											<p className="mt-1 lm-text-muted text-xs">
 												Shows bottom-right error cards for sync/authentication failures.
 											</p>
 										</div>
@@ -1223,16 +989,32 @@ export default function AppSettingsPage({
 											}
 										/>
 									</label>
-                                <div className="mt-3 flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-sm dark:border-[#3a3d44]">
+									<label className="lm-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
+										<div className="pr-3">
+											<span className="lm-text-secondary">Demo mode</span>
+											<p className="mt-1 lm-text-muted text-xs">
+												Loads screenshot-friendly demo accounts and sample emails locally.
+											</p>
+										</div>
+										<FormCheckbox
+											checked={settings.developerDemoMode}
+											onChange={(e) =>
+												void applySettingsPatch({
+													developerDemoMode: e.target.checked,
+												})
+											}
+										/>
+									</label>
+                                <div className="lm-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
                                     <div>
-                                        <p className="text-slate-700 dark:text-slate-200">Send notification preview</p>
-                                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                        <p className="lm-text-secondary">Send notification preview</p>
+                                        <p className="mt-0.5 lm-text-muted text-xs">
                                             Show a mock background send notification for design/debug.
                                         </p>
                                     </div>
                                     <Button
                                         type="button"
-                                        className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                        className="lm-btn-secondary rounded-md px-3 py-1.5 text-xs font-medium"
                                         onClick={() => {
                                             window.dispatchEvent(new CustomEvent('llamamail:preview-send-notification'));
                                             setDeveloperStatus('Previewing send notification in main window.');
@@ -1243,17 +1025,17 @@ export default function AppSettingsPage({
                                 </div>
 							</section>
 
-							<section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-								<h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+							<section className="lm-card rounded-xl p-4">
+								<h2 className="lm-text-primary text-base font-semibold">
 									Test Actions
 								</h2>
-								<p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+								<p className="mt-1 lm-text-muted text-sm">
 									Trigger desktop notifications, updater UI, and debugging tools.
 								</p>
 								<div className="mt-4 flex flex-wrap items-center gap-2">
 									<Button
 										type="button"
-										className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+										className="lm-btn-secondary rounded-md px-3 py-2 text-sm"
 										onClick={() => {
 											window.dispatchEvent(new CustomEvent('llamamail:preview-sync-failure'));
 											setDeveloperStatus('Previewing sync failure notification in main window.');
@@ -1263,7 +1045,7 @@ export default function AppSettingsPage({
 									</Button>
 									<Button
 										type="button"
-										className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+										className="lm-btn-secondary rounded-md px-3 py-2 text-sm"
 										onClick={() => {
 											window.dispatchEvent(new CustomEvent('llamamail:preview-auth-failure'));
 											setDeveloperStatus('Previewing authentication failure notification in main window.');
@@ -1273,28 +1055,28 @@ export default function AppSettingsPage({
 									</Button>
 									<Button
 										type="button"
-										className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+										className="lm-btn-secondary rounded-md px-3 py-2 text-sm"
 										onClick={() => void onTriggerTestNotification()}
 									>
 										Send Test Notification
 									</Button>
 									<Button
 										type="button"
-										className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+										className="lm-btn-secondary rounded-md px-3 py-2 text-sm"
 										onClick={() => void onPlayNotificationSound()}
 									>
 										Play Notification Sound
 									</Button>
 									<Button
 										type="button"
-										className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+										className="lm-btn-secondary rounded-md px-3 py-2 text-sm"
 										onClick={() => void onShowUpdaterWindow()}
 									>
 										Show Updater Window
 									</Button>
 									<Button
 										type="button"
-										className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+										className="lm-btn-secondary rounded-md px-3 py-2 text-sm"
 										onClick={() => void ipcClient.openDevTools()}
 									>
 										Open DevTools
@@ -1304,22 +1086,22 @@ export default function AppSettingsPage({
 
 							{showUpdaterModal && (
 								<div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/45 p-4">
-									<div className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-[#3a3d44] dark:bg-[#1e1f22]">
+									<div className="lm-overlay w-full max-w-xl rounded-xl p-4 shadow-2xl">
 										<div className="flex items-start justify-between gap-3">
 											<div>
-												<h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+												<h3 className="lm-text-primary text-base font-semibold">
 													Updater Window
 												</h3>
-												<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+												<p className="mt-1 lm-text-muted text-xs">
 													Current version: {autoUpdateState.currentVersion}
 												</p>
-												<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+												<p className="mt-1 lm-text-muted text-xs">
 													{autoUpdateState.message || describeUpdatePhase(autoUpdateState)}
 												</p>
 											</div>
 											<Button
 												type="button"
-												className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+												className="lm-btn-secondary rounded-md px-2 py-1 text-xs"
 												onClick={() => setShowUpdaterModal(false)}
 											>
 												Close
@@ -1338,7 +1120,7 @@ export default function AppSettingsPage({
 											  autoUpdateState.phase === 'downloading' ? (
 												<Button
 													type="button"
-													className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+													className="lm-btn-primary rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
 													onClick={() => void onDownloadUpdate()}
 													disabled={
 														updateActionBusy || autoUpdateState.phase === 'downloading'
@@ -1351,7 +1133,7 @@ export default function AppSettingsPage({
 											) : (
 												<Button
 													type="button"
-													className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+													className="lm-btn-secondary rounded-md px-3 py-2 text-sm disabled:opacity-50"
 													onClick={() => void onCheckForUpdates()}
 													disabled={updateActionBusy || !autoUpdateState.enabled}
 												>
@@ -1368,20 +1150,20 @@ export default function AppSettingsPage({
 					{isAccountPanel && (
 						<div className="h-full min-h-0 w-full">
 							{!editor && (
-								<div className="text-sm text-slate-500 dark:text-slate-400">Select an account.</div>
+								<div className="lm-text-muted text-sm">Select an account.</div>
 							)}
 							{editor && (
 								<>
 									<div className="flex h-full min-h-[620px] flex-col">
 										<div className="min-h-0 flex-1">
 											<WorkspaceLayout
-												className="h-full bg-transparent dark:bg-transparent"
+												className="h-full bg-transparent"
 												showMenuBar={false}
 												showFooter={false}
 												showStatusBar={false}
 												sidebar={
-													<aside className="h-full min-h-0 border-r border-slate-200 bg-white p-3 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-												<p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+													<aside className="lm-sidebar h-full min-h-0 p-3">
+												<p className="px-2 pb-2 lm-text-muted text-xs font-semibold uppercase tracking-wide">
 													Account Sections
 												</p>
 												<div className="space-y-1">
@@ -1390,13 +1172,13 @@ export default function AppSettingsPage({
 														className={cn(
 															'block w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
 															accountSection === 'identity'
-																? 'bg-sky-100 text-sky-900 dark:bg-[#3d4153] dark:text-slate-100'
-																: 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
+																? 'lm-bg-active lm-text-primary'
+																: 'lm-menu-item',
 														)}
 														onClick={() => setAccountSection('identity')}
 													>
 														Identity
-														<span className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
+														<span className="lm-text-muted block truncate text-[11px] font-normal">
 															Name, address, signature
 														</span>
 													</Button>
@@ -1405,13 +1187,13 @@ export default function AppSettingsPage({
 														className={cn(
 															'block w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
 															accountSection === 'server'
-																? 'bg-sky-100 text-sky-900 dark:bg-[#3d4153] dark:text-slate-100'
-																: 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
+																? 'lm-bg-active lm-text-primary'
+																: 'lm-menu-item',
 														)}
 														onClick={() => setAccountSection('server')}
 													>
 														Server Settings
-														<span className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
+														<span className="lm-text-muted block truncate text-[11px] font-normal">
 															IMAP/SMTP and credentials
 														</span>
 													</Button>
@@ -1420,13 +1202,13 @@ export default function AppSettingsPage({
 														className={cn(
 															'block w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
 															accountSection === 'filters'
-																? 'bg-sky-100 text-sky-900 dark:bg-[#3d4153] dark:text-slate-100'
-																: 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
+																? 'lm-bg-active lm-text-primary'
+																: 'lm-menu-item',
 														)}
 														onClick={() => setAccountSection('filters')}
 													>
 														Filters
-														<span className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
+														<span className="lm-text-muted block truncate text-[11px] font-normal">
 															Automatic message rules
 														</span>
 													</Button>
@@ -1438,11 +1220,11 @@ export default function AppSettingsPage({
 												contentClassName="min-h-0 flex-1 overflow-y-auto bg-transparent p-5"
 											>
 											{accountSection === 'identity' && (
-												<section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#1e1f22]">
-													<h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+												<section className="lm-card rounded-xl p-4">
+													<h2 className="lm-text-primary text-base font-semibold">
 														Default Identity
 													</h2>
-													<p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+													<p className="mt-1 lm-text-muted text-sm">
 														Each account has an identity that recipients see when reading
 														your messages.
 													</p>
@@ -1493,11 +1275,11 @@ export default function AppSettingsPage({
 														/>
 														<Label>Signature text:</Label>
 														<div className="space-y-2">
-															<div className="text-xs text-slate-500 dark:text-slate-400">
+															<div className="lm-text-muted text-xs">
 																Signature is HTML-enabled and will be appended to sent
 																messages for this account.
 															</div>
-															<div className="h-56 min-h-56 overflow-hidden rounded-md border border-slate-300 dark:border-[#3a3d44]">
+															<div className="lm-border-default h-56 min-h-56 overflow-hidden rounded-md border">
 																<HtmlLexicalEditor
 																	key={`account-signature-${editor.id}`}
 																	value={editor.signature_text || ''}
@@ -1516,7 +1298,7 @@ export default function AppSettingsPage({
 																	}
 																/>
 															</div>
-															<label className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+															<label className="inline-flex items-center gap-2 lm-text-secondary text-sm">
 																<FormCheckbox
 																	checked={!!editor.attach_vcard}
 																	onChange={(e) =>
@@ -1540,8 +1322,8 @@ export default function AppSettingsPage({
 											)}
 
 											{accountSection === 'server' && (
-												<section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#1e1f22]">
-													<h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+												<section className="lm-card rounded-xl p-4">
+													<h2 className="lm-text-primary text-base font-semibold">
 														Server Settings
 													</h2>
 													<div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -1646,13 +1428,13 @@ export default function AppSettingsPage({
 											)}
 
 											{accountSection === 'filters' && (
-												<section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-[#3a3d44] dark:bg-[#1e1f22]">
+												<section className="lm-card rounded-xl p-4">
 													<div className="flex items-start justify-between gap-3">
 														<div>
-															<h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+															<h2 className="lm-text-primary text-base font-semibold">
 																Message Filters
 															</h2>
-															<p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+															<p className="mt-1 lm-text-muted text-sm">
 																Thunderbird-style account filters that can run on new
 																incoming mail or manually.
 															</p>
@@ -1666,7 +1448,7 @@ export default function AppSettingsPage({
 																	mailFilterBusy ||
 																	!!mailFilterModal
 																}
-																className="rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+																className="lm-btn-secondary rounded-md px-3 py-2 text-xs disabled:opacity-50"
 															>
 																{runningFilterId === -1 ? 'Running...' : 'Run All'}
 															</Button>
@@ -1674,7 +1456,7 @@ export default function AppSettingsPage({
 																type="button"
 																onClick={onOpenCreateMailFilter}
 																disabled={mailFilterBusy || !!mailFilterModal}
-																className="rounded-md bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+																className="lm-btn-primary rounded-md px-3 py-2 text-xs font-medium disabled:opacity-50"
 															>
 																Add Filter
 															</Button>
@@ -1683,18 +1465,18 @@ export default function AppSettingsPage({
 
 													<div className="mt-4 space-y-4">
 														{mailFilters.length === 0 && (
-															<div className="rounded-md border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500 dark:border-[#3a3d44] dark:text-slate-400">
+															<div className="lm-border-default lm-text-muted rounded-md border border-dashed px-3 py-4 text-sm">
 																No filters yet.
 															</div>
 														)}
 														{mailFilters.map((filter) => (
 															<div
 																key={filter.id}
-																className="rounded-lg border border-slate-200 bg-white p-3 dark:border-[#3a3d44] dark:bg-[#1e1f22]"
+																className="lm-card rounded-lg p-3"
 															>
 																<div className="flex items-start justify-between gap-3">
 																	<div>
-																		<div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+																		<div className="lm-text-primary text-sm font-semibold">
 																			{filter.name}
 																		</div>
 																		<div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
@@ -1702,25 +1484,25 @@ export default function AppSettingsPage({
 																				className={cn(
 																					'rounded px-2 py-0.5',
 																					filter.enabled
-																						? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-																						: 'bg-slate-200 text-slate-700 dark:bg-[#3a3d44] dark:text-slate-300',
+																						? 'bg-emerald-100 text-emerald-700'
+																						: 'lm-bg-hover lm-text-secondary',
 																				)}
 																			>
 																				{filter.enabled
 																					? 'Enabled'
 																					: 'Disabled'}
 																			</span>
-																			<span className="rounded bg-slate-200 px-2 py-0.5 text-slate-700 dark:bg-[#3a3d44] dark:text-slate-300">
+																			<span className="lm-bg-hover lm-text-secondary rounded px-2 py-0.5">
 																				{filter.run_on_incoming
 																					? 'Runs on new mail'
 																					: 'Manual only'}
 																			</span>
-																			<span className="rounded bg-slate-200 px-2 py-0.5 text-slate-700 dark:bg-[#3a3d44] dark:text-slate-300">
+																			<span className="lm-bg-hover lm-text-secondary rounded px-2 py-0.5">
 																				Match:{' '}
 																				{filter.match_mode.replace('_', ' ')}
 																			</span>
 																		</div>
-																		<div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+																		<div className="mt-2 lm-text-muted text-xs">
 																			{filter.match_mode === 'all_messages'
 																				? 'Applies to all messages.'
 																				: `${filter.conditions.length} condition${filter.conditions.length === 1 ? '' : 's'}`}
@@ -1735,7 +1517,7 @@ export default function AppSettingsPage({
 																		type="button"
 																		onClick={() => onOpenEditMailFilter(filter)}
 																		disabled={mailFilterBusy || !!mailFilterModal}
-																		className="rounded-md bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+																		className="lm-btn-primary rounded-md px-3 py-2 text-xs font-medium disabled:opacity-50"
 																	>
 																		Edit
 																	</Button>
@@ -1747,7 +1529,7 @@ export default function AppSettingsPage({
 																			mailFilterBusy ||
 																			!!mailFilterModal
 																		}
-																		className="rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+																		className="lm-btn-secondary rounded-md px-3 py-2 text-xs disabled:opacity-50"
 																	>
 																		{runningFilterId === filter.id
 																			? 'Running...'
@@ -1759,7 +1541,7 @@ export default function AppSettingsPage({
 																			void onDeleteMailFilter(filter.id)
 																		}
 																		disabled={mailFilterBusy}
-																		className="rounded-md border border-red-300 px-3 py-2 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-700/50 dark:text-red-300 dark:hover:bg-red-900/30"
+																		className="rounded-md border border-red-300 px-3 py-2 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50"
 																	>
 																		Delete
 																	</Button>
@@ -1771,11 +1553,11 @@ export default function AppSettingsPage({
 											)}
 											</WorkspaceLayout>
 										</div>
-										<div className="shrink-0 border-t border-slate-200 bg-white px-5 py-3 dark:border-[#3a3d44] dark:bg-[#1f2125]">
+										<div className="lm-footer shrink-0 px-5 py-3">
 											<div className="flex items-center justify-between">
 												<div className="flex items-center gap-2">
 													{Boolean((accountStatus || '').trim()) && (
-														<span className="text-xs text-slate-500 dark:text-slate-400">
+														<span className="lm-text-muted text-xs">
 															{accountStatus}
 														</span>
 													)}
@@ -1785,14 +1567,14 @@ export default function AppSettingsPage({
 														type="button"
 														onClick={() => void onDeleteAccount()}
 														disabled={!editor || deletingAccount}
-														className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-700/50 dark:text-red-300 dark:hover:bg-red-900/30"
+														className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
 													>
 														{deletingAccount ? 'Deleting...' : 'Delete Account'}
 													</Button>
 													{!embedded && (
 														<Button
 															type="button"
-															className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+															className="lm-btn-secondary rounded-md px-3 py-2 text-sm"
 															onClick={() => window.close()}
 														>
 															Close
@@ -1802,7 +1584,7 @@ export default function AppSettingsPage({
 														type="button"
 														onClick={() => void onSaveAccount()}
 														disabled={!editor || savingAccount}
-														className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+														className="lm-btn-primary rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
 													>
 														{savingAccount ? 'Saving...' : 'Save'}
 													</Button>
@@ -1812,21 +1594,21 @@ export default function AppSettingsPage({
 									</div>
 									{mailFilterModal && (
 										<div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/45 p-4">
-											<div className="w-full max-w-3xl rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-[#3a3d44] dark:bg-[#1e1f22]">
+											<div className="lm-overlay w-full max-w-3xl rounded-xl p-4 shadow-2xl">
 												<div className="flex items-start justify-between gap-3">
 													<div>
-														<h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+														<h3 className="lm-text-primary text-base font-semibold">
 															{mailFilterModal.mode === 'create'
 																? 'Create Filter'
 																: 'Edit Filter'}
 														</h3>
-														<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+														<p className="mt-1 lm-text-muted text-xs">
 															Save the filter before running it.
 														</p>
 													</div>
 													<Button
 														type="button"
-														className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+														className="lm-btn-secondary rounded-md px-2 py-1 text-xs"
 														onClick={() => setMailFilterModal(null)}
 														disabled={mailFilterBusy}
 													>
@@ -1846,7 +1628,7 @@ export default function AppSettingsPage({
 																}))
 															}
 														/>
-														<label className="inline-flex h-10 items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+														<label className="inline-flex h-10 items-center gap-2 text-sm lm-text-secondary">
 															<FormCheckbox
 																checked={mailFilterModal.draft.enabled}
 																onChange={(e) =>
@@ -1858,7 +1640,7 @@ export default function AppSettingsPage({
 															/>
 															Enabled
 														</label>
-														<label className="inline-flex h-10 items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+														<label className="inline-flex h-10 items-center gap-2 text-sm lm-text-secondary">
 															<FormCheckbox
 																checked={mailFilterModal.draft.run_on_incoming}
 																onChange={(e) =>
@@ -1874,7 +1656,7 @@ export default function AppSettingsPage({
 
 													<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 														<label className="block text-sm">
-															<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+															<span className="lm-text-secondary mb-1 block font-medium">
 																Match mode
 															</span>
 															<FormSelect
@@ -1892,7 +1674,7 @@ export default function AppSettingsPage({
 																<option value="all_messages">Match all messages</option>
 															</FormSelect>
 														</label>
-														<label className="inline-flex items-end gap-2 text-sm text-slate-700 dark:text-slate-200">
+														<label className="inline-flex items-end gap-2 text-sm lm-text-secondary">
 															<FormCheckbox
 																checked={mailFilterModal.draft.stop_processing}
 																onChange={(e) =>
@@ -1908,7 +1690,7 @@ export default function AppSettingsPage({
 
 													{mailFilterModal.draft.match_mode !== 'all_messages' && (
 														<div className="space-y-2">
-															<p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+															<p className="lm-text-muted text-xs font-semibold uppercase tracking-wide">
 																Conditions
 															</p>
 															{mailFilterModal.draft.conditions.map(
@@ -2002,7 +1784,7 @@ export default function AppSettingsPage({
 																					),
 																				}))
 																			}
-																			className="rounded-md border border-slate-300 px-2 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+																			className="lm-btn-secondary rounded-md px-2 text-xs"
 																		>
 																			-
 																		</Button>
@@ -2024,7 +1806,7 @@ export default function AppSettingsPage({
 																		],
 																	}))
 																}
-																className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+																className="lm-btn-secondary rounded-md px-2 py-1 text-xs"
 															>
 																+ Add condition
 															</Button>
@@ -2032,7 +1814,7 @@ export default function AppSettingsPage({
 													)}
 
 													<div className="space-y-2">
-														<p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+														<p className="lm-text-muted text-xs font-semibold uppercase tracking-wide">
 															Actions
 														</p>
 														{mailFilterModal.draft.actions.map((action, index) => (
@@ -2099,7 +1881,7 @@ export default function AppSettingsPage({
 																		type="text"
 																		disabled
 																		value=""
-																		className="h-9 bg-slate-100 px-2 text-slate-500 dark:bg-[#15161a] dark:text-slate-500"
+																		className="lm-input-subtle lm-text-muted h-9 px-2"
 																	/>
 																)}
 																<Button
@@ -2112,7 +1894,7 @@ export default function AppSettingsPage({
 																			),
 																		}))
 																	}
-																	className="rounded-md border border-slate-300 px-2 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+																	className="lm-btn-secondary rounded-md px-2 text-xs"
 																>
 																	-
 																</Button>
@@ -2129,7 +1911,7 @@ export default function AppSettingsPage({
 																	],
 																}))
 															}
-															className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+															className="lm-btn-secondary rounded-md px-2 py-1 text-xs"
 														>
 															+ Add action
 														</Button>
@@ -2141,7 +1923,7 @@ export default function AppSettingsPage({
 														type="button"
 														onClick={() => void onSaveMailFilterModal()}
 														disabled={mailFilterBusy}
-														className="rounded-md bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+														className="lm-btn-primary rounded-md px-3 py-2 text-xs font-medium disabled:opacity-50"
 													>
 														{mailFilterBusy
 															? 'Saving...'
@@ -2153,7 +1935,7 @@ export default function AppSettingsPage({
 														type="button"
 														onClick={() => setMailFilterModal(null)}
 														disabled={mailFilterBusy}
-														className="rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+														className="lm-btn-secondary rounded-md px-3 py-2 text-xs disabled:opacity-50"
 													>
 														Cancel
 													</Button>
@@ -2214,34 +1996,4 @@ function mapMailFilterToDraft(filter: MailFilter): MailFilterDraft {
 			value: action.value || '',
 		})),
 	};
-}
-
-function Field({
-	label,
-	value,
-	onChange,
-	type = 'text',
-	placeholder,
-}: {
-	label?: string;
-	value: string;
-	onChange: (next: string) => void;
-	type?: string;
-	placeholder?: string;
-}) {
-	return (
-		<label className="block text-sm">
-			{label && <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">{label}</span>}
-			<FormInput
-				type={type}
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				placeholder={placeholder}
-			/>
-		</label>
-	);
-}
-
-function Label({children}: {children: React.ReactNode}) {
-	return <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{children}</div>;
 }

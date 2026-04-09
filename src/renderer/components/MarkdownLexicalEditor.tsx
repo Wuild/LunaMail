@@ -351,8 +351,8 @@ function ToolbarPlugin({appearance = 'default'}: { appearance?: 'default' | 'emb
         <div
             className={
                 appearance === 'embedded'
-                    ? 'flex shrink-0 flex-wrap items-center gap-1 border-b border-slate-300 bg-transparent p-2 dark:border-[#3a3d44]'
-                    : 'flex shrink-0 flex-wrap items-center gap-1 border-b border-slate-300 bg-slate-50 p-2 dark:border-[#3a3d44] dark:bg-[#25272c]'
+                    ? 'flex shrink-0 flex-wrap items-center gap-1 border-b border-slate-300 bg-transparent p-2 dark:border-[var(--lm-border-default-dark)]'
+                    : 'flex shrink-0 flex-wrap items-center gap-1 border-b border-slate-300 bg-slate-50 p-2 dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-muted-dark)]'
             }
         >
             <ToolbarIcon title="Bold" onClick={() => format('bold')} appearance={appearance} active={activeFormats.bold}>
@@ -370,7 +370,7 @@ function ToolbarPlugin({appearance = 'default'}: { appearance?: 'default' | 'emb
             <ToolbarIcon title="Highlight" onClick={() => format('highlight')} appearance={appearance}>
                 <Highlighter size={18}/>
             </ToolbarIcon>
-            <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
+            <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[var(--lm-border-default-dark)]"/>
             <ToolbarIcon title="H1" onClick={() => setHeading('h1')} appearance={appearance} active={activeFormats.headingH1}>
                 <Heading1 size={18}/>
             </ToolbarIcon>
@@ -383,7 +383,7 @@ function ToolbarPlugin({appearance = 'default'}: { appearance?: 'default' | 'emb
             <ToolbarIcon title="Quote" onClick={setQuote} appearance={appearance} active={activeFormats.quote}>
                 <MessageSquareQuote size={18}/>
             </ToolbarIcon>
-            <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
+            <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[var(--lm-border-default-dark)]"/>
             <ToolbarIcon
                 title="Bulleted list"
                 onClick={() => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)}
@@ -407,7 +407,7 @@ function ToolbarPlugin({appearance = 'default'}: { appearance?: 'default' | 'emb
             >
                 <ListX size={18}/>
             </ToolbarIcon>
-            <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
+            <div className="mx-1 h-5 w-px bg-slate-300 dark:bg-[var(--lm-border-default-dark)]"/>
             <ToolbarIcon title="Insert image" onClick={insertImage} appearance={appearance}>
                 <ImagePlus size={18}/>
             </ToolbarIcon>
@@ -444,13 +444,13 @@ function ToolbarIcon({
                 appearance === 'embedded'
                     ? `inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors ${
                         active
-                            ? 'border-sky-400 bg-sky-100 text-sky-900 dark:border-sky-500 dark:bg-[#384155] dark:text-slate-100'
-                            : 'border-slate-300 bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#35373c] dark:hover:text-slate-100'
+                            ? 'border-sky-400 bg-sky-100 text-sky-900 dark:border-sky-500 dark:bg-[var(--lm-surface-editor-selected-dark)] dark:text-slate-100'
+                            : 'border-slate-300 bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-[var(--lm-border-default-dark)] dark:text-slate-300 dark:hover:bg-[var(--lm-surface-hover-dark)] dark:hover:text-slate-100'
                     }`
                     : `inline-flex h-10 w-10 items-center justify-center rounded-md border transition-colors ${
                         active
-                            ? 'border-sky-400 bg-sky-100 text-sky-900 dark:border-sky-500 dark:bg-[#384155] dark:text-slate-100'
-                            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-300 dark:hover:bg-[#35373c] dark:hover:text-slate-100'
+                            ? 'border-sky-400 bg-sky-100 text-sky-900 dark:border-sky-500 dark:bg-[var(--lm-surface-editor-selected-dark)] dark:text-slate-100'
+                            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-card-dark)] dark:text-slate-300 dark:hover:bg-[var(--lm-surface-hover-dark)] dark:hover:text-slate-100'
                     }`
             }
         >
@@ -491,8 +491,8 @@ export default function HtmlLexicalEditor({
                             <ContentEditable
                                 className={
                                     appearance === 'embedded'
-                                        ? 'lexical-editor-input h-full w-full overflow-auto bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none dark:bg-[#1e1f22] dark:text-slate-100'
-                                        : 'lexical-editor-input h-full w-full overflow-auto bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none dark:bg-[#1f2125] dark:text-slate-100'
+                                        ? 'lexical-editor-input h-full w-full overflow-auto bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none dark:bg-[var(--lm-surface-panel-dark)] dark:text-slate-100'
+                                        : 'lexical-editor-input h-full w-full overflow-auto bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none dark:bg-[var(--lm-surface-card-dark)] dark:text-slate-100'
                                 }
                             />
                         }
@@ -798,24 +798,24 @@ function toInlineEmailHtml(inputHtml: string): string {
 
     doc.querySelectorAll('p').forEach((el) => applyStyle(el, 'margin:0 0 12px 0; line-height:1.55;'));
     doc.querySelectorAll('blockquote').forEach((el) =>
-        applyStyle(el, 'margin:0 0 12px 0; padding-left:12px; border-left:3px solid #cbd5e1; color:#475569;'),
+        applyStyle(el, 'margin:0 0 12px 0; padding-left:12px; border-left:3px solid var(--lm-border-light); color:var(--lm-text-subtle-light);'),
     );
     doc.querySelectorAll('ul').forEach((el) => applyStyle(el, 'margin:0 0 12px 22px; padding:0;'));
     doc.querySelectorAll('ol').forEach((el) => applyStyle(el, 'margin:0 0 12px 22px; padding:0;'));
     doc.querySelectorAll('li').forEach((el) => applyStyle(el, 'margin:0 0 6px 0;'));
-    doc.querySelectorAll('a').forEach((el) => applyStyle(el, 'color:#0369a1; text-decoration:underline;'));
+    doc.querySelectorAll('a').forEach((el) => applyStyle(el, 'color:var(--lm-color-link); text-decoration:underline;'));
     doc.querySelectorAll('pre').forEach((el) =>
         applyStyle(el, 'margin:0 0 12px 0; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;'),
     );
     doc.querySelectorAll('code').forEach((el) =>
-        applyStyle(el, 'font-family:ui-monospace, SFMono-Regular, Menlo, monospace; background:#f1f5f9; padding:1px 4px; border-radius:4px;'),
+        applyStyle(el, 'font-family:ui-monospace, SFMono-Regular, Menlo, monospace; background:var(--lm-surface-soft-light); padding:1px 4px; border-radius:4px;'),
     );
     doc.querySelectorAll('img').forEach((el) => {
         applyStyle(el, 'max-width:100%; height:auto; display:block;');
         if (!el.getAttribute('alt')) el.setAttribute('alt', '');
     });
     doc.querySelectorAll('hr').forEach((el) =>
-        applyStyle(el, 'border:0; border-top:1px solid #cbd5e1; margin:12px 0;'),
+        applyStyle(el, 'border:0; border-top:1px solid var(--lm-border-light); margin:12px 0;'),
     );
     doc.querySelectorAll('h1').forEach((el) => applyStyle(el, 'margin:0 0 12px 0; font-size:28px; line-height:1.25;'));
     doc.querySelectorAll('h2').forEach((el) => applyStyle(el, 'margin:0 0 12px 0; font-size:24px; line-height:1.3;'));

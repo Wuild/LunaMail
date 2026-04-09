@@ -45,7 +45,7 @@ export default function ImageDnDPlugin() {
             const el = document.createElement('div');
             el.style.position = 'absolute';
             el.style.height = '0';
-            el.style.borderTop = '2px solid rgb(14 165 233)';
+            el.style.borderTop = '2px solid var(--lm-color-primary-rgb)';
             el.style.boxShadow = '0 0 0 1px rgba(14,165,233,0.25)';
             el.style.borderRadius = '999px';
             el.style.pointerEvents = 'none';

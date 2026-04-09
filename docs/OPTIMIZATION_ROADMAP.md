@@ -258,5 +258,24 @@ Use this as the step-by-step execution checklist for optimization and reuse work
 - [x] IPC is domain-modular with shared broadcast patterns.
 - [x] Window setup is centralized.
 - [x] Shared hooks cover common fetch/subscription needs.
+
+---
+
+## Renderer Style Standardization (2026-04-10 Slice)
+
+- [x] Phase 1 semantic renderer class layer added in `src/renderer/index.css`.
+- [x] Phase 2 shared primitive migration completed for:
+  - `src/renderer/components/ui/button.tsx`
+  - `src/renderer/components/ui/FormControls.tsx`
+  - `src/renderer/components/navigation/DynamicSidebar.tsx`
+  - `src/renderer/layouts/WorkspaceLayout.tsx`
+  - `src/renderer/components/WindowTitleBar.tsx`
+- [x] Phase 3 route/page migration completed for high-impact pages/routes (`MailPage`, `MessageWindowPage`,
+  `ComposeEmailPage`, `CloudFilesPage`, `ContactsRoute`, `CalendarRoute`, `AppSettingsPage`).
+- [x] Validation: `npm run check:architecture`, `npm run test:unit`, `npm run build`.
+- [x] Current `dark:` usage reduced to 239 total renderer hits (`AppSettingsPage.tsx`, `AppSettingsGeneralPanel.tsx`,
+  `SupportPage.tsx`, `SettingsAddAccount.tsx`, `AccountFolderSidebar.tsx`, `MailSearchModal.tsx`, and
+  `TopTableMailPane.tsx` now 0).
+- [ ] Manual smoke checks in both themes still pending.
 - [x] DB access strategy is consistent and documented.
 - [ ] Build + smoke tests remain stable through the full sequence.

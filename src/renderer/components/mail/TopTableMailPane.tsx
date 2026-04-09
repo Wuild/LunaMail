@@ -94,8 +94,8 @@ function SortableHeaderCell({
                 opacity: isDragging ? 0.2 : 1,
             }}
             className={cn(
-                'relative border-b border-slate-200 px-3 py-2 select-none dark:border-[#3a3d44]',
-                index < visibleColumnCount - 1 && 'border-r border-r-slate-200 dark:border-r-[#3a3d44]',
+                'lm-border-default relative border-b px-3 py-2 select-none',
+                index < visibleColumnCount - 1 && 'lm-border-default border-r',
             )}
         >
             <div
@@ -161,8 +161,8 @@ function DraggableTableRow({
         <tr
             ref={(node) => void dragRef(node)}
             className={cn(
-                'cursor-pointer border-t border-slate-100 first:border-t-0 hover:bg-slate-50 dark:border-[#393c41] dark:hover:bg-[#32353b]',
-                selectedMessageIds.includes(message.id) && 'bg-sky-50/70 dark:bg-[#3a3e52]',
+                'cursor-pointer border-t border-slate-100 first:border-t-0 hover:bg-slate-50',
+                selectedMessageIds.includes(message.id) && 'bg-sky-50/70',
             )}
             onClick={(event) => {
                 onMessageRowClick(event, message, messageIndex);
@@ -237,15 +237,15 @@ export default function TopTableMailPane({
     }, [onReorderVisibleTableColumns, visibleTableColumns]);
 
     return (
-        <section className="flex min-w-0 flex-1 flex-col bg-white dark:bg-[#34373d]">
+        <section className="lm-content flex min-w-0 flex-1 flex-col">
             <div
                 className={cn(
-                    'relative flex min-h-0 flex-col border-b border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]',
+                    'lm-card relative flex min-h-0 flex-col border-0 border-b',
                     isCompactTopTable ? 'flex-1' : 'shrink-0',
                 )}
                 style={isCompactTopTable ? undefined : {height: topListHeight}}
             >
-                <div className="border-b border-slate-200 p-2 dark:border-[#3a3d44]">
+                <div className="lm-border-default border-b p-2">
                     <div className="flex items-center gap-2">
                         <div className="relative flex-1">
                             <FormInput
@@ -253,8 +253,8 @@ export default function TopTableMailPane({
                                 readOnly
                                 value=""
                                 placeholder="Search mail"
-                                leftIcon={<Search size={14} className="text-slate-500 dark:text-slate-400"/>}
-                                className="pr-14 text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-[#25272c]"
+                                leftIcon={<Search size={14} className="lm-text-muted"/>}
+                                className="lm-text-secondary pr-14 hover:bg-slate-50"
                                 onClick={onOpenSearchModal}
                                 onFocus={(event) => {
                                     onOpenSearchModal();
@@ -263,43 +263,43 @@ export default function TopTableMailPane({
                                 aria-label="Search mail"
                             />
                             <span
-                                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                                className="lm-text-muted pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium uppercase tracking-wide">
 								Ctrl+F
 							</span>
                         </div>
                     </div>
                 </div>
                 {selectedMessageIds.length > 1 && (
-                    <div className="border-b border-slate-200 px-2 py-2 dark:border-[#3a3d44]">
+                    <div className="lm-border-default border-b px-2 py-2">
                         <div
-                            className="flex flex-wrap items-center gap-2 rounded-md border border-slate-300 bg-slate-50 p-2 dark:border-[#3a3d44] dark:bg-[#26292f]">
-							<span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                            className="lm-border-default lm-bg-hover flex flex-wrap items-center gap-2 rounded-md border p-2">
+							<span className="lm-text-secondary text-xs font-medium">
 								{selectedMessageIds.length} selected
 							</span>
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                className="lm-btn-secondary rounded-md px-2 py-1 text-xs"
                                 onClick={() => onBulkMarkRead(selectedMessageIds, 1)}
                             >
                                 Mark read
                             </Button>
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                className="lm-btn-secondary rounded-md px-2 py-1 text-xs"
                                 onClick={() => onBulkMarkRead(selectedMessageIds, 0)}
                             >
                                 Mark unread
                             </Button>
                             <Button
                                 type="button"
-                                className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-900/25"
+                                className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
                                 onClick={() => onBulkDelete(selectedMessageIds)}
                             >
                                 Delete
                             </Button>
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                className="lm-btn-secondary rounded-md px-2 py-1 text-xs"
                                 onClick={onClearMessageSelection}
                             >
                                 Clear
@@ -318,7 +318,7 @@ export default function TopTableMailPane({
                     }}
                 >
                     {messages.length === 0 && (
-                        <div className="p-5 text-sm text-slate-500 dark:text-slate-400">
+                        <div className="lm-text-muted p-5 text-sm">
                             No messages in this folder yet.
                         </div>
                     )}
@@ -342,14 +342,14 @@ export default function TopTableMailPane({
                                     <col style={{width: '44px'}}/>
                                 </colgroup>
                                 <thead
-                                    className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 shadow-[inset_0_-1px_0_0_rgb(226_232_240)] dark:border-[#3a3d44] dark:bg-[#2f3138] dark:shadow-[inset_0_-1px_0_0_#3a3d44]"
+                                    className="lm-border-default lm-bg-hover sticky top-0 z-10 border-b shadow-[inset_0_-1px_0_0_var(--lm-border-lighter-rgb)]"
                                     onContextMenu={(event) => {
                                         event.preventDefault();
                                         onOpenTableHeadMenuAt(event.clientX, event.clientY);
                                     }}
                                 >
                                     <SortableContext items={visibleTableColumns} strategy={horizontalListSortingStrategy}>
-                                        <tr className="group text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                                        <tr className="lm-text-secondary group text-left text-xs uppercase tracking-wide">
                                             {visibleTableColumns.map((column, index) => (
                                                 <SortableHeaderCell
                                                     key={column}
@@ -361,10 +361,10 @@ export default function TopTableMailPane({
                                                     onBeginTableColumnResize={onBeginTableColumnResize}
                                                 />
                                             ))}
-                                            <th className="border-b border-slate-200 px-1 py-1 text-right dark:border-[#3a3d44]">
+                                            <th className="lm-border-default border-b px-1 py-1 text-right">
                                                 <Button
                                                     type="button"
-                                                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-[#3a3d44] dark:hover:text-slate-100"
+                                                    className="lm-btn-ghost inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors"
                                                     aria-label="Table column options"
                                                     title="Table column options"
                                                     onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
@@ -398,7 +398,7 @@ export default function TopTableMailPane({
                             </table>
                             <DragOverlay dropAnimation={null}>
                                 {draggingColumn ? (
-                                    <div className="min-w-[120px] rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 opacity-85 shadow-xl dark:border-[#4a4d55] dark:bg-[#2b2d31] dark:text-slate-200">
+                                    <div className="lm-card lm-text-secondary min-w-[120px] rounded-md px-3 py-2 text-xs font-semibold uppercase tracking-wide opacity-85 shadow-xl">
                                         {headerLabelByKey[draggingColumn] || draggingColumn}
                                     </div>
                                 ) : null}
@@ -406,7 +406,7 @@ export default function TopTableMailPane({
                         </DndContext>
                     )}
                     {loadingMoreMessages && messages.length > 0 && (
-                        <div className="px-5 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
+                        <div className="lm-text-muted px-5 py-3 text-center text-xs">
                             Loading more messages...
                         </div>
                     )}
@@ -415,7 +415,7 @@ export default function TopTableMailPane({
                     <div
                         role="separator"
                         aria-orientation="horizontal"
-                        className="absolute bottom-0 left-0 right-0 z-10 h-1.5 cursor-row-resize bg-transparent hover:bg-slate-300/70 dark:hover:bg-slate-500/70"
+                        className="lm-resize-handle absolute bottom-0 left-0 right-0 z-10 h-1.5 cursor-row-resize bg-transparent"
                         onMouseDown={onTopListResizeStart}
                     />
                 )}

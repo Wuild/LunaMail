@@ -104,11 +104,11 @@ export default function WorkspaceLayout({
 
     return (
         <section
-            className={cn('flex h-full min-h-0 flex-col overflow-hidden bg-slate-50 dark:bg-[#26292f]', className)}
+            className={cn('lm-shell flex h-full min-h-0 flex-col overflow-hidden', className)}
         >
             {showMenuBar && (
                 <header
-                    className="shrink-0 border-b border-slate-200 bg-white px-5 py-3 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+                    className="lm-menubar shrink-0 px-5 py-3">
                     {menubar}
                 </header>
             )}
@@ -120,29 +120,29 @@ export default function WorkspaceLayout({
                             <div
                                 role="separator"
                                 aria-orientation="vertical"
-                                className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize bg-transparent hover:bg-slate-300/70 dark:hover:bg-slate-500/70"
+                                className="lm-resize-handle absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize bg-transparent"
                                 onMouseDown={onSidebarResizeStart}
                             />
                         )}
                     </div>
                 )}
-                <main className={cn('min-h-0 flex-1 overflow-auto p-5', contentClassName)}>{children}</main>
+                <main className={cn('lm-content min-h-0 flex-1 overflow-auto p-5', contentClassName)}>{children}</main>
             </div>
             {shouldShowFooter && (
                 <div
-                    className="shrink-0 border-t border-slate-200 bg-white px-5 py-3 dark:border-[#3a3d44] dark:bg-[#1f2125]">
+                    className="lm-footer shrink-0 px-5 py-3">
                     {footer}
                 </div>
             )}
             {showStatusBar && (
                 <footer
-                    className="h-8 shrink-0 border-t border-slate-200 bg-slate-50 px-3 dark:border-[#2a2d31] dark:bg-[#1b1c20]">
+                    className="lm-statusbar h-8 shrink-0 px-3">
                     <div className="flex h-full items-center text-xs">
-						<span className="flex min-w-0 items-center gap-2 truncate text-slate-600 dark:text-slate-300">
+						<span className="flex min-w-0 items-center gap-2 truncate text-[var(--lm-text-secondary)]">
 							<span
                                 className={cn(
                                     'inline-flex h-2.5 w-2.5 shrink-0 rounded-full',
-                                    effectiveStatusBusy ? 'animate-pulse bg-sky-500' : 'bg-slate-300 dark:bg-slate-600',
+                                    effectiveStatusBusy ? 'animate-pulse bg-[var(--color-primary)]' : 'lm-status-dot-idle',
                                 )}
                             />
 							<span ref={statusTextViewportRef} className="min-w-0 flex-1 overflow-hidden">

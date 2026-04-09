@@ -99,7 +99,7 @@ export default function MessageFolderContextMenu({
     return (
         <div
             ref={menuRef}
-            className="fixed z-[1000] min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#313338]"
+            className="fixed z-[1000] min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-menu-dark)]"
             style={{
                 left: menuPosition.left,
                 top: menuPosition.top,
@@ -136,7 +136,7 @@ export default function MessageFolderContextMenu({
                     <div className="group relative">
                         <Button
                             type="button"
-                            className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+                            className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[var(--lm-surface-active-dark)]"
                         >
 							<span className="flex items-center gap-2">
 								<span
@@ -153,7 +153,7 @@ export default function MessageFolderContextMenu({
                         </Button>
                         <div
                             className={cn(
-                                'absolute top-0 z-[1010] hidden min-w-52 rounded-md border border-slate-200 bg-white p-1 shadow-xl group-hover:block group-focus-within:block dark:border-[#3a3d44] dark:bg-[#313338]',
+                                'absolute top-0 z-[1010] hidden min-w-52 rounded-md border border-slate-200 bg-white p-1 shadow-xl group-hover:block group-focus-within:block dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-menu-dark)]',
                                 moveSubmenuLeft ? 'right-full mr-1' : 'left-full ml-1',
                             )}
                             style={{transform: `translateY(${moveSubmenuOffsetY}px)`}}
@@ -162,7 +162,7 @@ export default function MessageFolderContextMenu({
                                 <Button
                                     key={tag.value}
                                     type="button"
-                                    className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+                                    className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[var(--lm-surface-active-dark)]"
                                     onClick={() => {
                                         onMessageTagChange(menu.message, tag.value);
                                         onClose();
@@ -178,10 +178,10 @@ export default function MessageFolderContextMenu({
                                         )}
                                 </Button>
                             ))}
-                            <div className="my-1 h-px bg-slate-200 dark:bg-[#3a3d44]"/>
+                            <div className="my-1 h-px bg-slate-200 dark:bg-[var(--lm-border-default-dark)]"/>
                             <Button
                                 type="button"
-                                className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+                                className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[var(--lm-surface-active-dark)]"
                                 onClick={() => {
                                     onMessageTagChange(menu.message, null);
                                     onClose();
@@ -204,7 +204,7 @@ export default function MessageFolderContextMenu({
                         <Button
                             ref={moveToTriggerRef}
                             type="button"
-                            className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+                            className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[var(--lm-surface-active-dark)]"
                         >
 							<span className="flex items-center gap-2">
 								<Folder size={14}/>
@@ -214,7 +214,7 @@ export default function MessageFolderContextMenu({
                         </Button>
                         <div
                             className={cn(
-                                'absolute top-0 z-[1010] hidden min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl group-hover:block group-focus-within:block dark:border-[#3a3d44] dark:bg-[#313338]',
+                                'absolute top-0 z-[1010] hidden min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl group-hover:block group-focus-within:block dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-menu-dark)]',
                                 moveSubmenuLeft ? 'right-full mr-1' : 'left-full ml-1',
                             )}
                             style={{
@@ -244,7 +244,7 @@ export default function MessageFolderContextMenu({
                                 />
                             ))}
                             {moveTargetsProtected.length > 0 && moveTargetsCustom.length > 0 && (
-                                <div className="my-1 h-px bg-slate-200 dark:bg-[#3a3d44]"/>
+                                <div className="my-1 h-px bg-slate-200 dark:bg-[var(--lm-border-default-dark)]"/>
                             )}
                             {moveTargetsCustom.map((folder) => (
                                 <ContextItem

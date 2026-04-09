@@ -24,6 +24,7 @@ module.exports = async function beforeBuild() {
     const visited = new Set();
     const queue = [];
     const discovered = [];
+    const unresolvedRootDeps = new Set();
 
     function findPackageDirFromResolvedFile(resolvedFile) {
         let current = path.dirname(resolvedFile);
@@ -37,6 +38,12 @@ module.exports = async function beforeBuild() {
     }
 
     function resolvePackageDir(fromDir, packageName) {
+        const directNodeModulesPath = path.join(fromDir, "node_modules", ...packageName.split("/"));
+        const directManifestPath = path.join(directNodeModulesPath, "package.json");
+        if (fs.existsSync(directManifestPath)) {
+            return directNodeModulesPath;
+        }
+
         try {
             const pkgJsonEntry = require.resolve(`${packageName}/package.json`, {paths: [fromDir]});
             return path.dirname(pkgJsonEntry);
@@ -58,7 +65,13 @@ module.exports = async function beforeBuild() {
         const next = queue.shift();
         if (!next) break;
         const pkgDir = resolvePackageDir(next.fromDir, next.depName);
-        if (!pkgDir || !pkgDir.startsWith(sourceNodeModules)) continue;
+        if (!pkgDir) {
+            if (next.fromDir === projectRoot && rootDeps.includes(next.depName)) {
+                unresolvedRootDeps.add(next.depName);
+            }
+            continue;
+        }
+        if (!pkgDir.startsWith(sourceNodeModules)) continue;
         const realPkgDir = fs.realpathSync(pkgDir);
         if (visited.has(realPkgDir)) continue;
         visited.add(realPkgDir);
@@ -74,6 +87,13 @@ module.exports = async function beforeBuild() {
         for (const depName of childDeps) {
             queue.push({fromDir: realPkgDir, depName});
         }
+    }
+
+    if (unresolvedRootDeps.size > 0) {
+        const missing = Array.from(unresolvedRootDeps).sort().join(", ");
+        throw new Error(
+            `Missing runtime dependencies in node_modules: ${missing}. Run npm install and rebuild before packaging.`,
+        );
     }
 
     discovered.sort((a, b) => a.length - b.length);

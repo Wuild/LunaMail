@@ -37,7 +37,7 @@ export default function FolderItemRow({
     return (
         <div
             className={cn(
-                "group relative ml-3 w-[calc(100%-0.75rem)] before:absolute before:left-[-0.75rem] before:top-1/2 before:h-px before:w-2 before:-translate-y-1/2 before:bg-slate-300/80 before:content-[''] dark:before:bg-[#4a4d55]",
+                "group relative ml-3 w-[calc(100%-0.75rem)] before:absolute before:left-[-0.75rem] before:top-1/2 before:h-px before:w-2 before:-translate-y-1/2 before:bg-slate-300/80 before:content-[''] dark:before:bg-[var(--lm-border-strong-dark)]",
             )}
         >
             <Link
@@ -46,12 +46,12 @@ export default function FolderItemRow({
                 className={cn(
                     'relative flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left no-underline transition-all',
                     dropActive &&
-                    'bg-slate-200 text-slate-900 ring-1 ring-slate-300 shadow-sm dark:bg-[#404249] dark:text-slate-100 dark:ring-[#5b5e66]',
+                    'bg-slate-200 text-slate-900 ring-1 ring-slate-300 shadow-sm dark:bg-[var(--lm-surface-row-strong-dark)] dark:text-slate-100 dark:ring-[var(--lm-scrollbar-thumb-dark)]',
                     customDragging && 'opacity-45',
                     active
-                        ? 'bg-slate-200/80 text-slate-900 ring-1 ring-slate-300/70 dark:bg-[#3d4048] dark:text-slate-100 dark:ring-[#575a62]'
+                        ? 'bg-slate-200/80 text-slate-900 ring-1 ring-slate-300/70 dark:bg-[var(--lm-surface-row-active-dark)] dark:text-slate-100 dark:ring-[var(--lm-border-active-dark)]'
                         : 'text-slate-700 dark:text-slate-200',
-                    'hover:bg-slate-200/70 dark:hover:bg-[#3a3d44]',
+                    'hover:bg-slate-200/70 dark:hover:bg-[var(--lm-border-default-dark)]',
                 )}
                 onClick={onClick}
                 onContextMenu={onContextMenu}
@@ -61,7 +61,7 @@ export default function FolderItemRow({
 					<span
                         className={cn(
                             'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
-                            active ? 'bg-white dark:bg-[#2c2f36]' : 'bg-slate-100 dark:bg-[#32353b]',
+                            active ? 'bg-white dark:bg-[var(--lm-surface-selected-dark)]' : 'bg-slate-100 dark:bg-[var(--lm-surface-chip-dark)]',
                             iconColorClassName ||
                             (active ? 'text-slate-700 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'),
                         )}
@@ -88,7 +88,7 @@ export default function FolderItemRow({
             {onEditFolder && (
                 <Button
                     type="button"
-                    className="absolute right-1 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 opacity-0 transition-opacity hover:bg-slate-200 hover:text-slate-800 group-hover:opacity-100 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                    className="absolute right-1 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 opacity-0 transition-opacity hover:bg-slate-200 hover:text-slate-800 group-hover:opacity-100 dark:text-slate-400 dark:hover:bg-[var(--lm-surface-icon-hover-dark)] dark:hover:text-slate-100"
                     onClick={(event) => {
                         event.stopPropagation();
                         onEditFolder();

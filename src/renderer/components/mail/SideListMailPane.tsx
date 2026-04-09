@@ -94,9 +94,9 @@ function DraggableMessageRow({
         <div
             ref={(node) => void dragRef(node)}
             className={cn(
-                'block w-full border-b border-slate-100 px-5 py-4 text-left transition-colors hover:bg-slate-50 dark:border-[#393c41] dark:hover:bg-[#32353b]',
-                selectedMessageIds.includes(message.id) && 'bg-sky-50/70 dark:bg-[#3a3e52]',
-                selectedMessageId === message.id && 'border-l-4 border-l-sky-600 dark:border-l-[#5865f2]',
+                'block w-full border-b border-slate-100 px-5 py-4 text-left transition-colors hover:bg-slate-50 dark:border-[var(--lm-border-subtle-dark)] dark:hover:bg-[var(--lm-surface-chip-dark)]',
+                selectedMessageIds.includes(message.id) && 'bg-sky-50/70 dark:bg-[var(--lm-surface-active-dark)]',
+                selectedMessageId === message.id && 'border-l-4 border-l-sky-600 dark:border-l-[var(--lm-color-accent-dark)]',
             )}
             onClick={(event) => {
                 onMessageRowClick(event, message, messageIndex);
@@ -117,7 +117,7 @@ function DraggableMessageRow({
             >
                 {!message.is_read && (
                     <span
-                        className="inline-flex h-2 w-2 shrink-0 rounded-full bg-sky-500 dark:bg-[#8ab4ff]"
+                        className="inline-flex h-2 w-2 shrink-0 rounded-full bg-sky-500 dark:bg-[var(--lm-color-info-soft-dark)]"
                         title="Unread"
                         aria-label="Unread"
                     />
@@ -125,7 +125,7 @@ function DraggableMessageRow({
                 <span className="truncate">{message.subject || '(No subject)'}</span>
                 {getThreadCount(message) > 1 && (
                     <span
-                        className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-200 px-1.5 text-[11px] font-semibold leading-none text-slate-700 dark:bg-[#454a55] dark:text-slate-100">
+                        className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-200 px-1.5 text-[11px] font-semibold leading-none text-slate-700 dark:bg-[var(--lm-surface-badge-dark)] dark:text-slate-100">
 						{getThreadCount(message)}
 					</span>
                 )}
@@ -137,7 +137,7 @@ function DraggableMessageRow({
                     </p>
                     {Boolean((message as MessageItem & { tag?: string | null }).tag) && (
                         <span
-                            className="inline-flex max-w-[10rem] items-center gap-1 rounded-md border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600 dark:border-[#4a4d55] dark:text-slate-200">
+                            className="inline-flex max-w-[10rem] items-center gap-1 rounded-md border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600 dark:border-[var(--lm-border-strong-dark)] dark:text-slate-200">
 							<span
                                 className={cn(
                                     'inline-flex h-1.5 w-1.5 shrink-0 rounded-full',
@@ -195,12 +195,12 @@ export default function SideListMailPane({
         <>
             <main
                 className={cn(
-                    'relative flex min-h-0 flex-col border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]',
+                    'relative flex min-h-0 flex-col border-r border-slate-200 bg-white dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-sidebar-dark)]',
                     isCompactSideList ? 'min-w-0 flex-1' : 'shrink-0',
                 )}
                 style={isCompactSideList ? undefined : {width: mailListWidth}}
             >
-                <div className="border-b border-slate-200 p-2 dark:border-[#3a3d44]">
+                <div className="border-b border-slate-200 p-2 dark:border-[var(--lm-border-default-dark)]">
                     <div className="relative">
                         <FormInput
                             type="text"
@@ -208,7 +208,7 @@ export default function SideListMailPane({
                             value=""
                             placeholder="Search mail"
                             leftIcon={<Search size={14} className="text-slate-500 dark:text-slate-400"/>}
-                            className="pr-14 text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-[#25272c]"
+                            className="pr-14 text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-[var(--lm-surface-muted-dark)]"
                             onClick={onOpenSearchModal}
                             onFocus={(event) => {
                                 onOpenSearchModal();
@@ -223,22 +223,22 @@ export default function SideListMailPane({
                     </div>
                 </div>
                 {selectedMessageIds.length > 1 && (
-                    <div className="border-b border-slate-200 px-2 py-2 dark:border-[#3a3d44]">
+                    <div className="border-b border-slate-200 px-2 py-2 dark:border-[var(--lm-border-default-dark)]">
                         <div
-                            className="flex flex-wrap items-center gap-2 rounded-md border border-slate-300 bg-slate-50 p-2 dark:border-[#3a3d44] dark:bg-[#26292f]">
+                            className="flex flex-wrap items-center gap-2 rounded-md border border-slate-300 bg-slate-50 p-2 dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-content-dark)]">
 							<span className="text-xs font-medium text-slate-600 dark:text-slate-300">
 								{selectedMessageIds.length} selected
 							</span>
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[var(--lm-border-default-dark)] dark:text-slate-200 dark:hover:bg-[var(--lm-surface-hover-dark)]"
                                 onClick={() => onBulkMarkRead(selectedMessageIds, 1)}
                             >
                                 Mark read
                             </Button>
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[var(--lm-border-default-dark)] dark:text-slate-200 dark:hover:bg-[var(--lm-surface-hover-dark)]"
                                 onClick={() => onBulkMarkRead(selectedMessageIds, 0)}
                             >
                                 Mark unread
@@ -252,7 +252,7 @@ export default function SideListMailPane({
                             </Button>
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-[var(--lm-border-default-dark)] dark:text-slate-200 dark:hover:bg-[var(--lm-surface-hover-dark)]"
                                 onClick={onClearMessageSelection}
                             >
                                 Clear
@@ -314,7 +314,7 @@ export default function SideListMailPane({
                 )}
             </main>
             {!isCompactSideList && (
-                <section className="flex min-w-0 flex-1 flex-col bg-white dark:bg-[#34373d]">{children}</section>
+                <section className="flex min-w-0 flex-1 flex-col bg-white dark:bg-[var(--lm-surface-preview-dark)]">{children}</section>
             )}
         </>
     );

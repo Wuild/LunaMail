@@ -68,3 +68,40 @@ Use this checklist after each refactor PR.
   `src/renderer/pages/CloudFilesPage.tsx` (2064 lines) and `src/renderer/pages/MailPage.tsx` (2057 lines).
 - 2026-04-09: `npm run test:unit` passed after react-dnd migration fixes.
 - 2026-04-09: `npm run build` passed after react-dnd migration fixes.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization Phase 1/2 slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization Phase 1/2 slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization Phase 1/2 slice.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization Mail/MessageWindow slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization Mail/MessageWindow slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization Mail/MessageWindow slice.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization Compose slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization Compose slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization Compose slice.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization Cloud Files slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization Cloud Files slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization Cloud Files slice.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization Contacts slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization Contacts slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization Contacts slice.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization Calendar slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization Calendar slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization Calendar slice.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization App Settings slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization App Settings slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization App Settings slice.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization App Settings General panel slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization App Settings General panel slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization App Settings General panel slice.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization Support + Settings Add Account slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization Support + Settings Add Account slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization Support + Settings Add Account slice.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization AccountFolderSidebar slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization AccountFolderSidebar slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization AccountFolderSidebar slice.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization MailSearchModal slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization MailSearchModal slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization MailSearchModal slice.
+- 2026-04-10: `npm run check:architecture` passed after renderer style standardization TopTableMailPane slice.
+- 2026-04-10: `npm run test:unit` passed after renderer style standardization TopTableMailPane slice.
+- 2026-04-10: `npm run build` passed after renderer style standardization TopTableMailPane slice.
+- 2026-04-10: Manual smoke in both themes pending for style-standardized areas.

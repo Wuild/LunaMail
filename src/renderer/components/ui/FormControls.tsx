@@ -5,13 +5,13 @@ type ControlVariant = 'default' | 'subtle';
 type ControlSize = 'sm' | 'md' | 'lg';
 type GroupPosition = 'none' | 'first' | 'middle' | 'last';
 
-const fieldBase = 'w-full border text-slate-900 outline-none transition-all disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-100';
+const fieldBase = 'w-full lm-input transition-all disabled:cursor-not-allowed disabled:opacity-60';
 
 const variantStyles: Record<ControlVariant, string> = {
     default:
-        'border-slate-300/90 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:placeholder:text-slate-500 dark:focus:border-[#5865f2] dark:focus:ring-[#5865f2]/30',
+        'shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]',
     subtle:
-        'border-slate-200 bg-slate-50 placeholder:text-slate-500 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-[#3a3d44] dark:bg-[#2a2d31] dark:placeholder:text-slate-500 dark:focus:border-[#5865f2] dark:focus:ring-[#5865f2]/30',
+        'lm-input-subtle',
 };
 
 const sizeStyles: Record<ControlSize, string> = {
@@ -59,7 +59,7 @@ export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
     ({className, variant = 'default', size = 'md', groupPosition = 'none', leftIcon, rightIcon, ...props}, ref) => (
         <div className="relative">
             {leftIcon ? (
-                <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-500 dark:text-slate-400">
+                <span className="lm-text-muted pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2">
                     {leftIcon}
                 </span>
             ) : null}
@@ -78,7 +78,7 @@ export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
                 )}
             />
             {rightIcon ? (
-                <span className="pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2 text-slate-500 dark:text-slate-400">
+                <span className="lm-text-muted pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2">
                     {rightIcon}
                 </span>
             ) : null}
@@ -237,7 +237,7 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
                         : children}
                 </select>
                 {leftIcon ? (
-                    <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-500 dark:text-slate-400">
+                    <span className="lm-text-muted pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2">
                         {leftIcon}
                     </span>
                 ) : null}
@@ -321,7 +321,7 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
                             <span className="truncate">{displayLabel}</span>
                         )}
                     </span>
-                    <span className="pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2 text-slate-500 dark:text-slate-400">
+                    <span className="lm-text-muted pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2">
                         {rightIcon ?? <span aria-hidden>{open ? '▴' : '▾'}</span>}
                     </span>
                 </button>
@@ -329,7 +329,8 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
                     <div
                         role="listbox"
                         className={cn(
-                            'absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-md border border-slate-300 bg-white py-1 shadow-lg dark:border-[#3a3d44] dark:bg-[#1f2125]',
+                            'absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-md py-1 shadow-lg',
+                            'lm-context-menu',
                             dropdownClassName,
                         )}
                     >
@@ -346,10 +347,10 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
                                     className={cn(
                                         'block w-full px-3 py-2 text-left text-sm',
                                         item.disabled
-                                            ? 'cursor-not-allowed text-slate-400 dark:text-slate-500'
+                                            ? 'cursor-not-allowed lm-text-muted opacity-60'
                                             : isActive
-                                                ? 'bg-sky-100 text-slate-900 dark:bg-[#3d4153] dark:text-slate-100'
-                                                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
+                                                ? 'lm-bg-active lm-text-primary'
+                                                : 'lm-menu-item',
                                         isSelected && !item.disabled && 'font-medium',
                                     )}
                                     onMouseEnter={() => {
@@ -371,7 +372,7 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
                                             <span className="min-w-0 flex-1">
                                                 <span className="block truncate">{item.label}</span>
                                                 {item.description ? (
-                                                    <span className="block truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                                    <span className="lm-text-muted block truncate text-[11px]">
                                                         {item.description}
                                                     </span>
                                                 ) : null}
@@ -471,10 +472,12 @@ export const FormCheckbox = React.forwardRef<HTMLInputElement, React.InputHTMLAt
                 size === 'sm'
                     ? 'h-5 w-9 before:left-[2px] before:h-4 before:w-4 checked:before:translate-x-4'
                     : 'h-6 w-11 before:left-[2px] before:h-[18px] before:w-[18px] checked:before:translate-x-[22px]',
-                'relative appearance-none rounded-full border border-slate-300 bg-slate-200 outline-none transition-all duration-200',
-                'before:absolute before:top-1/2 before:-translate-y-1/2 before:rounded-full before:bg-white before:shadow before:transition-all before:duration-200 before:content-[\'\']',
-                'checked:border-sky-500 checked:bg-sky-500 dark:checked:border-[#5865f2] dark:checked:bg-[#5865f2]',
-                'focus:ring-2 focus:ring-sky-100 dark:border-[#4b4e55] dark:bg-[#2a2d31] dark:focus:ring-[#5865f2]/30',
+                'relative appearance-none rounded-full border outline-none transition-all duration-200',
+                'lm-border-default',
+                'bg-[var(--surface-hover)]',
+                'before:absolute before:top-1/2 before:-translate-y-1/2 before:rounded-full before:bg-[var(--surface-card)] before:shadow before:transition-all before:duration-200 before:content-[\'\']',
+                'checked:border-[var(--color-primary)] checked:bg-[var(--color-primary)]',
+                'lm-focus-ring',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 className,
             )}

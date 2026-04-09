@@ -16,10 +16,10 @@ type ServiceSettingsCardProps = {
 };
 
 const toneClasses: Record<NonNullable<ServiceSettingsCardProps["tone"]>, string> = {
-    neutral: "border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#1e1f22]",
-    muted: "border-slate-200 bg-slate-50 dark:border-[#3a3d44] dark:bg-[#2b2d31]",
-    sky: "border-sky-200 bg-sky-50/40 dark:border-[#30455a] dark:bg-[#243240]",
-    cyan: "border-cyan-200 bg-cyan-50/40 dark:border-[#2a4e57] dark:bg-[#24373d]",
+    neutral: "lm-card",
+    muted: "border-slate-200 bg-slate-50 dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-sidebar-dark)]",
+    sky: "border-sky-200 bg-sky-50/40 dark:border-[var(--lm-border-info-dark)] dark:bg-[var(--lm-surface-info-dark)]",
+    cyan: "border-cyan-200 bg-cyan-50/40 dark:border-[var(--lm-border-cyan-dark)] dark:bg-[var(--lm-surface-cyan-dark)]",
 };
 
 export default function ServiceSettingsCard({

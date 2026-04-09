@@ -48,7 +48,7 @@ export default function FolderEditModal({
     return (
         <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-900/45 p-4" onClick={onClose}>
             <div
-                className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#313338]"
+                className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-menu-dark)]"
                 onClick={(event) => event.stopPropagation()}
             >
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Edit Folder</h3>
@@ -80,7 +80,7 @@ export default function FolderEditModal({
                     <label className="block text-sm">
                         <span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">Folder color</span>
                         <div
-                            className="grid grid-cols-4 gap-2 rounded-md border border-slate-300 bg-white p-2 dark:border-[#3a3d44] dark:bg-[#1e1f22]">
+                            className="grid grid-cols-4 gap-2 rounded-md border border-slate-300 bg-white p-2 dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-panel-dark)]">
                             {colorOptions.map((option) => (
                                 <Button
                                     key={option.value}
@@ -89,8 +89,8 @@ export default function FolderEditModal({
                                     className={cn(
                                         'flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors',
                                         editor.color === option.value
-                                            ? 'border-slate-700 bg-slate-100 text-slate-900 dark:border-slate-200 dark:bg-[#2b2e34] dark:text-slate-100'
-                                            : 'border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#2b2e34]',
+                                            ? 'border-slate-700 bg-slate-100 text-slate-900 dark:border-slate-200 dark:bg-[var(--lm-surface-modal-dark)] dark:text-slate-100'
+                                            : 'border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-[var(--lm-border-default-dark)] dark:text-slate-300 dark:hover:bg-[var(--lm-surface-modal-dark)]',
                                     )}
                                     title={option.label}
                                     aria-label={`Set folder color ${option.label}`}

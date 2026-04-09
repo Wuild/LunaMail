@@ -621,9 +621,9 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
     }, [finalizeWeekDragSelection, weekDragSelection]);
 
     const accountSidebar = (
-        <aside className="flex h-full min-h-0 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+        <aside className="lm-sidebar flex h-full min-h-0 shrink-0 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <p className="lm-text-muted px-2 pb-2 text-xs font-semibold uppercase tracking-wide">
                     Accounts
                 </p>
                 <div className="space-y-1">
@@ -636,8 +636,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                 className={cn(
                                     'group flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                                     accountId === account.id
-                                        ? 'bg-sky-100 text-sky-900 dark:bg-[#3d4153] dark:text-slate-100'
-                                        : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]',
+                                        ? 'lm-bg-active lm-text-primary'
+                                        : 'lm-menu-item',
                                 )}
                             >
                                 <Button
@@ -645,8 +645,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                     onClick={() => onSelectAccount(account.id)}
                                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                                 >
-									<span
-                                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1 ring-black/10 dark:ring-white/10"
+                                    <span
+                                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1 ring-black/10"
                                         style={{
                                             backgroundColor: avatarColors.background,
                                             color: avatarColors.foreground,
@@ -660,7 +660,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
 										</span>
                                         {account.display_name?.trim() && (
                                             <span
-                                                className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                                                className="lm-text-muted block truncate text-[11px] font-normal">
 												{account.email}
 											</span>
                                         )}
@@ -674,7 +674,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                 >
                                     <Button
                                         type="button"
-                                        className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                        variant="ghost"
+                                        className="rounded p-1 lm-text-muted transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                                         onClick={() => void onManualSync(account.id)}
                                         title="Sync account"
                                         aria-label="Sync account"
@@ -684,7 +685,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                     </Button>
                                     <Button
                                         type="button"
-                                        className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                        variant="ghost"
+                                        className="rounded p-1 lm-text-muted transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                                         onClick={() => navigate(`/settings/account?accountId=${account.id}`)}
                                         title="Edit account"
                                         aria-label="Edit account"
@@ -696,7 +698,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                         );
                     })}
                     {accounts.length === 0 && (
-                        <p className="px-2 py-2 text-sm text-slate-500 dark:text-slate-400">No accounts available.</p>
+                        <p className="lm-text-muted px-2 py-2 text-sm">No accounts available.</p>
                     )}
                 </div>
             </div>
@@ -706,10 +708,11 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
     const calendarToolbar = (
         <div className="flex h-10 min-w-0 items-center gap-2">
             <div
-                className="flex items-center rounded-md border border-slate-300 bg-white dark:border-[#3a3d44] dark:bg-[#1e1f22]">
+                className="flex items-center rounded-md border lm-border-default lm-bg-card">
                 <Button
                     type="button"
-                    className="inline-flex h-10 w-10 items-center justify-center text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
+                    variant="ghost"
+                    className="inline-flex h-10 w-10 items-center justify-center"
                     onClick={() =>
                         setVisibleMonth((prev) =>
                             calendarViewMode === 'month'
@@ -721,14 +724,15 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                 >
                     <ChevronLeft size={16}/>
                 </Button>
-                <div className="min-w-44 px-2 text-center text-sm font-medium text-slate-800 dark:text-slate-100">
+                <div className="lm-text-primary min-w-44 px-2 text-center text-sm font-medium">
                     {calendarViewMode === 'month'
                         ? visibleMonth.toLocaleDateString(systemLocale, {month: 'long', year: 'numeric'})
                         : weekRangeLabel}
                 </div>
                 <Button
                     type="button"
-                    className="inline-flex h-10 w-10 items-center justify-center text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
+                    variant="ghost"
+                    className="inline-flex h-10 w-10 items-center justify-center"
                     onClick={() =>
                         setVisibleMonth((prev) =>
                             calendarViewMode === 'month'
@@ -743,19 +747,20 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
             </div>
             <Button
                 type="button"
-                className="inline-flex h-10 items-center rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                variant="outline"
+                className="inline-flex h-10 items-center rounded-md px-3 text-sm"
                 onClick={() => setVisibleMonth(calendarViewMode === 'month' ? startOfMonth(new Date()) : new Date())}
             >
                 Today
             </Button>
-            <div className="inline-flex items-center overflow-hidden rounded-md border border-slate-300 bg-white dark:border-[#3a3d44] dark:bg-[#1e1f22]">
+            <div className="inline-flex items-center overflow-hidden rounded-md border lm-border-default lm-bg-card">
                 <Button
                     type="button"
                     className={cn(
                         'px-3 py-2 text-xs font-medium',
                         calendarViewMode === 'month'
-                            ? 'bg-slate-200 text-slate-900 dark:bg-[#3d4153] dark:text-slate-100'
-                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#35373c]',
+                            ? 'lm-bg-active lm-text-primary'
+                            : 'lm-text-secondary lm-bg-hover',
                     )}
                     onClick={() => setCalendarViewMode('month')}
                 >
@@ -766,8 +771,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                     className={cn(
                         'inline-flex items-center gap-1 px-3 py-2 text-xs font-medium',
                         calendarViewMode === 'week'
-                            ? 'bg-slate-200 text-slate-900 dark:bg-[#3d4153] dark:text-slate-100'
-                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#35373c]',
+                            ? 'lm-bg-active lm-text-primary'
+                            : 'lm-text-secondary lm-bg-hover',
                     )}
                     onClick={() => setCalendarViewMode('week')}
                 >
@@ -778,7 +783,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
             <Button
                 type="button"
                 disabled={!accountId}
-                className="ml-auto inline-flex h-10 items-center gap-2 rounded-md bg-sky-600 px-3 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-60 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                variant="default"
+                className="ml-auto inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-medium disabled:opacity-60"
                 onClick={() => setShowAddEventModal(true)}
                 title="Add event"
                 aria-label="Add event"
@@ -805,31 +811,31 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
             >
                 <div className="flex h-full min-h-full min-w-0 flex-col">
                     {calendarError && (
-                        <div className="shrink-0 border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+                        <div className="shrink-0 border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
                             {calendarError}
                         </div>
                     )}
                     {!accountId && (
-                        <div className="p-5 text-sm text-slate-500 dark:text-slate-400">{statusNoAccountSelected()}</div>
+                        <div className="lm-text-muted p-5 text-sm">{statusNoAccountSelected()}</div>
                     )}
                     {accountId && (
                         <div className="min-h-0 flex flex-1 overflow-hidden">
                             {calendarViewMode === 'month' && (
                                 <div
-                                    className="relative flex min-h-0 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                                    className="relative flex min-h-0 shrink-0 flex-col border-r lm-border-default lm-bg-card"
                                     style={{width: eventListWidth}}
                                 >
                                     <div
-                                        className="flex items-center gap-2 border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-800 dark:border-[#3a3d44] dark:text-slate-100">
+                                        className="lm-text-primary flex items-center gap-2 border-b lm-border-default px-4 py-3 text-sm font-semibold">
                                         <List size={14}/>
                                         Events
                                     </div>
                                     {sortedEvents.length === 0 ? (
-                                        <p className="px-3 py-4 text-sm text-slate-500 dark:text-slate-400">
+                                        <p className="lm-text-muted px-3 py-4 text-sm">
                                             No events in this range.
                                         </p>
                                     ) : (
-                                        <div className="min-h-0 divide-y divide-slate-200 overflow-y-auto dark:divide-[#3a3d44]">
+                                        <div className="min-h-0 divide-y lm-border-default overflow-y-auto">
                                             {sortedEvents.map((event) => (
                                                 <div
                                                     key={event.id}
@@ -840,20 +846,21 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                         className={cn(
                                                             'min-w-0 flex-1 rounded px-1 py-1 text-left',
                                                             selectedEvent?.id === event.id &&
-                                                            'bg-sky-100 dark:bg-[#3d4153]',
+                                                            'lm-bg-active',
                                                         )}
                                                         onClick={() => setSelectedEvent(event)}
                                                     >
-                                                        <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                                                        <p className="lm-text-primary truncate text-sm font-medium">
                                                             {event.summary || '(No title)'}
                                                         </p>
-                                                        <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                                        <p className="lm-text-muted truncate text-xs">
                                                             {formatSystemDateTime(event.starts_at, systemLocale)}
                                                         </p>
                                                     </Button>
                                                     <Button
                                                         type="button"
-                                                        className="rounded p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#35373c] dark:hover:text-slate-100"
+                                                        variant="ghost"
+                                                        className="rounded p-2 lm-text-muted transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                                                         onClick={() => openEditEventModal(event)}
                                                         title="Edit event"
                                                         aria-label="Edit event"
@@ -862,7 +869,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                     </Button>
                                                     <Button
                                                         type="button"
-                                                        className="rounded p-2 text-slate-500 transition-colors hover:bg-red-100 hover:text-red-700 dark:text-slate-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                                                        className="rounded p-2 lm-text-muted transition-colors hover:bg-red-100 hover:text-red-700"
                                                         onClick={() => setEventToDelete(event)}
                                                         title="Delete event"
                                                         aria-label="Delete event"
@@ -876,32 +883,32 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                     <div
                                         role="separator"
                                         aria-orientation="vertical"
-                                        className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize bg-transparent hover:bg-slate-300/70 dark:hover:bg-slate-500/70"
+                                        className="lm-resize-handle absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize bg-transparent"
                                         onMouseDown={onEventListResizeStart}
                                     />
                                 </div>
                             )}
                             <div
                                 ref={calendarBodyScrollRef}
-                                className="min-h-full min-w-0 flex-1 overflow-auto bg-slate-50 dark:bg-[#26292f]"
+                                className="lm-bg-content min-h-full min-w-0 flex-1 overflow-auto"
                             >
                                 {calendarViewMode === 'month' && (
                                     <div
-                                        className="min-h-full bg-white dark:bg-[#2b2d31] flex flex-col">
+                                        className="min-h-full lm-bg-card flex flex-col">
                                         <div
                                             className={cn(
-                                                'sticky top-0 z-20 grid border-b border-slate-300 bg-slate-100 dark:border-[#3a3d44] dark:bg-[#32353c]',
+                                                'sticky top-0 z-20 grid border-b lm-border-default bg-[var(--surface-content)]',
                                                 MONTH_GRID_COLUMNS,
                                             )}
                                         >
                                             <div
-                                                className="border-r border-slate-300 px-1 py-2 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:border-[#3a3d44] dark:text-slate-400">
+                                                className="border-r lm-border-default px-1 py-2 text-center text-[10px] font-semibold uppercase tracking-wide lm-text-muted">
                                                 
                                             </div>
                                             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
                                                 <div
                                                     key={day}
-                                                    className="border-r border-slate-300 px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0 dark:border-[#3a3d44] dark:text-slate-300"
+                                                    className="border-r lm-border-default px-2 py-2 text-[11px] font-semibold uppercase tracking-wide lm-text-secondary last:border-r-0"
                                                 >
                                                     {day}
                                                 </div>
@@ -917,7 +924,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                     className={cn('grid min-h-0', MONTH_GRID_COLUMNS)}
                                                 >
                                                     <div
-                                                        className="border-r border-b border-slate-200 bg-slate-100/70 px-1 py-2 text-center text-[11px] font-medium text-slate-500 dark:border-[#3a3d44] dark:bg-[#2f3238] dark:text-slate-400">
+                                                        className="border-r border-b lm-border-default bg-[var(--surface-content)] px-1 py-2 text-center text-[11px] font-medium lm-text-muted">
                                                         {getIsoWeekNumber(week[0] || new Date())}
                                                     </div>
                                                     {week.map((day) => {
@@ -930,8 +937,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                                 key={key}
                                                                 data-calendar-day-key={key}
                                                                 className={cn(
-                                                                    'group min-h-0 border-r border-b border-slate-200 p-2 transition-colors hover:bg-slate-50 last:border-r-0 dark:border-[#3a3d44] dark:hover:bg-[#2f3238]',
-                                                                    !isCurrentMonth && 'bg-slate-50/80 dark:bg-[#24272d]',
+                                                                    'group min-h-0 border-r border-b lm-border-default p-2 transition-colors hover:bg-[var(--surface-hover)] last:border-r-0',
+                                                                    !isCurrentMonth && 'bg-[var(--surface-content)]/80',
                                                                 )}
                                                                 onContextMenu={(event) => {
                                                                     event.preventDefault();
@@ -949,9 +956,9 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                                         className={cn(
                                                                             'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs',
                                                                             isToday
-                                                                                ? 'bg-sky-600 font-semibold text-white shadow-sm dark:bg-[#5865f2]'
-                                                                                : 'text-slate-700 dark:text-slate-200',
-                                                                            !isCurrentMonth && 'text-slate-400 dark:text-slate-500',
+                                                                                ? 'bg-[var(--color-primary)] font-semibold text-[var(--text-inverse)] shadow-sm'
+                                                                                : 'lm-text-secondary',
+                                                                            !isCurrentMonth && 'lm-text-muted',
                                                                         )}
                                                                     >
                                                                         {day.getDate()}
@@ -963,7 +970,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                                         <Button
                                                                             key={event.id}
                                                                             type="button"
-                                                                            className="block w-full truncate rounded bg-sky-100 px-2 py-1 text-left text-xs text-sky-800 hover:bg-sky-200 dark:bg-[#3d4153] dark:text-slate-100 dark:hover:bg-[#4b5064]"
+                                                                            className="block w-full truncate rounded bg-sky-100 px-2 py-1 text-left text-xs text-sky-800 hover:bg-sky-200"
                                                                             onClick={() => setSelectedEvent(event)}
                                                                             title={event.summary || '(No title)'}
                                                                         >
@@ -971,7 +978,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                                         </Button>
                                                                     ))}
                                                                     {dayEvents.length > 3 && (
-                                                                        <p className="px-1 text-xs text-slate-500 dark:text-slate-400">
+                                                                        <p className="lm-text-muted px-1 text-xs">
                                                                             +{dayEvents.length - 3} more
                                                                         </p>
                                                                     )}
@@ -984,7 +991,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                         </div>
                                         {loading && (
                                             <div
-                                                className="border-t border-slate-200 px-3 py-2 text-sm text-slate-500 dark:border-[#3a3d44] dark:text-slate-400">
+                                                className="border-t lm-border-default px-3 py-2 text-sm lm-text-muted">
                                                 Loading events...
                                             </div>
                                         )}
@@ -992,14 +999,14 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                 )}
                             {calendarViewMode === 'week' && (
                                 <div
-                                    className="min-h-full bg-white dark:bg-[#2b2d31]">
+                                    className="min-h-full lm-bg-card">
                                         <div
                                             className={cn(
-                                                'sticky top-0 z-20 grid border-b border-slate-300 bg-slate-100 dark:border-[#3a3d44] dark:bg-[#32353c]',
+                                                'sticky top-0 z-20 grid border-b lm-border-default bg-[var(--surface-content)]',
                                                 WEEK_GRID_COLUMNS,
                                             )}
                                         >
-                                            <div className="border-r border-slate-300 px-2 py-2 text-xs font-semibold text-slate-600 dark:border-[#3a3d44] dark:text-slate-300">
+                                            <div className="border-r lm-border-default px-2 py-2 text-xs font-semibold lm-text-secondary">
                                                 Time
                                             </div>
                                             {weekDays.map((day) => {
@@ -1009,10 +1016,10 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                     <div
                                                         key={key}
                                                         className={cn(
-                                                            'cursor-pointer border-r border-slate-300 px-2 py-2 text-center text-xs font-semibold transition-colors hover:bg-slate-200/70 dark:border-[#3a3d44] dark:hover:bg-[#3a3d44]',
+                                                            'cursor-pointer border-r lm-border-default px-2 py-2 text-center text-xs font-semibold transition-colors hover:bg-[var(--surface-hover)]',
                                                             isToday
-                                                                ? 'bg-sky-100 text-sky-900 dark:bg-[#3d4153] dark:text-slate-100'
-                                                                : 'text-slate-600 dark:text-slate-300',
+                                                                ? 'bg-sky-100 text-sky-900'
+                                                                : 'lm-text-secondary',
                                                         )}
                                                         onClick={() => openNewEventForDay(key)}
                                                     >
@@ -1033,11 +1040,11 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                 {weekContainsNow && (
                                                     <>
                                                         <div
-                                                            className="pointer-events-none absolute left-[88px] right-0 z-20 border-t-2 border-red-500/90 dark:border-red-400/90"
+                                                            className="pointer-events-none absolute left-[88px] right-0 z-20 border-t-2 border-red-500/90"
                                                             style={{top: weekNowTopPx}}
                                                         />
                                                         <div
-                                                            className="pointer-events-none absolute left-0 z-20 w-[88px] -translate-y-1/2 pr-2 text-right text-[10px] font-semibold text-red-600 dark:text-red-400"
+                                                            className="pointer-events-none absolute left-0 z-20 w-[88px] -translate-y-1/2 pr-2 text-right text-[10px] font-semibold text-red-600"
                                                             style={{top: weekNowTopPx}}
                                                         >
                                                             {now.toLocaleTimeString(systemLocale, {
@@ -1047,11 +1054,11 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                         </div>
                                                     </>
                                                 )}
-                                                <div className="border-r border-slate-200 dark:border-[#3a3d44]">
+                                                <div className="border-r lm-border-default">
                                                     {weekHours.map((hour) => (
                                                         <div
                                                             key={hour}
-                                                            className="relative border-b border-slate-200 bg-slate-100/70 px-2 py-2 text-xs text-slate-600 dark:border-[#3a3d44] dark:bg-[#2f3238] dark:text-slate-300"
+                                                            className="relative border-b lm-border-default bg-[var(--surface-content)] px-2 py-2 text-xs lm-text-secondary"
                                                             style={{height: WEEK_HOUR_ROW_HEIGHT}}
                                                         >
                                                             {new Date(2000, 0, 1, hour).toLocaleTimeString(systemLocale, {
@@ -1068,7 +1075,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                         <div
                                                             key={dayKey}
                                                             data-calendar-day-key={dayKey}
-                                                            className="relative border-r border-slate-200 dark:border-[#3a3d44]"
+                                                            className="relative border-r lm-border-default"
                                                             style={{height: WEEK_HOUR_ROW_HEIGHT * 24}}
                                                             onContextMenu={(event) => {
                                                                 event.preventDefault();
@@ -1080,12 +1087,12 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                                 <div
                                                                     key={`${dayKey}-row-${hour}`}
                                                                     className={cn(
-                                                                        'cursor-pointer border-b border-slate-200 transition-colors hover:bg-slate-100/80 dark:border-[#3a3d44] dark:hover:bg-[#2f3238]',
+                                                                        'cursor-pointer border-b lm-border-default transition-colors hover:bg-[var(--surface-hover)]',
                                                                         weekDragSelection &&
                                                                         weekDragSelection.dayKey === dayKey &&
                                                                         hour >= Math.min(weekDragSelection.startHour, weekDragSelection.endHour) &&
                                                                         hour <= Math.max(weekDragSelection.startHour, weekDragSelection.endHour) &&
-                                                                        'bg-sky-100/80 dark:bg-[#3d4153]',
+                                                                        'bg-sky-100/80',
                                                                     )}
                                                                     style={{height: WEEK_HOUR_ROW_HEIGHT}}
                                                                     onMouseDown={(event) => {
@@ -1110,7 +1117,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                                                 <Button
                                                                     key={`${layout.event.id}-${idx}`}
                                                                     type="button"
-                                                                    className="absolute left-1 right-1 z-10 overflow-hidden rounded bg-sky-100 px-2 py-1 text-left text-xs text-sky-800 hover:bg-sky-200 dark:bg-[#3d4153] dark:text-slate-100 dark:hover:bg-[#4b5064]"
+                                                                    className="absolute left-1 right-1 z-10 overflow-hidden rounded bg-sky-100 px-2 py-1 text-left text-xs text-sky-800 hover:bg-sky-200"
                                                                     style={{
                                                                         top: layout.topPx + 1,
                                                                         height: Math.max(18, layout.heightPx - 2),
@@ -1142,13 +1149,14 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
             {dayContextMenu && (
                 <div
                     ref={dayContextMenuRef}
-                    className="fixed z-50 min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                    className="lm-context-menu fixed z-50 min-w-56 rounded-md p-1 shadow-xl"
                     style={{left: dayContextMenu.x, top: dayContextMenu.y}}
                     onContextMenu={(event) => event.preventDefault()}
                 >
                     <Button
                         type="button"
-                        className="block w-full rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
+                        variant="ghost"
+                        className="block w-full rounded px-3 py-2 text-left text-sm"
                         onClick={() => {
                             setSelectedDayForModal(dayContextMenu.dayKey);
                             setDayContextMenu(null);
@@ -1158,7 +1166,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                     </Button>
                     <Button
                         type="button"
-                        className="block w-full rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#35373c]"
+                        variant="ghost"
+                        className="block w-full rounded px-3 py-2 text-left text-sm"
                         onClick={() => {
                             openNewEventForDay(dayContextMenu.dayKey);
                             setDayContextMenu(null);
@@ -1175,28 +1184,29 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                     onClick={() => setSelectedEvent(null)}
                 >
                     <div
-                        className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        className="lm-overlay w-full max-w-lg rounded-xl p-5 shadow-2xl"
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                        <h3 className="lm-text-primary text-base font-semibold">
                             {selectedEvent.summary || '(No title)'}
                         </h3>
-                        <p className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+                        <p className="lm-text-secondary mt-2 text-sm">
                             {formatSystemDateTime(selectedEvent.starts_at, systemLocale)} -{' '}
                             {formatSystemDateTime(selectedEvent.ends_at, systemLocale)}
                         </p>
                         {selectedEvent.location && (
-                            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{selectedEvent.location}</p>
+                            <p className="lm-text-secondary mt-2 text-sm">{selectedEvent.location}</p>
                         )}
                         {selectedEvent.description && (
-                            <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">
+                            <p className="lm-text-secondary mt-3 whitespace-pre-wrap text-sm">
                                 {selectedEvent.description}
                             </p>
                         )}
                         <div className="mt-4 flex justify-end gap-2">
                             <Button
                                 type="button"
-                                className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                variant="outline"
+                                className="inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm"
                                 onClick={() => {
                                     openEditEventModal(selectedEvent);
                                     setSelectedEvent(null);
@@ -1207,7 +1217,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                             </Button>
                             <Button
                                 type="button"
-                                className="inline-flex items-center gap-1 rounded-md border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/30"
+                                className="inline-flex items-center gap-1 rounded-md border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
                                 onClick={() => {
                                     setEventToDelete(selectedEvent);
                                     setSelectedEvent(null);
@@ -1218,7 +1228,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                             </Button>
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                variant="outline"
+                                className="rounded-md px-3 py-2 text-sm"
                                 onClick={() => setSelectedEvent(null)}
                             >
                                 Close
@@ -1234,15 +1245,15 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                     onClick={() => setSelectedDayForModal(null)}
                 >
                     <div
-                        className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        className="lm-overlay w-full max-w-2xl rounded-xl p-5 shadow-2xl"
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                        <h3 className="lm-text-primary text-base font-semibold">
                             Events on {selectedDayForModal}
                         </h3>
                         <div className="mt-3">
                             {selectedDayEvents.length === 0 && (
-                                <p className="text-sm text-slate-500 dark:text-slate-400">No events on this day.</p>
+                                <p className="lm-text-muted text-sm">No events on this day.</p>
                             )}
                             {selectedDayEvents.length > 0 && (
                                 <ul className="space-y-2">
@@ -1250,17 +1261,17 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                         <li key={event.id}>
                                             <Button
                                                 type="button"
-                                                className="w-full rounded border border-slate-200 px-3 py-2 text-left hover:bg-slate-50 dark:border-[#3a3d44] dark:hover:bg-[#35373c]"
+                                                className="w-full rounded border lm-border-default px-3 py-2 text-left hover:bg-[var(--surface-hover)]"
                                                 onClick={() => {
                                                     setSelectedEvent(event);
                                                     setSelectedDayForModal(null);
                                                 }}
                                             >
-                                                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                                                <p className="lm-text-primary text-sm font-medium">
                                                     {formatEventTime(event.starts_at)} {event.summary || '(No title)'}
                                                 </p>
                                                 {event.location && (
-                                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                                    <p className="lm-text-muted mt-0.5 text-xs">
                                                         {event.location}
                                                     </p>
                                                 )}
@@ -1273,7 +1284,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                         <div className="mt-4 flex justify-end gap-2">
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                variant="outline"
+                                className="rounded-md px-3 py-2 text-sm"
                                 onClick={() => {
                                     openNewEventForDay(selectedDayForModal);
                                     setSelectedDayForModal(null);
@@ -1283,7 +1295,8 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                             </Button>
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                variant="outline"
+                                className="rounded-md px-3 py-2 text-sm"
                                 onClick={() => setSelectedDayForModal(null)}
                             >
                                 Close
@@ -1299,7 +1312,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                     onClick={() => setShowEditEventModal(false)}
                 >
                     <div
-                        className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        className="lm-overlay w-full max-w-xl rounded-xl p-5 shadow-2xl"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <form
@@ -1308,10 +1321,10 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                 void onUpdateEvent();
                             }}
                         >
-                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Edit Event</h3>
+                            <h3 className="lm-text-primary text-base font-semibold">Edit Event</h3>
                             <div className="mt-4 grid gap-3 md:grid-cols-2">
                                 <label className="block text-sm md:col-span-2">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										Title
 									</span>
                                     <FormInput
@@ -1319,11 +1332,11 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                         value={editEventTitle}
                                         onChange={(event) => setEditEventTitle(event.target.value)}
                                         placeholder="Team sync"
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     />
                                 </label>
                                 <div className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										Start
 									</span>
                                     <div className="grid grid-cols-2 gap-2">
@@ -1332,7 +1345,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             lang={inputLocale}
                                             value={editEventStartDate}
                                             onChange={(event) => setEditEventStartDate(event.target.value)}
-                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                            className="h-10 w-full rounded-md px-3 text-sm"
                                             required
                                         />
                                         <FormInput
@@ -1340,16 +1353,16 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             lang={inputLocale}
                                             value={editEventStartTime}
                                             onChange={(event) => setEditEventStartTime(event.target.value)}
-                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                            className="h-10 w-full rounded-md px-3 text-sm"
                                             required
                                         />
                                     </div>
-                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <p className="lm-text-muted mt-1 text-xs">
                                         {formatLocalDateTimePreview(editEventStartDate, editEventStartTime, systemLocale)}
                                     </p>
                                 </div>
                                 <div className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										End
 									</span>
                                     <div className="grid grid-cols-2 gap-2">
@@ -1358,7 +1371,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             lang={inputLocale}
                                             value={editEventEndDate}
                                             onChange={(event) => setEditEventEndDate(event.target.value)}
-                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                            className="h-10 w-full rounded-md px-3 text-sm"
                                             required
                                         />
                                         <FormInput
@@ -1366,16 +1379,16 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             lang={inputLocale}
                                             value={editEventEndTime}
                                             onChange={(event) => setEditEventEndTime(event.target.value)}
-                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                            className="h-10 w-full rounded-md px-3 text-sm"
                                             required
                                         />
                                     </div>
-                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <p className="lm-text-muted mt-1 text-xs">
                                         {formatLocalDateTimePreview(editEventEndDate, editEventEndTime, systemLocale)}
                                     </p>
                                 </div>
                                 <label className="block text-sm md:col-span-2">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										Location
 									</span>
                                     <FormInput
@@ -1383,32 +1396,34 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                         value={editEventLocation}
                                         onChange={(event) => setEditEventLocation(event.target.value)}
                                         placeholder="Conference Room"
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     />
                                 </label>
                                 <label className="block text-sm md:col-span-2">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										Description
 									</span>
                                     <FormTextarea
                                         value={editEventDescription}
                                         onChange={(event) => setEditEventDescription(event.target.value)}
                                         rows={4}
-                                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        className="w-full rounded-md px-3 py-2 text-sm"
                                     />
                                 </label>
                             </div>
                             <div className="mt-4 flex items-center justify-end gap-2">
                                 <Button
                                     type="button"
-                                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                    variant="outline"
+                                    className="rounded-md px-3 py-2 text-sm"
                                     onClick={() => setShowEditEventModal(false)}
                                 >
                                     Cancel
                                 </Button>
                                 <Button
                                     type="submit"
-                                    className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                    variant="default"
+                                    className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
                                     disabled={savingEditEvent}
                                 >
                                     {savingEditEvent ? 'Saving...' : 'Save Changes'}
@@ -1425,17 +1440,18 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                     onClick={() => setEventToDelete(null)}
                 >
                     <div
-                        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        className="lm-overlay w-full max-w-md rounded-xl p-5 shadow-2xl"
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Delete event?</h3>
-                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                        <h3 className="lm-text-primary text-base font-semibold">Delete event?</h3>
+                        <p className="lm-text-secondary mt-2 text-sm">
                             This will remove "{eventToDelete.summary || '(No title)'}" from your calendar.
                         </p>
                         <div className="mt-4 flex justify-end gap-2">
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                variant="outline"
+                                className="rounded-md px-3 py-2 text-sm"
                                 onClick={() => setEventToDelete(null)}
                             >
                                 Cancel
@@ -1459,7 +1475,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                     onClick={() => setShowAddEventModal(false)}
                 >
                     <div
-                        className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+                        className="lm-overlay w-full max-w-xl rounded-xl p-5 shadow-2xl"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <form
@@ -1468,10 +1484,10 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                 void onCreateEvent();
                             }}
                         >
-                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Add Event</h3>
+                            <h3 className="lm-text-primary text-base font-semibold">Add Event</h3>
                             <div className="mt-4 grid gap-3 md:grid-cols-2">
                                 <label className="block text-sm md:col-span-2">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										Title
 									</span>
                                     <FormInput
@@ -1479,11 +1495,11 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                         value={eventTitle}
                                         onChange={(event) => setEventTitle(event.target.value)}
                                         placeholder="Team sync"
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     />
                                 </label>
                                 <div className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										Start
 									</span>
                                     <div className="grid grid-cols-2 gap-2">
@@ -1492,7 +1508,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             lang={inputLocale}
                                             value={eventStartDate}
                                             onChange={(event) => setEventStartDate(event.target.value)}
-                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                            className="h-10 w-full rounded-md px-3 text-sm"
                                             required
                                         />
                                         <FormInput
@@ -1500,16 +1516,16 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             lang={inputLocale}
                                             value={eventStartTime}
                                             onChange={(event) => setEventStartTime(event.target.value)}
-                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                            className="h-10 w-full rounded-md px-3 text-sm"
                                             required
                                         />
                                     </div>
-                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <p className="lm-text-muted mt-1 text-xs">
                                         {formatLocalDateTimePreview(eventStartDate, eventStartTime, systemLocale)}
                                     </p>
                                 </div>
                                 <div className="block text-sm">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										End
 									</span>
                                     <div className="grid grid-cols-2 gap-2">
@@ -1518,7 +1534,7 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             lang={inputLocale}
                                             value={eventEndDate}
                                             onChange={(event) => setEventEndDate(event.target.value)}
-                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                            className="h-10 w-full rounded-md px-3 text-sm"
                                             required
                                         />
                                         <FormInput
@@ -1526,16 +1542,16 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                             lang={inputLocale}
                                             value={eventEndTime}
                                             onChange={(event) => setEventEndTime(event.target.value)}
-                                            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                            className="h-10 w-full rounded-md px-3 text-sm"
                                             required
                                         />
                                     </div>
-                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <p className="lm-text-muted mt-1 text-xs">
                                         {formatLocalDateTimePreview(eventEndDate, eventEndTime, systemLocale)}
                                     </p>
                                 </div>
                                 <label className="block text-sm md:col-span-2">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										Location
 									</span>
                                     <FormInput
@@ -1543,32 +1559,34 @@ export default function CalendarRoute({accountId, accounts, onSelectAccount}: Ca
                                         value={eventLocation}
                                         onChange={(event) => setEventLocation(event.target.value)}
                                         placeholder="Conference Room"
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     />
                                 </label>
                                 <label className="block text-sm md:col-span-2">
-									<span className="mb-1 block font-medium text-slate-700 dark:text-slate-200">
+									<span className="lm-text-secondary mb-1 block font-medium">
 										Description
 									</span>
                                     <FormTextarea
                                         value={eventDescription}
                                         onChange={(event) => setEventDescription(event.target.value)}
                                         rows={4}
-                                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+                                        className="w-full rounded-md px-3 py-2 text-sm"
                                     />
                                 </label>
                             </div>
                             <div className="mt-4 flex items-center justify-end gap-2">
                                 <Button
                                     type="button"
-                                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                    variant="outline"
+                                    className="rounded-md px-3 py-2 text-sm"
                                     onClick={() => setShowAddEventModal(false)}
                                 >
                                     Cancel
                                 </Button>
                                 <Button
                                     type="submit"
-                                    className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                    variant="default"
+                                    className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
                                     disabled={savingEvent}
                                 >
                                     {savingEvent ? 'Saving...' : 'Save Event'}

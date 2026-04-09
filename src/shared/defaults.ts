@@ -18,6 +18,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     syncIntervalMinutes: 2,
     autoUpdateEnabled: true,
     developerMode: false,
+    developerDemoMode: false,
     developerShowRouteOverlay: true,
     developerShowSendNotifications: true,
     developerShowSystemFailureNotifications: true,

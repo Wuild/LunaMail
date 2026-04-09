@@ -1,51 +1,59 @@
-<img src="./src/resources/llama.png" alt="build status" width="300px" />
-
-
+![LlamaMail Banner](./screenshots/banner.png)
 # LlamaMail
- 
-LlamaMail is a modern, offline-first desktop email client for Linux built with:
+
+LlamaMail is a modern, offline-first desktop mail client built with Electron, React, TypeScript, Tailwind CSS, and SQLite (better-sqlite3 + Drizzle ORM).
+
+## Screenshots
+
+### Mail
+![LlamaMail Mail View](./screenshots/email.png)
+
+### Compose
+![LlamaMail Compose View](./screenshots/compose.png)
+
+### Calendar
+![LlamaMail Calendar View](./screenshots/calendar.png)
+
+### Settings
+![LlamaMail Settings View](./screenshots/settings.png)
+
+## Highlights
+
+- Multi-account IMAP/SMTP support
+- Fast local caching and offline-first message browsing
+- Threaded message view and rich message reader
+- Compose, reply, reply-all, forward, and attachments
+- Optimistic actions: read/unread, flag, move, archive, delete
+- Local search across folders and messages
+- Contacts and calendar (DAV) integration
+- Cloud provider integrations
+- Developer diagnostics and debug console
+
+## Tech Stack
 
 - Electron
 - React + TypeScript
 - Tailwind CSS
-- SQLite (better-sqlite3 + Drizzle ORM)
-
-## Features
-
-- Multi-account IMAP/SMTP support
-- Local-first mail cache with fast folder/message browsing
-- Add-account wizard (autodiscovery + manual setup)
-- Compose, reply, reply all, forward, attachments
-- Message viewer window + full message source viewer
-- Optimistic message actions (read/unread, move, archive, delete, flag)
-- Multi-select message operations + keyboard navigation
-- Mail layout modes:
-  - side list view
-  - top table view with configurable columns
-- Advanced search filters (account, folder, read/starred, date, size, sender/subject/to)
-- Remote content privacy controls:
-  - block remote content by default
-  - load once
-  - allowlist sender/domain
-- Help and Debug pages routed inside the main shell
-- Live Debug Console with source filters (`imap`, `smtp`, `carddav`, `caldav`, `app`)
-- Custom title bar and update status indicator
+- Vite
+- Zustand
+- TanStack Query
+- SQLite (`better-sqlite3`)
+- Drizzle ORM + drizzle-kit
 
 ## Requirements
 
 - Node.js 20+
 - npm 10+
-- Linux desktop environment
 
-## Setup (From Source)
+## Getting Started
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-## Development
-
-Run the full development stack (TypeScript watch, Vite, Electron):
+Run the app in development mode:
 
 ```bash
 npm run dev
@@ -53,55 +61,43 @@ npm run dev
 
 ## Build
 
-Build main/preload/renderer:
+Build main, preload, and renderer:
 
 ```bash
 npm run build
 ```
 
-## Package (Linux)
+## Package
 
-Build all Linux targets (`AppImage`, `deb`, `rpm`, `flatpak`):
+Linux:
 
 ```bash
 npm run build:linux
 ```
 
-Per target:
+Windows:
 
 ```bash
-npm run build:linux:appimage
-npm run build:linux:deb
-npm run build:linux:rpm
-npm run build:linux:flatpak
+npm run build:win
 ```
 
-See [docs/PACKAGING.md](docs/PACKAGING.md) for host dependencies and packaging notes.
-
-## Install (Linux Packages)
-
-After packaging, artifacts are generated under `dist/`.
-
-Install a `.deb`:
+macOS:
 
 ```bash
-sudo apt install ./dist/*.deb
+npm run build:mac
 ```
 
-Install an `.rpm`:
+Additional packaging notes are in [docs/PACKAGING.md](./docs/PACKAGING.md).
+
+## Quality Checks
 
 ```bash
-sudo dnf install ./dist/*.rpm
+npm run check:architecture
+npm run test:unit
+npm run build
 ```
 
-Run AppImage:
-
-```bash
-chmod +x ./dist/*.AppImage
-./dist/*.AppImage
-```
-
-## Project Structure
+## Project Layout
 
 ```text
 src/
@@ -117,13 +113,8 @@ src/
     pages/
 ```
 
-## Renderer IPC and Routing
-
-See [AGENTS.md](AGENTS.md) for:
-
-- current `window.electronAPI` functions exposed by preload
-- route structure and settings tab navigation (`/settings/:tab`)
+For architecture and agent conventions, see [AGENTS.md](./AGENTS.md).
 
 ## License
 
-ISC. See [LICENSE](LICENSE).
+ISC. See [LICENSE](./LICENSE).

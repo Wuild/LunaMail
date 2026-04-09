@@ -21,6 +21,7 @@ export interface AppSettings {
     syncIntervalMinutes: number;
     autoUpdateEnabled: boolean;
     developerMode: boolean;
+    developerDemoMode: boolean;
     developerShowRouteOverlay: boolean;
     developerShowSendNotifications: boolean;
     developerShowSystemFailureNotifications: boolean;

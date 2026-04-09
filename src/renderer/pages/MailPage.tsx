@@ -56,7 +56,14 @@ import {useMessageBodyLoader} from '../hooks/mail/useMessageBodyLoader';
 import {useMailSyncStatus} from '../hooks/mail/useMailSyncStatus';
 import {useOptimisticReadState} from '../hooks/mail/useOptimisticReadState';
 import {useMailActionMutations} from '../hooks/mail/useMailActionMutations';
-import {formatMessageTagLabel, parseRouteNumber} from './mailPageHelpers';
+import {buildMessageIframeSrcDoc, formatMessageTagLabel, parseRouteNumber} from './mailPageHelpers';
+import {
+	hasAccountOrderChanged,
+	normalizeAccountOrder,
+	readPersistedAccountOrder,
+	sortAccountsByOrder,
+	writePersistedAccountOrder,
+} from './mailAccountOrder';
 import {ipcClient} from '../lib/ipcClient';
 import {createDefaultAppSettings} from '../../shared/defaults';
 import type {
@@ -72,56 +79,6 @@ import type {
 const MESSAGE_PAGE_SIZE = 100;
 const MIN_INLINE_MAIL_BODY_WIDTH = 520;
 const MIN_INLINE_MAIL_BODY_HEIGHT = 260;
-const ACCOUNT_ORDER_STORAGE_KEY = 'llamamail.mail.accountOrder.v1';
-
-function arraysEqual(a: number[], b: number[]): boolean {
-	if (a.length !== b.length) return false;
-	for (let i = 0; i < a.length; i += 1) {
-		if (a[i] !== b[i]) return false;
-	}
-	return true;
-}
-
-function readPersistedAccountOrder(): number[] {
-	if (typeof window === 'undefined') return [];
-	try {
-		const raw = window.localStorage.getItem(ACCOUNT_ORDER_STORAGE_KEY);
-		if (!raw) return [];
-		const parsed = JSON.parse(raw);
-		if (!Array.isArray(parsed)) return [];
-		const next = parsed.map((value) => Number(value)).filter((value) => Number.isFinite(value));
-		return Array.from(new Set(next));
-	} catch {
-		return [];
-	}
-}
-
-function normalizeAccountOrder(order: number[], accounts: PublicAccount[]): number[] {
-	const availableIds = new Set(accounts.map((account) => account.id));
-	const ordered: number[] = [];
-	for (const id of order) {
-		if (!availableIds.has(id)) continue;
-		if (ordered.includes(id)) continue;
-		ordered.push(id);
-	}
-	for (const account of accounts) {
-		if (!ordered.includes(account.id)) {
-			ordered.push(account.id);
-		}
-	}
-	return ordered;
-}
-
-function sortAccountsByOrder(accounts: PublicAccount[], order: number[]): PublicAccount[] {
-	if (accounts.length <= 1) return accounts;
-	const normalizedOrder = normalizeAccountOrder(order, accounts);
-	const positionById = new Map<number, number>(normalizedOrder.map((id, index) => [id, index]));
-	return [...accounts].sort((left, right) => {
-		const leftPos = positionById.get(left.id) ?? Number.MAX_SAFE_INTEGER;
-		const rightPos = positionById.get(right.id) ?? Number.MAX_SAFE_INTEGER;
-		return leftPos - rightPos;
-	});
-}
 
 function MailPage() {
 	const params = useParams<{ accountId?: string; folderId?: string; emailId?: string }>();
@@ -244,11 +201,7 @@ function MailPage() {
 	}, [accountOrder]);
 
 	useEffect(() => {
-		try {
-			window.localStorage.setItem(ACCOUNT_ORDER_STORAGE_KEY, JSON.stringify(accountOrder));
-		} catch {
-			// ignore storage failures
-		}
+		writePersistedAccountOrder(accountOrder);
 	}, [accountOrder]);
 
 	const renderedBodyHtml = useMemo(() => {
@@ -260,38 +213,12 @@ function MailPage() {
 	const iframeSrcDoc = useMemo(() => {
 		if (!selectedMessageBody) return null;
 		if (!renderedBodyHtml) return null;
-		const rawHtml = enrichAnchorTitles(renderedBodyHtml);
-		const hasExplicitStyles = /<style[\s>]|font-family\s*:/i.test(rawHtml);
-		const csp = buildSourceDocCsp(allowRemoteForSelectedMessage);
-		const defaultReadableCss = hasExplicitStyles
-			? ''
-			: `
-      body {
-        padding: 16px;
-        box-sizing: border-box;
-        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-        font-size: 14px;
-        line-height: 1.5;
-        color: #111827;
-      }
-      `;
-
-		return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="Content-Security-Policy" content="${csp}" />
-    <base target="_blank" />
-    <style>
-      html, body { width: 100%; margin: 0; }
-      body { box-sizing: border-box; }
-      #llamamail-frame-content { box-sizing: border-box; padding: 16px; }
-      ${defaultReadableCss}
-    </style>
-  </head>
-  <body><div id="llamamail-frame-content">${rawHtml}</div></body>
-</html>`;
+		return buildMessageIframeSrcDoc(
+			renderedBodyHtml,
+			allowRemoteForSelectedMessage,
+			enrichAnchorTitles,
+			buildSourceDocCsp,
+		);
 	}, [allowRemoteForSelectedMessage, selectedMessageBody, renderedBodyHtml]);
 
 	useThemePreference(appSettings.theme);
@@ -344,7 +271,7 @@ function MailPage() {
 		if (!isActive()) return;
 		const sortedAccounts = sortAccountsByOrder(list, accountOrderRef.current);
 		const normalizedOrder = normalizeAccountOrder(accountOrderRef.current, sortedAccounts);
-		if (!arraysEqual(normalizedOrder, accountOrderRef.current)) {
+		if (hasAccountOrderChanged(accountOrderRef.current, normalizedOrder)) {
 			accountOrderRef.current = normalizedOrder;
 			setAccountOrder(normalizedOrder);
 		}
@@ -1631,43 +1558,42 @@ function MailPage() {
 				}
 			}}
 		>
-			<div className={`h-full overflow-hidden ${selectedMessage ? '' : 'bg-slate-50 dark:bg-[#26292f]'}`}>
+			<div className={`h-full overflow-hidden ${selectedMessage ? '' : 'lm-bg-content'}`}>
 				{workspace === 'calendar' && (
-					<section className="h-full overflow-auto bg-slate-50 p-5 dark:bg-[#26292f]">
+					<section className="lm-bg-content h-full overflow-auto p-5">
 						<div className="mx-auto max-w-5xl">
-							<h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Calendar</h2>
+							<h2 className="lm-text-primary text-xl font-semibold">Calendar</h2>
 							{!selectedAccountId && (
-								<p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+								<p className="lm-text-muted mt-3 text-sm">
 									Select an account to load calendar events.
 								</p>
 							)}
 							{selectedAccountId && (
 								<>
 									{calendarLoading && (
-										<p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+										<p className="lm-text-muted mt-3 text-sm">
 											Loading events...
 										</p>
 									)}
 									{!calendarLoading && calendarEvents.length === 0 && (
-										<p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+										<p className="lm-text-muted mt-3 text-sm">
 											No events found.
 										</p>
 									)}
 									{!calendarLoading && calendarEvents.length > 0 && (
-										<div
-											className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-											<ul className="divide-y divide-slate-200 dark:divide-[#3a3d44]">
+										<div className="lm-card mt-4 overflow-hidden rounded-lg">
+											<ul className="divide-y lm-border-default">
 												{calendarEvents.map((event) => (
 													<li key={event.id} className="px-4 py-3">
-														<p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+														<p className="lm-text-primary text-sm font-medium">
 															{event.summary || '(No title)'}
 														</p>
-														<p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
+														<p className="lm-text-secondary mt-0.5 text-xs">
 															{formatSystemDateTime(event.starts_at, systemLocale)} -{' '}
 															{formatSystemDateTime(event.ends_at, systemLocale)}
 														</p>
 														{event.location && (
-															<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+															<p className="lm-text-muted mt-1 text-xs">
 																{event.location}
 															</p>
 														)}
@@ -1683,11 +1609,11 @@ function MailPage() {
 				)}
 
 				{workspace === 'contacts' && (
-					<section className="h-full overflow-auto bg-slate-50 p-5 dark:bg-[#26292f]">
+					<section className="lm-bg-content h-full overflow-auto p-5">
 						<div className="mx-auto max-w-5xl">
-							<h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Contacts</h2>
+							<h2 className="lm-text-primary text-xl font-semibold">Contacts</h2>
 							{!selectedAccountId && (
-								<p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+								<p className="lm-text-muted mt-3 text-sm">
 									Select an account to load contacts.
 								</p>
 							)}
@@ -1699,29 +1625,28 @@ function MailPage() {
 											value={contactsQuery}
 											onChange={(event) => setContactsQuery(event.target.value)}
 											placeholder="Search contacts..."
-											className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus:border-[#5865f2]"
+											className="h-10 w-full rounded-md px-3 text-sm"
 										/>
 									</div>
 									{contactsLoading && (
-										<p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+										<p className="lm-text-muted mt-3 text-sm">
 											Loading contacts...
 										</p>
 									)}
 									{!contactsLoading && contacts.length === 0 && (
-										<p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+										<p className="lm-text-muted mt-3 text-sm">
 											No contacts found.
 										</p>
 									)}
 									{!contactsLoading && contacts.length > 0 && (
-										<div
-											className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-											<ul className="divide-y divide-slate-200 dark:divide-[#3a3d44]">
+										<div className="lm-card mt-4 overflow-hidden rounded-lg">
+											<ul className="divide-y lm-border-default">
 												{contacts.map((contact) => (
 													<li key={contact.id} className="px-4 py-3">
-														<p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+														<p className="lm-text-primary text-sm font-medium">
 															{contact.full_name || '(No name)'}
 														</p>
-														<p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
+														<p className="lm-text-secondary mt-0.5 text-xs">
 															{contact.email}
 														</p>
 													</li>
@@ -1740,12 +1665,12 @@ function MailPage() {
 						<div
 							role="toolbar"
 							aria-label="Message actions"
-							className="shrink-0 flex w-full flex-wrap items-center gap-1.5 border-b border-slate-200 bg-white px-3 py-2 dark:border-[#3a3d44] dark:bg-[#2b2d31]"
+							className="lm-menubar shrink-0 flex w-full flex-wrap items-center gap-1.5 px-3 py-2"
 						>
 							<ToolboxButton label="Reply" icon={<Reply size={14}/>} onClick={onReply} primary/>
 							<ToolboxButton label="Reply all" icon={<ReplyAll size={14}/>} onClick={onReplyAll}/>
 							<ToolboxButton label="Forward" icon={<Forward size={14}/>} onClick={onForward}/>
-							<span className="mx-1 h-6 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
+							<span className="mx-1 h-6 w-px bg-[var(--border-default)]"/>
 							<ToolboxButton
 								label="Open"
 								icon={<SquareArrowOutUpRight size={14}/>}
@@ -1759,30 +1684,29 @@ function MailPage() {
 								danger
 							/>
 						</div>
-						<div
-							className="shrink-0 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-indigo-50/40 px-4 py-3 dark:border-[#393c41] dark:from-[#34373d] dark:via-[#34373d] dark:to-[#3a3550]">
+						<div className="lm-message-header shrink-0 px-4 py-3">
 							<div className="flex items-start justify-between gap-5">
 								<div className="min-w-0 flex-1">
 									<div className="mb-2 flex flex-wrap items-center gap-1.5">
 										<span
-											className="inline-flex h-5 items-center rounded-md bg-slate-200/90 px-2 text-[11px] font-medium text-slate-700 dark:bg-[#2a2d31] dark:text-slate-200">
+											className="inline-flex h-5 items-center rounded-md bg-[var(--surface-hover)] px-2 text-[11px] font-medium lm-text-secondary">
 											{selectedFolderPath || 'Message'}
 										</span>
 										{Boolean(selectedMessage.is_flagged) && (
 											<span
-												className="inline-flex h-5 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 text-[11px] font-medium text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-300">
+												className="inline-flex h-5 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 text-[11px] font-medium text-amber-800">
 												<Star size={11} className="fill-current"/>
 												Starred
 											</span>
 										)}
 										<span
-											className="inline-flex h-5 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
+											className="inline-flex h-5 items-center gap-1 rounded-md border lm-border-default lm-bg-card px-2 text-[11px] font-medium lm-text-secondary">
 											<MailOpen size={11}/>
 											{selectedMessage.is_read ? 'Read' : 'Unread'}
 										</span>
 										{Boolean((selectedMessage as MessageItem & { tag?: string | null }).tag) && (
 											<span
-												className="inline-flex h-5 items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-800 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-300">
+												className="inline-flex h-5 items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-800">
 												<Tag size={11}/>
 												{formatMessageTagLabel(
 													(
@@ -1795,7 +1719,7 @@ function MailPage() {
 										)}
 										{messageAttachments.length > 0 && (
 											<span
-												className="inline-flex h-5 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
+												className="inline-flex h-5 items-center gap-1 rounded-md border lm-border-default lm-bg-card px-2 text-[11px] font-medium lm-text-secondary">
 												<Paperclip size={11}/>
 												{messageAttachments.length} attachment
 												{messageAttachments.length > 1 ? 's' : ''}
@@ -1803,39 +1727,40 @@ function MailPage() {
 										)}
 										{buildSpoofHints(selectedMessage).length > 0 && (
 											<span
-												className="inline-flex h-5 items-center rounded-md bg-amber-100 px-2 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+												className="inline-flex h-5 items-center rounded-md bg-amber-100 px-2 text-[11px] font-medium text-amber-800">
 												Verify sender
 											</span>
 										)}
 									</div>
-									<h2 className="truncate text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+									<h2 className="lm-text-primary truncate text-xl font-semibold tracking-tight">
 										{selectedMessage.subject || '(No subject)'}
 									</h2>
 								</div>
 							</div>
-							<div className="mt-2 grid gap-1 text-xs text-slate-700 dark:text-slate-200">
+							<div className="lm-text-secondary mt-2 grid gap-1 text-xs">
 								<div className="select-text">
-									<span className="font-medium text-slate-500 dark:text-slate-400">From:</span>{' '}
+									<span className="lm-text-muted font-medium">From:</span>{' '}
 									<span className="select-text">{formatFromDisplay(selectedMessage)}</span>
 								</div>
 								<div className="select-text">
-									<span className="font-medium text-slate-500 dark:text-slate-400">To:</span>{' '}
+									<span className="lm-text-muted font-medium">To:</span>{' '}
 									<span className="select-text">{selectedMessage.to_address || '-'}</span>
 								</div>
 								<div>
-									<span className="font-medium text-slate-500 dark:text-slate-400">Date:</span>{' '}
+									<span className="lm-text-muted font-medium">Date:</span>{' '}
 									{formatSystemDateTime(selectedMessage.date, systemLocale)}
 								</div>
 							</div>
 							<Button
-								className="mt-2 inline-flex h-7 items-center rounded-md border border-slate-300 px-2 text-[11px] text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+								variant="outline"
+								className="mt-2 inline-flex h-7 items-center rounded-md px-2 text-[11px]"
 								onClick={() => setShowMessageDetails((prev) => !prev)}
 							>
 								{showMessageDetails ? 'Hide message details' : 'Show message details'}
 							</Button>
 							{showMessageDetails && (
 								<div
-									className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-200">
+									className="mt-3 rounded-md border lm-border-default bg-[var(--surface-content)] p-3 text-xs lm-text-secondary">
 									<div>
 										<span className="font-medium">From name:</span>{' '}
 										{selectedMessage.from_name || '-'}
@@ -1870,7 +1795,7 @@ function MailPage() {
 									{buildSpoofHints(selectedMessage).map((hint) => (
 										<div
 											key={hint}
-											className="mt-1 rounded border border-amber-300/70 bg-amber-50 px-2 py-1 text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-300"
+											className="mt-1 rounded border border-amber-300/70 bg-amber-50 px-2 py-1 text-amber-800"
 										>
 											{hint}
 										</div>
@@ -1878,7 +1803,7 @@ function MailPage() {
 								</div>
 							)}
 						</div>
-						<div className="min-h-0 flex flex-1 flex-col bg-white">
+						<div className="lm-bg-card min-h-0 flex flex-1 flex-col">
 							{Boolean(
 								renderedBodyHtml &&
 								selectedMessage &&
@@ -1886,19 +1811,19 @@ function MailPage() {
 								!allowRemoteForSelectedMessage,
 							) && (
 								<div
-									className="w-full shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-300">
+									className="w-full shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-800">
 									<div className="flex flex-wrap items-center gap-2">
 										<span>Remote content blocked for privacy.</span>
 										<Button
 											type="button"
-											className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200 dark:border-amber-600/70 dark:bg-amber-900/30 dark:hover:bg-amber-900/45"
+											className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200"
 											onClick={allowRemoteContentOnceForSelected}
 										>
 											Load once
 										</Button>
 										<Button
 											type="button"
-											className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200 dark:border-amber-600/70 dark:bg-amber-900/30 dark:hover:bg-amber-900/45"
+											className="rounded border border-amber-500/60 bg-amber-100 px-2 py-1 text-[11px] font-medium hover:bg-amber-200"
 											onClick={allowRemoteContentForSender}
 										>
 											Always allow sender
@@ -1908,16 +1833,16 @@ function MailPage() {
 							)}
 							<div ref={mailBodyViewportRef} className="min-h-0 flex-1">
 								{isMailBodyViewportTooSmall && (
-									<div
-										className="flex h-full items-center justify-center bg-white px-4 text-center dark:bg-[#34373d]">
-										<div className="max-w-md text-sm text-slate-600 dark:text-slate-300">
+									<div className="lm-bg-card flex h-full items-center justify-center px-4 text-center">
+										<div className="max-w-md text-sm lm-text-secondary">
 											<p>
 												Preview is too small ({mailBodyViewport.width}x{mailBodyViewport.height}
 												). Message opened in a separate window.
 											</p>
 											<Button
 												type="button"
-												className="mt-3 inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 px-3 text-xs text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+												variant="outline"
+												className="mt-3 inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs"
 												onClick={onOpenInNewWindow}
 											>
 												<SquareArrowOutUpRight size={13}/>
@@ -1931,7 +1856,7 @@ function MailPage() {
 										className={
 											isMailBodyViewportTooSmall
 												? 'hidden'
-												: 'flex h-full items-center justify-center text-slate-500 dark:text-slate-400'
+												: 'lm-text-muted flex h-full items-center justify-center'
 										}
 									>
 										Loading message body...
@@ -1942,7 +1867,7 @@ function MailPage() {
 										title={`message-body-${selectedMessage.id}`}
 										srcDoc={iframeSrcDoc}
 										sandbox="allow-popups allow-popups-to-escape-sandbox"
-										className="h-full w-full border-0 bg-white"
+										className="h-full w-full border-0 bg-[var(--surface-card)]"
 										onMouseDown={requestCloseMainOverlays}
 										onContextMenu={() => requestCloseMainOverlays()}
 										onFocus={requestCloseMainOverlays}
@@ -1954,7 +1879,7 @@ function MailPage() {
 									/>
 								)}
 								{!isMailBodyViewportTooSmall && !bodyLoading && !iframeSrcDoc && (
-									<div className="h-full overflow-auto bg-white p-4 text-slate-900">
+									<div className="lm-bg-card h-full overflow-auto p-4 lm-text-primary">
 										<pre
 											className="select-text whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">
 											{selectedMessageBody?.text || 'No body content available for this message.'}
@@ -1965,14 +1890,15 @@ function MailPage() {
 						</div>
 						{messageAttachments.length > 0 && (
 							<div
-								className="shrink-0 border-t border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-[#3a3d44] dark:bg-[#2b2d31]">
+								className="shrink-0 border-t lm-border-default bg-[color-mix(in_srgb,var(--surface-content)_80%,transparent)] px-4 py-3">
 								<div className="overflow-x-auto overflow-y-hidden">
 									<div className="flex min-w-full w-max gap-2 pb-1">
 										{messageAttachments.map((attachment, index) => (
 											<Button
 												key={`${attachment.filename || 'attachment'}-${index}`}
 												type="button"
-												className="group flex w-[17rem] shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white p-2 text-left text-xs text-slate-700 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-200"
+												variant="outline"
+												className="group flex w-[17rem] shrink-0 items-center gap-2 rounded-lg p-2 text-left text-xs"
 												title={attachment.filename || 'Attachment'}
 												onClick={(event) => {
 													event.stopPropagation();
@@ -1993,7 +1919,7 @@ function MailPage() {
 												}}
 											>
 												<span
-													className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-slate-100 text-slate-500 dark:border-[#3a3d44] dark:bg-[#2a2d31] dark:text-slate-300">
+													className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border lm-border-default bg-[var(--surface-content)] lm-text-muted">
 													<Paperclip size={15}/>
 												</span>
 												<span className="min-w-0 flex-1">
@@ -2001,7 +1927,7 @@ function MailPage() {
 														{attachment.filename || 'Attachment'}
 													</span>
 													<span
-														className="block truncate text-[11px] text-slate-500 dark:text-slate-400">
+														className="lm-text-muted block truncate text-[11px]">
 														{attachment.contentType || 'FILE'}
 														{typeof attachment.size === 'number'
 															? ` • ${formatBytes(attachment.size)}`
@@ -2026,7 +1952,7 @@ function MailPage() {
 			/>
 			{attachmentMenu && (
 				<div
-					className="fixed z-[1100] min-w-44 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#313338]"
+					className="lm-context-menu fixed z-[1100] min-w-44 rounded-md p-1 shadow-xl"
 					style={{
 						left: clampToViewport(attachmentMenu.x, 184, window.innerWidth),
 						top: clampToViewport(attachmentMenu.y, 108, window.innerHeight),
@@ -2034,7 +1960,8 @@ function MailPage() {
 					onClick={(event) => event.stopPropagation()}
 				>
 					<Button
-						className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+						variant="ghost"
+						className="block w-full rounded px-2 py-1.5 text-left text-sm"
 						onClick={() => {
 							runAttachmentAction(attachmentMenu.index, 'open');
 							setAttachmentMenu(null);
@@ -2043,7 +1970,8 @@ function MailPage() {
 						Open
 					</Button>
 					<Button
-						className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+						variant="ghost"
+						className="block w-full rounded px-2 py-1.5 text-left text-sm"
 						onClick={() => {
 							runAttachmentAction(attachmentMenu.index, 'save');
 							setAttachmentMenu(null);

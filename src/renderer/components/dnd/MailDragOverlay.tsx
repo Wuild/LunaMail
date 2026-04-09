@@ -27,13 +27,13 @@ export default function MailDragOverlay() {
     return (
         <div className="pointer-events-none fixed inset-0 z-[2147483647]">
             <div
-                className="max-w-[420px] rounded-lg border border-slate-300 bg-white px-3 py-2 opacity-85 shadow-xl dark:border-[#4a4d55] dark:bg-[#2b2d31]"
+                className="max-w-[420px] rounded-lg border border-slate-300 bg-white px-3 py-2 opacity-85 shadow-xl dark:border-[var(--lm-border-strong-dark)] dark:bg-[var(--lm-surface-sidebar-dark)]"
                 style={{
                     transform: `translate(${offset.x + 10}px, ${offset.y + 10}px)`,
                 }}
             >
                 <div className="flex items-center gap-2">
-                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-700 dark:bg-[#32353b] dark:text-slate-200">
+                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-700 dark:bg-[var(--lm-surface-chip-dark)] dark:text-slate-200">
                         <Mail size={14}/>
                     </span>
                     <span className="min-w-0 flex-1">

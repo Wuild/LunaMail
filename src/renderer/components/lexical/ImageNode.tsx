@@ -510,15 +510,15 @@ function EditableImage({
                 {isSelected && (
                     <>
                         <div
-                            className="absolute left-1 top-1 z-30 flex items-center gap-1 rounded-md border border-slate-300 bg-white/95 p-1 shadow-sm dark:border-[#3a3d44] dark:bg-[#1f2125]/95"
+                            className="absolute left-1 top-1 z-30 flex items-center gap-1 rounded-md border border-slate-300 bg-white/95 p-1 shadow-sm dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-card-dark)]/95"
                             onMouseDown={stopEvent}
                             onClick={stopEvent}
                         >
-                            <Button type="button" className={`rounded px-1.5 text-[11px] ${align === 'none' ? 'bg-slate-200 dark:bg-[#3a3d44]' : ''}`} onClick={() => updateNode((n) => n.setAlign('none'))}>B</Button>
-                            <Button type="button" className={`rounded px-1.5 text-[11px] ${align === 'left' ? 'bg-slate-200 dark:bg-[#3a3d44]' : ''}`} onClick={() => updateNode((n) => n.setAlign('left'))}>L</Button>
-                            <Button type="button" className={`rounded px-1.5 text-[11px] ${align === 'center' ? 'bg-slate-200 dark:bg-[#3a3d44]' : ''}`} onClick={() => updateNode((n) => n.setAlign('center'))}>C</Button>
-                            <Button type="button" className={`rounded px-1.5 text-[11px] ${align === 'right' ? 'bg-slate-200 dark:bg-[#3a3d44]' : ''}`} onClick={() => updateNode((n) => n.setAlign('right'))}>R</Button>
-                            <div className="mx-0.5 h-4 w-px bg-slate-300 dark:bg-[#3a3d44]"/>
+                            <Button type="button" className={`rounded px-1.5 text-[11px] ${align === 'none' ? 'bg-slate-200 dark:bg-[var(--lm-border-default-dark)]' : ''}`} onClick={() => updateNode((n) => n.setAlign('none'))}>B</Button>
+                            <Button type="button" className={`rounded px-1.5 text-[11px] ${align === 'left' ? 'bg-slate-200 dark:bg-[var(--lm-border-default-dark)]' : ''}`} onClick={() => updateNode((n) => n.setAlign('left'))}>L</Button>
+                            <Button type="button" className={`rounded px-1.5 text-[11px] ${align === 'center' ? 'bg-slate-200 dark:bg-[var(--lm-border-default-dark)]' : ''}`} onClick={() => updateNode((n) => n.setAlign('center'))}>C</Button>
+                            <Button type="button" className={`rounded px-1.5 text-[11px] ${align === 'right' ? 'bg-slate-200 dark:bg-[var(--lm-border-default-dark)]' : ''}`} onClick={() => updateNode((n) => n.setAlign('right'))}>R</Button>
+                            <div className="mx-0.5 h-4 w-px bg-slate-300 dark:bg-[var(--lm-border-default-dark)]"/>
                             <Button type="button" className="rounded px-1.5 text-[11px] text-red-600 dark:text-red-400" onClick={() => editor.update(() => $getNodeByKey(nodeKey)?.remove())}>x</Button>
                         </div>
 

@@ -1,9 +1,6 @@
 import {Button} from '../components/ui/button';
 import React, {useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
-import {useDrag, useDrop} from "react-dnd";
 import {
-    ArrowDown,
-    ArrowUp,
     ChevronRight,
     Cloud,
     Download,
@@ -41,7 +38,6 @@ import {
     buildRootTrail,
     clearPersistedDeletedFolderCaches,
     CLOUD_TABLE_COLUMN_OPTIONS,
-    CLOUD_TABLE_RESIZE_HANDLE_CLASS,
     constrainToViewport,
     DEFAULT_ONEDRIVE_CLIENT_ID,
     DEFAULT_ONEDRIVE_TENANT_ID,
@@ -67,6 +63,7 @@ import {
     type OneDriveDriveScope,
 } from "./cloudFilesHelpers";
 import {DND_ITEM} from "../lib/dndTypes";
+import CloudSortableHeaderCell from "./CloudSortableHeaderCell";
 
 type CloudTableSortDirection = "asc" | "desc";
 type EditCloudAccountDraft = {
@@ -77,120 +74,6 @@ type EditCloudAccountDraft = {
     user: string;
     secret: string;
 };
-type CloudColumnDragItem = {type: typeof DND_ITEM.CLOUD_TABLE_COLUMN; column: CloudTableColumnKey};
-
-type SortableCloudHeaderCellProps = {
-    columnKey: CloudTableColumnKey;
-    label: string;
-    index: number;
-    visibleColumnCount: number;
-    draggingColumn: CloudTableColumnKey | null;
-    dragPlaceholder: {column: CloudTableColumnKey; side: "before" | "after"} | null;
-    tableSort: {column: CloudTableColumnKey; direction: CloudTableSortDirection};
-    onToggleSort: (column: CloudTableColumnKey) => void;
-    onColumnResizeStart: (key: CloudTableColumnKey, event: React.MouseEvent) => void;
-    onDragStart: (column: CloudTableColumnKey) => void;
-    onHover: (column: CloudTableColumnKey, side: "before" | "after", dragged?: CloudTableColumnKey) => void;
-    onDrop: (column: CloudTableColumnKey, side: "before" | "after", dragged?: CloudTableColumnKey) => void;
-    onDragEnd: () => void;
-};
-
-function SortableCloudHeaderCell({
-    columnKey,
-    label,
-    index,
-    visibleColumnCount,
-    draggingColumn,
-    dragPlaceholder,
-    tableSort,
-    onToggleSort,
-    onColumnResizeStart,
-    onDragStart,
-    onHover,
-    onDrop,
-    onDragEnd,
-}: SortableCloudHeaderCellProps) {
-    const headerRef = useRef<HTMLTableCellElement | null>(null);
-    const [, dragRef] = useDrag<CloudColumnDragItem, unknown, {isDragging: boolean}>(
-        () => ({
-            type: DND_ITEM.CLOUD_TABLE_COLUMN,
-            item: () => {
-                onDragStart(columnKey);
-                return {type: DND_ITEM.CLOUD_TABLE_COLUMN, column: columnKey};
-            },
-            end: () => onDragEnd(),
-        }),
-        [columnKey, onDragEnd, onDragStart],
-    );
-    const [, dropRef] = useDrop<CloudColumnDragItem>(
-        () => ({
-            accept: DND_ITEM.CLOUD_TABLE_COLUMN,
-            hover: (item, monitor) => {
-                if (item.column === columnKey || !headerRef.current) return;
-                const rect = headerRef.current.getBoundingClientRect();
-                const client = monitor.getClientOffset();
-                if (!client) return;
-                onHover(
-                    columnKey,
-                    client.x < rect.left + rect.width / 2 ? "before" : "after",
-                    item.column,
-                );
-            },
-            drop: (item, monitor) => {
-                if (monitor.didDrop() || !headerRef.current) return;
-                const rect = headerRef.current.getBoundingClientRect();
-                const client = monitor.getClientOffset();
-                const side: "before" | "after" = client && client.x >= rect.left + rect.width / 2 ? "after" : "before";
-                onDrop(columnKey, side, item.column);
-            },
-        }),
-        [columnKey, onDrop, onHover],
-    );
-    dragRef(dropRef(headerRef));
-
-    return (
-        <th
-            ref={headerRef}
-            className={`relative border-b border-slate-200 bg-slate-100 px-3 py-2 select-none dark:border-[#3a3d44] dark:bg-[#32353c] ${
-                index < visibleColumnCount - 1 ? "border-r border-r-slate-200 dark:border-r-[#3a3d44]" : ""
-            }`}
-        >
-            {dragPlaceholder?.column === columnKey && dragPlaceholder.side === "before" && (
-                <span
-                    className="pointer-events-none absolute bottom-0 left-0 top-0 w-0.5 bg-sky-600 dark:bg-sky-400"
-                    aria-hidden="true"
-                />
-            )}
-            <Button
-                type="button"
-                className="inline-flex max-w-full items-center gap-1 truncate text-left hover:text-slate-900 dark:hover:text-slate-100"
-                onClick={() => onToggleSort(columnKey)}
-            >
-                <span className="truncate">{label}</span>
-                {tableSort.column === columnKey &&
-                    (tableSort.direction === "asc" ? (
-                        <ArrowUp size={12} className="shrink-0"/>
-                    ) : (
-                        <ArrowDown size={12} className="shrink-0"/>
-                    ))}
-            </Button>
-            {index < visibleColumnCount - 1 && (
-                <div
-                    role="separator"
-                    aria-orientation="vertical"
-                    className={CLOUD_TABLE_RESIZE_HANDLE_CLASS}
-                    onMouseDown={(event) => onColumnResizeStart(columnKey, event)}
-                />
-            )}
-            {dragPlaceholder?.column === columnKey && dragPlaceholder.side === "after" && (
-                <span
-                    className="pointer-events-none absolute bottom-0 right-0 top-0 w-0.5 bg-sky-600 dark:bg-sky-400"
-                    aria-hidden="true"
-                />
-            )}
-        </th>
-    );
-}
 
 export default function CloudFilesPage() {
     const {sidebarWidth, onResizeStart} = useResizableSidebar({
@@ -1115,16 +998,16 @@ export default function CloudFilesPage() {
     const menubar = (
         <div className="flex min-w-0 items-center justify-between gap-3">
             <div className="min-w-0">
-                <h1 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <h1 className="lm-text-primary truncate text-sm font-semibold">
                     {selectedAccount ? selectedAccount.name : "Cloud Files"}
                 </h1>
-                <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                <p className="lm-text-muted truncate text-xs">
                     {selectedAccount
                         ? `${storageLoading ? "Loading storage..." : formatStorageUsage(storageUsage)}`
                         : "Add an account to browse cloud files."}
                 </p>
                 {selectedAccount && (
-                    <div className="mt-1 h-1.5 w-52 overflow-hidden rounded-full bg-slate-200 dark:bg-[#3a3d44]">
+                    <div className="mt-1 h-1.5 w-52 overflow-hidden rounded-full bg-[var(--surface-hover)]">
                         <div
                             className="h-full rounded-full bg-sky-500 transition-all"
                             style={{width: `${storageLoading ? 20 : formatStorageUsagePercent(storageUsage)}%`}}
@@ -1135,7 +1018,8 @@ export default function CloudFilesPage() {
             <div className="flex items-center gap-2">
                 <Button
                     type="button"
-                    className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 px-2.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                    variant="outline"
+                    className="inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-sm disabled:opacity-50"
                     disabled={!selectedAccount || loading || mutating}
                     onClick={() => {
                         setNewFolderName("");
@@ -1147,7 +1031,8 @@ export default function CloudFilesPage() {
                 </Button>
                 <Button
                     type="button"
-                    className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 px-2.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                    variant="outline"
+                    className="inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-sm disabled:opacity-50"
                     disabled={!selectedAccount || loading || mutating}
                     onClick={() => void onUploadFiles()}
                 >
@@ -1160,12 +1045,13 @@ export default function CloudFilesPage() {
 
     const sidebar = (
         <aside
-            className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#2b2d31]">
-            <div className="flex items-center justify-between border-b border-slate-200 p-3 dark:border-[#3a3d44]">
-                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Cloud Accounts</h2>
+            className="lm-sidebar flex h-full min-h-0 flex-col">
+            <div className="flex items-center justify-between border-b lm-border-default p-3">
+                <h2 className="lm-text-primary text-sm font-semibold">Cloud Accounts</h2>
                 <Button
                     type="button"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                    variant="outline"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md"
                     onClick={() => setShowAddModal(true)}
                     title="Add cloud account"
                 >
@@ -1174,7 +1060,7 @@ export default function CloudFilesPage() {
             </div>
             <div className="min-h-0 flex-1 overflow-auto p-2">
                 {accounts.length === 0 && (
-                    <p className="px-2 py-3 text-sm text-slate-500 dark:text-slate-400">No cloud accounts yet.</p>
+                    <p className="lm-text-muted px-2 py-3 text-sm">No cloud accounts yet.</p>
                 )}
                 {accounts.map((account) => {
                     const active = account.id === selectedAccountId;
@@ -1194,24 +1080,24 @@ export default function CloudFilesPage() {
                             <div
                                 className={`group flex items-center gap-1 rounded-lg px-1 py-0.5 transition-colors ${
                                     active
-                                        ? "bg-gradient-to-r from-slate-200/90 to-slate-100/90 dark:from-[#3f434b] dark:to-[#373a42]"
-                                        : "bg-transparent hover:bg-gradient-to-r hover:from-slate-200/90 hover:to-slate-100/90 dark:hover:from-[#3f434b] dark:hover:to-[#373a42]"
+                                        ? "bg-gradient-to-r from-slate-200/90 to-slate-100/90"
+                                        : "bg-transparent hover:bg-gradient-to-r hover:from-slate-200/90 hover:to-slate-100/90"
                                 }`}
                             >
                                 <Link
                                     to={buildCloudLink(account.id, rootTrail)}
                                     className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm no-underline transition-colors ${
-                                        active ? "font-semibold text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-200"
+                                        active ? "font-semibold lm-text-primary" : "lm-text-secondary"
                                     }`}
                                     style={{color: "inherit"}}
                                 >
                   <span
                       className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${
                           account.provider === "onedrive"
-                              ? "border-sky-300/80 bg-sky-100 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/15 dark:text-sky-300"
+                              ? "border-sky-300/80 bg-sky-100 text-sky-700"
                               : account.provider === "nextcloud"
-                                  ? "border-emerald-300/80 bg-emerald-100 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
-                                  : "border-slate-300 bg-slate-100 text-slate-600 dark:border-[#4a4d55] dark:bg-[#2b2e34] dark:text-slate-300"
+                                  ? "border-emerald-300/80 bg-emerald-100 text-emerald-700"
+                                  : "border-slate-300 bg-slate-100 text-slate-600"
                       }`}
                       aria-hidden
                   >
@@ -1223,9 +1109,9 @@ export default function CloudFilesPage() {
                         <HardDrive size={14}/>
                     )}
                   </span>
-                                    <span className="min-w-0 flex-1">
+                  <span className="min-w-0 flex-1">
                     <span className="block truncate">{account.name}</span>
-                    <span className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                    <span className="lm-text-muted block truncate text-[11px] font-normal">
                       {providerLabels[account.provider]}
                     </span>
                   </span>
@@ -1235,7 +1121,8 @@ export default function CloudFilesPage() {
                                         className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                                         <Button
                                             type="button"
-                                            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                            variant="ghost"
+                                            className="rounded p-1 lm-text-muted transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                                             title="Refresh account"
                                             disabled={refreshingAccountIds.has(account.id)}
                                             onClick={(event) => {
@@ -1251,7 +1138,8 @@ export default function CloudFilesPage() {
                                         </Button>
                                         <Button
                                             type="button"
-                                            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                            variant="ghost"
+                                            className="rounded p-1 lm-text-muted transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                                             title="Account actions"
                                             onClick={(event) => {
                                                 event.preventDefault();
@@ -1265,7 +1153,8 @@ export default function CloudFilesPage() {
                                     {isOneDrive && (
                                         <Button
                                             type="button"
-                                            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                            variant="ghost"
+                                            className="rounded p-1 lm-text-muted transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                                             onClick={(event) => {
                                                 event.preventDefault();
                                                 event.stopPropagation();
@@ -1285,7 +1174,7 @@ export default function CloudFilesPage() {
                             </div>
                             {isOneDrive && isExpanded && (
                                 <div
-                                    className="relative space-y-1 pl-7 before:absolute before:bottom-2 before:left-3.5 before:top-1 before:w-px before:bg-gradient-to-b before:from-slate-300 before:to-slate-200/30 before:content-[''] dark:before:from-[#4a4d55] dark:before:to-transparent">
+                                    className="relative space-y-1 pl-7 before:absolute before:bottom-2 before:left-3.5 before:top-1 before:w-px before:bg-gradient-to-b before:from-slate-300 before:to-slate-200/30 before:content-['']">
                                     {ONEDRIVE_SCOPE_OPTIONS.map((scope) => (
                                         <Link
                                             key={`${account.id}-${scope.value}`}
@@ -1293,8 +1182,8 @@ export default function CloudFilesPage() {
                                             onClick={() => navigateToOneDriveScope(account.id, scope.value)}
                                             className={`group relative flex min-h-8 items-center gap-2 rounded-md px-2 py-1.5 text-xs no-underline transition-colors ${
                                                 active && selectedScope === scope.value
-                                                    ? "bg-sky-50/80 text-sky-700 dark:bg-[#3a3e52] dark:text-slate-100"
-                                                    : "text-slate-700 hover:bg-slate-200/70 dark:text-slate-200 dark:hover:bg-[#3a3d44]"
+                                                    ? "bg-sky-50/80 text-sky-700"
+                                                    : "lm-text-secondary hover:bg-slate-200/70"
                                             }`}
                                             style={{color: "inherit"}}
                                         >
@@ -1322,15 +1211,15 @@ export default function CloudFilesPage() {
                 statusBusy={loading || mutating || activeFileActionId !== null || deletingItemId !== null}
                 showStatusBar
                 showFooter={false}
-                contentClassName="min-h-0 flex flex-1 flex-col overflow-hidden bg-slate-50 p-0 dark:bg-[#26292f]"
+                contentClassName="lm-bg-content min-h-0 flex flex-1 flex-col overflow-hidden p-0"
             >
                 <div
-                    className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-500 dark:border-[#3a3d44] dark:bg-[#25272c] dark:text-slate-400">
+                    className="lm-text-muted border-b lm-border-default bg-[var(--surface-content)] px-4 py-2 text-xs">
                     {nav.map((entry, index) => (
                         <Link
                             key={`${entry.token}-${index}`}
                             to={selectedAccount ? buildCloudLink(selectedAccount.id, nav.slice(0, index + 1)) : "/cloud"}
-                            className="mr-1 rounded px-1.5 py-0.5 hover:bg-slate-200 dark:hover:bg-[#35373c]"
+                            className="mr-1 rounded px-1.5 py-0.5 hover:bg-[var(--surface-hover)]"
                         >
                             {entry.label}
                             {index < nav.length - 1 ? " /" : ""}
@@ -1340,20 +1229,20 @@ export default function CloudFilesPage() {
                 <div className="min-h-0 flex-1 overflow-hidden">
                     {!selectedAccount && (
                         <div
-                            className="flex h-full min-h-[240px] items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                            className="lm-text-muted flex h-full min-h-[240px] items-center justify-center text-sm">
                             Add a cloud account to start browsing files.
                         </div>
                     )}
                     {selectedAccount && loading && Boolean(pendingFolderToken) && (
                         <div
-                            className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                            className="lm-text-muted flex h-full min-h-[240px] flex-col items-center justify-center gap-2 text-sm">
                             <Loader2 size={18} className="animate-spin"/>
                             <span>Loading folder...</span>
                         </div>
                     )}
                     {selectedAccount && !pendingFolderToken && items.length === 0 && !loading && (
                         <div
-                            className="flex h-full min-h-[240px] flex-col items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                            className="lm-text-muted flex h-full min-h-[240px] flex-col items-center justify-center gap-3 text-sm">
                             <span>No files</span>
                             <Link
                                 to={buildCloudLink(
@@ -1366,7 +1255,7 @@ export default function CloudFilesPage() {
                                     setStatus("Opening folder...");
                                     setLoading(true);
                                 }}
-                                className="rounded px-2 py-1 text-sky-700 hover:underline dark:text-sky-300"
+                                className="rounded px-2 py-1 text-sky-700 hover:underline"
                             >
                                 Go back
                             </Link>
@@ -1374,7 +1263,7 @@ export default function CloudFilesPage() {
                     )}
                     {selectedAccount && !pendingFolderToken && items.length > 0 && (
                         <div
-                            className="h-full min-h-0 border-t border-slate-200 bg-white dark:border-[#3a3d44] dark:bg-[#26292f]">
+                            className="h-full min-h-0 border-t lm-border-default lm-bg-card">
                             <div className="h-full min-h-0 overflow-auto">
                                 <table
                                     key={`cloud-table-${visibleTableColumns.map((column) => column.key).join("|")}`}
@@ -1388,21 +1277,20 @@ export default function CloudFilesPage() {
                                         <col style={{width: "44px"}}/>
                                     </colgroup>
                                     <thead
-                                        className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 shadow-[inset_0_-1px_0_0_rgb(226_232_240)] dark:border-[#3a3d44] dark:bg-[#32353c] dark:shadow-[inset_0_-1px_0_0_#3a3d44]"
+                                        className="sticky top-0 z-10 border-b lm-border-default bg-[var(--surface-content)] shadow-[inset_0_-1px_0_0_var(--border-default)]"
                                         onContextMenu={(event) => {
                                             event.preventDefault();
                                             openTableHeadMenuAt(event.clientX, event.clientY);
                                         }}
                                     >
-                                    <tr className="group text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                                    <tr className="group text-left text-xs uppercase tracking-wide lm-text-secondary">
                                         {visibleTableColumns.map((column, index) => (
-                                            <SortableCloudHeaderCell
+                                            <CloudSortableHeaderCell
                                                 key={column.key}
                                                 columnKey={column.key}
                                                 label={column.label}
                                                 index={index}
                                                 visibleColumnCount={visibleTableColumns.length}
-                                                draggingColumn={draggingColumn}
                                                 dragPlaceholder={dragPlaceholder}
                                                 tableSort={tableSort}
                                                 onToggleSort={toggleTableSort}
@@ -1427,10 +1315,11 @@ export default function CloudFilesPage() {
                                                 }}
                                             />
                                         ))}
-                                        <th className="border-b border-slate-200 bg-slate-100 px-1 py-1 text-right dark:border-[#3a3d44] dark:bg-[#32353c]">
+                                        <th className="border-b lm-border-default bg-[var(--surface-content)] px-1 py-1 text-right">
                                             <Button
                                                 type="button"
-                                                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-[#3a3d44] dark:hover:text-slate-100"
+                                                variant="ghost"
+                                                className="inline-flex h-6 w-6 items-center justify-center rounded-md lm-text-muted transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                                                 title="Table column options"
                                                 aria-label="Table column options"
                                                 onClick={(event) => {
@@ -1445,7 +1334,7 @@ export default function CloudFilesPage() {
                                     </thead>
                                     <tbody>
                                     {nav.length > 1 && (
-                                        <tr className="border-b border-slate-100 hover:bg-slate-50/80 dark:border-[#3a3d44] dark:hover:bg-[#35373c]">
+                                        <tr className="border-b lm-border-default hover:bg-[var(--surface-hover)]">
                                             {visibleTableColumns.map((column) => {
                                                 if (column.key === "name") {
                                                     return (
@@ -1462,7 +1351,7 @@ export default function CloudFilesPage() {
                                                                     setStatus("Opening parent folder...");
                                                                     setLoading(true);
                                                                 }}
-                                                                className="flex min-w-0 items-center gap-2 text-slate-800 hover:underline dark:text-slate-100"
+                                                                className="flex min-w-0 items-center gap-2 lm-text-primary hover:underline"
                                                             >
                                                                 <FolderOpen size={15}
                                                                             className="shrink-0 text-sky-500"/>
@@ -1475,7 +1364,7 @@ export default function CloudFilesPage() {
                                                     return (
                                                         <td
                                                             key={`parent-${column.key}`}
-                                                            className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400"
+                                                            className="lm-text-muted px-3 py-2 text-xs"
                                                             style={{width: columnWidths.type}}
                                                         >
                                                             Folder
@@ -1486,7 +1375,7 @@ export default function CloudFilesPage() {
                                                     return (
                                                         <td
                                                             key={`parent-${column.key}`}
-                                                            className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400"
+                                                            className="lm-text-muted px-3 py-2 text-xs"
                                                             style={{width: columnWidths.size}}
                                                         >
                                                             -
@@ -1497,7 +1386,7 @@ export default function CloudFilesPage() {
                                                     return (
                                                         <td
                                                             key={`parent-${column.key}`}
-                                                            className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400"
+                                                            className="lm-text-muted px-3 py-2 text-xs"
                                                             style={{width: columnWidths.modified}}
                                                         >
                                                             -
@@ -1507,20 +1396,20 @@ export default function CloudFilesPage() {
                                                 return (
                                                     <td
                                                         key={`parent-${column.key}`}
-                                                        className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400"
+                                                        className="lm-text-muted px-3 py-2 text-xs"
                                                         style={{width: columnWidths.created}}
                                                     >
                                                         -
                                                     </td>
                                                 );
                                             })}
-                                            <td className="px-2 py-2 text-right text-xs text-slate-500 dark:text-slate-400">Parent</td>
+                                            <td className="lm-text-muted px-2 py-2 text-right text-xs">Parent</td>
                                         </tr>
                                     )}
                                     {sortedItems.map((item) => (
                                         <tr
                                             key={item.id}
-                                            className="relative border-b border-slate-100 hover:bg-slate-50/80 dark:border-[#2b2d32] dark:hover:bg-[#25272c]"
+                                            className="relative border-b lm-border-default hover:bg-[var(--surface-hover)]"
                                             onContextMenu={(event) => {
                                                 event.preventDefault();
                                                 setRowMenu({x: event.clientX, y: event.clientY, item});
@@ -1543,7 +1432,7 @@ export default function CloudFilesPage() {
                                                                         setStatus(`Opening ${item.name}...`);
                                                                         setLoading(true);
                                                                     }}
-                                                                    className="flex min-w-0 items-center gap-2 text-slate-800 hover:underline dark:text-slate-100"
+                                                                    className="flex min-w-0 items-center gap-2 lm-text-primary hover:underline"
                                                                 >
                                                                     <FolderOpen size={15}
                                                                                 className="shrink-0 text-sky-500"/>
@@ -1552,7 +1441,7 @@ export default function CloudFilesPage() {
                                                             ) : (
                                                                 <Button
                                                                     type="button"
-                                                                    className="flex min-w-0 items-center gap-2 text-left text-slate-800 hover:underline dark:text-slate-100"
+                                                                    className="flex min-w-0 items-center gap-2 text-left lm-text-primary hover:underline"
                                                                     onClick={() => void onViewItem(item)}
                                                                 >
                                                                     {activeFileActionId === item.id ? (
@@ -1571,7 +1460,7 @@ export default function CloudFilesPage() {
                                                     return (
                                                         <td
                                                             key={`${item.id}-${column.key}`}
-                                                            className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400"
+                                                            className="lm-text-muted px-3 py-2 text-xs"
                                                             style={{width: columnWidths.type}}
                                                         >
                                                             {item.isFolder ? "Folder" : "File"}
@@ -1582,7 +1471,7 @@ export default function CloudFilesPage() {
                                                     return (
                                                         <td
                                                             key={`${item.id}-${column.key}`}
-                                                            className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400"
+                                                            className="lm-text-muted px-3 py-2 text-xs"
                                                             style={{width: columnWidths.size}}
                                                         >
                                                             {item.isFolder ? "-" : formatBytes(item.size ?? 0)}
@@ -1593,7 +1482,7 @@ export default function CloudFilesPage() {
                                                     return (
                                                         <td
                                                             key={`${item.id}-${column.key}`}
-                                                            className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400"
+                                                            className="lm-text-muted px-3 py-2 text-xs"
                                                             style={{width: columnWidths.modified}}
                                                         >
                                                             {formatSystemDateTime(item.modifiedAt) || "-"}
@@ -1603,7 +1492,7 @@ export default function CloudFilesPage() {
                                                 return (
                                                     <td
                                                         key={`${item.id}-${column.key}`}
-                                                        className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400"
+                                                        className="lm-text-muted px-3 py-2 text-xs"
                                                         style={{width: columnWidths.created}}
                                                     >
                                                         {formatSystemDateTime(item.createdAt) || "-"}
@@ -1613,7 +1502,8 @@ export default function CloudFilesPage() {
                                             <td className="relative px-2 py-2 text-right">
                                                 <Button
                                                     type="button"
-                                                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                                    variant="outline"
+                                                    className="inline-flex h-7 w-7 items-center justify-center rounded-md disabled:opacity-50"
                                                     title="Actions"
                                                     aria-label={`Actions for ${item.name}`}
                                                     onClick={(event) => {
@@ -1642,7 +1532,7 @@ export default function CloudFilesPage() {
             {rowMenu && (
                 <div
                     ref={rowMenuRef}
-                    className="fixed z-[1015] min-w-52 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#313338]"
+                    className="lm-context-menu fixed z-[1015] min-w-52 rounded-md p-1 shadow-xl"
                     style={{
                         left: rowMenuPosition.left,
                         top: rowMenuPosition.top,
@@ -1654,7 +1544,8 @@ export default function CloudFilesPage() {
                         <>
                             <Button
                                 type="button"
-                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
+                                variant="ghost"
+                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm"
                                 onClick={() => void onViewItem(rowMenu.item)}
                             >
                                 <Eye size={14}/>
@@ -1662,7 +1553,8 @@ export default function CloudFilesPage() {
                             </Button>
                             <Button
                                 type="button"
-                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
+                                variant="ghost"
+                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm"
                                 onClick={() => void onDownloadItem(rowMenu.item)}
                             >
                                 <Download size={14}/>
@@ -1672,7 +1564,8 @@ export default function CloudFilesPage() {
                     )}
                     <Button
                         type="button"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
+                        variant="ghost"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm"
                         onClick={() => void onShareItem(rowMenu.item)}
                     >
                         <Share2 size={14}/>
@@ -1680,7 +1573,7 @@ export default function CloudFilesPage() {
                     </Button>
                     <Button
                         type="button"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-60 dark:text-red-300 dark:hover:bg-red-900/30"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
                         onClick={() => void onDeleteItem(rowMenu.item)}
                         disabled={deletingItemId === rowMenu.item.id}
                     >
@@ -1694,7 +1587,7 @@ export default function CloudFilesPage() {
             {tableHeadMenu && (
                 <div
                     ref={tableHeadMenuRef}
-                    className="fixed z-[1015] min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#313338]"
+                    className="lm-context-menu fixed z-[1015] min-w-56 rounded-md p-1 shadow-xl"
                     style={{
                         left: tableHeadMenuPosition.left,
                         top: tableHeadMenuPosition.top,
@@ -1703,7 +1596,7 @@ export default function CloudFilesPage() {
                     onClick={(event) => event.stopPropagation()}
                 >
                     <div
-                        className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        className="lm-text-muted px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide">
                         Table Columns
                     </div>
                     {CLOUD_TABLE_COLUMN_OPTIONS.map((column) => {
@@ -1712,12 +1605,13 @@ export default function CloudFilesPage() {
                             <Button
                                 key={column.key}
                                 type="button"
-                                className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+                                variant="ghost"
+                                className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm"
                                 onClick={() => toggleTableColumn(column.key)}
                             >
                                 <span>{column.label}</span>
                                 <span
-                                    className={`inline-flex h-4 w-4 items-center justify-center text-xs ${checked ? "text-emerald-600 dark:text-emerald-300" : "text-transparent"}`}
+                                    className={`inline-flex h-4 w-4 items-center justify-center text-xs ${checked ? "text-emerald-600" : "text-transparent"}`}
                                     aria-hidden={!checked}
                                 >
                   ✓
@@ -1725,10 +1619,11 @@ export default function CloudFilesPage() {
                             </Button>
                         );
                     })}
-                    <div className="my-1 h-px bg-slate-200 dark:bg-[#3a3d44]"/>
+                    <div className="my-1 h-px bg-[var(--border-default)]"/>
                     <Button
                         type="button"
-                        className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+                        variant="ghost"
+                        className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm"
                         onClick={() => resetTableColumns()}
                     >
                         Reset Columns
@@ -1739,7 +1634,7 @@ export default function CloudFilesPage() {
             {accountMenu && (
                 <div
                     ref={accountMenuRef}
-                    className="fixed z-[1000] min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#313338]"
+                    className="lm-context-menu fixed z-[1000] min-w-56 rounded-md p-1 shadow-xl"
                     style={{
                         left: accountMenuPosition.left,
                         top: accountMenuPosition.top,
@@ -1749,7 +1644,8 @@ export default function CloudFilesPage() {
                 >
                     <Button
                         type="button"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
+                        variant="ghost"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm"
                         onClick={() => {
                             navigateToAccount(accountMenu.account, false);
                             setAccountMenu(null);
@@ -1759,28 +1655,31 @@ export default function CloudFilesPage() {
                     </Button>
                     <Button
                         type="button"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
+                        variant="ghost"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm"
                         onClick={() => onOpenAccountInNewWindow(accountMenu.account)}
                     >
                         Open in new window
                     </Button>
                     <Button
                         type="button"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
+                        variant="ghost"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm"
                         onClick={() => void onRefreshAccount(accountMenu.account)}
                     >
                         Refresh
                     </Button>
                     <Button
                         type="button"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#2a2d33]"
+                        variant="ghost"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm"
                         onClick={() => onOpenAccountSettings(accountMenu.account)}
                     >
                         Edit account
                     </Button>
                     <Button
                         type="button"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/30"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-red-700 hover:bg-red-50"
                         onClick={() => void onDeleteAccount(accountMenu.account)}
                     >
                         Delete account
@@ -1792,12 +1691,12 @@ export default function CloudFilesPage() {
                 <div
                     className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/35 p-4 backdrop-blur-[1px]">
                     <div
-                        className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-[#3a3d44] dark:bg-[#1f2125]">
+                        className="lm-overlay w-full max-w-lg rounded-xl p-4 shadow-2xl">
                         <div className="mb-3 flex items-start justify-between">
                             <div>
-                                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Add Cloud
+                                <h3 className="lm-text-primary text-base font-semibold">Add Cloud
                                     Account</h3>
-                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                <p className="lm-text-muted mt-1 text-xs">
                                     Nextcloud/WebDAV uses URL + username + app password. OneDrive can use direct
                                     sign-in.
                                 </p>
@@ -1851,14 +1750,14 @@ export default function CloudFilesPage() {
                             )}
                             {tokenHelp && (
                                 <div
-                                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-[#3a3d44] dark:bg-[#26292f]">
-                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{tokenHelp.title}</p>
-                                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                                    className="rounded-md border lm-border-default bg-[var(--surface-content)] px-3 py-2">
+                                    <p className="lm-text-secondary text-xs font-semibold">{tokenHelp.title}</p>
+                                    <p className="lm-text-secondary mt-1 text-xs">
                                         LlamaMail handles OneDrive OAuth tokens automatically, including refresh when the
                                         access token
                                         expires.
                                     </p>
-                                    <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-xs text-slate-600 dark:text-slate-300">
+                                    <ol className="lm-text-secondary mt-1 list-decimal space-y-0.5 pl-4 text-xs">
                                         {tokenHelp.steps.map((step) => (
                                             <li key={step}>{step}</li>
                                         ))}
@@ -1867,7 +1766,7 @@ export default function CloudFilesPage() {
                                         href={tokenHelp.link}
                                         target="_blank"
                                         rel="noreferrer noopener"
-                                        className="mt-1 inline-block text-xs text-sky-700 underline underline-offset-2 hover:text-sky-800 dark:text-sky-300 dark:hover:text-sky-200"
+                                        className="mt-1 inline-block text-xs text-sky-700 underline underline-offset-2 hover:text-sky-800"
                                     >
                                         Open helper page
                                     </a>
@@ -1877,14 +1776,16 @@ export default function CloudFilesPage() {
                         <div className="mt-4 flex items-center justify-between gap-2">
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                variant="outline"
+                                className="rounded-md px-3 py-2 text-sm"
                                 onClick={() => setShowAddModal(false)}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="button"
-                                className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                variant="default"
+                                className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
                                 disabled={isOneDriveOAuthProvider ? linkingOAuth : adding || !draft.name.trim() || !draft.secret.trim()}
                                 onClick={() => {
                                     if (isOneDriveOAuthProvider) {
@@ -1910,12 +1811,12 @@ export default function CloudFilesPage() {
                 <div
                     className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/35 p-4 backdrop-blur-[1px]">
                     <div
-                        className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-[#3a3d44] dark:bg-[#1f2125]">
+                        className="lm-overlay w-full max-w-lg rounded-xl p-4 shadow-2xl">
                         <div className="mb-3 flex items-start justify-between">
                             <div>
-                                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Edit Cloud
+                                <h3 className="lm-text-primary text-base font-semibold">Edit Cloud
                                     Account</h3>
-                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                <p className="lm-text-muted mt-1 text-xs">
                                     Update account details. Leave secret empty to keep current one.
                                 </p>
                             </div>
@@ -1980,7 +1881,8 @@ export default function CloudFilesPage() {
                         <div className="mt-4 flex items-center justify-between gap-2">
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                variant="outline"
+                                className="rounded-md px-3 py-2 text-sm"
                                 onClick={() => {
                                     setShowEditModal(false);
                                     setEditDraft(null);
@@ -1990,7 +1892,8 @@ export default function CloudFilesPage() {
                             </Button>
                             <Button
                                 type="button"
-                                className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                variant="default"
+                                className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
                                 disabled={savingEdit || !editDraft.name.trim()}
                                 onClick={() => void onSaveEditedAccount()}
                             >
@@ -2004,8 +1907,8 @@ export default function CloudFilesPage() {
                 <div
                     className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/35 p-4 backdrop-blur-[1px]">
                     <div
-                        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-[#3a3d44] dark:bg-[#1f2125]">
-                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Create Folder</h3>
+                        className="lm-overlay w-full max-w-md rounded-xl p-4 shadow-2xl">
+                        <h3 className="lm-text-primary text-base font-semibold">Create Folder</h3>
                         <div className="mt-3">
                             <Field label="Folder name" value={newFolderName} onChange={setNewFolderName}
                                    placeholder="New folder"/>
@@ -2013,7 +1916,8 @@ export default function CloudFilesPage() {
                         <div className="mt-4 flex items-center justify-between gap-2">
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                variant="outline"
+                                className="rounded-md px-3 py-2 text-sm"
                                 onClick={() => {
                                     setShowCreateFolderModal(false);
                                     setNewFolderName("");
@@ -2023,7 +1927,8 @@ export default function CloudFilesPage() {
                             </Button>
                             <Button
                                 type="button"
-                                className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                variant="default"
+                                className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
                                 disabled={!newFolderName.trim() || mutating}
                                 onClick={() => {
                                     const targetName = newFolderName.trim();
@@ -2042,29 +1947,31 @@ export default function CloudFilesPage() {
                 <div
                     className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/35 p-4 backdrop-blur-[1px]">
                     <div
-                        className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-[#3a3d44] dark:bg-[#1f2125]">
+                        className="lm-overlay w-full max-w-xl rounded-xl p-4 shadow-2xl">
                         <div className="mb-3 flex items-start justify-between gap-3">
                             <div>
-                                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Share
+                                <h3 className="lm-text-primary text-base font-semibold">Share
                                     Link</h3>
-                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{shareModal.name}</p>
+                                <p className="lm-text-muted mt-1 text-xs">{shareModal.name}</p>
                             </div>
                         </div>
                         <div
-                            className="rounded-md border border-slate-300 bg-slate-50 p-2 dark:border-[#3a3d44] dark:bg-[#26292f]">
-                            <p className="break-all text-xs text-slate-700 dark:text-slate-200">{shareModal.url}</p>
+                            className="rounded-md border lm-border-default bg-[var(--surface-content)] p-2">
+                            <p className="lm-text-secondary break-all text-xs">{shareModal.url}</p>
                         </div>
                         <div className="mt-4 flex items-center justify-between gap-2">
                             <Button
                                 type="button"
-                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                variant="outline"
+                                className="rounded-md px-3 py-2 text-sm"
                                 onClick={() => setShareModal(null)}
                             >
                                 Close
                             </Button>
                             <Button
                                 type="button"
-                                className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                variant="default"
+                                className="rounded-md px-3 py-2 text-sm font-medium"
                                 onClick={() => {
                                     void navigator.clipboard
                                         .writeText(shareModal.url)

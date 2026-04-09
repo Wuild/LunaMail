@@ -752,7 +752,7 @@ function ComposeEmailPage() {
 
     return (
         <div
-            className="relative h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#2f3136]"
+            className="lm-shell relative h-screen w-screen overflow-hidden"
             onDragEnterCapture={(event) => {
                 if (!isExternalDesktopFileDrag(event.dataTransfer)) return;
                 event.preventDefault();
@@ -787,7 +787,7 @@ function ComposeEmailPage() {
             }}
         >
             {windowDragActive && (
-                <div className="pointer-events-none absolute inset-x-3 bottom-3 top-[3.25rem] z-[90] flex items-center justify-center rounded-xl border-2 border-dashed border-sky-400 bg-sky-100/75 text-sm font-medium text-sky-900 dark:border-sky-500 dark:bg-sky-900/25 dark:text-sky-200">
+                <div className="pointer-events-none absolute inset-x-3 bottom-3 top-[3.25rem] z-[90] flex items-center justify-center rounded-xl border-2 border-dashed border-sky-400 bg-sky-100/75 text-sm font-medium text-sky-900">
                     Drop files to attach. Drop on editor body to insert images inline.
                 </div>
             )}
@@ -805,7 +805,7 @@ function ComposeEmailPage() {
                     }}
                 />
                 <header
-                    className="border-b border-slate-800 bg-slate-900 px-5 py-3 text-slate-100 dark:border-[#08090c] dark:bg-[#0b0c10]">
+                    className="lm-compose-header border-b px-5 py-3 text-[var(--text-inverse)]">
                     <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                             <div
@@ -827,11 +827,11 @@ function ComposeEmailPage() {
                 </header>
 
                 <div className="min-h-0 flex-1">
-                    <div className="flex h-full w-full flex-col overflow-hidden bg-white dark:bg-[#313338]">
-                        <div className="border-b border-slate-200 px-5 py-4 dark:border-[#3a3d44]">
+                    <div className="lm-bg-card flex h-full w-full flex-col overflow-hidden">
+                        <div className="border-b lm-border-default px-5 py-4">
                             <div className="grid grid-cols-1 gap-2 md:grid-cols-[220px_1fr]">
                                 <label className="block text-sm">
-									<span className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+									<span className="lm-text-muted mb-1 block text-xs font-medium">
 										From
 									</span>
                                     <FormSelect
@@ -846,7 +846,7 @@ function ComposeEmailPage() {
                                                     <span className="block min-w-0 truncate">
                                                         {option.label}
                                                         {option.description ? (
-                                                            <span className="text-slate-500 dark:text-slate-400"> · {option.description}</span>
+                                                            <span className="lm-text-muted"> · {option.description}</span>
                                                         ) : null}
                                                     </span>
                                                 </span>
@@ -856,7 +856,7 @@ function ComposeEmailPage() {
                                 </label>
 
                                 <label className="block text-sm">
-									<span className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+									<span className="lm-text-muted mb-1 block text-xs font-medium">
 										To
 									</span>
                                     <div className="flex gap-2">
@@ -889,7 +889,7 @@ function ComposeEmailPage() {
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            className="h-11 shrink-0 px-3 text-xs font-medium text-slate-600 dark:text-slate-300"
+                                            className="h-11 shrink-0 px-3 text-xs font-medium"
                                             onClick={() => setShowCcBcc((prev) => !prev)}
                                         >
                                             {showCcBcc ? 'Hide Cc/Bcc' : 'Cc/Bcc'}
@@ -902,7 +902,7 @@ function ComposeEmailPage() {
                                 <div className="mt-2 grid grid-cols-2 gap-2">
                                     <label className="block min-w-0 text-sm">
 										<span
-                                            className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                                            className="lm-text-muted mb-1 block text-xs font-medium">
 											Cc
 										</span>
                                         <RecipientMultiInput
@@ -934,7 +934,7 @@ function ComposeEmailPage() {
 
                                     <label className="block min-w-0 text-sm">
 										<span
-                                            className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                                            className="lm-text-muted mb-1 block text-xs font-medium">
 											Bcc
 										</span>
                                         <RecipientMultiInput
@@ -968,7 +968,7 @@ function ComposeEmailPage() {
 
                             <div className="mt-2">
                                 <label className="block text-sm">
-									<span className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+									<span className="lm-text-muted mb-1 block text-xs font-medium">
 										Subject
 									</span>
                                     <FormInput
@@ -994,7 +994,7 @@ function ComposeEmailPage() {
                             </div>
                         </div>
 
-                        <footer className="border-t border-slate-200 bg-slate-50 px-5 py-3 dark:border-[#2a2d31] dark:bg-[#1b1c20]">
+                        <footer className="border-t lm-border-default bg-[var(--surface-content)] px-5 py-3">
                             {attachments.length > 0 && (
                                 <div className="mb-3 overflow-x-auto overflow-y-hidden pr-1">
                                     <div className="flex min-w-full w-max gap-2 pb-1">
@@ -1117,21 +1117,21 @@ function CloudAttachmentPickerModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xl dark:border-[#3a3d44] dark:bg-[#1f2125]">
-                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-[#3a3d44]">
-                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Add file from cloud</h2>
+            <div className="lm-overlay flex w-full max-w-3xl flex-col overflow-hidden rounded-xl shadow-2xl">
+                <div className="flex items-center justify-between border-b lm-border-default px-4 py-3">
+                    <h2 className="lm-text-primary text-sm font-semibold">Add file from cloud</h2>
                     <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-auto px-2 py-1 text-xs text-slate-600 dark:text-slate-300"
+                        className="h-auto px-2 py-1 text-xs"
                         onClick={onClose}
                     >
                         Close
                     </Button>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 border-b border-slate-200 px-4 py-3 dark:border-[#3a3d44] md:grid-cols-[280px_1fr_auto_auto_auto]">
+                <div className="grid grid-cols-1 gap-2 border-b lm-border-default px-4 py-3 md:grid-cols-[280px_1fr_auto_auto_auto]">
                     <FormSelect
                         className="h-9"
                         value={selectedAccountId}
@@ -1144,13 +1144,14 @@ function CloudAttachmentPickerModal({
                             </option>
                         ))}
                     </FormSelect>
-                    <div className="flex h-9 min-w-0 items-center gap-1 overflow-x-auto rounded-md border border-slate-300 bg-slate-50 px-2 text-xs text-slate-600 dark:border-[#3a3d44] dark:bg-[#2a2d31] dark:text-slate-300">
+                    <div className="flex h-9 min-w-0 items-center gap-1 overflow-x-auto rounded-md border lm-border-default bg-[var(--surface-content)] px-2 text-xs lm-text-secondary">
                         {breadcrumbs.map((crumb, index) => (
                             <React.Fragment key={`${crumb.path}-${index}`}>
                                 {index > 0 ? <ChevronRight size={12} className="shrink-0 opacity-70"/> : null}
                                 <Button
                                     type="button"
-                                    className="shrink-0 rounded px-1 py-0.5 hover:bg-slate-200 dark:hover:bg-[#3a3d44]"
+                                    variant="ghost"
+                                    className="shrink-0 rounded px-1 py-0.5"
                                     title={crumb.path}
                                     onClick={() => onNavigate(crumb.path)}
                                     disabled={busy}
@@ -1162,7 +1163,8 @@ function CloudAttachmentPickerModal({
                     </div>
                     <Button
                         type="button"
-                        className="h-9 rounded-md border border-slate-300 px-3 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#2a2d31]"
+                        variant="outline"
+                        className="h-9 rounded-md px-3 text-xs disabled:opacity-50"
                         onClick={() => onNavigate(rootPath)}
                         disabled={busy || isAtRoot}
                         title="Go to root"
@@ -1174,7 +1176,8 @@ function CloudAttachmentPickerModal({
                     </Button>
                     <Button
                         type="button"
-                        className="h-9 rounded-md border border-slate-300 px-3 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#2a2d31]"
+                        variant="outline"
+                        className="h-9 rounded-md px-3 text-xs disabled:opacity-50"
                         onClick={onUp}
                         disabled={busy || isAtRoot}
                     >
@@ -1182,7 +1185,8 @@ function CloudAttachmentPickerModal({
                     </Button>
                     <Button
                         type="button"
-                        className="h-9 rounded-md border border-slate-300 px-3 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-300 dark:hover:bg-[#2a2d31]"
+                        variant="outline"
+                        className="h-9 rounded-md px-3 text-xs disabled:opacity-50"
                         onClick={onRefresh}
                         disabled={busy || typeof selectedAccountId !== 'number'}
                     >
@@ -1195,16 +1199,16 @@ function CloudAttachmentPickerModal({
 
                 <div className="min-h-[16rem] max-h-[24rem] overflow-y-auto">
                     {loading && cloudItems.length === 0 ? (
-                        <div className="flex min-h-[16rem] items-center justify-center gap-2 px-2 py-3 text-sm text-slate-500 dark:text-slate-400">
+                        <div className="lm-text-muted flex min-h-[16rem] items-center justify-center gap-2 px-2 py-3 text-sm">
                             <Loader2 size={16} className="animate-spin"/>
                             <span>Loading cloud files...</span>
                         </div>
                     ) : cloudAccounts.length === 0 ? (
-                        <p className="px-2 py-3 text-sm text-slate-500 dark:text-slate-400">
+                        <p className="lm-text-muted px-2 py-3 text-sm">
                             Add a cloud account in Cloud to attach files.
                         </p>
                     ) : cloudItems.length === 0 ? (
-                        <div className="flex min-h-[16rem] items-center justify-center px-2 py-3 text-sm text-slate-500 dark:text-slate-400">
+                        <div className="lm-text-muted flex min-h-[16rem] items-center justify-center px-2 py-3 text-sm">
                             No files in this folder.
                         </div>
                     ) : (
@@ -1218,7 +1222,7 @@ function CloudAttachmentPickerModal({
                                 <col style={{width: '88px'}}/>
                             </colgroup>
                             <thead
-                                className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 text-xs uppercase tracking-wide text-slate-600 dark:border-[#3a3d44] dark:bg-[#2f3138] dark:text-slate-300">
+                                className="sticky top-0 z-10 border-b lm-border-default bg-[var(--surface-content)] text-xs uppercase tracking-wide lm-text-secondary">
                             <tr className="text-left">
                                 <th className="px-3 py-2">Name</th>
                                 <th className="px-3 py-2">Type</th>
@@ -1232,38 +1236,39 @@ function CloudAttachmentPickerModal({
                             {cloudItems.map((item) => (
                                 <tr
                                     key={item.id || item.path}
-                                    className="border-b border-slate-100 hover:bg-slate-50/80 dark:border-[#2b2d32] dark:hover:bg-[#25272c]"
+                                    className="border-b lm-border-default hover:bg-[var(--surface-hover)]"
                                 >
                                     <td className="px-3 py-2">
                                         <Button
                                             type="button"
-                                            className="flex min-w-0 items-center gap-2 text-left text-slate-800 hover:underline dark:text-slate-100"
+                                            className="lm-text-primary flex min-w-0 items-center gap-2 text-left hover:underline"
                                             onClick={() => (item.isFolder ? onNavigate(item.path || item.id) : onAttach(item))}
                                             disabled={busy}
                                         >
-                                            <span className="shrink-0 text-slate-500 dark:text-slate-300">
+                                            <span className="lm-text-muted shrink-0">
                                                 {renderCloudItemIcon(item)}
                                             </span>
                                             <span className="truncate">{item.name}</span>
                                         </Button>
                                     </td>
-                                    <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                                    <td className="lm-text-muted px-3 py-2 text-xs">
                                         {item.isFolder ? 'Folder' : cloudFileTypeLabel(item)}
                                     </td>
-                                    <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                                    <td className="lm-text-muted px-3 py-2 text-xs">
                                         {item.isFolder ? '-' : formatBytes(item.size ?? 0)}
                                     </td>
-                                    <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                                    <td className="lm-text-muted px-3 py-2 text-xs">
                                         {formatSystemDateTime(item.modifiedAt) || '-'}
                                     </td>
-                                    <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                                    <td className="lm-text-muted px-3 py-2 text-xs">
                                         {formatSystemDateTime(item.createdAt) || '-'}
                                     </td>
                                     <td className="px-2 py-2 text-right">
                                         {!item.isFolder && (
                                             <Button
                                                 type="button"
-                                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-[#3a3d44] dark:text-slate-200 dark:hover:bg-[#35373c]"
+                                                variant="outline"
+                                                className="rounded-md px-2 py-1 text-xs disabled:opacity-50"
                                                 onClick={() => onAttach(item)}
                                                 disabled={busy}
                                             >
@@ -1279,7 +1284,7 @@ function CloudAttachmentPickerModal({
                 </div>
 
                 {status && (
-                    <div className="border-t border-slate-200 px-4 py-2 text-xs text-amber-600 dark:border-[#3a3d44] dark:text-amber-300">
+                    <div className="border-t lm-border-default px-4 py-2 text-xs text-amber-600">
                         {status}
                     </div>
                 )}
@@ -1319,7 +1324,7 @@ function RecipientMultiInput({
 }) {
     return (
         <div
-            className={`relative flex min-h-11 w-full flex-wrap items-center gap-1 rounded-lg border border-slate-300/90 bg-white px-3 py-1 text-sm text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition-all focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-100 dark:border-[#3a3d44] dark:bg-[#1e1f22] dark:text-slate-100 dark:focus-within:border-[#5865f2] dark:focus-within:ring-[#5865f2]/30 ${className || ''}`}
+            className={`lm-input relative flex min-h-11 w-full flex-wrap items-center gap-1 rounded-lg px-3 py-1 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition-all ${className || ''}`}
             onClick={(event) => {
                 const container = event.currentTarget;
                 const input = container.querySelector('input');
@@ -1329,12 +1334,13 @@ function RecipientMultiInput({
             {recipients.map((recipient) => (
                 <span
                     key={recipient}
-                    className="inline-flex h-7 max-w-full items-center gap-1 rounded-md bg-slate-200 px-2 text-xs text-slate-800 dark:bg-[#35373c] dark:text-slate-100"
+                    className="inline-flex h-7 max-w-full items-center gap-1 rounded-md bg-[var(--surface-hover)] px-2 text-xs lm-text-primary"
                 >
                     <span className="truncate">{recipient}</span>
                     <Button
                         type="button"
-                        className="text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                        variant="ghost"
+                        className="h-auto min-w-0 p-0 lm-text-muted hover:text-[var(--text-primary)]"
                         onClick={(event) => {
                             event.stopPropagation();
                             onRemoveRecipient(recipient);
@@ -1370,7 +1376,7 @@ function RecipientMultiInput({
                 inputClassName="h-7 border-0 bg-transparent px-1 py-0 text-sm shadow-none focus:ring-0"
             />
             {invalidMessage ? (
-                <div className="w-full pl-1 text-[11px] text-rose-600 dark:text-rose-400">{invalidMessage}</div>
+                <div className="w-full pl-1 text-[11px] text-rose-600">{invalidMessage}</div>
             ) : null}
         </div>
     );
@@ -1408,9 +1414,9 @@ function AttachmentCard({attachment, onRemove}: { attachment: ComposeAttachment;
 
     return (
         <div
-            className="group relative flex w-[17rem] items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 p-2 text-xs text-slate-700 dark:border-[#3a3d44] dark:bg-[#1f2125] dark:text-slate-200">
+            className="group relative flex w-[17rem] items-center gap-2 rounded-lg border lm-border-default bg-[var(--surface-content)] p-2 text-xs lm-text-secondary">
             <div
-                className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-slate-300 bg-white dark:border-[#3a3d44] dark:bg-[#2a2d31]">
+                className="h-10 w-10 shrink-0 overflow-hidden rounded-md border lm-border-default lm-bg-card">
                 {isImage && !imageFailed ? (
                     <img
                         src={toFileUrl(attachment.path)}
@@ -1419,21 +1425,22 @@ function AttachmentCard({attachment, onRemove}: { attachment: ComposeAttachment;
                         onError={() => setImageFailed(true)}
                     />
                 ) : (
-                    <div className="flex h-full w-full items-center justify-center text-slate-500 dark:text-slate-300">
+                    <div className="lm-text-muted flex h-full w-full items-center justify-center">
                         {renderAttachmentTypeIcon(attachment.filename, attachment.contentType)}
                     </div>
                 )}
             </div>
             <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{attachment.filename}</p>
-                <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="lm-text-muted truncate text-[11px]">
                     {attachment.contentType || fileExtensionLabel(attachment.filename)}
                     {typeof attachment.size === 'number' ? ` • ${formatBytes(attachment.size)}` : ''}
                 </p>
             </div>
             <Button
                 type="button"
-                className="rounded p-1 text-slate-500 opacity-80 transition hover:bg-slate-200 hover:text-slate-900 group-hover:opacity-100 dark:text-slate-400 dark:hover:bg-[#35373c] dark:hover:text-white"
+                variant="ghost"
+                className="rounded p-1 opacity-80 transition group-hover:opacity-100"
                 onClick={onRemove}
                 aria-label={`Remove ${attachment.filename}`}
                 title="Remove attachment"

@@ -364,15 +364,15 @@ export default function AccountFolderSidebar({
     return (
         <div className="relative min-h-0 shrink-0" style={{width}}>
             <aside
-                className="flex h-full min-h-0 shrink-0 flex-col border-r border-slate-200 bg-white text-slate-800 dark:border-[#3a3d44] dark:bg-[#2b2d31] dark:text-slate-100">
+                className="lm-sidebar lm-text-primary flex h-full min-h-0 shrink-0 flex-col">
                 <ScrollArea className="min-h-0 flex-1 px-2.5 py-3">
                     <nav
                         className="space-y-2 overflow-x-hidden"
                     >
-                        <div className="mb-2 border-b border-slate-200 pb-2 dark:border-[#1b1c20]">
+                        <div className="lm-border-default mb-2 border-b pb-2">
                             <Button
                                 type="button"
-                                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700 dark:bg-[#5865f2] dark:hover:bg-[#4f5bd5]"
+                                className="lm-btn-primary inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold shadow-sm transition-colors"
                                 onClick={() => onOpenCompose(selectedAccountId)}
                                 title="Compose"
                                 aria-label="Compose"
@@ -383,7 +383,7 @@ export default function AccountFolderSidebar({
                         </div>
 
                         {accounts.length === 0 && (
-                            <div className="rounded-lg px-3 py-2.5 text-sm text-slate-500 dark:text-slate-400">
+                            <div className="lm-text-muted rounded-lg px-3 py-2.5 text-sm">
                                 No accounts yet
                             </div>
                         )}
@@ -439,8 +439,8 @@ export default function AccountFolderSidebar({
                                                 className={cn(
                                                     'group flex items-center gap-1 rounded-lg px-1 py-0.5 transition-colors',
                                                     isSelectedAccount
-                                                        ? 'bg-gradient-to-r from-slate-200/90 to-slate-100/90 dark:from-[#3f434b] dark:to-[#373a42]'
-                                                        : 'bg-transparent hover:bg-gradient-to-r hover:from-slate-200/90 hover:to-slate-100/90 dark:hover:from-[#3f434b] dark:hover:to-[#373a42]',
+                                                        ? 'bg-gradient-to-r from-slate-200/90 to-slate-100/90'
+                                                        : 'bg-transparent hover:bg-gradient-to-r hover:from-slate-200/90 hover:to-slate-100/90',
                                                 )}
                                             >
                                             <a
@@ -449,8 +449,8 @@ export default function AccountFolderSidebar({
                                                 className={cn(
                                                     'flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm no-underline transition-colors',
                                                     isSelectedAccount
-                                                        ? 'font-semibold text-slate-900 dark:text-white'
-                                                        : 'text-slate-700 dark:text-slate-200',
+                                                        ? 'lm-text-primary font-semibold'
+                                                        : 'lm-text-secondary',
                                                 )}
                                                 onContextMenu={(event) => {
                                                     event.preventDefault();
@@ -462,8 +462,8 @@ export default function AccountFolderSidebar({
                                                 className={cn(
                                                     'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1',
                                                     isSelectedAccount
-                                                        ? 'ring-slate-800/30 dark:ring-white/25'
-                                                        : 'ring-black/10 dark:ring-white/10',
+                                                        ? 'ring-slate-800/30'
+                                                        : 'ring-black/10',
                                                 )}
                                                 style={{
                                                     backgroundColor: avatarColors.background,
@@ -478,7 +478,7 @@ export default function AccountFolderSidebar({
 												</span>
                                                 {account.display_name?.trim() && (
                                                     <span
-                                                        className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                                                        className="lm-text-muted block truncate text-[11px] font-normal">
 														{account.email}
 													</span>
                                                 )}
@@ -494,7 +494,7 @@ export default function AccountFolderSidebar({
                                                     )}
                                                 >
                                                     <Button
-                                                        className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                                        className="lm-btn-ghost rounded p-1 transition-colors"
                                                         onClick={(event) => {
                                                             event.stopPropagation();
                                                             onSyncAccount(account.id);
@@ -509,7 +509,7 @@ export default function AccountFolderSidebar({
                                                         />
                                                     </Button>
                                                     <Button
-                                                        className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                                        className="lm-btn-ghost rounded p-1 transition-colors"
                                                         onClick={(event) => {
                                                             event.stopPropagation();
                                                             onOpenAccountSettings(account.id);
@@ -526,13 +526,13 @@ export default function AccountFolderSidebar({
                                                         title={`${accountUnread} unread in account`}
                                                         className={cn(
                                                             isSelectedAccount &&
-                                                            'border-red-400/90 from-red-500 to-red-700 dark:border-red-400/80',
+                                                            'border-red-400/90 from-red-500 to-red-700',
                                                         )}
                                                     />
                                                 )}
                                                 <Button
                                                     type="button"
-                                                    className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[#454850] dark:hover:text-slate-100"
+                                                    className="lm-btn-ghost rounded p-1 transition-colors"
                                                     onClick={(event) => {
                                                         event.preventDefault();
                                                         event.stopPropagation();
@@ -556,10 +556,10 @@ export default function AccountFolderSidebar({
 
                                         {isExpanded && (
                                             <div
-                                                className="relative mt-1 space-y-1 pl-7 before:absolute before:bottom-2 before:left-3.5 before:top-1 before:w-px before:bg-gradient-to-b before:from-slate-300 before:to-slate-200/30 before:content-[''] dark:before:from-[#4a4d55] dark:before:to-transparent">
+                                                className="relative mt-1 space-y-1 pl-7 before:absolute before:bottom-2 before:left-3.5 before:top-1 before:w-px before:bg-gradient-to-b before:from-[var(--border-strong)] before:to-transparent before:content-['']">
                                             {accountFolders.length === 0 ? (
                                                 <div
-                                                    className="rounded-md px-2 py-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                                    className="lm-text-muted rounded-md px-2 py-1.5 text-xs">
                                                     No folders yet
                                                 </div>
                                             ) : (
@@ -600,7 +600,7 @@ export default function AccountFolderSidebar({
                                                     {accountProtectedFolders.length > 0 &&
                                                         accountCustomFolders.length > 0 && (
                                                             <div
-                                                                className="my-1.5 h-px bg-gradient-to-r from-transparent via-slate-300/80 to-transparent dark:via-[#3a3d44]"/>
+                                                                className="my-1.5 h-px bg-gradient-to-r from-transparent via-[var(--border-default)] to-transparent"/>
                                                         )}
                                                     <SortableContext
                                                         items={accountCustomFolders.map((entry) => toFolderSortableId(entry.account_id, entry.path))}
@@ -662,7 +662,7 @@ export default function AccountFolderSidebar({
                                         )}
                                         {accountIndex < accounts.length - 1 && (
                                             <div
-                                                className="mx-2 my-1.5 h-px bg-gradient-to-r from-transparent via-slate-300/85 to-transparent dark:via-[#3b3e45]"/>
+                                                className="mx-2 my-1.5 h-px bg-gradient-to-r from-transparent via-[var(--border-default)] to-transparent"/>
                                         )}
                                         </>
                                         )}
@@ -678,7 +678,7 @@ export default function AccountFolderSidebar({
                             <DragOverlay dropAnimation={null}>
                                 {draggingAccount ? (
                                     <div
-                                        className="rounded-lg border border-slate-300 bg-white opacity-85 shadow-xl dark:border-[#4a4d55] dark:bg-[#2b2d31]"
+                                        className="lm-card rounded-lg opacity-85 shadow-xl"
                                         style={{
                                             width: dragOverlaySize?.width,
                                             minHeight: dragOverlaySize?.height,
@@ -687,16 +687,16 @@ export default function AccountFolderSidebar({
                                     >
                                         <div className="flex items-center gap-2 px-2 py-1.5">
                                             <span
-                                                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1 ring-black/10 dark:ring-white/10">
+                                                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ring-1 ring-black/10">
                                                 {getAccountMonogram(draggingAccount)}
                                             </span>
                                             <span className="min-w-0 flex-1">
-                                                <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">
+                                                <span className="lm-text-primary block truncate text-sm font-semibold">
                                                     {draggingAccount.display_name?.trim() || draggingAccount.email}
                                                 </span>
                                                 {draggingAccount.display_name?.trim() && (
                                                     <span
-                                                        className="block truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                                        className="lm-text-muted block truncate text-[11px]">
                                                         {draggingAccount.email}
                                                     </span>
                                                 )}
@@ -708,7 +708,7 @@ export default function AccountFolderSidebar({
                             <DragOverlay dropAnimation={null}>
                                 {draggingFolder ? (
                                     <div
-                                        className="rounded-lg border border-slate-300 bg-white opacity-85 shadow-xl dark:border-[#4a4d55] dark:bg-[#2b2d31]"
+                                        className="lm-card rounded-lg opacity-85 shadow-xl"
                                         style={{
                                             width: folderOverlaySize?.width,
                                             minHeight: folderOverlaySize?.height,
@@ -716,10 +716,10 @@ export default function AccountFolderSidebar({
                                         }}
                                     >
                                         <div className="flex items-center gap-2 px-2 py-1.5">
-                                            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-700 dark:bg-[#32353b] dark:text-slate-200">
+                                            <span className="lm-bg-hover lm-text-secondary inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md">
                                                 <Folder size={14}/>
                                             </span>
-                                            <span className="truncate text-sm font-medium text-slate-900 dark:text-white">
+                                            <span className="lm-text-primary truncate text-sm font-medium">
                                                 {draggingFolder.label}
                                             </span>
                                         </div>
@@ -733,7 +733,7 @@ export default function AccountFolderSidebar({
             <div
                 role="separator"
                 aria-orientation="vertical"
-                className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize bg-transparent hover:bg-slate-300/70 dark:hover:bg-slate-500/70"
+                className="lm-resize-handle absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize bg-transparent"
                 onMouseDown={onResizeStart}
             />
         </div>

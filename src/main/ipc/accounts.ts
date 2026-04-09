@@ -36,7 +36,7 @@ import {
 } from '../mail/actions.js';
 import {saveDraftEmail, sendEmail} from '../mail/send.js';
 import {downloadMessageAttachment, syncMessageBody, syncMessageSource, type SyncSummary} from '../mail/sync.js';
-import {getSqlitePath} from '../db/drizzle.js';
+import {getDb, getSqlitePath} from '../db/drizzle.js';
 import {verifyConnection} from '../mail/verify.js';
 import {
     addAddressBook,
@@ -60,12 +60,14 @@ import {registerComposeIpc} from './registerComposeIpc.js';
 import {registerDavIpc} from './registerDavIpc.js';
 import {registerMailIpc} from './registerMailIpc.js';
 import {normalizeSyncIntervalMinutes} from '../../shared/settingsRules.js';
+import {getAppSettingsSync} from '../settings/store.js';
 import {
     broadcastAccountSyncStatus,
     broadcastMessageReadUpdated as broadcastMessageReadUpdatedEvent,
     broadcastToAllWindows,
     broadcastUnreadCountUpdated,
 } from './broadcast.js';
+import {isDemoProvider} from '../demo/demoMode.js';
 
 const bodyRequests = new Map<string, { cancel: () => void }>();
 const SYNC_DEBOUNCE_MS = 350;
@@ -124,6 +126,24 @@ const IDLE_RECONNECT_MAX_MS = 60000;
 const appLogger = createAppLogger('ipc:accounts');
 
 const idleWatchers = new Map<number, IdleWatcherState>();
+
+function isDemoModeEnabled(): boolean {
+    return Boolean(getAppSettingsSync().developerDemoMode);
+}
+
+function filterAccountsForCurrentMode<T extends { provider: string | null | undefined }>(accounts: T[]): T[] {
+    if (!isDemoModeEnabled()) return accounts;
+    return accounts.filter((account) => isDemoProvider(account.provider));
+}
+
+function getVisibleUnreadCount(accounts: Array<{ id: number; provider: string | null | undefined }>): number {
+    const visibleAccounts = filterAccountsForCurrentMode(accounts);
+    return visibleAccounts.reduce((sum, account) => {
+        const folders = listFoldersByAccount(account.id);
+        const accountUnread = folders.reduce((acc, folder) => acc + Math.max(0, Number(folder.unread_count) || 0), 0);
+        return sum + accountUnread;
+    }, 0);
+}
 
 function escapeCsvValue(value: string): string {
     if (!/[",\n\r]/.test(value)) return value;
@@ -191,8 +211,8 @@ function toVcf(
 export function registerAccountIpc(): void {
     registerAccountCoreIpc({
         appLogger,
-        getAccounts,
-        getTotalUnreadCount,
+        getAccounts: async () => filterAccountsForCurrentMode(await getAccounts()),
+        getTotalUnreadCount: () => getVisibleUnreadCount(getAccountsSyncSnapshot()),
         addAccount,
         updateAccount,
         deleteAccount,
@@ -274,6 +294,18 @@ export function registerAccountIpc(): void {
     });
 }
 
+function getAccountsSyncSnapshot(): Array<{ id: number; provider: string | null | undefined }> {
+    try {
+        const db = getDb();
+        const rows = db
+            .prepare('SELECT id, provider FROM accounts ORDER BY created_at ASC')
+            .all() as Array<{ id: number; provider: string | null | undefined }>;
+        return rows;
+    } catch {
+        return [];
+    }
+}
+
 export function startAccountAutoSync(): void {
     if (autoSyncTimer) return;
     appLogger.info('Starting account auto sync intervalMs=%d', autoSyncIntervalMs);
@@ -338,7 +370,7 @@ export function setNewMailListener(
 }
 
 export function getCurrentUnreadCount(): number {
-    return getTotalUnreadCount();
+    return getVisibleUnreadCount(getAccountsSyncSnapshot());
 }
 
 async function runAutoSyncCycle(source: 'startup' | 'interval'): Promise<void> {
@@ -347,8 +379,11 @@ async function runAutoSyncCycle(source: 'startup' | 'interval'): Promise<void> {
     autoSyncRunning = true;
     try {
         const accounts = await getAccounts();
-        void ensureIdleWatchersForAccounts(accounts.map((account) => account.id));
+        const syncableAccounts = accounts.filter((account) => !isDemoProvider(account.provider) && !isDemoModeEnabled());
+        void ensureIdleWatchersForAccounts(syncableAccounts.map((account) => account.id));
         for (const account of accounts) {
+            if (isDemoModeEnabled()) continue;
+            if (isDemoProvider(account.provider)) continue;
             if (blockedSyncAccounts.has(account.id)) continue;
             try {
                 await runSyncAndBroadcast(account.id, source);
@@ -363,6 +398,31 @@ async function runAutoSyncCycle(source: 'startup' | 'interval'): Promise<void> {
 
 async function runSyncAndBroadcast(accountId: number, source: string): Promise<AccountSyncSummary> {
     appLogger.debug('runSyncAndBroadcast accountId=%d source=%s', accountId, source);
+    const account = (await getAccounts()).find((item) => item.id === accountId) ?? null;
+    if (account && isDemoModeEnabled() && !isDemoProvider(account.provider)) {
+        const summary: AccountSyncSummary = {
+            accountId,
+            folders: 0,
+            messages: 0,
+            newMessages: 0,
+            newMessageIds: [],
+            newestMessageTarget: null,
+        };
+        broadcastSync({accountId, status: 'done', summary, source: 'demo-mode'});
+        return summary;
+    }
+    if (account && isDemoProvider(account.provider)) {
+        const summary: AccountSyncSummary = {
+            accountId,
+            folders: 0,
+            messages: 0,
+            newMessages: 0,
+            newMessageIds: [],
+            newestMessageTarget: null,
+        };
+        broadcastSync({accountId, status: 'done', summary, source});
+        return summary;
+    }
     const blockedReason = blockedSyncAccounts.get(accountId);
     if (blockedReason) {
         const error = `Sync paused for this account: ${blockedReason}. Update account settings or restart app.`;
@@ -590,7 +650,7 @@ function broadcastSync(payload: any) {
 }
 
 function notifyUnreadCountChanged(): void {
-    const count = getTotalUnreadCount();
+    const count = getVisibleUnreadCount(getAccountsSyncSnapshot());
     appLogger.debug('Broadcast unread-count-updated count=%d', count);
     broadcastUnreadCountUpdated(count);
     if (!unreadCountListener) return;
@@ -640,7 +700,11 @@ function stopAllIdleWatchers(): void {
 
 async function ensureIdleWatchersForAllAccounts(): Promise<void> {
     const accounts = await getAccounts();
-    ensureIdleWatchersForAccounts(accounts.map((account) => account.id));
+    ensureIdleWatchersForAccounts(
+        accounts
+            .filter((account) => !isDemoProvider(account.provider) && !isDemoModeEnabled())
+            .map((account) => account.id),
+    );
 }
 
 function ensureIdleWatchersForAccounts(accountIds: number[]): void {

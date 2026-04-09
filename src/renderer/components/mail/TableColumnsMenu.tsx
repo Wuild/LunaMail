@@ -23,7 +23,7 @@ function TableColumnsMenuInner<TColumn extends string>(
     return (
         <div
             ref={ref}
-            className="fixed z-[1015] min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[#3a3d44] dark:bg-[#313338]"
+            className="fixed z-[1015] min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-[var(--lm-border-default-dark)] dark:bg-[var(--lm-surface-menu-dark)]"
             style={{
                 left: position.left,
                 top: position.top,
@@ -41,7 +41,7 @@ function TableColumnsMenuInner<TColumn extends string>(
                     <Button
                         key={column.key}
                         type="button"
-                        className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+                        className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[var(--lm-surface-active-dark)]"
                         onClick={() => onToggleColumn(column.key)}
                     >
                         <span>{column.label}</span>
@@ -57,10 +57,10 @@ function TableColumnsMenuInner<TColumn extends string>(
                     </Button>
                 );
             })}
-            <div className="my-1 h-px bg-slate-200 dark:bg-[#3a3d44]"/>
+            <div className="my-1 h-px bg-slate-200 dark:bg-[var(--lm-border-default-dark)]"/>
             <Button
                 type="button"
-                className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[#3a3e52]"
+                className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-[var(--lm-surface-active-dark)]"
                 onClick={onResetColumns}
             >
                 Reset Columns

@@ -29,9 +29,11 @@ import {
 } from './ipc/accounts.js';
 import {queueCloudOAuthCallbackUrl, registerCloudIpc} from './ipc/cloud.js';
 import {registerSettingsIpc} from './ipc/settings.js';
+import {broadcastAccountSyncStatus, broadcastToAllWindows, broadcastUnreadCountUpdated} from './ipc/broadcast.js';
 import {broadcastAutoUpdateState, registerUpdaterIpc} from './ipc/updater.js';
 import {registerWindowIpc} from './ipc/windows.js';
 import {getAppSettings, getAppSettingsBootSnapshotSync, getAppSettingsSync, getSpellCheckerLanguages} from './settings/store.js';
+import {reconcileDemoData} from './demo/demoMode.js';
 import {checkForUpdates, initAutoUpdater, runStartupUpdateFlow, setAutoUpdateEnabled} from './updater/autoUpdate.js';
 import type {GlobalErrorEvent, GlobalErrorSource} from '../shared/ipcTypes.js';
 import {broadcastGlobalError} from './ipc/broadcast.js';
@@ -312,6 +314,30 @@ function ensureBackgroundUpdateChecks(): void {
 		},
 		6 * 60 * 60 * 1000,
 	);
+}
+
+async function applyDemoMode(settings = getAppSettingsSync()): Promise<void> {
+	try {
+		const result = await reconcileDemoData(Boolean(settings.developerDemoMode));
+		for (const created of result.createdAccounts) {
+			broadcastToAllWindows('account-added', created);
+		}
+		for (const deleted of result.deletedAccounts) {
+			broadcastToAllWindows('account-deleted', deleted);
+		}
+		for (const accountId of result.touchedAccountIds) {
+			broadcastAccountSyncStatus({
+				accountId,
+				status: 'done',
+				source: 'demo-seed',
+				summary: {accountId, folders: 0, messages: 0, newMessages: 0},
+			});
+		}
+		broadcastUnreadCountUpdated(result.unreadCount);
+		updateUnreadIndicators(result.unreadCount);
+	} catch (error) {
+		logger.warn('Failed to apply demo mode: %s', toErrorMessage(error));
+	}
 }
 
 function loadMainWindowState(): MainWindowState | null {
@@ -1307,7 +1333,8 @@ if (!gotSingleInstanceLock) {
 		// Initialize database and IPC handlers
 		initDb();
 		logger.info('Database initialized');
-		await getAppSettings();
+		const settings = await getAppSettings();
+		await applyDemoMode(settings);
 		applyRuntimeSettings();
 		setUnreadCountListener((count) => {
 			updateUnreadIndicators(count);
@@ -1343,6 +1370,7 @@ if (!gotSingleInstanceLock) {
 		registerCloudIpc();
 		registerSettingsIpc((settings) => {
 			applyRuntimeSettings();
+			void applyDemoMode(settings);
 		});
 		registerUpdaterIpc();
 			registerWindowIpc();

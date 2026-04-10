@@ -81,10 +81,10 @@
         --account-submenu-text: var(--base-slate-600);
         --account-submenu-border: var(--base-slate-200);
 
-        --titlebar-surface: #171717;
+        --titlebar-surface: #171a1f;
         --titlebar-text: rgba(255, 255, 255, 0.82);
         --titlebar-muted: rgba(255, 255, 255, 0.55);
-        --titlebar-border: #201d20;
+        --titlebar-border: #121418;
 
         --content-surface: var(--base-slate-50);
         --content-text: var(--base-slate-900);

@@ -116,6 +116,9 @@ const FOLDER_COLOR_OPTIONS = [
 	{value: 'amber', label: 'Amber'},
 	{value: 'rose', label: 'Rose'},
 	{value: 'violet', label: 'Violet'},
+    {value: 'cyan', label: 'Cyan'},
+    {value: 'lime', label: 'Lime'},
+    {value: 'indigo', label: 'Indigo'},
 	{value: 'slate', label: 'Slate'},
 ] as const;
 

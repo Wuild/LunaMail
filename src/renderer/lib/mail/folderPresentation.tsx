@@ -34,6 +34,12 @@ export function getFolderColorClass(color: string | null | undefined): string | 
             return 'folder-color-rose';
         case 'violet':
             return 'folder-color-violet';
+        case 'cyan':
+            return 'folder-color-cyan';
+        case 'lime':
+            return 'folder-color-lime';
+        case 'indigo':
+            return 'folder-color-indigo';
         case 'slate':
             return 'folder-color-slate';
         default:
@@ -53,6 +59,12 @@ export function getFolderSwatchClass(color: string): string {
             return 'swatch-rose';
         case 'violet':
             return 'swatch-violet';
+        case 'cyan':
+            return 'swatch-cyan';
+        case 'lime':
+            return 'swatch-lime';
+        case 'indigo':
+            return 'swatch-indigo';
         case 'slate':
             return 'swatch-slate';
         default:

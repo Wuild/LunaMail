@@ -12,7 +12,7 @@ import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {Button} from '@renderer/components/ui/button';
 import {FormInput, FormSelect, FormTextarea} from '@renderer/components/ui/FormControls';
-import {Modal} from '@renderer/components/ui/Modal';
+import {Modal, ModalHeader, ModalTitle} from '@renderer/components/ui/Modal';
 import {
     statusAutoSyncFailed,
     statusNoAccountSelected,
@@ -494,38 +494,32 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
             >
                 <Trash2 size={14}/>
             </Button>
-            <FormInput
-                type="text"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search contacts..."
-                className="h-10 min-w-[10rem] flex-1 rounded-md px-3 text-sm disabled:opacity-60"
-                disabled={!accountId}
-            />
-            <Button
-                type="button"
-                variant="default"
-                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium disabled:opacity-60"
-                onClick={() => setShowAddContactModal(true)}
-                disabled={!accountId}
-                title="Add contact"
-                aria-label="Add contact"
-            >
-                <Plus size={14}/>
-                Add contact
-            </Button>
-            <Button
-                type="button"
-                variant="outline"
-                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium disabled:opacity-60"
-                onClick={() => setShowExportContactsModal(true)}
-                disabled={!accountId}
-                title="Export contacts"
-                aria-label="Export contacts"
-            >
-                <Download size={14}/>
-                Export
-            </Button>
+            <div className="ml-auto flex items-center gap-2">
+                <Button
+                    type="button"
+                    variant="default"
+                    className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium disabled:opacity-60"
+                    onClick={() => setShowAddContactModal(true)}
+                    disabled={!accountId}
+                    title="Add contact"
+                    aria-label="Add contact"
+                >
+                    <Plus size={14}/>
+                    Add contact
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium disabled:opacity-60"
+                    onClick={() => setShowExportContactsModal(true)}
+                    disabled={!accountId}
+                    title="Export contacts"
+                    aria-label="Export contacts"
+                >
+                    <Download size={14}/>
+                    Export
+                </Button>
+            </div>
         </div>
     );
 
@@ -546,6 +540,15 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                 {accountId && (
                     <>
                         {contactError && <p className="text-danger mb-3 text-sm">{contactError}</p>}
+                        <div className="mb-3">
+                            <FormInput
+                                type="text"
+                                value={query}
+                                onChange={(event) => setQuery(event.target.value)}
+                                placeholder="Search contacts..."
+                                disabled={!accountId}
+                            />
+                        </div>
                         {loading && <p className="ui-text-muted text-sm">Loading contacts...</p>}
                         {!loading && contacts.length === 0 && (
                             <p className="ui-text-muted text-sm">No contacts found.</p>
@@ -653,10 +656,23 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                             void onAddContact();
                         }}
                     >
-                        <h3 className="ui-text-primary text-base font-semibold">Add Contact</h3>
-                        <p className="ui-text-muted mt-1 text-xs">
-                            Create a contact for the selected account.
-                        </p>
+                        <ModalHeader className="ui-border-default border-b pb-3">
+                            <div className="min-w-0 flex-1">
+                                <ModalTitle className="text-base">Add Contact</ModalTitle>
+                                <p className="ui-text-muted mt-1 text-xs">Create a contact for the selected account.</p>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-md"
+                                onClick={() => setShowAddContactModal(false)}
+                                title="Close"
+                                aria-label="Close add contact modal"
+                            >
+                                <X size={14}/>
+                            </Button>
+                        </ModalHeader>
                         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div className="space-y-3">
                                 <label className="block text-sm">
@@ -668,7 +684,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                         value={newContactName}
                                         onChange={(event) => setNewContactName(event.target.value)}
                                         placeholder="Jane Doe"
-                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     />
                                 </label>
                                 <DynamicContactFieldList
@@ -699,7 +714,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                         value={newContactOrganization}
                                         onChange={(event) => setNewContactOrganization(event.target.value)}
                                         placeholder="Acme Inc."
-                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     />
                                 </label>
                                 <label className="block text-sm">
@@ -711,7 +725,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                         value={newContactTitle}
                                         onChange={(event) => setNewContactTitle(event.target.value)}
                                         placeholder="Sales Manager"
-                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     />
                                 </label>
                                 <label className="block text-sm">
@@ -723,7 +736,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                         onChange={(event) =>
                                             setSelectedBookId(event.target.value ? Number(event.target.value) : null)
                                         }
-                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     >
                                         <option value="">No address book</option>
                                         {addressBooks.map((book) => (
@@ -741,7 +753,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                         value={newContactNote}
                                         onChange={(event) => setNewContactNote(event.target.value)}
                                         rows={7}
-                                        className="w-full rounded-md px-3 py-2 text-sm"
                                     />
                                 </label>
                             </div>
@@ -781,7 +792,20 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                             void onSaveEditedContact();
                         }}
                     >
-                        <h3 className="ui-text-primary text-base font-semibold">Edit Contact</h3>
+                        <ModalHeader className="ui-border-default border-b pb-3">
+                            <ModalTitle className="text-base">Edit Contact</ModalTitle>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-md"
+                                onClick={() => setEditingContact(null)}
+                                title="Close"
+                                aria-label="Close edit contact modal"
+                            >
+                                <X size={14}/>
+                            </Button>
+                        </ModalHeader>
                         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div className="space-y-3">
                                 <label className="block text-sm">
@@ -793,7 +817,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                         value={editContactName}
                                         onChange={(event) => setEditContactName(event.target.value)}
                                         placeholder="Jane Doe"
-                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     />
                                 </label>
                                 <DynamicContactFieldList
@@ -822,7 +845,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                         type="text"
                                         value={editContactOrganization}
                                         onChange={(event) => setEditContactOrganization(event.target.value)}
-                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     />
                                 </label>
                                 <label className="block text-sm">
@@ -833,7 +855,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                         type="text"
                                         value={editContactTitle}
                                         onChange={(event) => setEditContactTitle(event.target.value)}
-                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     />
                                 </label>
                                 <label className="block text-sm">
@@ -846,7 +867,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                             setEditContactBookId(event.target.value ? Number(event.target.value) : null)
                                         }
                                         disabled={editingContact.source === 'carddav'}
-                                        className="h-10 w-full rounded-md px-3 text-sm"
                                     >
                                         <option value="">No address book</option>
                                         {addressBooks.map((book) => (
@@ -864,7 +884,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                         value={editContactNote}
                                         onChange={(event) => setEditContactNote(event.target.value)}
                                         rows={7}
-                                        className="w-full rounded-md px-3 py-2 text-sm"
                                     />
                                 </label>
                             </div>
@@ -904,12 +923,25 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                             void onAddAddressBook();
                         }}
                     >
-                        <h3 className="ui-text-primary text-base font-semibold">
-                            Create Address Book
-                        </h3>
-                        <p className="ui-text-muted mt-1 text-xs">
-                            Local address books can be used to organize manual contacts.
-                        </p>
+                        <ModalHeader className="ui-border-default border-b pb-3">
+                            <div className="min-w-0 flex-1">
+                                <ModalTitle className="text-base">Create Address Book</ModalTitle>
+                                <p className="ui-text-muted mt-1 text-xs">
+                                    Local address books can be used to organize manual contacts.
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-md"
+                                onClick={() => setShowAddAddressBookModal(false)}
+                                title="Close"
+                                aria-label="Close create address book modal"
+                            >
+                                <X size={14}/>
+                            </Button>
+                        </ModalHeader>
                         <label className="mt-4 block text-sm">
                             <span className="ui-text-secondary mb-1 block font-medium">Name</span>
                             <FormInput
@@ -917,7 +949,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                 value={newAddressBookName}
                                 onChange={(event) => setNewAddressBookName(event.target.value)}
                                 placeholder="Personal"
-                                className="h-10 w-full rounded-md px-3 text-sm"
                                 required
                             />
                         </label>
@@ -950,7 +981,20 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                     backdropClassName="z-50"
                     contentClassName="max-w-md"
                 >
-                    <h3 className="ui-text-primary text-base font-semibold">Export Contacts</h3>
+                    <ModalHeader className="ui-border-default border-b pb-3">
+                        <ModalTitle className="text-base">Export Contacts</ModalTitle>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-md"
+                            onClick={() => setShowExportContactsModal(false)}
+                            title="Close"
+                            aria-label="Close export contacts modal"
+                        >
+                            <X size={14}/>
+                        </Button>
+                    </ModalHeader>
                     <div className="mt-4 space-y-3">
                         <label className="block text-sm">
 								<span className="ui-text-secondary mb-1 block font-medium">
@@ -959,7 +1003,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                             <FormSelect
                                 value={exportFormat}
                                 onChange={(event) => setExportFormat(event.target.value === 'vcf' ? 'vcf' : 'csv')}
-                                className="h-10 w-full rounded-md px-3 text-sm"
                             >
                                 <option value="csv">CSV (.csv)</option>
                                 <option value="vcf">vCard (.vcf)</option>
@@ -972,7 +1015,6 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                 onChange={(event) =>
                                     setExportBookMode(event.target.value === 'all' ? 'all' : 'selected')
                                 }
-                                className="h-10 w-full rounded-md px-3 text-sm"
                             >
                                 <option value="selected">Current book</option>
                                 <option value="all">All books</option>
@@ -1121,7 +1163,7 @@ function DynamicContactFieldList({
             </div>
             <div className="space-y-2">
                 {safeValues.map((value, index) => (
-                    <div key={`${valueLabel}-${index}`} className="flex items-center gap-2">
+                    <div key={`${valueLabel}-${index}`} className="relative w-full">
                         <FormInput
                             type={type}
                             value={value}
@@ -1132,12 +1174,13 @@ function DynamicContactFieldList({
                             }}
                             placeholder={placeholder}
                             required={requiredFirst && index === 0}
-                            className="h-10 w-full rounded-md px-3 text-sm"
+                            className="w-full pr-12"
                         />
                         <Button
                             type="button"
                             variant="outline"
-                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md disabled:opacity-40"
+                            size="icon"
+                            className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 disabled:opacity-40"
                             disabled={safeValues.length === 1}
                             onClick={() => onChange(safeValues.filter((_, valueIndex) => valueIndex !== index))}
                             title={`Remove ${valueLabel.toLowerCase()}`}

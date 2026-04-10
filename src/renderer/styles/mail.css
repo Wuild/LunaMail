@@ -220,6 +220,10 @@
         background-color: var(--state-hover);
     }
 
+    .folder-item-branch:hover .folder-item-link:not(.is-active):not(.is-drop-active) {
+        background-color: var(--state-hover);
+    }
+
     .folder-item-link.is-active {
         background-color: color-mix(in srgb, var(--state-active) 80%, var(--panel-surface));
         color: var(--content-text);
@@ -239,6 +243,9 @@
 
     .folder-item-link.is-active .folder-item-icon {
         background-color: var(--panel-surface);
+    }
+
+    .folder-item-link.is-active .folder-item-icon[data-has-custom-color='false'] {
         color: var(--content-text);
     }
 
@@ -275,6 +282,18 @@
         color: color-mix(in srgb, var(--color-accent) 88%, var(--content-text));
     }
 
+    .folder-color-cyan {
+        color: color-mix(in srgb, var(--color-primary) 62%, var(--color-success));
+    }
+
+    .folder-color-lime {
+        color: color-mix(in srgb, var(--color-success) 68%, var(--color-warning));
+    }
+
+    .folder-color-indigo {
+        color: color-mix(in srgb, var(--base-indigo-500) 88%, var(--content-text));
+    }
+
     .folder-color-slate {
         color: var(--content-muted);
     }
@@ -297,6 +316,18 @@
 
     .swatch-violet {
         background-color: var(--color-accent);
+    }
+
+    .swatch-cyan {
+        background-color: color-mix(in srgb, var(--color-primary) 62%, var(--color-success));
+    }
+
+    .swatch-lime {
+        background-color: color-mix(in srgb, var(--color-success) 68%, var(--color-warning));
+    }
+
+    .swatch-indigo {
+        background-color: var(--base-indigo-500);
     }
 
     .swatch-slate {

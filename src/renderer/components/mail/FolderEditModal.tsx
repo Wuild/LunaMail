@@ -2,8 +2,9 @@ import React from 'react';
 import type {FolderItem} from '@/preload';
 import {Button} from '../ui/button';
 import {FormInput, FormSelect} from '../ui/FormControls';
-import {Modal, ModalBody, ModalFooter, ModalTitle} from '../ui/Modal';
+import {Modal, ModalBody, ModalDescription, ModalFooter, ModalHeader, ModalTitle} from '../ui/Modal';
 import {cn} from '@renderer/lib/utils';
+import {X} from 'lucide-react';
 
 type Option = {
     value: string;
@@ -48,8 +49,23 @@ export default function FolderEditModal({
 
     return (
         <Modal open onClose={onClose} contentClassName="max-w-md rounded-2xl p-5">
-            <ModalTitle className="text-lg">Edit Folder</ModalTitle>
-            <p className="ui-text-muted mt-1 text-xs">{editor.folder.path}</p>
+            <ModalHeader className="ui-border-default border-b pb-3">
+                <div className="min-w-0 flex-1">
+                    <ModalTitle className="text-lg">Edit Folder</ModalTitle>
+                    <ModalDescription className="ui-text-muted mt-1 text-xs">{editor.folder.path}</ModalDescription>
+                </div>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-md"
+                    onClick={onClose}
+                    title="Close"
+                    aria-label="Close edit folder modal"
+                >
+                    <X size={14}/>
+                </Button>
+            </ModalHeader>
 
             <ModalBody className="space-y-3">
                     <label className="block text-sm">
@@ -105,10 +121,10 @@ export default function FolderEditModal({
             {error && <p className="text-danger mt-3 text-sm">{error}</p>}
 
             <ModalFooter className="mt-5">
-                <Button variant="outline" onClick={onClose} disabled={saving}>
+                <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={saving}>
                     Cancel
                 </Button>
-                <Button onClick={onSave} disabled={saving}>
+                <Button type="button" variant="default" size="sm" onClick={onSave} disabled={saving}>
                     {saving ? 'Saving...' : 'Save'}
                 </Button>
             </ModalFooter>

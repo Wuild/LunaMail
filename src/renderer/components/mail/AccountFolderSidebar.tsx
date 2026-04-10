@@ -583,6 +583,7 @@ export default function AccountFolderSidebar({
                                                                         isSelectedAccount &&
                                                                         selectedFolderPath === folder.path
                                                                     }
+                                                                    onEditFolder={() => onOpenFolderEditor(folder)}
                                                                     dropActive={dropActive}
                                                                     onContextMenu={(event) => {
                                                                         event.preventDefault();

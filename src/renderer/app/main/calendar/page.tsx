@@ -1,5 +1,16 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {CalendarDays, ChevronLeft, ChevronRight, List, Pencil, Plus, RefreshCw, Settings, Trash2} from 'lucide-react';
+import {
+    CalendarDays,
+    ChevronLeft,
+    ChevronRight,
+    List,
+    Pencil,
+    Plus,
+    RefreshCw,
+    Settings,
+    Trash2,
+    X
+} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
 import type {CalendarEventItem, PublicAccount} from '@/preload';
 import {getAccountAvatarColorsForAccount, getAccountMonogram} from '@renderer/lib/accountAvatar';
@@ -8,8 +19,8 @@ import {clampToViewport} from '@renderer/lib/format';
 import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {Button} from '@renderer/components/ui/button';
-import {FormInput, FormTextarea} from '@renderer/components/ui/FormControls';
-import {Modal} from '@renderer/components/ui/Modal';
+import {FormDateTimeInput, FormInput, FormTextarea} from '@renderer/components/ui/FormControls';
+import {Modal, ModalHeader, ModalTitle} from '@renderer/components/ui/Modal';
 import {ContextMenu, ContextMenuItem} from '@renderer/components/ui/ContextMenu';
 import {
     statusAutoSyncFailed,
@@ -26,7 +37,6 @@ import {
     endOfMonth,
     endOfWeekMonday,
     formatEventTime,
-    formatLocalDateTimePreview,
     nextRoundedHour,
     startOfMonth,
     startOfWeekMonday,
@@ -34,6 +44,7 @@ import {
     toDateKey,
     toTimeInputValue,
 } from '@renderer/lib/date/calendar';
+import {composeLocalDateTimeValue, splitLocalDateTimeValue} from '@renderer/lib/date/localeInput';
 
 type CalendarPageProps = {
     accountId: number | null;
@@ -136,11 +147,6 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
             gridEnd: endOfWeekMonday(monthEnd),
         };
     }, [visibleMonth]);
-
-    const inputLocale = useMemo(() => {
-        const normalized = String(systemLocale || '').trim();
-        return normalized || 'en-US';
-    }, [systemLocale]);
 
     const calendarDays = useMemo(() => {
         const days: Date[] = [];
@@ -1322,7 +1328,20 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
                             void onUpdateEvent();
                         }}
                     >
-                        <h3 className="ui-text-primary text-base font-semibold">Edit Event</h3>
+                        <ModalHeader className="ui-border-default border-b pb-3">
+                            <ModalTitle className="text-base">Edit Event</ModalTitle>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-md"
+                                onClick={() => setShowEditEventModal(false)}
+                                title="Close"
+                                aria-label="Close edit event modal"
+                            >
+                                <X size={14}/>
+                            </Button>
+                        </ModalHeader>
                         <div className="mt-4 grid gap-3 md:grid-cols-2">
                             <label className="block text-sm md:col-span-2">
 									<span className="ui-text-secondary mb-1 block font-medium">
@@ -1333,60 +1352,43 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
                                     value={editEventTitle}
                                     onChange={(event) => setEditEventTitle(event.target.value)}
                                     placeholder="Team sync"
-                                    className="h-10 w-full rounded-md px-3 text-sm"
                                 />
                             </label>
                             <div className="block text-sm">
 									<span className="ui-text-secondary mb-1 block font-medium">
 										Start
 									</span>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <FormInput
-                                        type="date"
-                                        lang={inputLocale}
-                                        value={editEventStartDate}
-                                        onChange={(event) => setEditEventStartDate(event.target.value)}
-                                        className="h-10 w-full rounded-md px-3 text-sm"
-                                        required
-                                    />
-                                    <FormInput
-                                        type="time"
-                                        lang={inputLocale}
-                                        value={editEventStartTime}
-                                        onChange={(event) => setEditEventStartTime(event.target.value)}
-                                        className="h-10 w-full rounded-md px-3 text-sm"
+                                <div className="w-full">
+                                    <FormDateTimeInput
+                                        value={composeLocalDateTimeValue(editEventStartDate, editEventStartTime)}
+                                        onChange={(event) => {
+                                            const next = splitLocalDateTimeValue(event.target.value);
+                                            setEditEventStartDate(next.date);
+                                            setEditEventStartTime(next.time);
+                                        }}
+                                        locale={systemLocale}
+                                        className="w-full"
                                         required
                                     />
                                 </div>
-                                <p className="ui-text-muted mt-1 text-xs">
-                                    {formatLocalDateTimePreview(editEventStartDate, editEventStartTime, systemLocale)}
-                                </p>
                             </div>
                             <div className="block text-sm">
 									<span className="ui-text-secondary mb-1 block font-medium">
 										End
 									</span>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <FormInput
-                                        type="date"
-                                        lang={inputLocale}
-                                        value={editEventEndDate}
-                                        onChange={(event) => setEditEventEndDate(event.target.value)}
-                                        className="h-10 w-full rounded-md px-3 text-sm"
-                                        required
-                                    />
-                                    <FormInput
-                                        type="time"
-                                        lang={inputLocale}
-                                        value={editEventEndTime}
-                                        onChange={(event) => setEditEventEndTime(event.target.value)}
-                                        className="h-10 w-full rounded-md px-3 text-sm"
+                                <div className="w-full">
+                                    <FormDateTimeInput
+                                        value={composeLocalDateTimeValue(editEventEndDate, editEventEndTime)}
+                                        onChange={(event) => {
+                                            const next = splitLocalDateTimeValue(event.target.value);
+                                            setEditEventEndDate(next.date);
+                                            setEditEventEndTime(next.time);
+                                        }}
+                                        locale={systemLocale}
+                                        className="w-full"
                                         required
                                     />
                                 </div>
-                                <p className="ui-text-muted mt-1 text-xs">
-                                    {formatLocalDateTimePreview(editEventEndDate, editEventEndTime, systemLocale)}
-                                </p>
                             </div>
                             <label className="block text-sm md:col-span-2">
 									<span className="ui-text-secondary mb-1 block font-medium">
@@ -1397,7 +1399,6 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
                                     value={editEventLocation}
                                     onChange={(event) => setEditEventLocation(event.target.value)}
                                     placeholder="Conference Room"
-                                    className="h-10 w-full rounded-md px-3 text-sm"
                                 />
                             </label>
                             <label className="block text-sm md:col-span-2">
@@ -1408,7 +1409,6 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
                                     value={editEventDescription}
                                     onChange={(event) => setEditEventDescription(event.target.value)}
                                     rows={4}
-                                    className="w-full rounded-md px-3 py-2 text-sm"
                                 />
                             </label>
                         </div>
@@ -1479,7 +1479,20 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
                             void onCreateEvent();
                         }}
                     >
-                        <h3 className="ui-text-primary text-base font-semibold">Add Event</h3>
+                        <ModalHeader className="ui-border-default border-b pb-3">
+                            <ModalTitle className="text-base">Add Event</ModalTitle>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-md"
+                                onClick={() => setShowAddEventModal(false)}
+                                title="Close"
+                                aria-label="Close add event modal"
+                            >
+                                <X size={14}/>
+                            </Button>
+                        </ModalHeader>
                         <div className="mt-4 grid gap-3 md:grid-cols-2">
                             <label className="block text-sm md:col-span-2">
 									<span className="ui-text-secondary mb-1 block font-medium">
@@ -1490,60 +1503,43 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
                                     value={eventTitle}
                                     onChange={(event) => setEventTitle(event.target.value)}
                                     placeholder="Team sync"
-                                    className="h-10 w-full rounded-md px-3 text-sm"
                                 />
                             </label>
                             <div className="block text-sm">
 									<span className="ui-text-secondary mb-1 block font-medium">
 										Start
 									</span>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <FormInput
-                                        type="date"
-                                        lang={inputLocale}
-                                        value={eventStartDate}
-                                        onChange={(event) => setEventStartDate(event.target.value)}
-                                        className="h-10 w-full rounded-md px-3 text-sm"
-                                        required
-                                    />
-                                    <FormInput
-                                        type="time"
-                                        lang={inputLocale}
-                                        value={eventStartTime}
-                                        onChange={(event) => setEventStartTime(event.target.value)}
-                                        className="h-10 w-full rounded-md px-3 text-sm"
+                                <div className="w-full">
+                                    <FormDateTimeInput
+                                        value={composeLocalDateTimeValue(eventStartDate, eventStartTime)}
+                                        onChange={(event) => {
+                                            const next = splitLocalDateTimeValue(event.target.value);
+                                            setEventStartDate(next.date);
+                                            setEventStartTime(next.time);
+                                        }}
+                                        locale={systemLocale}
+                                        className="w-full"
                                         required
                                     />
                                 </div>
-                                <p className="ui-text-muted mt-1 text-xs">
-                                    {formatLocalDateTimePreview(eventStartDate, eventStartTime, systemLocale)}
-                                </p>
                             </div>
                             <div className="block text-sm">
 									<span className="ui-text-secondary mb-1 block font-medium">
 										End
 									</span>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <FormInput
-                                        type="date"
-                                        lang={inputLocale}
-                                        value={eventEndDate}
-                                        onChange={(event) => setEventEndDate(event.target.value)}
-                                        className="h-10 w-full rounded-md px-3 text-sm"
-                                        required
-                                    />
-                                    <FormInput
-                                        type="time"
-                                        lang={inputLocale}
-                                        value={eventEndTime}
-                                        onChange={(event) => setEventEndTime(event.target.value)}
-                                        className="h-10 w-full rounded-md px-3 text-sm"
+                                <div className="w-full">
+                                    <FormDateTimeInput
+                                        value={composeLocalDateTimeValue(eventEndDate, eventEndTime)}
+                                        onChange={(event) => {
+                                            const next = splitLocalDateTimeValue(event.target.value);
+                                            setEventEndDate(next.date);
+                                            setEventEndTime(next.time);
+                                        }}
+                                        locale={systemLocale}
+                                        className="w-full"
                                         required
                                     />
                                 </div>
-                                <p className="ui-text-muted mt-1 text-xs">
-                                    {formatLocalDateTimePreview(eventEndDate, eventEndTime, systemLocale)}
-                                </p>
                             </div>
                             <label className="block text-sm md:col-span-2">
 									<span className="ui-text-secondary mb-1 block font-medium">
@@ -1554,7 +1550,6 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
                                     value={eventLocation}
                                     onChange={(event) => setEventLocation(event.target.value)}
                                     placeholder="Conference Room"
-                                    className="h-10 w-full rounded-md px-3 text-sm"
                                 />
                             </label>
                             <label className="block text-sm md:col-span-2">
@@ -1565,7 +1560,6 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
                                     value={eventDescription}
                                     onChange={(event) => setEventDescription(event.target.value)}
                                     rows={4}
-                                    className="w-full rounded-md px-3 py-2 text-sm"
                                 />
                             </label>
                         </div>

@@ -122,48 +122,48 @@
     }
 
     .dark {
-        --app-surface: #2e2f3a;
+        --app-surface: #26282d;
         --app-text: #f1f5f9;
-        --app-border: #444257;
+        --app-border: #3f434b;
 
-        --sidebar-surface: #252533;
+        --sidebar-surface: #1f2228;
         --sidebar-text: var(--base-slate-100);
         --sidebar-muted: var(--base-slate-400);
-        --sidebar-border: #3f3d52;
+        --sidebar-border: #373b43;
 
-        --account-item-hover: #323145;
-        --account-item-active: #3b3950;
+        --account-item-hover: #2d3139;
+        --account-item-active: #353a44;
         --account-item-text: var(--base-slate-300);
-        --account-submenu-surface: #252533;
-        --account-submenu-hover: #323145;
+        --account-submenu-surface: #1f2228;
+        --account-submenu-hover: #2d3139;
         --account-submenu-text: var(--base-slate-300);
-        --account-submenu-border: #3f3d52;
+        --account-submenu-border: #373b43;
 
-        --titlebar-surface: #1f1d2b;
+        --titlebar-surface: #171a1f;
         --titlebar-text: rgba(255, 255, 255, 0.82);
         --titlebar-muted: rgba(255, 255, 255, 0.55);
-        --titlebar-border: #171424;
+        --titlebar-border: #121418;
 
-        --content-surface: #262734;
+        --content-surface: #21242a;
         --content-text: var(--base-slate-100);
         --content-muted: var(--base-slate-300);
-        --content-border: #4c4a63;
+        --content-border: #454a55;
 
-        --panel-surface: #232431;
+        --panel-surface: #1d2026;
         --panel-text: var(--base-slate-100);
-        --panel-border: #3f3d52;
+        --panel-border: #373b43;
 
-        --overlay-surface: rgba(31, 31, 44, 0.95);
+        --overlay-surface: rgba(24, 26, 32, 0.95);
         --overlay-text: var(--base-slate-100);
-        --overlay-border: #4c4a63;
+        --overlay-border: #454a55;
 
-        --state-hover: #323145;
-        --state-active: #3b3950;
-        --state-selected: #45425e;
-        --focus-ring: #7a61c1;
+        --state-hover: #2d3139;
+        --state-active: #353a44;
+        --state-selected: #3d4350;
+        --focus-ring: #5f88b8;
 
-        --color-primary: var(--base-sky-400);
-        --color-primary-hover: var(--base-sky-500);
+        --color-primary: #4a81b8;
+        --color-primary-hover: #3d6f9f;
         --color-success: var(--base-emerald-500);
         --color-warning: var(--base-amber-500);
         --color-danger: var(--base-red-500);

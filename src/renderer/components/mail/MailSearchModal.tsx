@@ -97,7 +97,6 @@ export default function MailSearchModal({
                                             formatAccountSearchLabel,
                                             formatMessageSender,
                                         }: MailSearchModalProps) {
-    if (!open) return null;
     const accountOptions = useMemo(
         () => [
             {value: 'all', label: 'All accounts', description: null as string | null, icon: null as React.ReactNode},
@@ -123,6 +122,7 @@ export default function MailSearchModal({
         ],
         [accounts],
     );
+    if (!open) return null;
 
     return (
         <Modal open onClose={onClose} align="top" contentClassName="max-w-4xl rounded-2xl p-4">

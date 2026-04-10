@@ -396,6 +396,7 @@ function MainWindowShell() {
 
     const pageTitle = useMemo(() => {
         const path = location.pathname || '/';
+        if (path.startsWith('/onboarding')) return 'Onboarding';
         if (path.startsWith('/contacts')) return 'Contacts';
         if (path.startsWith('/calendar')) return 'Calendar';
         if (path.startsWith('/cloud')) return 'Cloud';
@@ -404,6 +405,7 @@ function MainWindowShell() {
         if (path.startsWith('/help')) return 'Help';
         return 'Mail';
     }, [location.pathname]);
+    const hideMainNavRail = location.pathname.startsWith('/onboarding');
 
     useEffect(() => {
         setTopNavOrder(normalizeTopNavOrder(appSettings.navRailOrder));
@@ -648,106 +650,108 @@ function MainWindowShell() {
             )}
 
             <div className="flex min-h-0 flex-1 overflow-hidden">
-                <aside className="app-navrail flex h-full w-16 shrink-0 flex-col items-center justify-between py-3">
-                    <DndContext
-                        sensors={topNavSensors}
-                        collisionDetection={closestCenter}
-                        onDragStart={onTopNavDragStart}
-                        onDragEnd={onTopNavDragEnd}
-                        onDragCancel={() => {
-                            setDraggingTopNavItemId(null);
-                            setTopNavOverlaySize(null);
-                        }}
-                    >
-                        <div className="relative flex w-full flex-col items-center">
-                            <SortableContext items={topNavSortableIds} strategy={verticalListSortingStrategy}>
-                                <div className="flex flex-col items-center gap-2">
-                                    {topNavItems.map((item) => (
-                                        <SortableTopNavItem
-                                            key={item.id}
-                                            item={item}
-                                            onContextMenu={(event, navItem) =>
-                                                openMainNavContextMenu(event, {
-                                                    id: navItem.id,
-                                                    label: navItem.label,
-                                                    to: navItem.to,
-                                                })
-                                            }
-                                        />
-                                    ))}
-                                </div>
-                            </SortableContext>
-                            {draggingTopNavItemId !== null && (
-                                <TopNavEndDrop/>
-                            )}
-                        </div>
-                        <DragOverlay dropAnimation={null}>
-                            {draggingTopNavItem && (
-                                <div
-                                    style={
-                                        topNavOverlaySize
-                                            ? {width: topNavOverlaySize.width, height: topNavOverlaySize.height}
-                                            : undefined
-                                    }
-                                    className="overlay rounded-lg opacity-85 shadow-xl"
-                                >
-                                    <NavRailItem
-                                        to={draggingTopNavItem.to}
-                                        icon={draggingTopNavItem.icon}
-                                        label={draggingTopNavItem.label}
-                                        badgeCount={draggingTopNavItem.badgeCount}
-                                    />
-                                </div>
-                            )}
-                        </DragOverlay>
-                    </DndContext>
-                    <div className="flex w-full flex-col items-center gap-2">
-                        <div
-                            aria-hidden
-                            className="titlebar-divider-fade my-0.5 h-px w-9"
-                        />
-                        <div
-                            onContextMenu={(event) =>
-                                openMainNavContextMenu(event, {
-                                    id: 'settings',
-                                    label: 'Settings',
-                                    to: '/settings/application',
-                                })
-                            }
+                {!hideMainNavRail && (
+                    <aside className="app-navrail flex h-full w-16 shrink-0 flex-col items-center justify-between py-3">
+                        <DndContext
+                            sensors={topNavSensors}
+                            collisionDetection={closestCenter}
+                            onDragStart={onTopNavDragStart}
+                            onDragEnd={onTopNavDragEnd}
+                            onDragCancel={() => {
+                                setDraggingTopNavItemId(null);
+                                setTopNavOverlaySize(null);
+                            }}
                         >
-                            <NavRailItem
-                                to="/settings/application"
-                                icon={<Settings size={16}/>}
-                                label="Settings"
-                                activePathPrefixes={['/settings']}
+                            <div className="relative flex w-full flex-col items-center">
+                                <SortableContext items={topNavSortableIds} strategy={verticalListSortingStrategy}>
+                                    <div className="flex flex-col items-center gap-2">
+                                        {topNavItems.map((item) => (
+                                            <SortableTopNavItem
+                                                key={item.id}
+                                                item={item}
+                                                onContextMenu={(event, navItem) =>
+                                                    openMainNavContextMenu(event, {
+                                                        id: navItem.id,
+                                                        label: navItem.label,
+                                                        to: navItem.to,
+                                                    })
+                                                }
+                                            />
+                                        ))}
+                                    </div>
+                                </SortableContext>
+                                {draggingTopNavItemId !== null && (
+                                    <TopNavEndDrop/>
+                                )}
+                            </div>
+                            <DragOverlay dropAnimation={null}>
+                                {draggingTopNavItem && (
+                                    <div
+                                        style={
+                                            topNavOverlaySize
+                                                ? {width: topNavOverlaySize.width, height: topNavOverlaySize.height}
+                                                : undefined
+                                        }
+                                        className="overlay rounded-lg opacity-85 shadow-xl"
+                                    >
+                                        <NavRailItem
+                                            to={draggingTopNavItem.to}
+                                            icon={draggingTopNavItem.icon}
+                                            label={draggingTopNavItem.label}
+                                            badgeCount={draggingTopNavItem.badgeCount}
+                                        />
+                                    </div>
+                                )}
+                            </DragOverlay>
+                        </DndContext>
+                        <div className="flex w-full flex-col items-center gap-2">
+                            <div
+                                aria-hidden
+                                className="titlebar-divider-fade my-0.5 h-px w-9"
                             />
-                        </div>
-                        {showDebugNavItem && (
                             <div
                                 onContextMenu={(event) =>
                                     openMainNavContextMenu(event, {
-                                        id: 'debug',
-                                        label: 'Debug',
-                                        to: '/debug',
+                                        id: 'settings',
+                                        label: 'Settings',
+                                        to: '/settings/application',
                                     })
                                 }
                             >
-                                <NavRailItem to="/debug" icon={<Bug size={16}/>} label="Debug"/>
+                                <NavRailItem
+                                    to="/settings/application"
+                                    icon={<Settings size={16}/>}
+                                    label="Settings"
+                                    activePathPrefixes={['/settings']}
+                                />
                             </div>
-                        )}
-                        <div
-                            onContextMenu={(event) =>
-                                openMainNavContextMenu(event, {
-                                    id: 'help',
-                                    label: 'Help',
-                                    to: '/help',
-                                })
-                            }
-                        >
-                            <NavRailItem to="/help" icon={<CircleHelp size={16}/>} label="Help"/>
+                            {showDebugNavItem && (
+                                <div
+                                    onContextMenu={(event) =>
+                                        openMainNavContextMenu(event, {
+                                            id: 'debug',
+                                            label: 'Debug',
+                                            to: '/debug',
+                                        })
+                                    }
+                                >
+                                    <NavRailItem to="/debug" icon={<Bug size={16}/>} label="Debug"/>
+                                </div>
+                            )}
+                            <div
+                                onContextMenu={(event) =>
+                                    openMainNavContextMenu(event, {
+                                        id: 'help',
+                                        label: 'Help',
+                                        to: '/help',
+                                    })
+                                }
+                            >
+                                <NavRailItem to="/help" icon={<CircleHelp size={16}/>} label="Help"/>
+                            </div>
                         </div>
-                    </div>
-                </aside>
+                    </aside>
+                )}
 
                 <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
                     <div className="flex h-full min-h-0 flex-col overflow-hidden">

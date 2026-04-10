@@ -62,6 +62,8 @@ export default function AutoComplete({
         <div className={cn('relative w-full', className)}>
             <FormInput
                 {...inputProps}
+                variant={inputProps?.variant ?? 'subtle'}
+                size={inputProps?.size ?? 'lg'}
                 value={value}
                 onFocus={() => {
                     if (showRowsOnFocus) setOpen(true);

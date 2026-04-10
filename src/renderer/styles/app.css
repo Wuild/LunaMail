@@ -218,7 +218,7 @@
     }
 
     .nav-rail-item.is-active {
-        background-color: color-mix(in srgb, var(--base-white) 15%, transparent);
+        background-color: color-mix(in srgb, var(--color-accent) 62%, transparent);
         color: var(--base-white);
     }
 }

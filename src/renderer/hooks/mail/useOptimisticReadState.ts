@@ -113,12 +113,14 @@ export function useOptimisticReadState({
     );
 
     useEffect(() => {
+        const pendingTimeouts = pendingReadTimeoutsRef.current;
+        const pendingReadState = pendingReadStateRef.current;
         return () => {
-            for (const timeoutId of pendingReadTimeoutsRef.current.values()) {
+            for (const timeoutId of pendingTimeouts.values()) {
                 window.clearTimeout(timeoutId);
             }
-            pendingReadTimeoutsRef.current.clear();
-            pendingReadStateRef.current.clear();
+            pendingTimeouts.clear();
+            pendingReadState.clear();
         };
     }, []);
 

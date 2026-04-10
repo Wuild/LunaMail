@@ -1,4 +1,5 @@
 import React, {useMemo, useState} from 'react';
+import {Check, Sparkles} from 'lucide-react';
 import type {DavDiscoveryResult} from '../../preload';
 import WindowTitleBar from '../components/WindowTitleBar';
 import ServiceSettingsCard, {type ServiceSecurityMode} from '../components/settings/ServiceSettingsCard';
@@ -7,6 +8,7 @@ import {FormInput} from '../components/ui/FormControls';
 import {useAppTheme} from '../hooks/useAppTheme';
 import {isEditableTarget} from '../lib/dom';
 import {ipcClient} from '../lib/ipcClient';
+import llamaArt from '../../resources/llama.png';
 
 type Service = { host: string; port: number; security: ServiceSecurityMode };
 type WizardStep = 1 | 2 | 3;
@@ -304,36 +306,96 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
         <div className={`${embedded ? 'h-full w-full' : 'h-screen w-screen'} workspace-content overflow-hidden`}>
             <div className="panel flex h-full w-full flex-col overflow-hidden border-0">
                 {!embedded && <WindowTitleBar title="Add Account" />}
-                <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <aside className="sidebar w-72 shrink-0 px-6 py-7">
-                        <h2 className="text-lg font-semibold">New Account</h2>
-                        <p className="ui-text-muted mt-1 text-sm">Secure mail onboarding</p>
-                        <div className="mt-8 space-y-4">
-                            {[1, 2, 3].map((n) => {
-                                const s = n as WizardStep;
-                                return (
-                                    <StepRailItem
-                                        key={n}
-                                        step={s}
-                                        active={step === s}
-                                        done={step > s}
-                                        title={stepMeta[s].title}
-                                        subtitle={stepMeta[s].subtitle}
-                                    />
-                                );
-                            })}
+                <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)]">
+                    <aside
+                        className="relative hidden min-h-0 overflow-hidden px-6 py-7 text-inverse lg:flex lg:flex-col"
+                        style={{
+                            backgroundImage:
+                                'radial-gradient(120% 120% at 12% 0%, rgba(190, 132, 255, 0.52) 0%, transparent 52%), radial-gradient(120% 120% at 88% 100%, #7b3fe0 0%, transparent 56%), linear-gradient(160deg, #6a34cc 0%, #7440d8 40%, #552ab8 72%, #3c1e86 100%)',
+                        }}
+                    >
+                        <div
+                            className="absolute -left-14 top-8 h-52 w-52 rounded-full blur-3xl"
+                            style={{backgroundColor: 'rgba(255, 255, 255, 0.10)'}}
+                        />
+                        <div
+                            className="absolute -right-16 bottom-0 h-56 w-56 rounded-full blur-3xl"
+                            style={{backgroundColor: 'rgba(236, 72, 153, 0.20)'}}
+                        />
+                        <div
+                            className="absolute inset-x-0 bottom-0 h-40 opacity-45"
+                            style={{
+                                backgroundImage:
+                                    'radial-gradient(70% 130% at 25% 100%, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.22) 48%, transparent 74%), radial-gradient(80% 120% at 76% 100%, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.16) 45%, transparent 73%)',
+                            }}
+                        />
+                        <div
+                            className="relative z-10 flex h-full min-h-0 flex-col items-center justify-end text-center">
+                            <div
+                                className="inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-wide"
+                                style={{
+                                    borderColor: 'rgba(255, 255, 255, 0.25)',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+                                }}
+                            >
+                                <Sparkles size={14}/>
+                                Account setup
+                            </div>
+                            <div className="mt-4 w-full max-w-[300px]">
+                                <h2 className="text-xl font-semibold">Connect your first mailbox</h2>
+                                <p className="mt-1 text-sm text-inverse opacity-80">
+                                    We will auto-detect settings, verify auth, and save everything securely.
+                                </p>
+                                <ul className="mt-5 space-y-2.5 text-left text-sm text-inverse opacity-90">
+                                    <li className="flex items-center gap-2.5">
+                                        <span
+                                            className="rounded-full p-1"
+                                            style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
+                                        >
+                                            <Check size={12}/>
+                                        </span>
+                                        Fast autodiscover
+                                    </li>
+                                    <li className="flex items-center gap-2.5">
+                                        <span
+                                            className="rounded-full p-1"
+                                            style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
+                                        >
+                                            <Check size={12}/>
+                                        </span>
+                                        Manual fallback when needed
+                                    </li>
+                                    <li className="flex items-center gap-2.5">
+                                        <span
+                                            className="rounded-full p-1"
+                                            style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
+                                        >
+                                            <Check size={12}/>
+                                        </span>
+                                        IMAP/SMTP verification before save
+                                    </li>
+                                </ul>
+                            </div>
+                            <div className="mt-6 w-full max-w-[300px]">
+                                <img
+                                    src={llamaArt}
+                                    alt=""
+                                    className="mx-auto h-auto w-full max-w-[220px] object-contain drop-shadow-[0_12px_28px_rgba(21,8,46,0.45)]"
+                                    draggable={false}
+                                />
+                            </div>
                         </div>
                     </aside>
 
                     <form
-                        className="flex min-h-0 flex-1 flex-col"
+                        className="flex min-h-0 min-w-0 flex-1 flex-col"
                         onSubmit={onSubmit}
                         onContextMenuCapture={(event) => {
                             if (!isEditableTarget(event.target as HTMLElement | null)) return;
                             event.stopPropagation();
                         }}
                     >
-                        <div className="ui-border-default shrink-0 border-b px-8 py-6">
+                        <div className="ui-border-default shrink-0 border-b px-6 py-5 md:px-8 md:py-6">
                             <p className="ui-text-muted text-xs font-medium uppercase tracking-wide">
                                 Step {step} of 3
                             </p>
@@ -346,7 +408,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
                             </div>
                         </div>
                         <main className="min-h-0 flex-1">
-                            <div className="h-full overflow-y-auto px-8 py-6">
+                            <div className="h-full overflow-y-auto px-6 py-5 md:px-8 md:py-6">
                                 <div className="mx-auto w-full max-w-5xl">
                                     {step === 1 && (
                                         <section className="space-y-5">
@@ -359,7 +421,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
                                                 </p>
                                             </header>
 
-                                            <div className="panel rounded-xl p-5">
+                                            <div className="space-y-4">
                                                 <Field
                                                     label="Name (optional)"
                                                     value={name}
@@ -371,14 +433,12 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
                                                     value={email}
                                                     onChange={setEmail}
                                                     placeholder="you@domain.com"
-                                                    className="mt-4"
                                                 />
                                                 <Field
                                                     label="Password"
                                                     value={password}
                                                     onChange={setPassword}
                                                     type="password"
-                                                    className="mt-4"
                                                 />
                                             </div>
 
@@ -422,6 +482,8 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
                                                     onSecurityChange={(security) => updateService(setImap, {security})}
                                                     allowNone
                                                     tone="muted"
+                                                    controlVariant="subtle"
+                                                    controlSize="lg"
                                                 />
                                                 <ServiceSettingsCard
                                                     title="SMTP Outgoing"
@@ -433,6 +495,8 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
                                                     onSecurityChange={(security) => updateService(setSmtp, {security})}
                                                     allowNone
                                                     tone="muted"
+                                                    controlVariant="subtle"
+                                                    controlSize="lg"
                                                 />
                                             </div>
                                         </section>
@@ -449,7 +513,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
                                                 </p>
                                             </header>
 
-                                            <div className="panel rounded-xl p-5">
+                                            <div className="space-y-1">
                                                 <SummaryRow label="Email" value={email} />
                                                 <SummaryRow label="Provider" value={provider ?? 'custom'} />
                                                 <SummaryRow label="IMAP" value={`${imap?.host ?? '-'}:${imap?.port ?? '-'}`} />
@@ -473,7 +537,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
                                 </div>
                             </div>
                         </main>
-                        <footer className="app-footer flex shrink-0 items-center justify-between px-8 py-4">
+                        <footer className="app-footer flex shrink-0 items-center justify-between px-6 py-4 md:px-8">
                             <Button
                                 type="button"
                                 disabled={loading || (!canClose && step === 1)}
@@ -507,44 +571,23 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
     );
 };
 
-const StepRailItem: React.FC<{
-    step: WizardStep;
-    active: boolean;
-    done: boolean;
-    title: string;
-    subtitle: string;
-}> = ({step, active, done, title, subtitle}) => {
-    const badgeStyle = done ? 'is-done' : active ? 'is-active' : 'is-pending';
-    return (
-        <div className={`wizard-step-item flex items-start gap-3 rounded-lg px-2 py-2 ${active ? 'is-active' : ''}`}>
-            <span
-                className={`wizard-step-badge flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${badgeStyle}`}>
-                {step}
-            </span>
-            <div>
-                <p className="wizard-step-title text-sm font-medium">{title}</p>
-                <p className="wizard-step-subtitle text-xs">{subtitle}</p>
-            </div>
-        </div>
-    );
-};
-
 const Field: React.FC<{
     label: string;
     value: string;
     onChange: (value: string) => void;
     placeholder?: string;
     type?: string;
-    className?: string;
-}> = ({label, value, onChange, placeholder, type = 'text', className = ''}) => (
-    <label className={`block text-sm ${className}`}>
+}> = ({label, value, onChange, placeholder, type = 'text'}) => (
+    <label className="block text-sm">
         <span className="ui-text-secondary font-medium">{label}</span>
         <FormInput
             type={type}
             value={value}
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder}
-            className="mt-1.5 py-2.5"
+            variant="subtle"
+            size="lg"
+            className="mt-2"
         />
     </label>
 );

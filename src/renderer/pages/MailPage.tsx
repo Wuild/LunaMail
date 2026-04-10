@@ -241,7 +241,7 @@ function MailPage() {
 			void ipcClient.openMessageWindow(selectedMessageId);
 		});
 		return () => window.cancelAnimationFrame(rafId);
-	}, [selectedMessageId]);
+	}, [selectedMessageId, setSyncStatusText]);
 
 	useEffect(() => {
 		if (!selectedMessage) return;
@@ -256,7 +256,7 @@ function MailPage() {
 		applyReadOptimistic(selectedMessage, 1, selectedFolderPath);
 		setPendingAutoReadMessageId(null);
 		void syncReadState(selectedMessage, 1, selectedFolderPath);
-	}, [selectedMessage, pendingAutoReadMessageId, selectedAccountId, selectedFolderPath]);
+	}, [applyReadOptimistic, pendingAutoReadMessageId, selectedAccountId, selectedFolderPath, selectedMessage, setPendingAutoReadMessageId, syncReadState]);
 
 	const refreshAccountsAndFolders = useCallback(async (isActive: () => boolean = () => true): Promise<void> => {
 		const list = await ipcClient.getAccounts();
@@ -444,7 +444,7 @@ function MailPage() {
 			routeAccountId === selectedAccountId ? routeFolderId : null,
 			routeAccountId === selectedAccountId ? routeEmailId : null,
 		);
-	}, [selectedAccountId]);
+	}, [selectedAccountId]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	useEffect(() => {
 		if (!selectedAccountId || !selectedFolderPath) {
@@ -472,7 +472,7 @@ function MailPage() {
 			}
 		};
 		void loadMessages();
-	}, [selectedAccountId, selectedFolderPath, messageFetchLimit]);
+	}, [selectedAccountId, selectedFolderPath, messageFetchLimit]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	useEffect(() => {
 		const query = searchQuery.trim();
@@ -629,7 +629,7 @@ function MailPage() {
 			setSelectedMessageIds([]);
 			selectionAnchorIndexRef.current = null;
 		}
-	}, [folders, routeAccountId, routeEmailId, routeFolderId, selectedAccountId, selectedFolderPath]);
+	}, [folders, routeAccountId, routeEmailId, routeFolderId, selectedAccountId, selectedFolderPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	useEffect(() => {
 		if (!routeAccountId || !selectedAccountId) return;
@@ -672,7 +672,7 @@ function MailPage() {
 	useEffect(() => {
 		const validIds = new Set(messages.map((m) => m.id));
 		setSelectedMessageIds((prev) => prev.filter((id) => validIds.has(id)));
-	}, [messages]);
+	}, [messages, setSelectedMessageIds]);
 
 	useEffect(() => {
 		if (!attachmentMenu) return;
@@ -1091,6 +1091,7 @@ function MailPage() {
 		return () => {
 			window.removeEventListener('keydown', onKeyDown);
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [
 		messages,
 		navigate,

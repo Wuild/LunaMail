@@ -17,6 +17,7 @@ import {
     PenSquare,
     RefreshCw,
     SendHorizonal,
+    X,
 } from 'lucide-react';
 import type {
     CloudItem,
@@ -28,7 +29,7 @@ import type {
 } from '../../preload/index';
 import HtmlLexicalEditor from '../components/HtmlLexicalEditor';
 import AutoComplete, {type AutoCompleteRow} from '../components/inputs/AutoComplete';
-import {FormInput, FormSelect, type FormSelectOption} from '../components/ui/FormControls';
+import {FormControlGroup, FormInput, FormSelect, type FormSelectOption} from '../components/ui/FormControls';
 import {Modal} from '../components/ui/Modal';
 import {Button, ButtonGroup} from '../components/ui/button';
 import WindowTitleBar from '../components/WindowTitleBar';
@@ -54,6 +55,18 @@ const EMAIL_ADDRESS_REGEX = /^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/;
 const CONTACT_META_PREFIX = '[LUNAMAIL_CONTACT_META_V1]';
 const CLOUD_FOLDER_CACHE_PREFIX = 'llamamail.cloud.folder.cache.v1';
 type RecipientFieldKey = 'to' | 'cc' | 'bcc';
+type ComposeValidationErrors = {
+    from: string | null;
+    recipients: string | null;
+    subject: string | null;
+    body: string | null;
+};
+const EMPTY_COMPOSE_VALIDATION_ERRORS: ComposeValidationErrors = {
+    from: null,
+    recipients: null,
+    subject: null,
+    body: null,
+};
 
 function ComposeEmailPage() {
     useAppTheme();
@@ -76,6 +89,7 @@ function ComposeEmailPage() {
     }>({});
     const [sending, setSending] = useState(false);
     const [status, setStatus] = useState<string | null>(null);
+    const [validationErrors, setValidationErrors] = useState<ComposeValidationErrors>(EMPTY_COMPOSE_VALIDATION_ERRORS);
     const [showCcBcc, setShowCcBcc] = useState(false);
     const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
     const [showCloudPicker, setShowCloudPicker] = useState(false);
@@ -131,6 +145,7 @@ function ComposeEmailPage() {
         () => (typeof fromAccountId === 'number' ? accounts.find((account) => account.id === fromAccountId) ?? null : null),
         [accounts, fromAccountId],
     );
+    const showFromSelector = accounts.length !== 1;
     const fromAccountOptions = useMemo<FormSelectOption[]>(() => {
         if (accounts.length === 0) {
             return [{value: '', label: 'No accounts', description: null, disabled: true}];
@@ -273,17 +288,23 @@ function ComposeEmailPage() {
         cloudFilesCacheRef.current = cloudFilesCache;
     }, [cloudFilesCache]);
 
-    const recipientListsByField: Record<RecipientFieldKey, string[]> = {
-        to: toList,
-        cc: ccList,
-        bcc: bccList,
-    };
+    const recipientListsByField: Record<RecipientFieldKey, string[]> = useMemo(
+        () => ({
+            to: toList,
+            cc: ccList,
+            bcc: bccList,
+        }),
+        [toList, ccList, bccList],
+    );
 
-    const blockedRecipientsByField: Record<RecipientFieldKey, string[]> = {
-        to: [...ccList, ...bccList],
-        cc: [...toList, ...bccList],
-        bcc: [...toList, ...ccList],
-    };
+    const blockedRecipientsByField: Record<RecipientFieldKey, string[]> = useMemo(
+        () => ({
+            to: [...ccList, ...bccList],
+            cc: [...toList, ...bccList],
+            bcc: [...toList, ...ccList],
+        }),
+        [toList, ccList, bccList],
+    );
 
     useEffect(() => {
         if (!activeRecipientField || typeof fromAccountId !== 'number') {
@@ -513,6 +534,13 @@ function ComposeEmailPage() {
         if (field === 'bcc') setBccList(next);
     }
 
+    function clearValidationError(field: keyof ComposeValidationErrors) {
+        setValidationErrors((prev) => {
+            if (!prev[field]) return prev;
+            return {...prev, [field]: null};
+        });
+    }
+
     function commitRecipientDraft(field: RecipientFieldKey) {
         const draft = recipientDrafts[field];
         const parsed = parseRecipientEntries(draft);
@@ -536,6 +564,7 @@ function ComposeEmailPage() {
         }));
         setRecipientDrafts((prev) => ({...prev, [field]: ''}));
         setRecipientRows((prev) => ({...prev, [field]: []}));
+        clearValidationError('recipients');
     }
 
     function removeRecipient(field: RecipientFieldKey, recipient: string) {
@@ -543,6 +572,7 @@ function ComposeEmailPage() {
             field,
             recipientListsByField[field].filter((entry) => entry !== recipient),
         );
+        clearValidationError('recipients');
     }
 
     function applyRecipientSuggestion(field: RecipientFieldKey, row: AutoCompleteRow) {
@@ -553,29 +583,67 @@ function ComposeEmailPage() {
         );
         if (exists) {
             setRecipientDrafts((prev) => ({...prev, [field]: ''}));
+            clearValidationError('recipients');
             return;
         }
         setRecipientsForField(field, [...recipientListsByField[field], email]);
         setRecipientInvalidMessages((prev) => ({...prev, [field]: null}));
         setRecipientDrafts((prev) => ({...prev, [field]: ''}));
         setRecipientRows((prev) => ({...prev, [field]: []}));
+        clearValidationError('recipients');
     }
 
     async function onSend() {
         if (sending) return;
-        if (!fromAccountId) {
-            setStatus('Select a sender account first.');
-            return;
-        }
-        if (toList.length === 0) {
-            setStatus('Recipient is required.');
-            return;
-        }
-        const invalidAddresses = [...toList, ...ccList, ...bccList].filter(
+
+        const draftEntries = {
+            to: parseRecipientEntries(recipientDrafts.to),
+            cc: parseRecipientEntries(recipientDrafts.cc),
+            bcc: parseRecipientEntries(recipientDrafts.bcc),
+        };
+
+        const nextTo = Array.from(new Set([...toList, ...draftEntries.to.valid]));
+        const nextCc = Array.from(new Set([...ccList, ...draftEntries.cc.valid]));
+        const nextBcc = Array.from(new Set([...bccList, ...draftEntries.bcc.valid]));
+        const draftInvalid = [...draftEntries.to.invalid, ...draftEntries.cc.invalid, ...draftEntries.bcc.invalid];
+
+        setToList(nextTo);
+        setCcList(nextCc);
+        setBccList(nextBcc);
+        setRecipientDrafts({to: '', cc: '', bcc: ''});
+        setRecipientRows({to: [], cc: [], bcc: []});
+        setRecipientInvalidMessages({
+            to: draftEntries.to.invalid[0] ? `Invalid address: ${draftEntries.to.invalid[0]}` : null,
+            cc: draftEntries.cc.invalid[0] ? `Invalid address: ${draftEntries.cc.invalid[0]}` : null,
+            bcc: draftEntries.bcc.invalid[0] ? `Invalid address: ${draftEntries.bcc.invalid[0]}` : null,
+        });
+
+        const invalidAddresses = [...nextTo, ...nextCc, ...nextBcc].filter(
             (entry) => !normalizeRecipientAddress(entry),
         );
-        if (invalidAddresses.length > 0) {
-            setStatus(`Invalid address: ${invalidAddresses[0]}`);
+        const nextValidationErrors: ComposeValidationErrors = {...EMPTY_COMPOSE_VALIDATION_ERRORS};
+
+        if (!fromAccountId) {
+            nextValidationErrors.from = 'Select a sender account first.';
+        }
+        if (draftInvalid.length > 0) {
+            nextValidationErrors.recipients = `Invalid address: ${draftInvalid[0]}`;
+        } else if (nextTo.length === 0 && nextCc.length === 0 && nextBcc.length === 0) {
+            nextValidationErrors.recipients = 'At least one recipient is required.';
+        } else if (invalidAddresses.length > 0) {
+            nextValidationErrors.recipients = `Invalid address: ${invalidAddresses[0]}`;
+        }
+        nextValidationErrors.subject = null;
+        nextValidationErrors.body = null;
+
+        setValidationErrors(nextValidationErrors);
+        const firstError =
+            nextValidationErrors.from ||
+            nextValidationErrors.recipients ||
+            nextValidationErrors.subject ||
+            nextValidationErrors.body;
+        if (firstError) {
+            setStatus(firstError);
             return;
         }
 
@@ -588,9 +656,9 @@ function ComposeEmailPage() {
             }
             await ipcClient.sendEmailBackground({
                 accountId: Number(fromAccountId),
-                to: joinRecipients(toList),
-                cc: ccList.length ? joinRecipients(ccList) : null,
-                bcc: bccList.length ? joinRecipients(bccList) : null,
+                to: joinRecipients(nextTo),
+                cc: nextCc.length ? joinRecipients(nextCc) : null,
+                bcc: nextBcc.length ? joinRecipients(nextBcc) : null,
                 subject: subject || null,
                 html: mergedHtmlBody,
                 text: mergedPlainBody || '',
@@ -867,14 +935,22 @@ function ComposeEmailPage() {
                 <div className="min-h-0 flex-1">
                     <div className="ui-surface-card flex h-full w-full flex-col overflow-hidden">
                         <div className="border-b ui-border-default px-5 py-4">
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-[220px_1fr]">
-                                <label className="block text-sm">
+                            <div
+                                className={showFromSelector ? 'grid grid-cols-1 gap-2 md:grid-cols-[300px_1fr]' : 'grid grid-cols-1 gap-2'}>
+                                {showFromSelector && (
+                                    <label className="block text-sm">
 									<span className="ui-text-muted mb-1 block text-xs font-medium">
 										From
 									</span>
                                     <FormSelect
                                         value={fromAccountId ? String(fromAccountId) : ''}
-                                        onChange={(e) => setFromAccountId(e.target.value ? Number(e.target.value) : '')}
+                                        onChange={(e) => {
+                                            setFromAccountId(e.target.value ? Number(e.target.value) : '');
+                                            if (validationErrors.from) {
+                                                setValidationErrors((prev) => ({...prev, from: null}));
+                                            }
+                                        }}
+                                        className={validationErrors.from ? 'border-danger' : ''}
                                         options={fromAccountOptions}
                                         renderSelectedOption={(option) => {
                                             if (!option) return <span className="truncate">No accounts</span>;
@@ -892,48 +968,62 @@ function ComposeEmailPage() {
                                             );
                                         }}
                                     />
-                                </label>
+                                        {validationErrors.from && (
+                                            <p className="text-danger mt-1 text-xs">{validationErrors.from}</p>
+                                        )}
+                                    </label>
+                                )}
 
                                 <label className="block text-sm">
 									<span className="ui-text-muted mb-1 block text-xs font-medium">
 										To
 									</span>
                                     <div className="flex gap-2">
-                                        <RecipientMultiInput
-                                            placeholder="recipient@example.com"
-                                            recipients={recipientListsByField.to}
-                                            draft={recipientDrafts.to}
-                                            rows={recipientRows.to}
-                                            invalidMessage={recipientInvalidMessages.to}
-                                            onDraftChange={(next) => {
-                                                setRecipientDrafts((prev) => ({...prev, to: next}));
-                                                if (recipientInvalidMessages.to) {
-                                                    setRecipientInvalidMessages((prev) => ({...prev, to: null}));
-                                                }
-                                            }}
-                                            onRemoveRecipient={(recipient) => removeRecipient('to', recipient)}
-                                            onPickRow={(row) => applyRecipientSuggestion('to', row)}
-                                            onCommit={() => commitRecipientDraft('to')}
-                                            onFocus={() => setActiveRecipientField('to')}
-                                            onBlur={() => {
-                                                setActiveRecipientField((prev) => (prev === 'to' ? null : prev));
-                                                commitRecipientDraft('to');
-                                            }}
-                                            onBackspaceEmpty={() => {
-                                                if (recipientListsByField.to.length === 0) return;
-                                                setRecipientsForField('to', recipientListsByField.to.slice(0, -1));
-                                            }}
-                                            className="min-w-0 flex-1"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            className="h-11 shrink-0 px-3 text-xs font-medium"
-                                            onClick={() => setShowCcBcc((prev) => !prev)}
-                                        >
-                                            {showCcBcc ? 'Hide Cc/Bcc' : 'Cc/Bcc'}
-                                        </Button>
+                                        <FormControlGroup className="flex w-full min-w-0 items-stretch">
+                                            <RecipientMultiInput
+                                                placeholder="recipient@example.com"
+                                                recipients={recipientListsByField.to}
+                                                draft={recipientDrafts.to}
+                                                rows={recipientRows.to}
+                                                invalidMessage={recipientInvalidMessages.to}
+                                                onDraftChange={(next) => {
+                                                    setRecipientDrafts((prev) => ({...prev, to: next}));
+                                                    if (recipientInvalidMessages.to) {
+                                                        setRecipientInvalidMessages((prev) => ({...prev, to: null}));
+                                                    }
+                                                    clearValidationError('recipients');
+                                                }}
+                                                onRemoveRecipient={(recipient) => removeRecipient('to', recipient)}
+                                                onPickRow={(row) => applyRecipientSuggestion('to', row)}
+                                                onCommit={() => commitRecipientDraft('to')}
+                                                onFocus={() => setActiveRecipientField('to')}
+                                                onBlur={() => {
+                                                    setActiveRecipientField((prev) => (prev === 'to' ? null : prev));
+                                                    commitRecipientDraft('to');
+                                                }}
+                                                onBackspaceEmpty={() => {
+                                                    if (recipientListsByField.to.length === 0) return;
+                                                    setRecipientsForField('to', recipientListsByField.to.slice(0, -1));
+                                                    clearValidationError('recipients');
+                                                }}
+                                                groupPosition="first"
+                                                className={`min-w-0 flex-1 ${validationErrors.recipients ? 'border-danger' : ''}`}
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                size="lg"
+                                                groupPosition="last"
+                                                className="shrink-0 px-3 text-xs font-semibold"
+                                                onClick={() => setShowCcBcc((prev) => !prev)}
+                                            >
+                                                {showCcBcc ? 'Hide Cc/Bcc' : 'Cc/Bcc'}
+                                            </Button>
+                                        </FormControlGroup>
                                     </div>
+                                    {validationErrors.recipients && (
+                                        <p className="text-danger mt-1 text-xs">{validationErrors.recipients}</p>
+                                    )}
                                 </label>
                             </div>
 
@@ -955,6 +1045,7 @@ function ComposeEmailPage() {
                                                 if (recipientInvalidMessages.cc) {
                                                     setRecipientInvalidMessages((prev) => ({...prev, cc: null}));
                                                 }
+                                                clearValidationError('recipients');
                                             }}
                                             onRemoveRecipient={(recipient) => removeRecipient('cc', recipient)}
                                             onPickRow={(row) => applyRecipientSuggestion('cc', row)}
@@ -967,6 +1058,7 @@ function ComposeEmailPage() {
                                             onBackspaceEmpty={() => {
                                                 if (recipientListsByField.cc.length === 0) return;
                                                 setRecipientsForField('cc', recipientListsByField.cc.slice(0, -1));
+                                                clearValidationError('recipients');
                                             }}
                                         />
                                     </label>
@@ -987,6 +1079,7 @@ function ComposeEmailPage() {
                                                 if (recipientInvalidMessages.bcc) {
                                                     setRecipientInvalidMessages((prev) => ({...prev, bcc: null}));
                                                 }
+                                                clearValidationError('recipients');
                                             }}
                                             onRemoveRecipient={(recipient) => removeRecipient('bcc', recipient)}
                                             onPickRow={(row) => applyRecipientSuggestion('bcc', row)}
@@ -999,6 +1092,7 @@ function ComposeEmailPage() {
                                             onBackspaceEmpty={() => {
                                                 if (recipientListsByField.bcc.length === 0) return;
                                                 setRecipientsForField('bcc', recipientListsByField.bcc.slice(0, -1));
+                                                clearValidationError('recipients');
                                             }}
                                         />
                                     </label>
@@ -1013,8 +1107,17 @@ function ComposeEmailPage() {
                                     <FormInput
                                         placeholder="Add a subject"
                                         value={subject}
-                                        onChange={(e) => setSubject(e.target.value)}
+                                        onChange={(e) => {
+                                            setSubject(e.target.value);
+                                            if (validationErrors.subject) {
+                                                setValidationErrors((prev) => ({...prev, subject: null}));
+                                            }
+                                        }}
+                                        className={validationErrors.subject ? 'border-danger' : ''}
                                     />
+                                    {validationErrors.subject && (
+                                        <p className="text-danger mt-1 text-xs">{validationErrors.subject}</p>
+                                    )}
                                 </label>
                             </div>
                             {quotedBodyHtml.trim().length > 0 && (
@@ -1037,7 +1140,8 @@ function ComposeEmailPage() {
 
                         <div className="min-h-0 flex-1">
                             <div className="flex h-full w-full flex-col">
-                                <div className="relative min-h-0 flex-1">
+                                <div
+                                    className={`relative min-h-0 flex-1 ${validationErrors.body ? 'border border-danger rounded-md' : ''}`}>
                                 <HtmlLexicalEditor
                                     value={body}
                                     placeholder="Write your message..."
@@ -1045,9 +1149,15 @@ function ComposeEmailPage() {
                                     onChange={(html, plainText) => {
                                         setBody(html);
                                         setPlainBody(plainText);
+                                        if (validationErrors.body) {
+                                            setValidationErrors((prev) => ({...prev, body: null}));
+                                        }
                                     }}
                                 />
                                 </div>
+                                {validationErrors.body && (
+                                    <p className="text-danger mt-1 px-5 text-xs">{validationErrors.body}</p>
+                                )}
                             </div>
                         </div>
 
@@ -1404,6 +1514,7 @@ function RecipientMultiInput({
     onFocus,
     onBlur,
     onBackspaceEmpty,
+                                 groupPosition = 'none',
     className,
 }: {
     recipients: string[];
@@ -1418,11 +1529,21 @@ function RecipientMultiInput({
     onFocus: () => void;
     onBlur: () => void;
     onBackspaceEmpty: () => void;
+    groupPosition?: 'none' | 'first' | 'middle' | 'last';
     className?: string;
 }) {
+    const groupPositionClass =
+        groupPosition === 'first'
+            ? 'rounded-l-lg rounded-r-none'
+            : groupPosition === 'middle'
+                ? 'rounded-none -ml-px'
+                : groupPosition === 'last'
+                    ? 'rounded-l-none rounded-r-lg -ml-px'
+                    : 'rounded-lg';
+
     return (
         <div
-            className={`field-input relative flex min-h-11 w-full flex-wrap items-center gap-1 rounded-lg px-3 py-1 text-sm transition-all ${className || ''}`}
+            className={`field field-subtle relative flex min-h-12 w-full flex-wrap items-center gap-1.5 px-3 py-1.5 text-sm transition-all ${groupPositionClass} ${className || ''}`}
             onClick={(event) => {
                 const container = event.currentTarget;
                 const input = container.querySelector('input');
@@ -1430,13 +1551,28 @@ function RecipientMultiInput({
             }}
         >
             {recipients.map((recipient) => (
-                <span key={recipient}
-                      className="chip-muted ui-text-primary inline-flex h-7 max-w-full items-center gap-1 rounded-md px-2 text-xs">
+                <span
+                    key={recipient}
+                    className="chip-border ui-text-primary inline-flex h-7 max-w-full items-center gap-1 rounded-md px-2 text-xs"
+                    onMouseDown={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }}
+                    onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }}
+                >
                     <span className="truncate">{recipient}</span>
                     <Button
                         type="button"
                         variant="ghost"
-                        className="ui-hover-text-primary h-auto min-w-0 p-0 ui-text-muted"
+                        size="none"
+                        className="ui-hover-text-primary inline-flex h-4 w-4 min-w-0 items-center justify-center rounded-sm p-0 ui-text-muted"
+                        onMouseDown={(event) => {
+                            event.stopPropagation();
+                            event.preventDefault();
+                        }}
                         onClick={(event) => {
                             event.stopPropagation();
                             onRemoveRecipient(recipient);
@@ -1444,7 +1580,7 @@ function RecipientMultiInput({
                         aria-label={`Remove ${recipient}`}
                         title="Remove"
                     >
-                        x
+                        <X size={10}/>
                     </Button>
                 </span>
             ))}
@@ -1469,7 +1605,7 @@ function RecipientMultiInput({
                 onBlur={onBlur}
                 showRowsOnFocus
                 className="min-w-[180px] flex-1"
-                inputClassName="h-7 border-0 bg-transparent px-1 py-0 text-sm shadow-none focus:ring-0"
+                inputClassName="h-8 border-0 bg-transparent px-1.5 py-0 text-sm shadow-none focus:ring-0 focus-visible:shadow-none"
             />
             {invalidMessage ? (
                 <div className="text-danger w-full pl-1 text-[11px]">{invalidMessage}</div>

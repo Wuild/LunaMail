@@ -224,16 +224,6 @@ function createWindow() {
 	win.webContents.session.setSpellCheckerLanguages(getSpellCheckerLanguages(currentSettings.language));
 	(win.webContents.session as typeof win.webContents.session & {setSpellCheckerEnabled?: (enabled: boolean) => void})
 		.setSpellCheckerEnabled?.(currentSettings.spellcheckEnabled);
-	win.on('minimize', () => {
-		const settings = getAppSettingsSync();
-		if (!settings.minimizeToTray) return;
-		setTimeout(() => {
-			if (!win.isDestroyed()) {
-				win.hide();
-			}
-		}, 0);
-		ensureTray();
-	});
 	win.on('close', (event) => {
 		const settings = getAppSettingsSync();
 		if (isQuitting || !settings.minimizeToTray) return;

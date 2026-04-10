@@ -28,11 +28,10 @@ export default function WindowTitleBar({
                                        }: WindowTitleBarProps) {
     const {appSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
     const {isMaximized, toggleMaximize, minimize, close} = useWindowControlsState();
+    const {appVersion} = useAutoUpdateState();
     if (appSettings.useNativeTitleBar) {
         return null;
     }
-
-    const {appVersion} = useAutoUpdateState();
 
     return (
         <div

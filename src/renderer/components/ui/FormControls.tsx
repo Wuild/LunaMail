@@ -19,6 +19,11 @@ const sizeStyles: Record<ControlSize, string> = {
     md: 'h-11 px-3.5 text-sm',
     lg: 'h-12 px-4 text-base',
 };
+const optionSizeStyles: Record<ControlSize, string> = {
+    sm: 'px-3 py-2 text-sm',
+    md: 'px-3 py-2 text-sm',
+    lg: 'px-3.5 py-2.5 text-base',
+};
 
 const groupStyles: Record<GroupPosition, string> = {
     none: 'rounded-lg',
@@ -56,7 +61,7 @@ export type FormTextareaProps = Omit<React.TextareaHTMLAttributes<HTMLTextAreaEl
     Omit<InputLikeProps, 'leftIcon' | 'rightIcon'>;
 
 export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
-    ({className, variant = 'default', size = 'md', groupPosition = 'none', leftIcon, rightIcon, ...props}, ref) => (
+    ({className, variant = 'subtle', size = 'lg', groupPosition = 'none', leftIcon, rightIcon, ...props}, ref) => (
         <div className="relative">
             {leftIcon ? (
                 <span className="ui-text-muted pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2">
@@ -91,8 +96,8 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
     (
         {
             className,
-            variant = 'default',
-            size = 'md',
+            variant = 'subtle',
+            size = 'lg',
             groupPosition = 'none',
             leftIcon,
             rightIcon,
@@ -329,8 +334,8 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
                     <div
                         role="listbox"
                         className={cn(
-                            'absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-md py-1 shadow-lg',
-                            'menu',
+                            'field absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-lg border p-1 shadow-lg',
+                            variantStyles[variant],
                             dropdownClassName,
                         )}
                     >
@@ -345,13 +350,14 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
                                     aria-selected={isSelected}
                                     disabled={item.disabled}
                                     className={cn(
-                                        'block w-full px-3 py-2 text-left text-sm',
+                                        'block w-full rounded-md text-left transition-colors',
+                                        optionSizeStyles[size],
                                         item.disabled
                                             ? 'cursor-not-allowed ui-text-muted opacity-60'
                                             : isActive
                                                 ? 'ui-surface-active ui-text-primary'
-                                                : 'account-item',
-                                        isSelected && !item.disabled && 'font-medium',
+                                                : 'ui-surface-hover ui-text-primary',
+                                        isSelected && !item.disabled && 'font-semibold',
                                     )}
                                     onMouseEnter={() => {
                                         if (!item.disabled) setActiveIndex(index);
@@ -445,7 +451,7 @@ function findNextEnabledOptionIndex(options: SelectOptionItem[], startIndex: num
 }
 
 export const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaProps>(
-    ({className, variant = 'default', size = 'md', groupPosition = 'none', ...props}, ref) => (
+    ({className, variant = 'subtle', size = 'lg', groupPosition = 'none', ...props}, ref) => (
         <textarea
             ref={ref}
             {...props}

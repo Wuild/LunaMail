@@ -1,28 +1,15 @@
 import {Button} from './components/ui/button';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {AlertTriangle, CalendarDays, Cloud, Mail, Users, X,} from 'lucide-react';
 import {
-    AlertTriangle,
-    Bug,
-    CalendarDays,
-    CircleHelp,
-    Cloud,
-    Mail,
-    Settings,
-    Users,
-    X,
-} from 'lucide-react';
-import {
-    closestCenter,
-    DndContext,
     type DragEndEvent,
-    DragOverlay,
     type DragStartEvent,
     PointerSensor,
     useDroppable,
     useSensor,
     useSensors,
 } from '@dnd-kit/core';
-import {arrayMove, SortableContext, useSortable, verticalListSortingStrategy} from '@dnd-kit/sortable';
+import {arrayMove, useSortable} from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
 import {useLocation, useNavigate} from 'react-router-dom';
 import {DEFAULT_APP_SETTINGS} from '@/shared/defaults';
@@ -384,7 +371,8 @@ function MainWindowShell() {
         };
     }, [globalErrors]);
 
-    const hideMainNavRail = location.pathname.startsWith('/onboarding');
+    const hideMainNavRail =
+        location.pathname.startsWith('/onboarding') || location.pathname.startsWith('/add-account');
 
     useEffect(() => {
         setTopNavOrder(normalizeTopNavOrder(appSettings.navRailOrder));

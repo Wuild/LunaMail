@@ -22,6 +22,12 @@ export function openMessageWindow(messageId?: number | null): void {
 
     if (messageWin && !messageWin.isDestroyed()) {
         messageWin.webContents.send('message-window-target', messageTargetId);
+        if (messageWin.isMinimized()) {
+            messageWin.restore();
+        }
+        if (!messageWin.isVisible()) {
+            messageWin.show();
+        }
         messageWin.focus();
         return;
     }

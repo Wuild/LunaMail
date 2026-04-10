@@ -34,11 +34,17 @@ const stepMeta: Record<WizardStep, { title: string; subtitle: string }> = {
 
 type SettingsAddAccountProps = {
     embedded?: boolean;
+    hasAccounts?: boolean;
     onCompleted?: () => void;
     onCancel?: () => void;
 };
 
-const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false, onCompleted, onCancel}) => {
+const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
+                                                                   embedded = false,
+                                                                   hasAccounts = false,
+                                                                   onCompleted,
+                                                                   onCancel,
+                                                               }) => {
     useAppTheme();
     const [step, setStep] = useState<WizardStep>(1);
     const [email, setEmail] = useState('');
@@ -340,7 +346,9 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
                                 Account setup
                             </div>
                             <div className="mt-4 w-full max-w-[300px]">
-                                <h2 className="text-xl font-semibold">Connect your first mailbox</h2>
+                                <h2 className="text-xl font-semibold">
+                                    {hasAccounts ? 'Connect another mailbox' : 'Connect your first mailbox'}
+                                </h2>
                                 <p className="mt-1 text-sm text-inverse opacity-80">
                                     We will auto-detect settings, verify auth, and save everything securely.
                                 </p>

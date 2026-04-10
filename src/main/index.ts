@@ -1,15 +1,15 @@
 import {
-	app,
-	BrowserWindow,
-	clipboard,
-	Menu,
-	nativeImage,
-	nativeTheme,
-	Notification,
-	screen,
-	session,
-	shell,
-	Tray,
+    app,
+    BrowserWindow,
+    clipboard,
+    Menu,
+    nativeImage,
+    nativeTheme,
+    Notification,
+    screen,
+    session,
+    shell,
+    Tray,
 } from 'electron';
 import fs from 'fs';
 import path from 'path';
@@ -18,30 +18,30 @@ import {createAppLogger, onDebugLog} from './debug/debugLog.js';
 import {initDb} from './db/index.js';
 import {getAccounts} from './db/repositories/accountsRepo.js';
 import {
-	getCurrentUnreadCount,
-	registerAccountIpc,
-	setAccountCountChangedListener,
-	setAutoSyncIntervalMinutes,
-	setNewMailListener,
-	setUnreadCountListener,
-	startAccountAutoSync,
-	stopAccountAutoSync,
+    getCurrentUnreadCount,
+    registerAccountIpc,
+    setAccountCountChangedListener,
+    setAutoSyncIntervalMinutes,
+    setNewMailListener,
+    setUnreadCountListener,
+    startAccountAutoSync,
+    stopAccountAutoSync,
 } from './ipc/accounts.js';
 import {queueCloudOAuthCallbackUrl, registerCloudIpc} from './ipc/cloud.js';
 import {registerSettingsIpc} from './ipc/settings.js';
 import {
-	broadcastAccountSyncStatus,
-	broadcastGlobalError,
-	broadcastToAllWindows,
-	broadcastUnreadCountUpdated
+    broadcastAccountSyncStatus,
+    broadcastGlobalError,
+    broadcastToAllWindows,
+    broadcastUnreadCountUpdated
 } from './ipc/broadcast.js';
 import {broadcastAutoUpdateState, registerUpdaterIpc} from './ipc/updater.js';
 import {registerWindowIpc} from './ipc/windows.js';
 import {
-	getAppSettings,
-	getAppSettingsBootSnapshotSync,
-	getAppSettingsSync,
-	getSpellCheckerLanguages
+    getAppSettings,
+    getAppSettingsBootSnapshotSync,
+    getAppSettingsSync,
+    getSpellCheckerLanguages
 } from './settings/store.js';
 import {reconcileDemoData} from './demo/demoMode.js';
 import {checkForUpdates, initAutoUpdater, runStartupUpdateFlow, setAutoUpdateEnabled} from './updater/autoUpdate.js';
@@ -51,11 +51,11 @@ import {openComposeWindow} from './windows/composeWindow.js';
 import {loadWindowContent} from './windows/loadWindowContent.js';
 import {closeSplashWindow, openSplashWindow} from './windows/splashWindow.js';
 import {
-	attachWindowShortcuts,
-	buildSecureWebPreferences,
-	createAppWindow,
-	createFramelessAppWindow,
-	resolveWindowIconPath,
+    attachWindowShortcuts,
+    buildSecureWebPreferences,
+    createAppWindow,
+    createFramelessAppWindow,
+    resolveWindowIconPath,
 } from './windows/windowFactory.js';
 import {APP_NAME, APP_PROTOCOL} from './config.js';
 
@@ -550,7 +550,6 @@ function openComposeQuickAction(): void {
 		openMainWindowEntryPoint();
 		return;
 	}
-	showMainWindow();
 	const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
 	openComposeWindow(parent);
 }

@@ -11,6 +11,7 @@ export default function AddAccountPage({hasAccounts}: AddAccountPageProps) {
     return (
         <SettingsAddAccount
             embedded
+            hasAccounts={hasAccounts}
             onCompleted={() => {
                 navigate('/email', {replace: true});
             }}

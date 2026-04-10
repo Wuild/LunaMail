@@ -18,6 +18,12 @@ let addAccountWin: BrowserWindow | null = null;
 
 export function openAddAccountWindow(): void {
     if (addAccountWin && !addAccountWin.isDestroyed()) {
+        if (addAccountWin.isMinimized()) {
+            addAccountWin.restore();
+        }
+        if (!addAccountWin.isVisible()) {
+            addAccountWin.show();
+        }
         addAccountWin.focus();
         return;
     }

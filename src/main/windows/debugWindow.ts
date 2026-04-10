@@ -18,6 +18,12 @@ let debugWin: BrowserWindow | null = null;
 
 export function openDebugWindow(): void {
 	if (debugWin && !debugWin.isDestroyed()) {
+        if (debugWin.isMinimized()) {
+            debugWin.restore();
+        }
+        if (!debugWin.isVisible()) {
+            debugWin.show();
+        }
 		debugWin.focus();
 		return;
 	}

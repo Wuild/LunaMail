@@ -17,6 +17,12 @@ type OpenSplashWindowOptions = {
 
 export function openSplashWindow(options: OpenSplashWindowOptions = {}): BrowserWindow {
     if (splashWin && !splashWin.isDestroyed()) {
+        if (splashWin.isMinimized()) {
+            splashWin.restore();
+        }
+        if (!splashWin.isVisible()) {
+            splashWin.show();
+        }
         splashWin.focus();
         return splashWin;
     }

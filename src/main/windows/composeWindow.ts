@@ -50,6 +50,12 @@ export function openComposeWindow(parentWindow?: BrowserWindow, draft?: ComposeD
 
     if (composeWin && !composeWin.isDestroyed()) {
         pushDraftToComposeWindow();
+        if (composeWin.isMinimized()) {
+            composeWin.restore();
+        }
+        if (!composeWin.isVisible()) {
+            composeWin.show();
+        }
         composeWin.focus();
         return;
     }

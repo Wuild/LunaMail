@@ -94,7 +94,7 @@ function SortableHeaderCell({
                 opacity: isDragging ? 0.2 : 1,
             }}
             className={cn(
-                'ui-border-default relative border-b px-3 py-2 select-none',
+                'ui-border-default ui-surface-content relative border-b px-3 py-2 select-none',
                 index < visibleColumnCount - 1 && 'ui-border-default border-r',
             )}
         >
@@ -343,7 +343,7 @@ export default function TopTableMailPane({
                                     <col style={{width: '44px'}}/>
                                 </colgroup>
                                 <thead
-                                    className="ui-border-default ui-surface-hover sticky top-0 z-10 border-b shadow-[inset_0_-1px_0_0_var(--app-border)]"
+                                    className="ui-border-default ui-surface-content ui-surface-hover sticky top-0 z-10 border-b shadow-[inset_0_-1px_0_0_var(--app-border)]"
                                     onContextMenu={(event) => {
                                         event.preventDefault();
                                         onOpenTableHeadMenuAt(event.clientX, event.clientY);
@@ -362,7 +362,7 @@ export default function TopTableMailPane({
                                                     onBeginTableColumnResize={onBeginTableColumnResize}
                                                 />
                                             ))}
-                                            <th className="ui-border-default border-b px-1 py-1 text-right">
+                                            <th className="ui-border-default ui-surface-content border-b px-1 py-1 text-right">
                                                 <Button
                                                     type="button"
                                                     className="button-ghost inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors"

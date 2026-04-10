@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
-import type {MessageBodyResult} from '../../../preload';
-import {ipcClient} from '../../lib/ipcClient';
-import {toErrorMessage} from '../../lib/statusText';
+import type {MessageBodyResult} from '@/preload';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import {toErrorMessage} from '@renderer/lib/statusText';
 
 type UseMessageBodyLoaderResult = {
     bodyLoading: boolean;

@@ -1,19 +1,15 @@
 import {Button} from './components/ui/button';
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
     AlertTriangle,
     Bug,
     CalendarDays,
     CircleHelp,
     Cloud,
-    Copy,
-    Download,
     Mail,
-    Minus,
     Settings,
-    Square,
     Users,
-    X
+    X,
 } from 'lucide-react';
 import {
     closestCenter,
@@ -28,21 +24,19 @@ import {
 } from '@dnd-kit/core';
 import {arrayMove, SortableContext, useSortable, verticalListSortingStrategy} from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
-import {HashRouter, useLocation, useNavigate} from 'react-router-dom';
-import llamaLogo from '../resources/llamatray.png';
-import {DEFAULT_APP_SETTINGS} from '../shared/defaults';
-import {APP_NAME} from '../shared/appConfig';
+import {useLocation, useNavigate} from 'react-router-dom';
+import {DEFAULT_APP_SETTINGS} from '@/shared/defaults';
 import NavRailItem from './components/navigation/NavRailItem';
 import {useAccounts} from './hooks/ipc/useAccounts';
 import {useAutoUpdateState} from './hooks/ipc/useAutoUpdateState';
-import {useWindowControlsState} from './hooks/ipc/useWindowControlsState';
 import {useAppSettings} from './hooks/ipc/useAppSettings';
 import {useIpcEvent} from './hooks/ipc/useIpcEvent';
 import {ipcClient} from './lib/ipcClient';
-import type {AppSettings, GlobalErrorEvent} from '../shared/ipcTypes';
-import type {SendEmailBackgroundStatusEvent, SyncStatusEvent} from '../preload';
+import type {AppSettings, GlobalErrorEvent} from '@/shared/ipcTypes';
+import type {SendEmailBackgroundStatusEvent, SyncStatusEvent} from '@/preload';
 import {ContextMenu, ContextMenuItem} from './components/ui/ContextMenu';
-import MainWindowRoutes from './routes/MainWindowRoutes';
+import MainWindowRoutes from './app/MainWindowRoutes';
+import {useApp} from '@renderer/app/AppContext';
 
 type TopNavItemId = AppSettings['navRailOrder'][number];
 type TopNavItemDef = {
@@ -140,20 +134,16 @@ function TopNavEndDrop() {
 }
 
 export default function MainWindowApp() {
-    return (
-        <HashRouter>
-            <MainWindowShell/>
-        </HashRouter>
-    );
+    return <MainWindowShell/>;
 }
 
 function MainWindowShell() {
+    const {setShowNavRail} = useApp();
     const location = useLocation();
     const navigate = useNavigate();
     const {accounts, selectedAccountId, setSelectedAccountId, totalUnreadCount} = useAccounts();
-    const {isMaximized, toggleMaximize, minimize, close} = useWindowControlsState();
     const {appVersion, autoUpdatePhase, autoUpdateMessage} = useAutoUpdateState();
-    const {appSettings, setAppSettings, isFetched: appSettingsFetched} = useAppSettings(DEFAULT_APP_SETTINGS);
+    const {appSettings, setAppSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
     const developerMode = Boolean(appSettings.developerMode);
     const showRouteOverlay = developerMode && Boolean(appSettings.developerShowRouteOverlay);
     const showSendNotifications = Boolean(appSettings.developerShowSendNotifications);
@@ -394,17 +384,6 @@ function MainWindowShell() {
         };
     }, [globalErrors]);
 
-    const pageTitle = useMemo(() => {
-        const path = location.pathname || '/';
-        if (path.startsWith('/onboarding')) return 'Onboarding';
-        if (path.startsWith('/contacts')) return 'Contacts';
-        if (path.startsWith('/calendar')) return 'Calendar';
-        if (path.startsWith('/cloud')) return 'Cloud';
-        if (path.startsWith('/settings')) return 'Settings';
-        if (path.startsWith('/debug')) return 'Debug';
-        if (path.startsWith('/help')) return 'Help';
-        return 'Mail';
-    }, [location.pathname]);
     const hideMainNavRail = location.pathname.startsWith('/onboarding');
 
     useEffect(() => {
@@ -425,13 +404,13 @@ function MainWindowShell() {
         [topNavItems, draggingTopNavItemId],
     );
 
-    const persistTopNavOrder = (nextOrder: TopNavItemId[]) => {
+    const persistTopNavOrder = useCallback((nextOrder: TopNavItemId[]) => {
         setTopNavOrder(nextOrder);
         setAppSettings((prev) => ({...prev, navRailOrder: nextOrder}));
         void ipcClient.updateAppSettings({navRailOrder: nextOrder}).catch(() => undefined);
-    };
+    }, [setAppSettings]);
 
-    const onTopNavDragStart = (event: DragStartEvent) => {
+    const onTopNavDragStart = useCallback((event: DragStartEvent) => {
         const id = parseTopNavSortableId(String(event.active.id));
         if (!id) return;
         setDraggingTopNavItemId(id);
@@ -441,9 +420,9 @@ function MainWindowShell() {
         } else {
             setTopNavOverlaySize(null);
         }
-    };
+    }, []);
 
-    const onTopNavDragEnd = (event: DragEndEvent) => {
+    const onTopNavDragEnd = useCallback((event: DragEndEvent) => {
         const activeId = parseTopNavSortableId(String(event.active.id));
         if (!activeId) {
             setDraggingTopNavItemId(null);
@@ -476,22 +455,10 @@ function MainWindowShell() {
         }
         setDraggingTopNavItemId(null);
         setTopNavOverlaySize(null);
-    };
+    }, [persistTopNavOrder, topNavOrder]);
 
-    useEffect(() => {
-        document.title = pageTitle;
-    }, [pageTitle]);
-
-    const hasUpdateIndicator =
+    const showUpdateBanner =
         autoUpdatePhase === 'available' || autoUpdatePhase === 'downloading' || autoUpdatePhase === 'downloaded';
-    const updateIndicatorTitle =
-        autoUpdateMessage ||
-        (autoUpdatePhase === 'downloaded'
-            ? 'Update downloaded. Open settings to install.'
-            : autoUpdatePhase === 'downloading'
-                ? 'Update downloading. Open settings for details.'
-                : 'Update available. Open settings for details.');
-    const showUpdateBanner = hasUpdateIndicator;
     const updateBannerText =
         autoUpdateMessage ||
         (autoUpdatePhase === 'downloaded'
@@ -499,21 +466,20 @@ function MainWindowShell() {
             : autoUpdatePhase === 'downloading'
                 ? 'A new update is downloading in the background.'
                 : 'A new update is available.');
-    const useNativeTitleBar = Boolean(appSettings.useNativeTitleBar);
     const pendingRestartItems: string[] = [];
     if (appSettings.pendingHardwareAcceleration !== null) pendingRestartItems.push('Hardware acceleration');
     if (appSettings.pendingUseNativeTitleBar !== null) pendingRestartItems.push('Native titlebar');
     const hasRestartRequiredBanner = pendingRestartItems.length > 0;
 
-    const onRestartNow = () => {
+    const onRestartNow = useCallback(() => {
         if (restartBusy) return;
         setRestartBusy(true);
         void ipcClient.restartApp().catch(() => {
             setRestartBusy(false);
         });
-    };
+    }, [restartBusy]);
 
-    const openMainNavContextMenu = (
+    const openMainNavContextMenu = useCallback((
         event: React.MouseEvent<HTMLDivElement>,
         item: { id: MainNavContextItemId; label: string; to: string },
     ) => {
@@ -530,85 +496,17 @@ function MainWindowShell() {
             x: left,
             y: top,
         });
-    };
+    }, []);
+
+    useEffect(() => {
+        setShowNavRail(!hideMainNavRail);
+        return () => {
+            setShowNavRail(false);
+        };
+    }, [hideMainNavRail, setShowNavRail]);
 
     return (
-        <div className="app-shell flex h-screen w-screen flex-col overflow-hidden">
-            {appSettingsFetched && !useNativeTitleBar && (
-                <header
-                    className="titlebar relative flex h-9 shrink-0 items-center justify-between px-2"
-                    style={{WebkitAppRegion: 'drag'} as React.CSSProperties}
-                    onDoubleClick={() => {
-                        void toggleMaximize();
-                    }}
-                >
-                    <div className="pointer-events-none flex min-w-0 flex-1 items-center justify-start gap-3">
-                        <div className="titlebar-title flex shrink-0 items-center gap-2 text-xs font-medium">
-                            <img
-                                src={llamaLogo}
-                                alt=""
-                                className="h-7 w-7 object-contain contrast-125 saturate-125"
-                                style={{imageRendering: '-webkit-optimize-contrast'}}
-                                draggable={false}
-                            />
-                            <span>{APP_NAME}</span>
-                            <span className="titlebar-meta text-[10px] font-semibold uppercase tracking-wide">
-								{appVersion}
-							</span>
-                        </div>
-                        <span aria-hidden className="titlebar-divider h-3.5 w-px shrink-0"/>
-                        <span
-                            className="titlebar-title block min-w-0 flex-1 truncate text-xs font-semibold tracking-wide">
-							{pageTitle}
-						</span>
-                    </div>
-                    <div
-                        className="flex w-24 shrink-0 items-center justify-end gap-1"
-                        style={{WebkitAppRegion: 'no-drag'} as React.CSSProperties}
-                    >
-                        {hasUpdateIndicator && (
-                            <Button
-                                type="button"
-                                className="titlebar-button-accent relative inline-flex h-7 w-7 items-center justify-center rounded"
-                                onClick={() => navigate('/settings/application')}
-                                title={updateIndicatorTitle}
-                                aria-label="Open update status"
-                            >
-                                <Download size={13}/>
-                                <span
-                                    className="titlebar-button-dot absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full"/>
-                            </Button>
-                        )}
-                        <Button
-                            type="button"
-                            className="titlebar-button inline-flex h-7 w-7 items-center justify-center rounded"
-                            onClick={() => void minimize()}
-                            title="Minimize"
-                            aria-label="Minimize"
-                        >
-                            <Minus size={14}/>
-                        </Button>
-                        <Button
-                            type="button"
-                            className="titlebar-button inline-flex h-7 w-7 items-center justify-center rounded"
-                            onClick={() => void toggleMaximize()}
-                            title={isMaximized ? 'Restore' : 'Maximize'}
-                            aria-label={isMaximized ? 'Restore' : 'Maximize'}
-                        >
-                            {isMaximized ? <Copy size={13}/> : <Square size={13}/>}
-                        </Button>
-                        <Button
-                            type="button"
-                            className="titlebar-button-close inline-flex h-7 w-7 items-center justify-center rounded"
-                            onClick={() => void close()}
-                            title="Close"
-                            aria-label="Close"
-                        >
-                            <X size={14}/>
-                        </Button>
-                    </div>
-                </header>
-            )}
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
             {showUpdateBanner && (
                 <div
                     className="notice-warning shrink-0 border-b px-3 py-2">
@@ -649,111 +547,7 @@ function MainWindowShell() {
                 </div>
             )}
 
-            <div className="flex min-h-0 flex-1 overflow-hidden">
-                {!hideMainNavRail && (
-                    <aside className="app-navrail flex h-full w-16 shrink-0 flex-col items-center justify-between py-3">
-                        <DndContext
-                            sensors={topNavSensors}
-                            collisionDetection={closestCenter}
-                            onDragStart={onTopNavDragStart}
-                            onDragEnd={onTopNavDragEnd}
-                            onDragCancel={() => {
-                                setDraggingTopNavItemId(null);
-                                setTopNavOverlaySize(null);
-                            }}
-                        >
-                            <div className="relative flex w-full flex-col items-center">
-                                <SortableContext items={topNavSortableIds} strategy={verticalListSortingStrategy}>
-                                    <div className="flex flex-col items-center gap-2">
-                                        {topNavItems.map((item) => (
-                                            <SortableTopNavItem
-                                                key={item.id}
-                                                item={item}
-                                                onContextMenu={(event, navItem) =>
-                                                    openMainNavContextMenu(event, {
-                                                        id: navItem.id,
-                                                        label: navItem.label,
-                                                        to: navItem.to,
-                                                    })
-                                                }
-                                            />
-                                        ))}
-                                    </div>
-                                </SortableContext>
-                                {draggingTopNavItemId !== null && (
-                                    <TopNavEndDrop/>
-                                )}
-                            </div>
-                            <DragOverlay dropAnimation={null}>
-                                {draggingTopNavItem && (
-                                    <div
-                                        style={
-                                            topNavOverlaySize
-                                                ? {width: topNavOverlaySize.width, height: topNavOverlaySize.height}
-                                                : undefined
-                                        }
-                                        className="overlay rounded-lg opacity-85 shadow-xl"
-                                    >
-                                        <NavRailItem
-                                            to={draggingTopNavItem.to}
-                                            icon={draggingTopNavItem.icon}
-                                            label={draggingTopNavItem.label}
-                                            badgeCount={draggingTopNavItem.badgeCount}
-                                        />
-                                    </div>
-                                )}
-                            </DragOverlay>
-                        </DndContext>
-                        <div className="flex w-full flex-col items-center gap-2">
-                            <div
-                                aria-hidden
-                                className="titlebar-divider-fade my-0.5 h-px w-9"
-                            />
-                            <div
-                                onContextMenu={(event) =>
-                                    openMainNavContextMenu(event, {
-                                        id: 'settings',
-                                        label: 'Settings',
-                                        to: '/settings/application',
-                                    })
-                                }
-                            >
-                                <NavRailItem
-                                    to="/settings/application"
-                                    icon={<Settings size={16}/>}
-                                    label="Settings"
-                                    activePathPrefixes={['/settings']}
-                                />
-                            </div>
-                            {showDebugNavItem && (
-                                <div
-                                    onContextMenu={(event) =>
-                                        openMainNavContextMenu(event, {
-                                            id: 'debug',
-                                            label: 'Debug',
-                                            to: '/debug',
-                                        })
-                                    }
-                                >
-                                    <NavRailItem to="/debug" icon={<Bug size={16}/>} label="Debug"/>
-                                </div>
-                            )}
-                            <div
-                                onContextMenu={(event) =>
-                                    openMainNavContextMenu(event, {
-                                        id: 'help',
-                                        label: 'Help',
-                                        to: '/help',
-                                    })
-                                }
-                            >
-                                <NavRailItem to="/help" icon={<CircleHelp size={16}/>} label="Help"/>
-                            </div>
-                        </div>
-                    </aside>
-                )}
-
-                <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
+            <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
                     <div className="flex h-full min-h-0 flex-col overflow-hidden">
                         {hasRestartRequiredBanner && (
                             <div
@@ -782,8 +576,7 @@ function MainWindowShell() {
                             />
                         </div>
                     </div>
-                </main>
-            </div>
+            </main>
             {showRouteOverlay && (
                 <div
                     className={`overlay route-overlay-text pointer-events-none fixed right-3 z-[1200] rounded-md px-2.5 py-1.5 font-mono text-[11px] shadow-sm ${

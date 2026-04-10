@@ -1,19 +1,19 @@
 import React from 'react';
 import {Star} from 'lucide-react';
-import type {FolderItem, MessageItem, PublicAccount} from '../../preload/index';
-import type {MailView} from '../../shared/ipcTypes';
-import AccountContextMenu from '../components/mail/AccountContextMenu';
-import AccountFolderSidebar from '../components/mail/AccountFolderSidebar';
-import CreateFolderModal from '../components/mail/CreateFolderModal';
-import FolderEditModal from '../components/mail/FolderEditModal';
-import MainLayoutMenubar from '../components/mail/MainLayoutMenubar';
-import MailSearchModal from '../components/mail/MailSearchModal';
-import MessageFolderContextMenu from '../components/mail/MessageFolderContextMenu';
-import SideListMailPane from '../components/mail/SideListMailPane';
-import TableColumnsMenu from '../components/mail/TableColumnsMenu';
-import TopTableMailPane from '../components/mail/TopTableMailPane';
-import {isProtectedFolder} from '../features/mail/folders';
-import {formatSystemDateTime} from '../lib/dateTime';
+import type {FolderItem, MessageItem, PublicAccount} from '@/preload';
+import type {MailView} from '@/shared/ipcTypes';
+import AccountContextMenu from '@renderer/components/mail/AccountContextMenu';
+import AccountFolderSidebar from '@renderer/components/mail/AccountFolderSidebar';
+import CreateFolderModal from '@renderer/components/mail/CreateFolderModal';
+import FolderEditModal from '@renderer/components/mail/FolderEditModal';
+import MainLayoutMenubar from '@renderer/components/mail/MainLayoutMenubar';
+import MailSearchModal from '@renderer/components/mail/MailSearchModal';
+import MessageFolderContextMenu from '@renderer/components/mail/MessageFolderContextMenu';
+import SideListMailPane from '@renderer/components/mail/SideListMailPane';
+import TableColumnsMenu from '@renderer/components/mail/TableColumnsMenu';
+import TopTableMailPane from '@renderer/components/mail/TopTableMailPane';
+import {isProtectedFolder} from '@renderer/features/mail/folders';
+import {formatSystemDateTime} from '@renderer/lib/dateTime';
 import {
 	formatAccountSearchLabel,
 	formatMessageAccount,
@@ -22,20 +22,20 @@ import {
 	formatMessageSender,
 	formatMessageSize,
 	getThreadCount,
-} from '../lib/mailMessageFormat';
-import {getFolderColorClass, getFolderIcon, getFolderSwatchClass} from '../lib/mail/folderPresentation';
+} from '@renderer/lib/mailMessageFormat';
+import {getFolderColorClass, getFolderIcon, getFolderSwatchClass} from '@renderer/lib/mail/folderPresentation';
 import {
 	DEFAULT_TABLE_COLUMN_WIDTHS,
 	DEFAULT_TABLE_COLUMNS,
 	type MailTableColumnKey,
 	normalizeColumnWidth,
 	TABLE_COLUMN_OPTIONS,
-} from '../lib/mail/tableConfig';
-import {getTagDotClass, getTagLabel} from '../lib/mail/tagPresentation';
-import {useResizableSidebar} from '../hooks/useResizableSidebar';
-import {ipcClient} from '../lib/ipcClient';
-import {cn} from '../lib/utils';
-import type {Workspace} from '../lib/workspace';
+} from '@renderer/lib/mail/tableConfig';
+import {getTagDotClass, getTagLabel} from '@renderer/lib/mail/tagPresentation';
+import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import {cn} from '@renderer/lib/utils';
+import type {Workspace} from '@renderer/lib/workspace';
 import WorkspaceLayout from './WorkspaceLayout';
 
 interface MainLayoutProps {

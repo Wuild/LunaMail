@@ -1,10 +1,10 @@
 import {app, BrowserWindow, ipcMain, Notification, shell} from 'electron';
-import {getAccounts} from '../db/repositories/accountsRepo.js';
-import {listFoldersByAccount, listMessagesByFolder} from '../db/repositories/mailRepo.js';
-import {createAppLogger} from '../debug/debugLog.js';
-import {APP_NAME} from '../config.js';
-import {type AppSettingsPatch, getAppSettings, updateAppSettings} from '../settings/store.js';
-import {openSplashWindow} from '../windows/splashWindow.js';
+import {getAccounts} from '@main/db/repositories/accountsRepo.js';
+import {listFoldersByAccount, listMessagesByFolder} from '@main/db/repositories/mailRepo.js';
+import {createAppLogger} from '@main/debug/debugLog.js';
+import {APP_NAME} from '@main/config.js';
+import {type AppSettingsPatch, getAppSettings, updateAppSettings} from '@main/settings/store.js';
+import {openSplashWindow} from '@main/windows/splashWindow.js';
 
 const logger = createAppLogger('ipc:settings');
 

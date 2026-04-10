@@ -1,9 +1,9 @@
 import React, {useEffect, useState} from 'react';
-import type {AutoUpdateState} from '../../preload';
-import llamaLogo from '../../resources/llamarun.png';
-import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
-import {ipcClient} from '../lib/ipcClient';
-import {SPLASH_BOOT_AUTO_UPDATE_STATE} from '../lib/autoUpdateState';
+import type {AutoUpdateState} from '@/preload';
+import llamaLogo from '@resource/llamarun.png';
+import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import {SPLASH_BOOT_AUTO_UPDATE_STATE} from '@renderer/lib/autoUpdateState';
 
 export default function SplashScreenPage() {
 	const [state, setState] = useState<AutoUpdateState>(SPLASH_BOOT_AUTO_UPDATE_STATE);

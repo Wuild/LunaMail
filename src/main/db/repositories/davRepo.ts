@@ -1,4 +1,4 @@
-import {getDb} from '../drizzle.js';
+import {getDb} from '@main/db/drizzle.js';
 import {randomUUID} from 'node:crypto';
 
 // DAV repository currently uses parameterized raw SQL due to breadth/legacy surface (contacts, address books,

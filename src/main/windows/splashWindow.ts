@@ -3,7 +3,7 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import {loadWindowContent} from './loadWindowContent.js';
 import {attachWindowShortcuts, buildSecureWebPreferences, createAppWindow} from './windowFactory.js';
-import {APP_NAME} from '../config.js';
+import {APP_NAME} from '@main/config.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -47,17 +47,17 @@ export function openSplashWindow(options: OpenSplashWindowOptions = {}): Browser
         devUrls: [
             {
                 target: 'http://127.0.0.1:5174/window.html',
-                query: {window: 'splash'},
+                hash: '/windows/splash',
             },
             {
                 target: 'http://127.0.0.1:5174/src/renderer/window.html',
-                query: {window: 'splash'},
+                hash: '/windows/splash',
             },
         ],
         prodFiles: [
             {
                 target: path.join(__dirname, '..', '..', 'renderer/window.html'),
-                query: {window: 'splash'},
+                hash: '/windows/splash',
             },
         ],
         windowName: 'splash',

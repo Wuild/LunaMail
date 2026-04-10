@@ -1,5 +1,5 @@
 import {Outlet} from 'react-router-dom';
-import WorkspaceLayout from '../../layouts/WorkspaceLayout';
+import WorkspaceLayout from '@renderer/layouts/WorkspaceLayout';
 
 export default function MainSectionLayout() {
     return (

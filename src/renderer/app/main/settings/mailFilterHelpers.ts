@@ -5,7 +5,7 @@ import type {
     MailFilterField,
     MailFilterMatchMode,
     MailFilterOperator,
-} from '../../preload';
+} from '@/preload';
 
 export type MailFilterConditionDraft = {
     field: MailFilterField;

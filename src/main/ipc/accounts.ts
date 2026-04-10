@@ -1,13 +1,13 @@
 import {Worker} from 'node:worker_threads';
 import {ImapFlow} from 'imapflow';
-import {createAppLogger, createMailDebugLogger} from '../debug/debugLog.js';
+import {createAppLogger, createMailDebugLogger} from '@main/debug/debugLog.js';
 import {
     addAccount,
     deleteAccount,
     getAccounts,
     getAccountSyncCredentials,
     updateAccount,
-} from '../db/repositories/accountsRepo.js';
+} from '@main/db/repositories/accountsRepo.js';
 import {
     deleteFolderByPath,
     deleteMessageLocally,
@@ -22,10 +22,15 @@ import {
     searchMessages,
     setMessageTag,
     updateFolderSettings,
-} from '../db/repositories/mailRepo.js';
-import {autodiscover, autodiscoverBasic} from '../mail/autodiscover.js';
-import {deleteMailFilter, listMailFilters, runMailFiltersForMessages, upsertMailFilter} from '../mail/filterRules.js';
-import {resolveImapSecurity} from '../mail/security.js';
+} from '@main/db/repositories/mailRepo.js';
+import {autodiscover, autodiscoverBasic} from '@main/mail/autodiscover.js';
+import {
+    deleteMailFilter,
+    listMailFilters,
+    runMailFiltersForMessages,
+    upsertMailFilter
+} from '@main/mail/filterRules.js';
+import {resolveImapSecurity} from '@main/mail/security.js';
 import {
     createServerFolder,
     deleteServerFolder,
@@ -33,11 +38,11 @@ import {
     moveServerMessage,
     setServerMessageFlagged,
     setServerMessageRead,
-} from '../mail/actions.js';
-import {saveDraftEmail, sendEmail} from '../mail/send.js';
-import {downloadMessageAttachment, syncMessageBody, syncMessageSource, type SyncSummary} from '../mail/sync.js';
-import {getDb, getSqlitePath} from '../db/drizzle.js';
-import {verifyConnection} from '../mail/verify.js';
+} from '@main/mail/actions.js';
+import {saveDraftEmail, sendEmail} from '@main/mail/send.js';
+import {downloadMessageAttachment, syncMessageBody, syncMessageSource, type SyncSummary} from '@main/mail/sync.js';
+import {getDb, getSqlitePath} from '@main/db/drizzle.js';
+import {verifyConnection} from '@main/mail/verify.js';
 import {
     addAddressBook,
     addCalendarEvent,
@@ -54,20 +59,20 @@ import {
     removeAddressBook,
     removeContact,
     syncDav,
-} from '../dav/sync.js';
+} from '@main/dav/sync.js';
 import {registerAccountCoreIpc} from './registerAccountCoreIpc.js';
 import {registerComposeIpc} from './registerComposeIpc.js';
 import {registerDavIpc} from './registerDavIpc.js';
 import {registerMailIpc} from './registerMailIpc.js';
-import {normalizeSyncIntervalMinutes} from '../../shared/settingsRules.js';
-import {getAppSettingsSync} from '../settings/store.js';
+import {normalizeSyncIntervalMinutes} from '@/shared/settingsRules.js';
+import {getAppSettingsSync} from '@main/settings/store.js';
 import {
     broadcastAccountSyncStatus,
     broadcastMessageReadUpdated as broadcastMessageReadUpdatedEvent,
     broadcastToAllWindows,
     broadcastUnreadCountUpdated,
 } from './broadcast.js';
-import {isDemoProvider} from '../demo/demoMode.js';
+import {isDemoProvider} from '@main/demo/demoMode.js';
 
 const bodyRequests = new Map<string, { cancel: () => void }>();
 const SYNC_DEBOUNCE_MS = 350;

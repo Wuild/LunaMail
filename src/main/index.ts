@@ -45,7 +45,7 @@ import {
 } from './settings/store.js';
 import {reconcileDemoData} from './demo/demoMode.js';
 import {checkForUpdates, initAutoUpdater, runStartupUpdateFlow, setAutoUpdateEnabled} from './updater/autoUpdate.js';
-import type {GlobalErrorEvent, GlobalErrorSource} from '../shared/ipcTypes.js';
+import type {GlobalErrorEvent, GlobalErrorSource} from '@/shared/ipcTypes.js';
 import type {ComposeDraftPayload} from './windows/composeWindow.js';
 import {openComposeWindow} from './windows/composeWindow.js';
 import {loadWindowContent} from './windows/loadWindowContent.js';
@@ -253,11 +253,9 @@ function createWindow() {
 			devUrls: [
 				{
 					target: 'http://127.0.0.1:5174/window.html',
-					query: {window: 'main'},
 				},
 				{
 					target: 'http://127.0.0.1:5174/src/renderer/window.html',
-					query: {window: 'main'},
 				},
 			],
 			prodFiles: [],
@@ -273,11 +271,9 @@ function createWindow() {
 			prodFiles: [
 				{
 					target: path.join(__dirname, '../renderer/window.html'),
-					query: {window: 'main'},
 				},
 				{
 					target: path.join(__dirname, '../renderer/src/renderer/window.html'),
-					query: {window: 'main'},
 				},
 			],
 			windowName: 'main',

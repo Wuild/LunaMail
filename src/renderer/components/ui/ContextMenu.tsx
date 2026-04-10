@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {cn} from '../../lib/utils';
+import {cn} from '@renderer/lib/utils';
 import {Button, type ButtonProps} from './button';
 
 type ContextMenuSize = 'sm' | 'md' | 'lg' | 'nav';

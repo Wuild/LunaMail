@@ -1,25 +1,25 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {CalendarDays, ChevronLeft, ChevronRight, List, Pencil, Plus, RefreshCw, Settings, Trash2} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
-import type {CalendarEventItem, PublicAccount} from '../../../../preload';
-import {getAccountAvatarColorsForAccount, getAccountMonogram} from '../../../lib/accountAvatar';
-import {formatSystemDateTime} from '../../../lib/dateTime';
-import {clampToViewport} from '../../../lib/format';
-import {useResizableSidebar} from '../../../hooks/useResizableSidebar';
-import {ipcClient} from '../../../lib/ipcClient';
-import {Button} from '../../../components/ui/button';
-import {FormInput, FormTextarea} from '../../../components/ui/FormControls';
-import {Modal} from '../../../components/ui/Modal';
-import {ContextMenu, ContextMenuItem} from '../../../components/ui/ContextMenu';
+import type {CalendarEventItem, PublicAccount} from '@/preload';
+import {getAccountAvatarColorsForAccount, getAccountMonogram} from '@renderer/lib/accountAvatar';
+import {formatSystemDateTime} from '@renderer/lib/dateTime';
+import {clampToViewport} from '@renderer/lib/format';
+import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import {Button} from '@renderer/components/ui/button';
+import {FormInput, FormTextarea} from '@renderer/components/ui/FormControls';
+import {Modal} from '@renderer/components/ui/Modal';
+import {ContextMenu, ContextMenuItem} from '@renderer/components/ui/ContextMenu';
 import {
     statusAutoSyncFailed,
     statusNoAccountSelected,
     statusSyncFailed,
     statusSyncing,
     toErrorMessage,
-} from '../../../lib/statusText';
-import {cn} from '../../../lib/utils';
-import WorkspaceLayout from '../../../layouts/WorkspaceLayout';
+} from '@renderer/lib/statusText';
+import {cn} from '@renderer/lib/utils';
+import WorkspaceLayout from '@renderer/layouts/WorkspaceLayout';
 import {
     addHours,
     composeLocalDateTime,
@@ -33,7 +33,7 @@ import {
     toDateInputValue,
     toDateKey,
     toTimeInputValue,
-} from '../../../lib/date/calendar';
+} from '@renderer/lib/date/calendar';
 
 type CalendarPageProps = {
     accountId: number | null;

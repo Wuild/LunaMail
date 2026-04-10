@@ -21,13 +21,13 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
-import type {FolderItem, PublicAccount} from '../../../preload';
+import type {FolderItem, PublicAccount} from '@/preload';
 import {ScrollArea} from '../ui/scroll-area';
-import {getAccountAvatarColorsForAccount, getAccountMonogram} from '../../lib/accountAvatar';
-import {cn} from '../../lib/utils';
+import {getAccountAvatarColorsForAccount, getAccountMonogram} from '@renderer/lib/accountAvatar';
+import {cn} from '@renderer/lib/utils';
 import FolderItemRow from './FolderItemRow';
 import NewEmailBadge from './NewEmailBadge';
-import {DND_ITEM} from '../../lib/dndTypes';
+import {DND_ITEM} from '@renderer/lib/dndTypes';
 
 type MailMessageDragItem = {
     type: typeof DND_ITEM.MAIL_MESSAGE;

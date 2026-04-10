@@ -3,7 +3,7 @@ import React from 'react';
 import {Link} from 'react-router-dom';
 import {Settings} from 'lucide-react';
 import NewEmailBadge from './NewEmailBadge';
-import {cn} from '../../lib/utils';
+import {cn} from '@renderer/lib/utils';
 
 type FolderItemRowProps = {
     to?: string;

@@ -12,9 +12,9 @@ import {
     Users
 } from 'lucide-react';
 import {Button} from '../ui/button';
-import {ipcClient} from '../../lib/ipcClient';
-import {cn} from '../../lib/utils';
-import type {Workspace} from '../../lib/workspace';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import {cn} from '@renderer/lib/utils';
+import type {Workspace} from '@renderer/lib/workspace';
 
 type MainLayoutMenubarProps = {
     canNavigateBack: boolean;

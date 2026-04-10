@@ -1,4 +1,4 @@
-import {getMessageBody, getMessageById} from '../db/repositories/mailRepo.js';
+import {getMessageBody, getMessageById} from '@main/db/repositories/mailRepo.js';
 import {
     deleteMailFilter,
     listMailFilters,
@@ -6,7 +6,7 @@ import {
     type MailFilterAction,
     type MailFilterCondition,
     upsertMailFilter,
-} from '../db/repositories/mailFiltersRepo.js';
+} from '@main/db/repositories/mailFiltersRepo.js';
 import {moveServerMessage, setServerMessageFlagged, setServerMessageRead} from './actions.js';
 
 export type FilterRunTrigger = 'incoming' | 'manual';

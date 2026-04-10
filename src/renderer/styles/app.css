@@ -94,8 +94,18 @@
         background-color: color-mix(in srgb, var(--content-border) 75%, transparent) !important;
     }
 
+    [role='separator'][aria-orientation='vertical']:hover,
+    [role='separator'][aria-orientation='horizontal']:hover {
+        background-color: color-mix(in srgb, var(--content-border) 75%, transparent);
+    }
+
     .dark body.is-resizing-sidebar [role='separator'][aria-orientation='vertical'].is-active-resize-handle {
         background-color: color-mix(in srgb, var(--content-muted) 60%, transparent) !important;
+    }
+
+    .dark [role='separator'][aria-orientation='vertical']:hover,
+    .dark [role='separator'][aria-orientation='horizontal']:hover {
+        background-color: color-mix(in srgb, var(--content-muted) 60%, transparent);
     }
 }
 
@@ -175,28 +185,28 @@
     }
 
     .splash-screen {
-        background-color: var(--titlebar-surface);
-        color: var(--text-inverse);
+        background-color: var(--app-surface);
+        color: var(--app-text);
     }
 
     .splash-screen-glow {
         background-image: radial-gradient(
                 circle at 50% 10%,
-                color-mix(in srgb, var(--base-white) 8%, transparent),
+                color-mix(in srgb, var(--color-primary) 24%, transparent),
                 transparent 55%
         );
     }
 
     .splash-brand {
-        color: color-mix(in srgb, var(--base-white) 90%, transparent);
+        color: var(--app-text);
     }
 
     .splash-muted {
-        color: color-mix(in srgb, var(--base-white) 55%, transparent);
+        color: var(--content-muted);
     }
 
     .splash-progress-track {
-        background-color: color-mix(in srgb, var(--base-black) 42%, transparent);
+        background-color: color-mix(in srgb, var(--content-border) 72%, transparent);
     }
 
     .splash-progress-fill {

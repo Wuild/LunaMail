@@ -1,9 +1,9 @@
 import React, {useCallback, useRef} from "react";
 import {useDrag, useDrop} from "react-dnd";
 import {ArrowDown, ArrowUp} from "lucide-react";
-import {Button} from "../../../components/ui/button";
+import {Button} from "@renderer/components/ui/button";
 import {CLOUD_TABLE_RESIZE_HANDLE_CLASS, type CloudTableColumnKey} from "./cloudFilesHelpers";
-import {DND_ITEM} from "../../../lib/dndTypes";
+import {DND_ITEM} from "@renderer/lib/dndTypes";
 
 type CloudTableSortDirection = "asc" | "desc";
 type CloudColumnDragItem = { type: typeof DND_ITEM.CLOUD_TABLE_COLUMN; column: CloudTableColumnKey };

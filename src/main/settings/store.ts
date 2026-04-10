@@ -2,17 +2,17 @@ import {app} from 'electron';
 import fsSync from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
-import type {AppLanguage, AppSettings, AppSettingsPatch, AppTheme, MailView} from '../../shared/ipcTypes.js';
-import {DEFAULT_APP_SETTINGS, createDefaultAppSettings} from '../../shared/defaults.js';
+import type {AppLanguage, AppSettings, AppSettingsPatch, AppTheme, MailView} from '@/shared/ipcTypes.js';
+import {DEFAULT_APP_SETTINGS, createDefaultAppSettings} from '@/shared/defaults.js';
 import {
     normalizeNavRailOrder,
     normalizeSyncIntervalMinutes,
     parseAppLanguage,
     parseAppTheme,
     parseMailView,
-} from '../../shared/settingsRules.js';
+} from '@/shared/settingsRules.js';
 
-export type {AppLanguage, AppSettings, AppSettingsPatch, AppTheme, MailView} from '../../shared/ipcTypes.js';
+export type {AppLanguage, AppSettings, AppSettingsPatch, AppTheme, MailView} from '@/shared/ipcTypes.js';
 
 let settingsCache: AppSettings = createDefaultAppSettings();
 let hasLoaded = false;

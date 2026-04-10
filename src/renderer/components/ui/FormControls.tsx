@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {cn} from '../../lib/utils';
+import {cn} from '@renderer/lib/utils';
 
 type ControlVariant = 'default' | 'subtle';
 type ControlSize = 'sm' | 'md' | 'lg';

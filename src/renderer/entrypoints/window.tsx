@@ -1,32 +1,15 @@
 import React from 'react';
 import {mountApp} from './mountApp';
-import {APP_NAME} from '../../shared/appConfig';
+import {HashRouter, Navigate, useRoutes, type RouteObject} from 'react-router-dom';
+import AppLayout from '@renderer/app/layout';
+import {useAppTheme} from '@renderer/hooks/useAppTheme';
 
-type WindowKind = 'main' | 'add-account' | 'compose' | 'message' | 'debug' | 'splash';
-
-const WINDOW_KIND_TO_TITLE: Record<WindowKind, string> = {
-    main: APP_NAME,
-    'add-account': `${APP_NAME} - Add Account`,
-    compose: `${APP_NAME} - Compose`,
-    message: `${APP_NAME} - Message`,
-    debug: `${APP_NAME} - Debug`,
-    splash: `${APP_NAME} - Starting`,
-};
-
-function parseWindowKind(): WindowKind {
-    const raw = new URLSearchParams(window.location.search).get('window') || 'main';
-    if (raw === 'main' || raw === 'add-account' || raw === 'compose' || raw === 'message' || raw === 'debug' || raw === 'splash') {
-        return raw;
-    }
-    return 'main';
-}
-
-const MAIN_WINDOW_LOADER = () => import('../MainWindowApp');
-const ADD_ACCOUNT_LOADER = () => import('../pages/SettingsAddAccount');
-const COMPOSE_LOADER = () => import('../pages/ComposeEmailPage');
-const MESSAGE_LOADER = () => import('../pages/MessageWindowPage');
-const DEBUG_LOADER = () => import('../pages/DebugConsolePage');
-const SPLASH_LOADER = () => import('../pages/SplashScreenPage');
+const MAIN_WINDOW_LOADER = () => import('@renderer/app/windows/main/page');
+const ADD_ACCOUNT_LOADER = () => import('@renderer/app/windows/add-account/page');
+const COMPOSE_LOADER = () => import('@renderer/app/windows/compose/page');
+const MESSAGE_LOADER = () => import('@renderer/app/windows/message/page');
+const DEBUG_LOADER = () => import('@renderer/app/windows/debug/page');
+const SPLASH_LOADER = () => import('@renderer/app/windows/splash/page');
 const MainWindow = React.lazy(MAIN_WINDOW_LOADER);
 const AddAccountWindow = React.lazy(ADD_ACCOUNT_LOADER);
 const ComposeWindow = React.lazy(COMPOSE_LOADER);
@@ -34,51 +17,29 @@ const MessageWindow = React.lazy(MESSAGE_LOADER);
 const DebugWindow = React.lazy(DEBUG_LOADER);
 const SplashWindow = React.lazy(SPLASH_LOADER);
 
-function WindowBootstrap({kind}: { kind: WindowKind }): React.ReactElement {
-    if (kind === 'main') {
-        return (
-            <React.Suspense fallback={null}>
-                <MainWindow/>
-            </React.Suspense>
-        );
-    }
-    if (kind === 'add-account') {
-        return (
-            <React.Suspense fallback={null}>
-                <div className="ui-surface-content h-screen w-screen">
-                    <AddAccountWindow/>
-                </div>
-            </React.Suspense>
-        );
-    }
-    if (kind === 'compose') {
-        return (
-            <React.Suspense fallback={null}>
-                <ComposeWindow/>
-            </React.Suspense>
-        );
-    }
-    if (kind === 'message') {
-        return (
-            <React.Suspense fallback={null}>
-                <MessageWindow/>
-            </React.Suspense>
-        );
-    }
-    if (kind === 'debug') {
-        return (
-            <React.Suspense fallback={null}>
-                <DebugWindow/>
-            </React.Suspense>
-        );
-    }
-    return (
-        <React.Suspense fallback={null}>
-            <SplashWindow/>
-        </React.Suspense>
-    );
+const routeObjects: RouteObject[] = [
+    {path: '/windows/splash', element: <SplashWindow/>},
+    {
+        element: <AppLayout/>,
+        children: [
+            {path: '/windows/add-account', element: <AddAccountWindow/>},
+            {path: '/windows/compose', element: <ComposeWindow/>},
+            {path: '/windows/message', element: <MessageWindow/>},
+            {path: '/windows/debug', element: <DebugWindow/>},
+            {path: '/windows/main', element: <Navigate to="/" replace/>},
+            {path: '*', element: <MainWindow/>},
+        ],
+    },
+];
+
+function WindowBootstrap(): React.ReactElement | null {
+    useAppTheme();
+    const routes = useRoutes(routeObjects);
+    return <React.Suspense fallback={null}>{routes}</React.Suspense>;
 }
 
-const windowKind = parseWindowKind();
-document.title = WINDOW_KIND_TO_TITLE[windowKind];
-mountApp(<WindowBootstrap kind={windowKind}/>);
+mountApp(
+    <HashRouter>
+        <WindowBootstrap/>
+    </HashRouter>,
+);

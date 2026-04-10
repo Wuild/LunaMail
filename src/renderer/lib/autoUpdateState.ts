@@ -1,4 +1,4 @@
-import type {AutoUpdateState} from '../../preload';
+import type {AutoUpdateState} from '@/preload';
 
 export const DEFAULT_AUTO_UPDATE_STATE: AutoUpdateState = {
     enabled: false,

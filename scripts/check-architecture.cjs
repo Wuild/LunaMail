@@ -25,6 +25,26 @@ const EVENT_ALLOWLIST = new Set([
     normalizePath('src/renderer/hooks/ipc/useIpcEvent.ts'),
     normalizePath('src/renderer/lib/ipcClient.ts'),
 ]);
+const LEGACY_ROUTE_MODULE_PREFIXES = ['src/renderer/pages/', 'src/renderer/routes/'];
+const LEGACY_ROUTE_MODULE_ALLOWLIST = new Set([
+    normalizePath('src/renderer/pages/AppSettingsFormParts.tsx'),
+    normalizePath('src/renderer/pages/AppSettingsGeneralPanel.tsx'),
+    normalizePath('src/renderer/pages/AppSettingsPage.tsx'),
+    normalizePath('src/renderer/pages/ComposeEmailPage.tsx'),
+    normalizePath('src/renderer/pages/MailPage.tsx'),
+    normalizePath('src/renderer/pages/MessageWindowPage.tsx'),
+    normalizePath('src/renderer/pages/SettingsAddAccount.tsx'),
+    normalizePath('src/renderer/pages/SplashScreenPage.tsx'),
+    normalizePath('src/renderer/pages/appSettingsMailFilterHelpers.ts'),
+    normalizePath('src/renderer/pages/mailAccountOrder.ts'),
+    normalizePath('src/renderer/pages/mailPageHelpers.ts'),
+    normalizePath('src/renderer/pages/settings/tabs/AccountSettingsTab.tsx'),
+    normalizePath('src/renderer/pages/settings/tabs/AllowlistSettingsTab.tsx'),
+    normalizePath('src/renderer/pages/settings/tabs/DeveloperSettingsTab.tsx'),
+    normalizePath('src/renderer/pages/settings/tabs/LayoutSettingsTab.tsx'),
+    normalizePath('src/renderer/routes/MainWindowRoutes.tsx'),
+    normalizePath('src/renderer/routes/mainWindowRouteContext.ts'),
+]);
 
 function normalizePath(filePath) {
     return filePath.split(path.sep).join('/');
@@ -57,6 +77,7 @@ function main() {
     const oversized = [];
     const directEventUsages = [];
     const forbiddenRendererColorUsages = [];
+    const unexpectedLegacyRouteModules = [];
 
     for (const file of files) {
         const raw = fs.readFileSync(file, 'utf8');
@@ -89,6 +110,13 @@ function main() {
                 }
                 pattern.regex.lastIndex = 0;
             }
+        }
+
+        if (
+            LEGACY_ROUTE_MODULE_PREFIXES.some((prefix) => relative.startsWith(prefix)) &&
+            !LEGACY_ROUTE_MODULE_ALLOWLIST.has(relative)
+        ) {
+            unexpectedLegacyRouteModules.push(relative);
         }
     }
 
@@ -142,6 +170,18 @@ function main() {
             });
     } else {
         console.log('[architecture-check] Renderer color utility guard passed.');
+    }
+
+    if (unexpectedLegacyRouteModules.length > 0) {
+        hasError = true;
+        console.error(
+            '[architecture-check] Found new legacy route/page modules. Create route modules under src/renderer/app/** instead.',
+        );
+        unexpectedLegacyRouteModules
+            .sort((a, b) => a.localeCompare(b))
+            .forEach((relative) => console.error(`  - ${relative}`));
+    } else {
+        console.log('[architecture-check] Legacy route/page guard passed.');
     }
 
     if (hasError) process.exit(1);

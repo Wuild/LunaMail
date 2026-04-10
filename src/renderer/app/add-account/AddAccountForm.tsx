@@ -1,14 +1,13 @@
 import React, {useMemo, useState} from 'react';
 import {Check, Sparkles} from 'lucide-react';
-import type {DavDiscoveryResult} from '../../preload';
-import WindowTitleBar from '../components/WindowTitleBar';
-import ServiceSettingsCard, {type ServiceSecurityMode} from '../components/settings/ServiceSettingsCard';
-import {Button} from '../components/ui/button';
-import {FormInput} from '../components/ui/FormControls';
-import {useAppTheme} from '../hooks/useAppTheme';
-import {isEditableTarget} from '../lib/dom';
-import {ipcClient} from '../lib/ipcClient';
-import llamaArt from '../../resources/llama.png';
+import type {DavDiscoveryResult} from '@/preload';
+import ServiceSettingsCard, {type ServiceSecurityMode} from '@renderer/components/settings/ServiceSettingsCard';
+import {Button} from '@renderer/components/ui/button';
+import {FormInput} from '@renderer/components/ui/FormControls';
+import {useAppTheme} from '@renderer/hooks/useAppTheme';
+import {isEditableTarget} from '@renderer/lib/dom';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import llamaArt from '@resource/llama.png';
 
 type Service = { host: string; port: number; security: ServiceSecurityMode };
 type WizardStep = 1 | 2 | 3;
@@ -305,7 +304,6 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({embedded = false
     return (
         <div className={`${embedded ? 'h-full w-full' : 'h-screen w-screen'} workspace-content overflow-hidden`}>
             <div className="panel flex h-full w-full flex-col overflow-hidden border-0">
-                {!embedded && <WindowTitleBar title="Add Account" />}
                 <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)]">
                     <aside
                         className="relative hidden min-h-0 overflow-hidden px-6 py-7 text-inverse lg:flex lg:flex-col"

@@ -1,14 +1,14 @@
 import {useCallback, useEffect, useRef} from 'react';
 import {useMutation} from '@tanstack/react-query';
 import type {Dispatch, SetStateAction} from 'react';
-import type {FolderItem, MessageItem} from '../../../preload';
+import type {FolderItem, MessageItem} from '@/preload';
 import {
     applyReadStateToAccountFoldersById,
     applyReadStateToFolders,
     applyReadStateToMessages,
-} from '../../lib/optimisticMailState';
-import {toErrorMessage} from '../../lib/statusText';
-import {ipcClient} from '../../lib/ipcClient';
+} from '@renderer/lib/optimisticMailState';
+import {toErrorMessage} from '@renderer/lib/statusText';
+import {ipcClient} from '@renderer/lib/ipcClient';
 
 type UseOptimisticReadStateParams = {
     setMessages: Dispatch<SetStateAction<MessageItem[]>>;

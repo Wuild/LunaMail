@@ -2,7 +2,7 @@ import {app, BrowserWindow} from 'electron';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import {loadWindowContent} from './loadWindowContent.js';
-import {getAppSettingsSync} from '../settings/store.js';
+import {getAppSettingsSync} from '@main/settings/store.js';
 import {
     attachWindowShortcuts,
     buildSecureWebPreferences,
@@ -56,17 +56,17 @@ export function openMessageWindow(messageId?: number | null): void {
         devUrls: [
             {
                 target: 'http://127.0.0.1:5174/window.html',
-                query: {window: 'message'},
+                hash: '/windows/message',
             },
             {
                 target: 'http://127.0.0.1:5174/src/renderer/window.html',
-                query: {window: 'message'},
+                hash: '/windows/message',
             },
         ],
         prodFiles: [
             {
                 target: path.join(__dirname, '..', '..', 'renderer/window.html'),
-                query: {window: 'message'},
+                hash: '/windows/message',
             },
         ],
         windowName: 'message',

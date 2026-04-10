@@ -1,10 +1,11 @@
 import type {OpenDialogOptions} from "electron";
 import {app, BrowserWindow, dialog, ipcMain} from "electron";
 import path from "node:path";
-import {clearDebugLogs, createAppLogger, getDebugLogs} from "../debug/debugLog.js";
-import {type ComposeDraftPayload, getComposeDraft, openComposeWindow} from "../windows/composeWindow.js";
-import {getMessageWindowTargetId, openMessageWindow} from "../windows/messageWindow.js";
-import {openDebugWindow} from "../windows/debugWindow.js";
+import {clearDebugLogs, createAppLogger, getDebugLogs} from "@main/debug/debugLog.js";
+import {type ComposeDraftPayload, getComposeDraft, openComposeWindow} from "@main/windows/composeWindow.js";
+import {getMessageWindowTargetId, openMessageWindow} from "@main/windows/messageWindow.js";
+import {openDebugWindow} from "@main/windows/debugWindow.js";
+import {openRouteWindow} from "@main/windows/routeWindow.js";
 
 const logger = createAppLogger("ipc:windows");
 
@@ -47,6 +48,16 @@ export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void
     ipcMain.handle("open-debug-window", async (_event) => {
         logger.info("IPC open-debug-window");
         openDebugWindow();
+        return {ok: true} as const;
+    });
+
+    ipcMain.handle("open-route-window", async (_event, route: string) => {
+        const safeRoute = String(route || '').trim();
+        if (!safeRoute) {
+            throw new Error('Invalid route');
+        }
+        logger.info("IPC open-route-window route=%s", safeRoute);
+        openRouteWindow(safeRoute);
         return {ok: true} as const;
     });
 
@@ -108,6 +119,21 @@ export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void
         const win = BrowserWindow.fromWebContents(event.sender);
         if (!win || win.isDestroyed()) return false;
         return win.isMaximized();
+    });
+
+    ipcMain.handle("window-controls-capabilities", async (event) => {
+        logger.debug("IPC window-controls-capabilities");
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (!win || win.isDestroyed()) {
+            return {
+                minimizable: false,
+                maximizable: false,
+            };
+        }
+        return {
+            minimizable: win.isMinimizable(),
+            maximizable: win.isMaximizable(),
+        };
     });
 
     ipcMain.handle("window-open-dev-tools", async (event) => {

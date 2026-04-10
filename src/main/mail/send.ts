@@ -6,8 +6,8 @@ import {
     getAccountSendCredentials,
     getAccountSyncCredentials,
     getLocalAccountVCardPath
-} from '../db/repositories/accountsRepo.js';
-import {createMailDebugLogger} from '../debug/debugLog.js';
+} from '@main/db/repositories/accountsRepo.js';
+import {createMailDebugLogger} from '@main/debug/debugLog.js';
 import {markdownToEmailHtml} from './markdown.js';
 import {resolveImapSecurity, resolveSmtpSecurity} from './security.js';
 

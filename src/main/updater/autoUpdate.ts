@@ -1,10 +1,10 @@
 import {app} from 'electron';
 import type {ProgressInfo, UpdateDownloadedEvent, UpdateInfo} from 'electron-updater';
 import electronUpdater from 'electron-updater';
-import {createAppLogger} from '../debug/debugLog.js';
-import type {AutoUpdateState} from '../../shared/ipcTypes.js';
+import {createAppLogger} from '@main/debug/debugLog.js';
+import type {AutoUpdateState} from '@/shared/ipcTypes.js';
 
-export type {AutoUpdatePhase, AutoUpdateState} from '../../shared/ipcTypes.js';
+export type {AutoUpdatePhase, AutoUpdateState} from '@/shared/ipcTypes.js';
 
 const {autoUpdater} = electronUpdater;
 

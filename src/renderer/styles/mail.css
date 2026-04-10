@@ -81,6 +81,10 @@
         transition: background-color 140ms ease;
     }
 
+    .mail-table-row:last-child {
+        border-bottom: 1px solid color-mix(in srgb, var(--app-border) 55%, transparent);
+    }
+
     .mail-table-row:hover {
         background-color: var(--state-hover);
     }

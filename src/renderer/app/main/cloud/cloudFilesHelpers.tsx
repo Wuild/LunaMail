@@ -1,8 +1,8 @@
-import {FormInput, FormSelect} from '../../../components/ui/FormControls';
+import {FormInput, FormSelect} from '@renderer/components/ui/FormControls';
 import React from "react";
 import {File, FileArchive, FileAudio2, FileCode, FileImage, FileSpreadsheet, FileText, FileVideo,} from "lucide-react";
-import type {CloudItem, CloudProvider, CloudStorageUsage} from "../../../../preload";
-import {ONEDRIVE_DEFAULT_CLIENT_ID, ONEDRIVE_DEFAULT_TENANT_ID} from "../../../../shared/cloudConfig";
+import type {CloudItem, CloudProvider, CloudStorageUsage} from "@/preload";
+import {ONEDRIVE_DEFAULT_CLIENT_ID, ONEDRIVE_DEFAULT_TENANT_ID} from "@/shared/cloudConfig";
 
 export type NavigationEntry = { token: string; label: string };
 export type CloudTableColumnKey = "name" | "type" | "size" | "modified" | "created";

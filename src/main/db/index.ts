@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import {app} from 'electron';
 import {migrate} from 'drizzle-orm/better-sqlite3/migrator';
-import {createAppLogger} from '../debug/debugLog.js';
+import {createAppLogger} from '@main/debug/debugLog.js';
 import {getDb, getDrizzle} from './drizzle.js';
 
 const logger = createAppLogger('db:init');

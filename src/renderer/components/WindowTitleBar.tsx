@@ -1,17 +1,18 @@
 import {Button} from './ui/button';
 import React from 'react';
 import {Copy, Minus, Square, X} from 'lucide-react';
-import {cn} from '../lib/utils';
-import llamaLogo from '../../resources/llamatray.png';
-import {useWindowControlsState} from '../hooks/ipc/useWindowControlsState';
-import {useAppSettings} from '../hooks/ipc/useAppSettings';
-import {DEFAULT_APP_SETTINGS} from '../../shared/defaults';
-import {APP_NAME} from '../../shared/appConfig';
-import {useAutoUpdateState} from "../hooks/ipc/useAutoUpdateState";
+import {cn} from '@renderer/lib/utils';
+import llamaLogo from '@resource/llamatray.png';
+import {useWindowControlsState} from '@renderer/hooks/ipc/useWindowControlsState';
+import {useAppSettings} from '@renderer/hooks/ipc/useAppSettings';
+import {DEFAULT_APP_SETTINGS} from '@/shared/defaults';
+import {APP_NAME} from '@/shared/appConfig';
+import {useAutoUpdateState} from "@renderer/hooks/ipc/useAutoUpdateState";
 
 interface WindowTitleBarProps {
     title: string;
     className?: string;
+    titleActions?: React.ReactNode;
     showMinimize?: boolean;
     showMaximize?: boolean;
     showClose?: boolean;
@@ -21,17 +22,20 @@ interface WindowTitleBarProps {
 export default function WindowTitleBar({
                                            title,
                                            className,
+                                           titleActions,
                                            showMinimize = true,
                                            showMaximize = false,
                                            showClose = true,
                                            onRequestClose,
                                        }: WindowTitleBarProps) {
     const {appSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
-    const {isMaximized, toggleMaximize, minimize, close} = useWindowControlsState();
+    const {isMaximized, capabilities, toggleMaximize, minimize, close} = useWindowControlsState();
     const {appVersion} = useAutoUpdateState();
     if (appSettings.useNativeTitleBar) {
         return null;
     }
+    const allowMinimize = showMinimize && capabilities.minimizable;
+    const allowMaximize = showMaximize && capabilities.maximizable;
 
     return (
         <div
@@ -41,7 +45,7 @@ export default function WindowTitleBar({
             )}
             style={{WebkitAppRegion: 'drag'} as React.CSSProperties}
             onDoubleClick={() => {
-                if (!showMaximize) return;
+                if (!allowMaximize) return;
                 void toggleMaximize();
             }}
         >
@@ -66,10 +70,11 @@ export default function WindowTitleBar({
                 </span>
             </div>
             <div
-                className="titlebar-actions flex w-24 shrink-0 items-center justify-end gap-1"
+                className="titlebar-actions flex shrink-0 items-center justify-end gap-1"
                 style={{WebkitAppRegion: 'no-drag'} as React.CSSProperties}
             >
-                {showMinimize && (
+                {titleActions}
+                {allowMinimize && (
                     <Button
                         type="button"
                         className="titlebar-button inline-flex h-7 w-7 items-center justify-center rounded"
@@ -80,7 +85,7 @@ export default function WindowTitleBar({
                         <Minus size={14}/>
                     </Button>
                 )}
-                {showMaximize && (
+                {allowMaximize && (
                     <Button
                         type="button"
                         className="titlebar-button inline-flex h-7 w-7 items-center justify-center rounded"

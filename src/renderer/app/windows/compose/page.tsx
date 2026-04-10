@@ -26,35 +26,30 @@ import type {
     PublicAccount,
     PublicCloudAccount,
     RecentRecipientItem,
-} from '../../preload/index';
-import HtmlLexicalEditor from '../components/HtmlLexicalEditor';
-import AutoComplete, {type AutoCompleteRow} from '../components/inputs/AutoComplete';
-import {FormControlGroup, FormInput, FormSelect, type FormSelectOption} from '../components/ui/FormControls';
-import {Modal} from '../components/ui/Modal';
-import {Button, ButtonGroup} from '../components/ui/button';
-import WindowTitleBar from '../components/WindowTitleBar';
-import {formatSystemDateTime} from '../lib/dateTime';
-import {formatBytes} from '../lib/format';
-import {useAppTheme} from '../hooks/useAppTheme';
-import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
-import {ipcClient} from '../lib/ipcClient';
-import {getAccountAvatarColorsForAccount, getAccountMonogram} from '../lib/accountAvatar';
-import {buildSourceDocCsp, enrichAnchorTitles} from '../features/mail/remoteContent';
-import {buildMessageIframeSrcDoc} from './mailPageHelpers';
-import {createDefaultAppSettings} from '../../shared/defaults';
-
-type ComposeAttachment = {
-    id: string;
-    path: string;
-    filename: string;
-    contentType: string | null;
-    size: number | null;
-};
+} from '@/preload';
+import HtmlLexicalEditor from '@renderer/components/HtmlLexicalEditor';
+import AutoComplete, {type AutoCompleteRow} from '@renderer/components/inputs/AutoComplete';
+import {FormControlGroup, FormInput, FormSelect, type FormSelectOption} from '@renderer/components/ui/FormControls';
+import {Modal} from '@renderer/components/ui/Modal';
+import {Button, ButtonGroup} from '@renderer/components/ui/button';
+import {formatSystemDateTime} from '@renderer/lib/dateTime';
+import {formatBytes} from '@renderer/lib/format';
+import {useAppTheme} from '@renderer/hooks/useAppTheme';
+import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import {useApp} from '@renderer/app/AppContext';
+import {getAccountAvatarColorsForAccount, getAccountMonogram} from '@renderer/lib/accountAvatar';
+import {buildSourceDocCsp, enrichAnchorTitles} from '@renderer/features/mail/remoteContent';
+import {buildMessageIframeSrcDoc} from '@renderer/app/main/email/mailPageHelpers';
+import {createDefaultAppSettings} from '@/shared/defaults';
+import {useComposeWindowGuards} from '@renderer/app/windows/compose/useComposeWindowGuards';
+import {useComposeRecipients} from '@renderer/app/windows/compose/useComposeRecipients';
+import {useComposeAttachments} from '@renderer/app/windows/compose/useComposeAttachments';
+import type {ComposeAttachment, RecipientFieldKey} from '@renderer/app/windows/compose/types';
 
 const EMAIL_ADDRESS_REGEX = /^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/;
 const CONTACT_META_PREFIX = '[LUNAMAIL_CONTACT_META_V1]';
 const CLOUD_FOLDER_CACHE_PREFIX = 'llamamail.cloud.folder.cache.v1';
-type RecipientFieldKey = 'to' | 'cc' | 'bcc';
 type ComposeValidationErrors = {
     from: string | null;
     recipients: string | null;
@@ -70,11 +65,9 @@ const EMPTY_COMPOSE_VALIDATION_ERRORS: ComposeValidationErrors = {
 
 function ComposeEmailPage() {
     useAppTheme();
+    const {setTitle, setOnRequestClose} = useApp();
     const [accounts, setAccounts] = useState<PublicAccount[]>([]);
     const [fromAccountId, setFromAccountId] = useState<number | ''>('');
-    const [toList, setToList] = useState<string[]>([]);
-    const [ccList, setCcList] = useState<string[]>([]);
-    const [bccList, setBccList] = useState<string[]>([]);
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
     const [plainBody, setPlainBody] = useState('');
@@ -90,8 +83,41 @@ function ComposeEmailPage() {
     const [sending, setSending] = useState(false);
     const [status, setStatus] = useState<string | null>(null);
     const [validationErrors, setValidationErrors] = useState<ComposeValidationErrors>(EMPTY_COMPOSE_VALIDATION_ERRORS);
-    const [showCcBcc, setShowCcBcc] = useState(false);
-    const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
+    const {
+        toList,
+        setToList,
+        ccList,
+        setCcList,
+        bccList,
+        setBccList,
+        showCcBcc,
+        setShowCcBcc,
+        recipientDrafts,
+        setRecipientDrafts,
+        recipientRows,
+        setRecipientRows,
+        recipientInvalidMessages,
+        setRecipientInvalidMessages,
+        activeRecipientField,
+        setActiveRecipientField,
+        recipientListsByField,
+        blockedRecipientsByField,
+        setRecipientsForField,
+    } = useComposeRecipients();
+    const {
+        attachments,
+        fileInputRef,
+        windowDragActive,
+        onDropNonImageFiles,
+        onFallbackInputChange,
+        onPickAttachments,
+        appendAttachments,
+        removeAttachment,
+        onRootDragEnterCapture,
+        onRootDragOverCapture,
+        onRootDragLeaveCapture,
+        onRootDrop,
+    } = useComposeAttachments({setStatus});
     const [showCloudPicker, setShowCloudPicker] = useState(false);
     const [cloudAccounts, setCloudAccounts] = useState<PublicCloudAccount[]>([]);
     const [cloudAccountId, setCloudAccountId] = useState<number | ''>('');
@@ -100,26 +126,18 @@ function ComposeEmailPage() {
     const [cloudLoading, setCloudLoading] = useState(false);
     const [cloudAttaching, setCloudAttaching] = useState(false);
     const [cloudStatus, setCloudStatus] = useState<string | null>(null);
-    const [windowDragActive, setWindowDragActive] = useState(false);
     const [cloudFilesCache, setCloudFilesCache] = useState<Record<string, CloudItem[]>>({});
-    const [recipientDrafts, setRecipientDrafts] = useState<Record<RecipientFieldKey, string>>({to: '', cc: '', bcc: ''});
-    const [recipientRows, setRecipientRows] = useState<Record<RecipientFieldKey, AutoCompleteRow[]>>({to: [], cc: [], bcc: []});
-    const [recipientInvalidMessages, setRecipientInvalidMessages] = useState<Record<RecipientFieldKey, string | null>>({
-        to: null,
-        cc: null,
-        bcc: null,
-    });
-    const [activeRecipientField, setActiveRecipientField] = useState<RecipientFieldKey | null>(null);
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
     const cloudFilesCacheRef = useRef<Record<string, CloudItem[]>>({});
     const cloudRequestSeqRef = useRef(0);
     const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSavedSignatureRef = useRef<string>('');
     const draftSessionIdRef = useRef<string>(`draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
     const autoSignatureRef = useRef<{ accountId: number; html: string; text: string } | null>(null);
-    const windowDragDepthRef = useRef(0);
-    const allowWindowCloseRef = useRef(false);
     const recipientSearchSeqRef = useRef(0);
+
+    useEffect(() => {
+        setTitle('Compose Email');
+    }, [setTitle]);
 
     useEffect(() => {
         let active = true;
@@ -287,24 +305,6 @@ function ComposeEmailPage() {
     useEffect(() => {
         cloudFilesCacheRef.current = cloudFilesCache;
     }, [cloudFilesCache]);
-
-    const recipientListsByField: Record<RecipientFieldKey, string[]> = useMemo(
-        () => ({
-            to: toList,
-            cc: ccList,
-            bcc: bccList,
-        }),
-        [toList, ccList, bccList],
-    );
-
-    const blockedRecipientsByField: Record<RecipientFieldKey, string[]> = useMemo(
-        () => ({
-            to: [...ccList, ...bccList],
-            cc: [...toList, ...bccList],
-            bcc: [...toList, ...ccList],
-        }),
-        [toList, ccList, bccList],
-    );
 
     useEffect(() => {
         if (!activeRecipientField || typeof fromAccountId !== 'number') {
@@ -515,24 +515,11 @@ function ComposeEmailPage() {
         };
     }, [draftPayload, sending]);
 
-    useEffect(() => {
-        const onBeforeUnload = (event: BeforeUnloadEvent) => {
-            if (allowWindowCloseRef.current) return;
-            if (sending || !isComposeDirty) return;
-            event.preventDefault();
-            event.returnValue = '';
-        };
-        window.addEventListener('beforeunload', onBeforeUnload);
-        return () => {
-            window.removeEventListener('beforeunload', onBeforeUnload);
-        };
-    }, [isComposeDirty, sending]);
-
-    function setRecipientsForField(field: RecipientFieldKey, next: string[]) {
-        if (field === 'to') setToList(next);
-        if (field === 'cc') setCcList(next);
-        if (field === 'bcc') setBccList(next);
-    }
+    useComposeWindowGuards({
+        isComposeDirty,
+        sending,
+        setOnRequestClose,
+    });
 
     function clearValidationError(field: keyof ComposeValidationErrors) {
         setValidationErrors((prev) => {
@@ -680,123 +667,6 @@ function ComposeEmailPage() {
         }
     }
 
-    function appendAttachments(next: ComposeAttachment[]) {
-        if (!next.length) return;
-        setAttachments((prev) => {
-            const seen = new Set(prev.map((attachment) => attachment.id));
-            const merged = [...prev];
-            for (const row of next) {
-                if (seen.has(row.id)) continue;
-                merged.push(row);
-                seen.add(row.id);
-            }
-            return merged;
-        });
-    }
-
-    async function appendDroppedFilesAsAttachments(files: File[]) {
-        if (!files.length) return;
-        const resolved = await Promise.all(
-            files.map(async (file) => ({
-                file,
-                path: String(ipcClient.getPathForFile(file) || (file as any).path || '').trim(),
-            })),
-        );
-        const next: ComposeAttachment[] = [];
-        let skippedCount = 0;
-        for (const item of resolved) {
-            if (!item.path) {
-                skippedCount += 1;
-                continue;
-            }
-            next.push({
-                id: item.path,
-                path: item.path,
-                filename: item.file.name || 'attachment',
-                contentType: item.file.type || null,
-                size: Number.isFinite(item.file.size) ? item.file.size : null,
-            });
-        }
-        appendAttachments(next);
-        if (skippedCount > 0) {
-            setStatus(`Skipped ${skippedCount} dropped file${skippedCount > 1 ? 's' : ''} (no local file path).`);
-        }
-    }
-
-    async function onDropNonImageFiles(files: File[]) {
-        await appendDroppedFilesAsAttachments(files);
-    }
-
-    function isExternalDesktopFileDrag(dataTransfer: DataTransfer | null): boolean {
-        if (!dataTransfer) return false;
-        const types = Array.from(dataTransfer.types || []);
-        if (types.includes('application/x-llamamail-image')) return false;
-        if (types.includes('Files')) return true;
-        if (Array.from(dataTransfer.files || []).length > 0) return true;
-        return Array.from(dataTransfer.items || []).some((item) => item.kind === 'file');
-    }
-
-    function extractFilesFromDataTransfer(dataTransfer: DataTransfer | null): File[] {
-        if (!dataTransfer) return [];
-        const directFiles = Array.from(dataTransfer.files || []);
-        if (directFiles.length > 0) return directFiles;
-        return Array.from(dataTransfer.items || [])
-            .filter((item) => item.kind === 'file')
-            .map((item) => item.getAsFile())
-            .filter((file): file is File => Boolean(file));
-    }
-
-    useEffect(() => {
-        const resetWindowDragState = () => {
-            windowDragDepthRef.current = 0;
-            setWindowDragActive(false);
-        };
-        const captureOptions: AddEventListenerOptions = {capture: true};
-        window.addEventListener('drop', resetWindowDragState, captureOptions);
-        window.addEventListener('dragend', resetWindowDragState, captureOptions);
-        return () => {
-            window.removeEventListener('drop', resetWindowDragState, captureOptions);
-            window.removeEventListener('dragend', resetWindowDragState, captureOptions);
-        };
-    }, []);
-
-    function onFallbackInputChange(event: React.ChangeEvent<HTMLInputElement>) {
-        const files = Array.from(event.target.files ?? []);
-        const next: ComposeAttachment[] = files
-            .map((file) => {
-                const filePath = String((file as any).path || '').trim();
-                if (!filePath) return null;
-                return {
-                    id: filePath,
-                    path: filePath,
-                    filename: file.name || 'attachment',
-                    contentType: file.type || null,
-                    size: Number.isFinite(file.size) ? file.size : null,
-                };
-            })
-            .filter((item): item is ComposeAttachment => Boolean(item));
-        appendAttachments(next);
-        event.target.value = '';
-    }
-
-    async function onPickAttachments() {
-        try {
-            const picked = await ipcClient.pickComposeAttachments();
-            if (!picked.length) return;
-            const next: ComposeAttachment[] = picked.map((item) => ({
-                id: item.path,
-                path: item.path,
-                filename: item.filename || 'attachment',
-                contentType: item.contentType || null,
-                size: null,
-            }));
-            appendAttachments(next);
-        } catch (e: any) {
-            fileInputRef.current?.click();
-            setStatus(`Attachment picker failed: ${e?.message || String(e)}`);
-        }
-    }
-
     async function onCloudAccountChange(nextAccountIdRaw: string) {
         const nextAccountId = Number(nextAccountIdRaw);
         if (!Number.isInteger(nextAccountId) || nextAccountId <= 0) {
@@ -852,45 +722,13 @@ function ComposeEmailPage() {
         }
     }
 
-    function removeAttachment(id: string) {
-        setAttachments((prev) => prev.filter((attachment) => attachment.id !== id));
-    }
-
     return (
         <div
-            className="app-shell relative h-screen w-screen overflow-hidden"
-            onDragEnterCapture={(event) => {
-                if (!isExternalDesktopFileDrag(event.dataTransfer)) return;
-                event.preventDefault();
-                windowDragDepthRef.current += 1;
-                setWindowDragActive(true);
-            }}
-            onDragOverCapture={(event) => {
-                if (!isExternalDesktopFileDrag(event.dataTransfer)) return;
-                event.preventDefault();
-                if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-                if (!windowDragActive) setWindowDragActive(true);
-            }}
-            onDragLeaveCapture={(event) => {
-                if (!windowDragActive) return;
-                if (!isExternalDesktopFileDrag(event.dataTransfer) && windowDragDepthRef.current === 0) return;
-                event.preventDefault();
-                windowDragDepthRef.current = Math.max(0, windowDragDepthRef.current - 1);
-                if (windowDragDepthRef.current === 0) {
-                    setWindowDragActive(false);
-                }
-            }}
-            onDrop={(event) => {
-                const files = extractFilesFromDataTransfer(event.dataTransfer);
-                const isExternalDrop = isExternalDesktopFileDrag(event.dataTransfer) || files.length > 0;
-                if (!isExternalDrop) return;
-                event.preventDefault();
-                windowDragDepthRef.current = 0;
-                setWindowDragActive(false);
-                event.stopPropagation();
-                if (!files.length) return;
-                void appendDroppedFilesAsAttachments(files);
-            }}
+            className="relative h-full min-h-0 w-full overflow-hidden"
+            onDragEnterCapture={onRootDragEnterCapture}
+            onDragOverCapture={onRootDragOverCapture}
+            onDragLeaveCapture={onRootDragLeaveCapture}
+            onDrop={onRootDrop}
         >
             {windowDragActive && (
                 <div
@@ -898,19 +736,7 @@ function ComposeEmailPage() {
                     Drop files to attach. Drop on editor body to insert images inline.
                 </div>
             )}
-            <div className="flex h-full flex-col">
-                <WindowTitleBar
-                    title="Compose Email"
-                    showMaximize
-                    onRequestClose={() => {
-                        if (sending || !isComposeDirty) return true;
-                        const confirmed = window.confirm('Discard this draft? You have unsent changes.');
-                        if (confirmed) {
-                            allowWindowCloseRef.current = true;
-                        }
-                        return confirmed;
-                    }}
-                />
+            <div className="flex h-full min-h-0 flex-col">
                 <header className="mail-compose-header text-inverse border-b px-5 py-3">
                     <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">

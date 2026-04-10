@@ -1,6 +1,6 @@
 import {useMemo} from 'react';
 import {useRoutes} from 'react-router-dom';
-import {buildMainWindowRouteObjects} from '../app/mainWindowRouteObjects';
+import {buildMainWindowRouteObjects} from './mainWindowRouteObjects';
 import type {MainWindowRouteContext} from './mainWindowRouteContext';
 
 export type MainWindowRoutesProps = MainWindowRouteContext & {

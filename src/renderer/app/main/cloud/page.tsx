@@ -1,6 +1,11 @@
-import {Button} from '../../../components/ui/button';
-import {Modal} from '../../../components/ui/Modal';
-import {ContextMenu, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator} from '../../../components/ui/ContextMenu';
+import {Button} from '@renderer/components/ui/button';
+import {Modal} from '@renderer/components/ui/Modal';
+import {
+    ContextMenu,
+    ContextMenuItem,
+    ContextMenuLabel,
+    ContextMenuSeparator
+} from '@renderer/components/ui/ContextMenu';
 import React, {useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
 import {
     ChevronRight,
@@ -28,12 +33,12 @@ import type {
     CloudStorageUsage,
     PublicCloudAccount,
     UpdateCloudAccountPayload,
-} from "../../../../preload";
-import {formatBytes} from "../../../lib/format";
-import {formatSystemDateTime} from "../../../lib/dateTime";
-import WorkspaceLayout from "../../../layouts/WorkspaceLayout";
-import {useResizableSidebar} from "../../../hooks/useResizableSidebar";
-import {ipcClient} from "../../../lib/ipcClient";
+} from "@/preload";
+import {formatBytes} from "@renderer/lib/format";
+import {formatSystemDateTime} from "@renderer/lib/dateTime";
+import WorkspaceLayout from "@renderer/layouts/WorkspaceLayout";
+import {useResizableSidebar} from "@renderer/hooks/useResizableSidebar";
+import {ipcClient} from "@renderer/lib/ipcClient";
 import {
     areCloudItemsEqual,
     buildCloudRoute,

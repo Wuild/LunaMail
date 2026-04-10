@@ -1,7 +1,7 @@
 import {eq} from 'drizzle-orm';
-import {getDrizzle} from '../db/drizzle.js';
-import {deleteAccount} from '../db/repositories/accountsRepo.js';
-import {accounts} from '../db/schema.js';
+import {getDrizzle} from '@main/db/drizzle.js';
+import {deleteAccount} from '@main/db/repositories/accountsRepo.js';
+import {accounts} from '@main/db/schema.js';
 import {
 	getMessageIdByFolderAndUid,
 	getTotalUnreadCount,
@@ -10,7 +10,7 @@ import {
 	upsertMessage,
 	upsertMessageBody,
 	upsertThread,
-} from '../db/repositories/mailRepo.js';
+} from '@main/db/repositories/mailRepo.js';
 
 const DEMO_PROVIDER = 'demo';
 

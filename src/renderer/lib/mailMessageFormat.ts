@@ -1,4 +1,4 @@
-import type {FolderItem, MessageItem, PublicAccount} from '../../preload';
+import type {FolderItem, MessageItem, PublicAccount} from '@/preload';
 
 export function formatMessageSender(message: MessageItem): string {
     const name = (message.from_name || '').trim();

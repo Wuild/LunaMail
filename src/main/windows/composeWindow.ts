@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import {loadWindowContent} from './loadWindowContent.js';
-import {getAppSettingsSync, getSpellCheckerLanguages} from '../settings/store.js';
+import {getAppSettingsSync, getSpellCheckerLanguages} from '@main/settings/store.js';
 import {
     attachWindowShortcuts,
     buildSecureWebPreferences,
@@ -117,17 +117,17 @@ export function openComposeWindow(parentWindow?: BrowserWindow, draft?: ComposeD
         devUrls: [
             {
                 target: 'http://127.0.0.1:5174/window.html',
-                query: {window: 'compose'},
+                hash: '/windows/compose',
             },
             {
                 target: 'http://127.0.0.1:5174/src/renderer/window.html',
-                query: {window: 'compose'},
+                hash: '/windows/compose',
             },
         ],
         prodFiles: [
             {
                 target: path.join(__dirname, '..', '..', 'renderer/window.html'),
-                query: {window: 'compose'},
+                hash: '/windows/compose',
             },
         ],
         windowName: 'compose',

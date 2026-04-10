@@ -1,4 +1,4 @@
-import mailFrameCss from '../../../styles/mail-frame.css?raw';
+import mailFrameCss from '@renderer/styles/mail-frame.css?raw';
 
 export function parseRouteNumber(value?: string): number | null {
     if (!value) return null;

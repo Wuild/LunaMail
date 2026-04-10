@@ -1,11 +1,10 @@
-import {Button} from '../../../components/ui/button';
+import {Button} from '@renderer/components/ui/button';
 import React, {useEffect, useState} from 'react';
-import WindowTitleBar from '../../../components/WindowTitleBar';
-import {useAppTheme} from '../../../hooks/useAppTheme';
-import {ipcClient} from '../../../lib/ipcClient';
-import llamaArt from '../../../../resources/llama.png';
+import {useAppTheme} from '@renderer/hooks/useAppTheme';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import llamaArt from '@resource/llama.png';
 
-export default function SupportPage({embedded = false}: { embedded?: boolean }) {
+export default function SupportPage() {
     useAppTheme();
     const [version, setVersion] = useState('unknown');
     const repoUrl = 'https://github.com/wuild/LlamaMail';
@@ -28,7 +27,6 @@ export default function SupportPage({embedded = false}: { embedded?: boolean }) 
     return (
         <div className="workspace-content h-full w-full overflow-hidden">
             <div className="flex h-full flex-col">
-                {!embedded && <WindowTitleBar title="Support"/>}
                 <main className="min-h-0 flex-1 overflow-auto p-5">
                     <div className="mx-auto w-full max-w-5xl space-y-4">
                         <section
@@ -155,18 +153,15 @@ export default function SupportPage({embedded = false}: { embedded?: boolean }) 
                     </div>
                 </main>
 
-                {!embedded && (
-                    <footer
-                        className="app-footer flex items-center justify-end px-5 py-3">
-                        <Button
-                            type="button"
-                            className="button-secondary rounded-md px-3 py-2 text-sm"
-                            onClick={() => window.close()}
-                        >
-                            Close
-                        </Button>
-                    </footer>
-                )}
+                <footer className="app-footer flex items-center justify-end px-5 py-3">
+                    <Button
+                        type="button"
+                        className="button-secondary rounded-md px-3 py-2 text-sm"
+                        onClick={() => window.close()}
+                    >
+                        Close
+                    </Button>
+                </footer>
             </div>
         </div>
     );

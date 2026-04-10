@@ -1,4 +1,4 @@
-import type {PublicAccount} from "../../preload";
+import type {PublicAccount} from "@/preload";
 
 export function getAccountMonogram(account: PublicAccount): string {
     const base = (account.display_name?.trim() || account.email || "").trim();

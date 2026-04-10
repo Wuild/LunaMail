@@ -1,5 +1,5 @@
-import {APP_NAME, APP_PROTOCOL, APP_URL} from "../shared/appConfig.js";
-import {ONEDRIVE_DEFAULT_CLIENT_ID, ONEDRIVE_DEFAULT_TENANT_ID} from "../shared/cloudConfig.js";
+import {APP_NAME, APP_PROTOCOL, APP_URL} from "@/shared/appConfig.js";
+import {ONEDRIVE_DEFAULT_CLIENT_ID, ONEDRIVE_DEFAULT_TENANT_ID} from "@/shared/cloudConfig.js";
 
 export {APP_NAME, APP_PROTOCOL, APP_URL};
 export const APP_VERSION = "0.0.1";

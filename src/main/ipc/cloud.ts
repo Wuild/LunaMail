@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 import {createServer} from "node:http";
 import os from "node:os";
 import path from "node:path";
-import {createMailDebugLogger} from "../debug/debugLog.js";
+import {createMailDebugLogger} from "@main/debug/debugLog.js";
 import {
     addCloudAccount,
     type AddCloudAccountPayload,
@@ -15,7 +15,7 @@ import {
     listCloudRecipientContacts,
     updateCloudAccount,
     type UpdateCloudAccountPayload,
-} from "../db/repositories/cloudRepo.js";
+} from "@main/db/repositories/cloudRepo.js";
 import {
     createCloudFolder,
     createCloudShareLink,
@@ -25,8 +25,8 @@ import {
     getCloudStorageUsage,
     listCloudItems,
     uploadCloudFile,
-} from "../cloud/providers.js";
-import {syncCloudDav} from "../cloud/davSync.js";
+} from "@main/cloud/providers.js";
+import {syncCloudDav} from "@main/cloud/davSync.js";
 import {
     APP_NAME,
     ONEDRIVE_APP_ID,
@@ -34,7 +34,7 @@ import {
     ONEDRIVE_REDIRECT_URI,
     ONEDRIVE_RESOURCE,
     ONEDRIVE_SCOPES,
-} from "../config.js";
+} from "@main/config.js";
 
 const logger = createMailDebugLogger("cloud", "ipc:cloud");
 type OAuthProvider = "google-drive" | "onedrive";

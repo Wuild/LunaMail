@@ -1,4 +1,4 @@
-import {getDb} from '../drizzle.js';
+import {getDb} from '@main/db/drizzle.js';
 import type {
     MailFilter,
     MailFilterAction,
@@ -8,7 +8,7 @@ import type {
     MailFilterMatchMode,
     MailFilterOperator,
     UpsertMailFilterPayload,
-} from '../../../shared/ipcTypes.js';
+} from '@/shared/ipcTypes.js';
 
 // Filter CRUD remains intentionally raw SQL for now because it spans parent/child tables with transactional upsert
 // semantics. Keep all statements parameterized and scoped to repository functions.
@@ -21,7 +21,7 @@ export type {
     MailFilterMatchMode,
     MailFilterOperator,
     UpsertMailFilterPayload,
-} from '../../../shared/ipcTypes.js';
+} from '@/shared/ipcTypes.js';
 
 export function listMailFilters(accountId: number): MailFilter[] {
     const db = getDb();

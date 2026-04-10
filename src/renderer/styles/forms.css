@@ -19,7 +19,7 @@
     .field-input::placeholder,
     .field-select::placeholder,
     .field-textarea::placeholder {
-        color: var(--content-muted);
+        color: var(--field-placeholder);
     }
 
     .field:focus,

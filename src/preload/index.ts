@@ -7,7 +7,7 @@ import type {
 	MailFilter,
 	MailFilterRunSummary,
 	UpsertMailFilterPayload,
-} from '../shared/ipcTypes';
+} from '@/shared/ipcTypes';
 
 export type {
 	AppLanguage,
@@ -28,7 +28,7 @@ export type {
 	MailFilterRunSummary,
 	MailView,
 	UpsertMailFilterPayload,
-} from '../shared/ipcTypes';
+} from '@/shared/ipcTypes';
 
 export interface AddAccountPayload {
 	email: string;
@@ -257,6 +257,11 @@ export interface MessageBodyResult {
 export interface MessageSourceResult {
 	messageId: number;
 	source: string;
+}
+
+export interface WindowControlsCapabilities {
+    minimizable: boolean;
+    maximizable: boolean;
 }
 
 export interface DavDiscoveryResult {
@@ -725,11 +730,14 @@ const api = {
 	}> => ipcRenderer.invoke('window-toggle-maximize'),
 	closeWindow: (): Promise<{ ok: true }> => ipcRenderer.invoke('window-close'),
 	isWindowMaximized: (): Promise<boolean> => ipcRenderer.invoke('window-is-maximized'),
+    getWindowControlsCapabilities: (): Promise<WindowControlsCapabilities> =>
+        ipcRenderer.invoke('window-controls-capabilities'),
 	openDevTools: (): Promise<{ ok: true }> => ipcRenderer.invoke('window-open-dev-tools'),
 	restartApp: (): Promise<{ ok: true }> => ipcRenderer.invoke('app-restart'),
 	openMessageWindow: (messageId?: number | null): Promise<{ ok: true }> =>
 		ipcRenderer.invoke('open-message-window', messageId ?? null),
 	openDebugWindow: (): Promise<{ ok: true }> => ipcRenderer.invoke('open-debug-window'),
+    openRouteWindow: (route: string): Promise<{ ok: true }> => ipcRenderer.invoke('open-route-window', route),
 	getDebugLogs: (limit?: number): Promise<DebugLogEntry[]> => ipcRenderer.invoke('get-debug-logs', limit),
 	clearDebugLogs: (): Promise<{ ok: true }> => ipcRenderer.invoke('clear-debug-logs'),
 	getComposeDraft: (): Promise<ComposeDraftPayload | null> => ipcRenderer.invoke('get-compose-draft'),

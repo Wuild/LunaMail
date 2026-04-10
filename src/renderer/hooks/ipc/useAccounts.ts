@@ -1,7 +1,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
-import type {PublicAccount} from '../../../preload';
-import {ipcClient} from '../../lib/ipcClient';
+import type {PublicAccount} from '@/preload';
+import {ipcClient} from '@renderer/lib/ipcClient';
 import {useIpcEvent} from './useIpcEvent';
 
 export function useAccounts() {

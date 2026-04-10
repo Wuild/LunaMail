@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react';
 import {useIpcEvent} from './ipc/useIpcEvent';
-import {ipcClient} from '../lib/ipcClient';
-import type {AppTheme} from '../../shared/ipcTypes';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import type {AppTheme} from '@/shared/ipcTypes';
 
 export type ThemePreference = AppTheme;
 

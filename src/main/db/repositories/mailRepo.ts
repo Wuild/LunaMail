@@ -1,6 +1,6 @@
 import {and, desc, eq, ne, sql} from 'drizzle-orm';
-import {getDb, getDrizzle} from '../drizzle.js';
-import {folders, messages} from '../schema.js';
+import {getDb, getDrizzle} from '@main/db/drizzle.js';
+import {folders, messages} from '@main/db/schema.js';
 
 export interface FolderRow {
     id: number;

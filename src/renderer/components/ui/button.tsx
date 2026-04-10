@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {cn} from '../../lib/utils';
+import {cn} from '@renderer/lib/utils';
 
 type ButtonVariant = 'unstyled' | 'default' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
 type ButtonSize = 'none' | 'default' | 'sm' | 'lg' | 'icon';

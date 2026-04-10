@@ -1,5 +1,5 @@
 import {useMutation} from '@tanstack/react-query';
-import {ipcClient} from '../../lib/ipcClient';
+import {ipcClient} from '@renderer/lib/ipcClient';
 
 export function useMailActionMutations() {
     const setMessageFlagMutation = useMutation({

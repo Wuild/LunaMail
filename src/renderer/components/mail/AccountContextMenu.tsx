@@ -1,6 +1,6 @@
 import React from 'react';
 import {FolderPlus, Settings} from 'lucide-react';
-import type {PublicAccount} from '../../../preload';
+import type {PublicAccount} from '@/preload';
 import ContextItem from './ContextItem';
 import {ContextMenu, ContextMenuSeparator} from '../ui/ContextMenu';
 

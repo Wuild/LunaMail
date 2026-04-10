@@ -1,4 +1,4 @@
-import {formatSystemDateTime} from '../../lib/dateTime';
+import {formatSystemDateTime} from '@renderer/lib/dateTime';
 
 export interface ComposeMessageLike {
     subject: string | null;

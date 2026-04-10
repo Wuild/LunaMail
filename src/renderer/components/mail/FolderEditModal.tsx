@@ -1,9 +1,9 @@
 import React from 'react';
-import type {FolderItem} from '../../../preload';
+import type {FolderItem} from '@/preload';
 import {Button} from '../ui/button';
 import {FormInput, FormSelect} from '../ui/FormControls';
 import {Modal, ModalBody, ModalFooter, ModalTitle} from '../ui/Modal';
-import {cn} from '../../lib/utils';
+import {cn} from '@renderer/lib/utils';
 
 type Option = {
     value: string;

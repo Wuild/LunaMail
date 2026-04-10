@@ -1,7 +1,7 @@
 import React from 'react';
 import {Mail} from 'lucide-react';
 import {useDragLayer} from 'react-dnd';
-import {DND_ITEM} from '../../lib/dndTypes';
+import {DND_ITEM} from '@renderer/lib/dndTypes';
 
 type MailDragItem = {
     type: typeof DND_ITEM.MAIL_MESSAGE;

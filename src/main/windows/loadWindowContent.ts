@@ -12,6 +12,7 @@ type WindowContentTarget =
     | {
     target: string;
     query?: Record<string, string>;
+    hash?: string;
 };
 
 export async function loadWindowContent(
@@ -30,13 +31,18 @@ export async function loadWindowContent(
                 if (typeof target === 'string') {
                     await win.loadURL(target);
                 } else {
-                    await win.loadURL(appendQuery(target.target, target.query));
+                    await win.loadURL(appendQueryAndHash(target.target, target.query, target.hash));
                 }
             } else {
                 if (typeof target === 'string') {
                     await win.loadFile(target);
                 } else {
-                    await win.loadFile(target.target, {query: target.query});
+                    const normalizedHash = normalizeHash(target.hash);
+                    if (normalizedHash) {
+                        await win.loadFile(target.target, {query: target.query, hash: normalizedHash});
+                    } else {
+                        await win.loadFile(target.target, {query: target.query});
+                    }
                 }
             }
             return;
@@ -51,13 +57,24 @@ export async function loadWindowContent(
     throw lastError instanceof Error ? lastError : new Error('Failed to load window content');
 }
 
-function appendQuery(target: string, query?: Record<string, string>): string {
-    if (!query || Object.keys(query).length === 0) return target;
+function appendQueryAndHash(target: string, query?: Record<string, string>, hash?: string): string {
     const url = new URL(target);
-    for (const [key, value] of Object.entries(query)) {
-        url.searchParams.set(key, value);
+    if (query && Object.keys(query).length > 0) {
+        for (const [key, value] of Object.entries(query)) {
+            url.searchParams.set(key, value);
+        }
     }
+    const normalizedHash = normalizeHash(hash);
+    if (normalizedHash) url.hash = normalizedHash;
     return url.toString();
+}
+
+function normalizeHash(hash?: string): string | undefined {
+    if (!hash) return undefined;
+    const value = String(hash).trim();
+    if (!value) return undefined;
+    if (value.startsWith('#')) return value.slice(1);
+    return value;
 }
 
 function isDestroyedObjectError(error: unknown): boolean {

@@ -1,13 +1,12 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Activity, TerminalSquare, Trash2, X} from 'lucide-react';
-import type {DebugLogEntry} from '../../../../preload';
+import type {DebugLogEntry} from '@/preload';
 import {Navigate} from 'react-router-dom';
-import WindowTitleBar from '../../../components/WindowTitleBar';
-import {FormCheckbox} from '../../../components/ui/FormControls';
-import {Button} from '../../../components/ui/button';
-import {useAppTheme} from '../../../hooks/useAppTheme';
-import {useIpcEvent} from '../../../hooks/ipc/useIpcEvent';
-import {ipcClient} from '../../../lib/ipcClient';
+import {FormCheckbox} from '@renderer/components/ui/FormControls';
+import {Button} from '@renderer/components/ui/button';
+import {useAppTheme} from '@renderer/hooks/useAppTheme';
+import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
+import {ipcClient} from '@renderer/lib/ipcClient';
 
 const DEBUG_FILTER_SOURCES_STORAGE_KEY = 'llamamail.debug.filters.sources';
 const DEBUG_FILTER_LEVELS_STORAGE_KEY = 'llamamail.debug.filters.levels';
@@ -32,14 +31,14 @@ const LEVEL_OPTIONS: Array<{ value: DebugLogEntry['level']; label: string }> = [
 
 type DebugPageProps = {
     showDebugNavItem: boolean;
+    embedded?: boolean;
 };
 
-export default function DebugPage({showDebugNavItem}: DebugPageProps) {
+export default function DebugPage({showDebugNavItem, embedded = true}: DebugPageProps) {
     if (!showDebugNavItem) {
         return <Navigate to="/settings/developer" replace/>;
     }
 
-    const embedded = true;
     useAppTheme();
     const [logs, setLogs] = useState<DebugLogEntry[]>([]);
     const [autoScroll, setAutoScroll] = useState(true);
@@ -194,7 +193,6 @@ export default function DebugPage({showDebugNavItem}: DebugPageProps) {
     return (
         <div className="debug-page-surface h-full w-full overflow-hidden">
             <div className="flex h-full flex-col">
-                {!embedded && <WindowTitleBar title="Debug Console" showMaximize/>}
                 <div className="min-h-0 flex-1 overflow-hidden p-3">
                     <div className="flex h-full min-h-0 flex-col gap-3">
                         <header className="debug-card rounded-xl p-4">

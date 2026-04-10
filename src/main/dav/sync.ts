@@ -1,4 +1,4 @@
-import {getAccountSyncCredentials} from '../db/repositories/accountsRepo.js';
+import {getAccountSyncCredentials} from '@main/db/repositories/accountsRepo.js';
 import {
     createAddressBook,
     createCalendarEvent,
@@ -24,9 +24,9 @@ import {
     upsertCardDavContact,
     upsertContacts,
     upsertDavSettings,
-} from '../db/repositories/davRepo.js';
+} from '@main/db/repositories/davRepo.js';
 import {randomUUID} from 'node:crypto';
-import {createMailDebugLogger} from '../debug/debugLog.js';
+import {createMailDebugLogger} from '@main/debug/debugLog.js';
 
 const CONTACT_META_PREFIX = '[LUNAMAIL_CONTACT_META_V1]';
 

@@ -1,5 +1,5 @@
-import {type CloudAccountCredentials, setCloudAccountSecret} from "../db/repositories/cloudRepo.js";
-import {createMailDebugLogger} from "../debug/debugLog.js";
+import {type CloudAccountCredentials, setCloudAccountSecret} from "@main/db/repositories/cloudRepo.js";
+import {createMailDebugLogger} from "@main/debug/debugLog.js";
 
 export interface CloudItem {
     id: string;

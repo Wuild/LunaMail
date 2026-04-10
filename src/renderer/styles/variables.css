@@ -89,6 +89,7 @@
         --content-surface: var(--base-slate-50);
         --content-text: var(--base-slate-900);
         --content-muted: var(--base-slate-600);
+        --field-placeholder: color-mix(in srgb, var(--content-muted) 72%, transparent);
         --content-border: var(--base-slate-300);
 
         --panel-surface: var(--base-white);
@@ -147,6 +148,7 @@
         --content-surface: #21242a;
         --content-text: var(--base-slate-100);
         --content-muted: var(--base-slate-300);
+        --field-placeholder: color-mix(in srgb, var(--content-muted) 48%, transparent);
         --content-border: #454a55;
 
         --panel-surface: #1d2026;

@@ -45,7 +45,8 @@ import type {
     UpsertMailFilterPayload,
     VerifyPayload,
     VerifyResult,
-} from '../../preload';
+    WindowControlsCapabilities,
+} from '@/preload';
 
 const noopUnsubscribe = () => undefined;
 
@@ -119,6 +120,8 @@ export const ipcClient = {
     minimizeWindow: (): Promise<{ ok: true }> => window.electronAPI.minimizeWindow(),
     toggleMaximizeWindow: (): Promise<{ ok: true; isMaximized: boolean }> => window.electronAPI.toggleMaximizeWindow(),
     closeWindow: (): Promise<{ ok: true }> => window.electronAPI.closeWindow(),
+    getWindowControlsCapabilities: (): Promise<WindowControlsCapabilities> =>
+        window.electronAPI.getWindowControlsCapabilities(),
     openDevTools: (): Promise<{ ok: true }> => window.electronAPI.openDevTools(),
     restartApp: (): Promise<{ ok: true }> => window.electronAPI.restartApp(),
     openAddAccountWindow: (): Promise<{ ok: true }> => window.electronAPI.openAddAccountWindow(),
@@ -190,6 +193,7 @@ export const ipcClient = {
     getMessageSource: (messageId: number) => window.electronAPI.getMessageSource(messageId),
     openMessageWindow: (messageId?: number) => window.electronAPI.openMessageWindow(messageId),
     openDebugWindow: () => window.electronAPI.openDebugWindow(),
+    openRouteWindow: (route: string) => window.electronAPI.openRouteWindow(route),
     openComposeWindow: (draft?: ComposeDraftPayload | Record<string, unknown>) =>
         window.electronAPI.openComposeWindow(draft),
     getComposeDraft: (): Promise<ComposeDraftPayload | null> => window.electronAPI.getComposeDraft(),

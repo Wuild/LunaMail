@@ -1,5 +1,5 @@
 import {BrowserWindow} from 'electron';
-import type {GlobalErrorEvent} from '../../shared/ipcTypes.js';
+import type {GlobalErrorEvent} from '@/shared/ipcTypes.js';
 
 export type MessageReadUpdatedPayload = {
     messageId: number;

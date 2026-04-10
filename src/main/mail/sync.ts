@@ -1,7 +1,7 @@
 import {ImapFlow} from 'imapflow';
 import {simpleParser} from 'mailparser';
-import {createMailDebugLogger} from '../debug/debugLog.js';
-import {getAccountSyncCredentials} from '../db/repositories/accountsRepo.js';
+import {createMailDebugLogger} from '@main/debug/debugLog.js';
+import {getAccountSyncCredentials} from '@main/db/repositories/accountsRepo.js';
 import {resolveImapSecurity} from './security.js';
 import {
     getMessageBody,
@@ -16,7 +16,7 @@ import {
     upsertMessage,
     upsertMessageBody,
     upsertThread,
-} from '../db/repositories/mailRepo.js';
+} from '@main/db/repositories/mailRepo.js';
 import {buildThreadId, stringifyReferences} from './threading.js';
 
 export interface SyncSummary {

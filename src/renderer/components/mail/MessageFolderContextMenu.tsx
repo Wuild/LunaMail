@@ -11,9 +11,9 @@ import {
     Star,
     Trash2,
 } from 'lucide-react';
-import type {FolderItem, MessageItem} from '../../../preload';
+import type {FolderItem, MessageItem} from '@/preload';
 import ContextItem from './ContextItem';
-import {cn} from '../../lib/utils';
+import {cn} from '@renderer/lib/utils';
 import {
     ContextMenu,
     ContextMenuAnchor,

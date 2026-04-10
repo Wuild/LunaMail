@@ -1,6 +1,6 @@
 import {ImapFlow} from 'imapflow';
-import {createMailDebugLogger} from '../debug/debugLog.js';
-import {getAccountSyncCredentials} from '../db/repositories/accountsRepo.js';
+import {createMailDebugLogger} from '@main/debug/debugLog.js';
+import {getAccountSyncCredentials} from '@main/db/repositories/accountsRepo.js';
 import {resolveImapSecurity} from './security.js';
 import {
     getMessageContext,
@@ -10,7 +10,7 @@ import {
     setMessageFlagged,
     setMessageRead,
     type SetMessageReadResult,
-} from '../db/repositories/mailRepo.js';
+} from '@main/db/repositories/mailRepo.js';
 
 interface ActionResult {
     accountId: number;

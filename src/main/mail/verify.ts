@@ -2,7 +2,7 @@ import {ImapFlow} from 'imapflow';
 import nodemailer from 'nodemailer';
 import tls from 'tls';
 import net from 'net';
-import {createMailDebugLogger} from '../debug/debugLog.js';
+import {createMailDebugLogger} from '@main/debug/debugLog.js';
 
 export interface VerifyPayload {
     type: 'imap' | 'pop3' | 'smtp';

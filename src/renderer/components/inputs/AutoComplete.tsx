@@ -1,7 +1,7 @@
 import {Button} from '../ui/button';
 import React, {useEffect, useMemo, useState} from 'react';
 import {FormInput, type FormInputProps} from '../ui/FormControls';
-import {cn} from '../../lib/utils';
+import {cn} from '@renderer/lib/utils';
 
 export type AutoCompleteRow = {
     id: string;

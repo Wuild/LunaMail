@@ -1,10 +1,10 @@
 import {useCallback, useRef, useState} from 'react';
-import type {MessageItem} from '../../../preload';
+import type {MessageItem} from '@/preload';
 import {
     computeSelectionOnClick,
     computeSelectionOnNavigate,
     computeSelectionOnSelectAll,
-} from '../../lib/mailSelection';
+} from '@renderer/lib/mailSelection';
 
 type MailSelectionModifiers = {
     shiftKey?: boolean;

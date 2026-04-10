@@ -1,4 +1,4 @@
-import type {FolderItem, MessageItem} from '../../preload';
+import type {FolderItem, MessageItem} from '@/preload';
 
 export function applyReadStateToMessages(messages: MessageItem[], messageId: number, nextRead: number): MessageItem[] {
     return messages.map((message) => (message.id === messageId ? {...message, is_read: nextRead} : message));

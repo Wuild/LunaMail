@@ -1,7 +1,7 @@
 import {Button} from '../ui/button';
 import React from 'react';
 import {NavLink} from 'react-router-dom';
-import {cn} from '../../lib/utils';
+import {cn} from '@renderer/lib/utils';
 
 export type DynamicSidebarItem = {
     id: string;

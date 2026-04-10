@@ -1,5 +1,5 @@
 import {useNavigate} from 'react-router-dom';
-import SettingsAddAccount from '../../pages/SettingsAddAccount';
+import SettingsAddAccount from './AddAccountForm';
 
 type AddAccountPageProps = {
     hasAccounts: boolean;

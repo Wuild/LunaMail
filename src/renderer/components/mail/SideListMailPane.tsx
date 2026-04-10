@@ -2,13 +2,13 @@ import React from 'react';
 import {Search, Star} from 'lucide-react';
 import {useDrag} from 'react-dnd';
 import {getEmptyImage} from 'react-dnd-html5-backend';
-import type {MessageItem} from '../../../preload';
+import type {MessageItem} from '@/preload';
 import {ScrollArea} from '../ui/scroll-area';
-import {formatSystemDateTime} from '../../lib/dateTime';
-import {cn} from '../../lib/utils';
+import {formatSystemDateTime} from '@renderer/lib/dateTime';
+import {cn} from '@renderer/lib/utils';
 import {Button} from '../ui/button';
 import {FormInput} from '../ui/FormControls';
-import {DND_ITEM} from '../../lib/dndTypes';
+import {DND_ITEM} from '@renderer/lib/dndTypes';
 
 type MailMessageDragItem = {
     type: typeof DND_ITEM.MAIL_MESSAGE;

@@ -1,10 +1,10 @@
-import {Button} from '../components/ui/button';
-import {ContextMenu, ContextMenuItem} from '../components/ui/ContextMenu';
+import {Button} from '@renderer/components/ui/button';
+import {ContextMenu, ContextMenuItem} from '@renderer/components/ui/ContextMenu';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {FileText, Forward, MailOpen, Paperclip, Reply, ReplyAll, Star, Tag, Trash2} from 'lucide-react';
-import type {MessageBodyResult, MessageDetails} from '../../preload';
-import {formatSystemDateTime} from '../lib/dateTime';
-import {toErrorMessage} from '../lib/statusText';
+import type {MessageBodyResult, MessageDetails} from '@/preload';
+import {formatSystemDateTime} from '@renderer/lib/dateTime';
+import {toErrorMessage} from '@renderer/lib/statusText';
 import {
 	buildForwardQuoteHtml,
 	buildForwardQuoteText,
@@ -16,25 +16,26 @@ import {
 	htmlToText,
 	inferReplyAddress,
 	normalizeMessageId,
-} from '../features/mail/composeDraft';
-import {clampToViewport, formatBytes} from '../lib/format';
-import WindowTitleBar from '../components/WindowTitleBar';
-import {Modal, ModalHeader} from '../components/ui/Modal';
-import {useAppTheme} from '../hooks/useAppTheme';
+} from '@renderer/features/mail/composeDraft';
+import {clampToViewport, formatBytes} from '@renderer/lib/format';
+import {Modal, ModalHeader} from '@renderer/components/ui/Modal';
+import {useAppTheme} from '@renderer/hooks/useAppTheme';
 import {
 	buildSourceDocCsp,
 	enrichAnchorTitles,
 	extractEmailAddress,
 	isSenderAllowed,
-} from '../features/mail/remoteContent';
-import {ipcClient} from '../lib/ipcClient';
-import {useIpcEvent} from '../hooks/ipc/useIpcEvent';
-import {useAppSettings as useIpcAppSettings} from '../hooks/ipc/useAppSettings';
-import {DEFAULT_APP_SETTINGS} from '../../shared/defaults';
-import {buildMessageIframeSrcDoc} from './mailPageHelpers';
+} from '@renderer/features/mail/remoteContent';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
+import {useAppSettings as useIpcAppSettings} from '@renderer/hooks/ipc/useAppSettings';
+import {DEFAULT_APP_SETTINGS} from '@/shared/defaults';
+import {buildMessageIframeSrcDoc} from '@renderer/app/main/email/mailPageHelpers';
+import {useApp} from '@renderer/app/AppContext';
 
 export default function MessageWindowPage() {
 	useAppTheme();
+    const {setTitle} = useApp();
 	const [systemLocale, setSystemLocale] = useState('en-US');
 	const [messageId, setMessageId] = useState<number | null>(null);
 	const [message, setMessage] = useState<MessageDetails | null>(null);
@@ -170,6 +171,10 @@ export default function MessageWindowPage() {
 		setShowMessageDetails(false);
 	}, [messageId]);
 
+    useEffect(() => {
+        setTitle((message?.subject || '').trim() || 'Message');
+    }, [message?.subject, setTitle]);
+
 	function composeWithDraft(draft: {
 		to?: string | null;
 		cc?: string | null;
@@ -287,9 +292,8 @@ export default function MessageWindowPage() {
 	}
 
 	return (
-		<div className="app-shell h-screen w-screen overflow-hidden">
-			<div className="flex h-full flex-col">
-				<WindowTitleBar title={message?.subject || 'Message'} showMaximize/>
+        <div className="h-full min-h-0 w-full overflow-hidden">
+            <div className="flex h-full min-h-0 flex-col">
 				<div
 					role="toolbar"
 					aria-label="Message actions"

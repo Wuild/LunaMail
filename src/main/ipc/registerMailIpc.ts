@@ -54,6 +54,14 @@ const MAIL_FILTER_FIELDS = new Set(['subject', 'from', 'to', 'body']);
 const MAIL_FILTER_OPERATORS = new Set(['contains', 'not_contains', 'equals', 'starts_with', 'ends_with']);
 const MAIL_FILTER_ACTION_TYPES = new Set(['move_to_folder', 'mark_read', 'mark_unread', 'star', 'unstar']);
 const MAIL_FILTER_MATCH_MODES = new Set(['all', 'any', 'all_messages']);
+const EXPECTED_CANCEL_IMAP_CODES = new Set(['NoConnection', 'ClosedAfterConnectTLS', 'Closed']);
+const EXPECTED_CANCEL_IMAP_MESSAGE_PATTERNS = [
+    'connection not available',
+    'unexpected close',
+    'already closed',
+    'not connected',
+    'socket closed',
+];
 
 function parsePositiveInt(value: unknown, fieldName: string): number {
     const parsed = Number(value);
@@ -89,6 +97,27 @@ function parseOptionalTag(value: unknown): string | null {
     }
     const normalized = value.trim().toLowerCase();
     return normalized.length > 0 ? normalized : null;
+}
+
+function buildCancelledMessageBodyResult(messageId: number) {
+    return {
+        messageId,
+        text: null,
+        html: null,
+        attachments: [],
+        cached: true,
+    };
+}
+
+function isExpectedCancelledImapError(error: unknown): boolean {
+    const message = String((error as any)?.message || '')
+        .trim()
+        .toLowerCase();
+    const code = String((error as any)?.code || '').trim();
+    if (EXPECTED_CANCEL_IMAP_CODES.has(code)) return true;
+    if (!message) return false;
+    if (message === 'message body request cancelled') return true;
+    return EXPECTED_CANCEL_IMAP_MESSAGE_PATTERNS.some((pattern) => message.includes(pattern));
 }
 
 function sanitizeMailFilterPayload(payload: any): any {
@@ -306,12 +335,18 @@ export function registerMailIpc(deps: MailIpcDeps): void {
                 });
             } catch (error: any) {
                 const message = String(error?.message || '');
-                const code = String(error?.code || '');
-                if (cancelled && (code === 'NoConnection' || message.toLowerCase().includes('connection not available'))) {
-                    throw new Error('Message body request cancelled');
+                if (cancelled && isExpectedCancelledImapError(error)) {
+                    deps.appLogger.debug(
+                        'IPC get-message-body cancelled requestId=%s messageId=%d code=%s message=%s',
+                        requestId ?? '',
+                        messageId,
+                        String(error?.code || ''),
+                        message,
+                    );
+                    return buildCancelledMessageBodyResult(messageId);
                 }
                 if (/^message\s+\d+\s+not\s+found$/i.test(message.trim())) {
-                    throw new Error('Message body request cancelled');
+                    return buildCancelledMessageBodyResult(messageId);
                 }
                 throw error;
             }

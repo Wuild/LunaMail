@@ -4,9 +4,9 @@ import {Modal} from '../ui/Modal';
 import React, {useMemo} from 'react';
 import {Link} from 'react-router-dom';
 import {Search, Star, X} from 'lucide-react';
-import type {FolderItem, MessageItem, PublicAccount} from '../../../preload';
-import {formatSystemDateTime} from '../../lib/dateTime';
-import {getAccountAvatarColorsForAccount, getAccountMonogram} from '../../lib/accountAvatar';
+import type {FolderItem, MessageItem, PublicAccount} from '@/preload';
+import {formatSystemDateTime} from '@renderer/lib/dateTime';
+import {getAccountAvatarColorsForAccount, getAccountMonogram} from '@renderer/lib/accountAvatar';
 
 type MailSearchModalProps = {
     open: boolean;

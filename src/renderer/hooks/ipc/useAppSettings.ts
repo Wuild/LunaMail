@@ -1,7 +1,7 @@
 import React, {useCallback} from 'react';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
-import type {AppSettings} from '../../../preload';
-import {ipcClient} from '../../lib/ipcClient';
+import type {AppSettings} from '@/preload';
+import {ipcClient} from '@renderer/lib/ipcClient';
 import {useIpcEvent} from './useIpcEvent';
 
 export function useAppSettings(defaultSettings: AppSettings) {

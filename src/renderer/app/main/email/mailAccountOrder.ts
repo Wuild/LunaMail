@@ -1,4 +1,4 @@
-import type {PublicAccount} from "../../../../preload";
+import type {PublicAccount} from "@/preload";
 
 export const ACCOUNT_ORDER_STORAGE_KEY = "llamamail.mail.accountOrder.v1";
 

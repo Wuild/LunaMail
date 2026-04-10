@@ -1,14 +1,18 @@
 import React, {useEffect, useState} from 'react';
 import {BookPlus, Download, Pencil, Plus, RefreshCw, Settings, Trash2, X} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
-import type {AddressBookItem, ContactItem, PublicAccount, SyncStatusEvent} from '../../../../preload';
-import {getAccountAvatarColors, getAccountAvatarColorsForAccount, getAccountMonogram} from '../../../lib/accountAvatar';
-import {useIpcEvent} from '../../../hooks/ipc/useIpcEvent';
-import {useResizableSidebar} from '../../../hooks/useResizableSidebar';
-import {ipcClient} from '../../../lib/ipcClient';
-import {Button} from '../../../components/ui/button';
-import {FormInput, FormSelect, FormTextarea} from '../../../components/ui/FormControls';
-import {Modal} from '../../../components/ui/Modal';
+import type {AddressBookItem, ContactItem, PublicAccount, SyncStatusEvent} from '@/preload';
+import {
+    getAccountAvatarColors,
+    getAccountAvatarColorsForAccount,
+    getAccountMonogram
+} from '@renderer/lib/accountAvatar';
+import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
+import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import {Button} from '@renderer/components/ui/button';
+import {FormInput, FormSelect, FormTextarea} from '@renderer/components/ui/FormControls';
+import {Modal} from '@renderer/components/ui/Modal';
 import {
     statusAutoSyncFailed,
     statusNoAccountSelected,
@@ -17,9 +21,9 @@ import {
     statusSyncFailed,
     statusSyncing,
     toErrorMessage,
-} from '../../../lib/statusText';
-import {cn} from '../../../lib/utils';
-import WorkspaceLayout from '../../../layouts/WorkspaceLayout';
+} from '@renderer/lib/statusText';
+import {cn} from '@renderer/lib/utils';
+import WorkspaceLayout from '@renderer/layouts/WorkspaceLayout';
 
 type ContactsPageProps = {
     accountId: number | null;

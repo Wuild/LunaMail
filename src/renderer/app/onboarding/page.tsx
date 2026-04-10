@@ -1,16 +1,16 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Navigate, useNavigate} from 'react-router-dom';
 import {Check, Globe2, LayoutTemplate, Moon, MonitorCog, Sparkles, Sun} from 'lucide-react';
-import {Button} from '../../components/ui/button';
-import {FormCheckbox, FormSelect} from '../../components/ui/FormControls';
-import SettingsAddAccount from '../../pages/SettingsAddAccount';
-import {APP_LANGUAGE_OPTIONS, APP_THEME_OPTIONS, MAIL_VIEW_OPTIONS} from '../../../shared/settingsOptions';
-import {parseAppLanguage} from '../../../shared/settingsRules';
-import {createDefaultAppSettings} from '../../../shared/defaults';
-import type {AppLanguage, AppTheme, MailView} from '../../../shared/ipcTypes';
-import {ipcClient} from '../../lib/ipcClient';
-import llamaArt from '../../../resources/llama.png';
-import {useThemePreference} from '../../hooks/useAppTheme';
+import {Button} from '@renderer/components/ui/button';
+import {FormCheckbox, FormSelect} from '@renderer/components/ui/FormControls';
+import SettingsAddAccount from '../add-account/AddAccountForm';
+import {APP_LANGUAGE_OPTIONS, APP_THEME_OPTIONS, MAIL_VIEW_OPTIONS} from '@/shared/settingsOptions';
+import {parseAppLanguage} from '@/shared/settingsRules';
+import {createDefaultAppSettings} from '@/shared/defaults';
+import type {AppLanguage, AppTheme, MailView} from '@/shared/ipcTypes';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import llamaArt from '@resource/llama.png';
+import {useThemePreference} from '@renderer/hooks/useAppTheme';
 
 type OnboardingPageProps = {
     hasAccounts: boolean;

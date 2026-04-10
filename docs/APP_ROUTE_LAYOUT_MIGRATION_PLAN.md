@@ -186,10 +186,10 @@ Use this as the complete check-off list for pages, routes, and tabs.
 
 ### Window Entry Pages (Non-main Routes)
 
-- [ ] Main window bootstrap
-- [ ] Compose window page
-- [ ] Message window page
-- [ ] Splash window page
+- [x] Main window bootstrap
+- [x] Compose window page
+- [x] Message window page
+- [x] Splash window page
 
 ## Package Requirements
 
@@ -259,7 +259,7 @@ npm i zod
 - [x] Create `src/renderer/app/` root with top-level `layout.tsx`.
 - [x] Add folder conventions (`layout.tsx`, `page.tsx`, `[param]/page.tsx`) and shared typing utilities.
 - [x] Introduce route module loader/builders for folder-based route registration.
-- [ ] Add guardrail checks preventing new route modules under `src/renderer/pages` and `src/renderer/routes`.
+- [x] Add guardrail checks preventing new route modules under `src/renderer/pages` and `src/renderer/routes`.
 
 Exit criteria:
 
@@ -270,12 +270,12 @@ Exit criteria:
 - [x] Move `/settings/*` to `app/(main)/settings/**`.
 - [x] Move account subsections (`identity/server/filters`) to nested routes.
 - [x] Keep redirects compatibility for legacy settings tabs (not query account routes).
-- [ ] Replace thin tab wrapper files with self-contained page modules per route/tab.
+- [x] Replace thin tab wrapper files with self-contained page modules per route/tab.
 
 Exit criteria:
 
 - [ ] No settings tab/subsection rendered from monolithic switch file.
-- [ ] Each settings route page owns its own orchestration (not just prop-forwarding into one central page).
+- [x] Each settings route page owns its own orchestration (not just prop-forwarding into one central page).
 
 ### Phase 3: Core Main Routes
 

@@ -1,8 +1,13 @@
 import {useEffect, useState} from 'react';
-import {ipcClient} from '../../lib/ipcClient';
+import {ipcClient} from '@renderer/lib/ipcClient';
+import type {WindowControlsCapabilities} from '@/preload';
 
 export function useWindowControlsState() {
     const [isMaximized, setIsMaximized] = useState(false);
+    const [capabilities, setCapabilities] = useState<WindowControlsCapabilities>({
+        minimizable: true,
+        maximizable: true,
+    });
 
     useEffect(() => {
         let active = true;
@@ -15,7 +20,20 @@ export function useWindowControlsState() {
                 })
                 .catch(() => undefined);
         };
+        const refreshCapabilities = () => {
+            void ipcClient
+                .getWindowControlsCapabilities()
+                .then((value) => {
+                    if (!active) return;
+                    setCapabilities({
+                        minimizable: Boolean(value?.minimizable),
+                        maximizable: Boolean(value?.maximizable),
+                    });
+                })
+                .catch(() => undefined);
+        };
         refreshMaximizedState();
+        refreshCapabilities();
         window.addEventListener('resize', refreshMaximizedState);
         return () => {
             active = false;
@@ -37,6 +55,7 @@ export function useWindowControlsState() {
 
     return {
         isMaximized,
+        capabilities,
         toggleMaximize,
         minimize,
         close,

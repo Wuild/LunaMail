@@ -35,6 +35,7 @@ import {
     ONEDRIVE_RESOURCE,
     ONEDRIVE_SCOPES,
 } from "@main/config.js";
+import {confirmRiskyFileOpen, isRiskyFileOpenTarget} from "@main/security/fileOpenRisk.js";
 
 const logger = createMailDebugLogger("cloud", "ipc:cloud");
 type OAuthProvider = "google-drive" | "onedrive";
@@ -224,6 +225,12 @@ export function registerCloudIpc(): void {
                 }
                 await fs.writeFile(saveResult.filePath, downloaded.content);
                 return {ok: true as const, action: "saved" as const, path: saveResult.filePath};
+            }
+            if (isRiskyFileOpenTarget(safeName, downloaded.mimeType)) {
+                const approved = await confirmRiskyFileOpen(parentWindow, safeName, "cloud file");
+                if (!approved) {
+                    return {ok: false as const, action: "cancelled" as const, path: ""};
+                }
             }
             const targetPath = path.join(os.tmpdir(), `llamamail-cloud-${Date.now()}-${safeName}`);
             await fs.writeFile(targetPath, downloaded.content);

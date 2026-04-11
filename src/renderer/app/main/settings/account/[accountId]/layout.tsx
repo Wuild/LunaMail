@@ -15,9 +15,7 @@ function resolveAccountSection(pathname: string): AccountPanelSection {
 export default function SettingsAccountLayout() {
     const location = useLocation();
     const accountId = useRouteAccountId();
-    if (accountId === null) return <Navigate to="/settings/application" replace/>;
-
-    const controller = useAccountSettingsRoute(accountId, resolveAccountSection(location.pathname));
+    const controller = useAccountSettingsRoute(accountId ?? 0, resolveAccountSection(location.pathname));
     const {
         editor,
         accountSection,
@@ -30,6 +28,8 @@ export default function SettingsAccountLayout() {
         onDeleteAccount,
         onSaveAccount,
     } = controller;
+
+    if (accountId === null) return <Navigate to="/settings/application" replace/>;
 
     return (
         <div className="h-full min-h-0 w-full">

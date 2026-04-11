@@ -3,6 +3,7 @@ import {
 	BrowserWindow,
 	clipboard,
 	dialog,
+	ipcMain,
 	Menu,
 	nativeImage,
 	nativeTheme,
@@ -28,6 +29,7 @@ import {
 	startAccountAutoSync,
 	stopAccountAutoSync,
 } from './ipc/accounts.js';
+import {installTrustedSenderGuard} from './ipc/installTrustedSenderGuard.js';
 import {queueCloudOAuthCallbackUrl, registerCloudIpc} from './ipc/cloud.js';
 import {registerSettingsIpc} from './ipc/settings.js';
 import {
@@ -83,8 +85,43 @@ const windowsTrayIconPath = resolveWindowsTrayIconPath();
 const appIconPngBase64 = appIconPath && fs.existsSync(appIconPath) ? fs.readFileSync(appIconPath).toString('base64') : null;
 const mainWindowStatePath = path.join(app.getPath('userData'), 'main-window-state.json');
 const logger = createAppLogger('main');
+installTrustedSenderGuard(ipcMain);
 const MAIN_WINDOW_MIN_WIDTH = 900;
 const MAIN_WINDOW_MIN_HEIGHT = 600;
+const LINK_WARNING_WRAPPER_PROTOCOL = 'llamamail-link:';
+const UNSAFE_LINK_SCHEMES = new Set(['javascript:', 'data:', 'vbscript:', 'file:', 'ftp:']);
+const NEVER_OPEN_SCHEMES = new Set(['javascript:', 'data:', 'vbscript:', 'about:']);
+const UNSAFE_LINK_EXTENSIONS = new Set([
+	'.apk',
+	'.appimage',
+	'.bat',
+	'.cmd',
+	'.com',
+	'.cpl',
+	'.deb',
+	'.dmg',
+	'.exe',
+	'.hta',
+	'.jar',
+	'.js',
+	'.jse',
+	'.lnk',
+	'.mjs',
+	'.msi',
+	'.msp',
+	'.msu',
+	'.pkg',
+	'.ps1',
+	'.reg',
+	'.rpm',
+	'.scr',
+	'.sh',
+	'.vb',
+	'.vbe',
+	'.vbs',
+	'.wsf',
+	'.wsh',
+]);
 const bootSettings = getAppSettingsBootSnapshotSync();
 if (!bootSettings.hardwareAcceleration) {
 	app.disableHardwareAcceleration();
@@ -973,9 +1010,11 @@ function installExternalNavigationPolicy(): void {
 				const isIframeContext = Boolean(frameUrl) && frameUrl !== pageUrl;
 				const isMailContentFrame = isIframeContext && /^about:srcdoc/i.test(frameUrl);
 				const template: Electron.MenuItemConstructorOptions[] = [];
+			const owner = BrowserWindow.fromWebContents(contents) ?? undefined;
 				const hasSelection = Boolean((params.selectionText || '').trim());
 			const linkUrl = String(params.linkURL || '').trim();
-			const hasLink = /^(https?:|mailto:)/i.test(linkUrl);
+			const resolvedLinkUrl = resolveWrappedMessageLink(linkUrl)?.targetUrl ?? linkUrl;
+			const hasLink = /^(https?:|mailto:|llamamail-link:)/i.test(linkUrl);
 			const imageUrl = String((params.srcURL || '').trim());
 			const hasImage = Boolean(imageUrl);
 			const imageCanOpenExternally = /^(https?:|file:)/i.test(imageUrl);
@@ -997,7 +1036,7 @@ function installExternalNavigationPolicy(): void {
 					template.push({
 						label: 'Open Image',
 						click: () => {
-							handleExternalUrl(imageUrl);
+							void handleExternalUrl(imageUrl, owner);
 						},
 					});
 				}
@@ -1016,13 +1055,13 @@ function installExternalNavigationPolicy(): void {
 				template.push({
 					label: 'Open Link',
 					click: () => {
-						handleExternalUrl(linkUrl);
+						void handleExternalUrl(linkUrl, owner);
 					},
 				});
 				template.push({
 					label: 'Copy Link Address',
 					click: () => {
-						clipboard.writeText(linkUrl);
+						clipboard.writeText(resolvedLinkUrl);
 					},
 				});
 				template.push({type: 'separator'});
@@ -1043,7 +1082,6 @@ function installExternalNavigationPolicy(): void {
 			}
 			if (template.length === 0) return;
 			const menu = Menu.buildFromTemplate(template);
-			const owner = BrowserWindow.fromWebContents(contents) ?? undefined;
 			if (owner) {
 				menu.popup({window: owner});
 				return;
@@ -1056,7 +1094,8 @@ function installExternalNavigationPolicy(): void {
 				return {action: 'deny'};
 			}
 			logger.info('Blocked external window open and delegated to external handler url=%s', url);
-			handleExternalUrl(url);
+			const owner = BrowserWindow.fromWebContents(contents) ?? undefined;
+			void handleExternalUrl(url, owner);
 			return {action: 'deny'};
 		});
 
@@ -1064,7 +1103,8 @@ function installExternalNavigationPolicy(): void {
 			if (isInternalAppUrl(url)) return;
 			event.preventDefault();
 			logger.info('Blocked navigation and delegated to external handler url=%s', url);
-			handleExternalUrl(url);
+			const owner = BrowserWindow.fromWebContents(contents) ?? undefined;
+			void handleExternalUrl(url, owner);
 		});
 
 		contents.on('update-target-url', (_event, url) => {
@@ -1087,15 +1127,92 @@ function isInternalAppUrl(url: string): boolean {
 	}
 }
 
-function handleExternalUrl(url: string): void {
+async function handleExternalUrl(url: string, owner?: BrowserWindow): Promise<void> {
 	if (!url) return;
 	logger.debug('Handling external url=%s', url);
-	if (/^mailto:/i.test(url)) {
-		queueMailtoUrl(url);
+	const wrapped = resolveWrappedMessageLink(url);
+	const targetUrl = wrapped?.targetUrl ?? url;
+	const riskHints = assessExternalUrlRisk(targetUrl);
+	if (wrapped?.senderUntrusted) {
+		riskHints.unshift('Sender is not allowlisted for direct link opens');
+	}
+	if (riskHints.length > 0) {
+		const confirmed = await confirmUnsafeUrlOpen(targetUrl, riskHints, owner);
+		if (!confirmed) return;
+	}
+	const protocol = getUrlProtocol(targetUrl);
+	if (protocol && NEVER_OPEN_SCHEMES.has(protocol)) {
+		logger.warn('Blocked non-openable external URL scheme: %s', protocol);
 		return;
 	}
-	if (/^https?:/i.test(url)) {
-		void shell.openExternal(url);
+	if (/^mailto:/i.test(targetUrl)) {
+		queueMailtoUrl(targetUrl);
+		return;
+	}
+	void shell.openExternal(targetUrl);
+}
+
+function assessExternalUrlRisk(url: string): string[] {
+	const hints: string[] = [];
+	const protocol = getUrlProtocol(url);
+	if (protocol && UNSAFE_LINK_SCHEMES.has(protocol)) {
+		hints.push(`Uses unsafe scheme: ${protocol}`);
+	}
+	try {
+		const parsed = new URL(url);
+		const ext = path.extname(parsed.pathname || '').toLowerCase();
+		if (ext && UNSAFE_LINK_EXTENSIONS.has(ext)) {
+			hints.push(`Targets executable file type: ${ext}`);
+		}
+		if (parsed.username || parsed.password) {
+			hints.push('Includes embedded credentials in URL');
+		}
+	} catch {
+		// Keep a generic warning for malformed/unexpected URLs.
+		hints.push('URL format is unusual or malformed');
+	}
+	return hints;
+}
+
+function getUrlProtocol(url: string): string | null {
+	try {
+		return new URL(url).protocol.toLowerCase();
+	} catch {
+		const schemeMatch = String(url).match(/^([a-z][a-z0-9+.-]*:)/i);
+		return schemeMatch ? schemeMatch[1].toLowerCase() : null;
+	}
+}
+
+async function confirmUnsafeUrlOpen(url: string, hints: string[], owner?: BrowserWindow): Promise<boolean> {
+	const detail = `${hints.join('\n')}\n\n${url}`;
+	const dialogOptions: Electron.MessageBoxOptions = {
+		type: 'warning',
+		title: APP_NAME,
+		message: 'Potentially unsafe link',
+		detail,
+		buttons: ['Open anyway', 'Cancel'],
+		defaultId: 1,
+		cancelId: 1,
+		noLink: true,
+	};
+	const result = owner
+		? await dialog.showMessageBox(owner, dialogOptions)
+		: await dialog.showMessageBox(dialogOptions);
+	return result.response === 0;
+}
+
+function resolveWrappedMessageLink(url: string): { targetUrl: string; senderUntrusted: boolean } | null {
+	try {
+		const parsed = new URL(url);
+		if (parsed.protocol.toLowerCase() !== LINK_WARNING_WRAPPER_PROTOCOL) {
+			return null;
+		}
+		const targetUrl = String(parsed.searchParams.get('target') || '').trim();
+		if (!targetUrl) return null;
+		const senderUntrusted = String(parsed.searchParams.get('sender') || '').toLowerCase() === 'untrusted';
+		return {targetUrl, senderUntrusted};
+	} catch {
+		return null;
 	}
 }
 

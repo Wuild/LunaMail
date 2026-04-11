@@ -284,7 +284,7 @@ function ComposeEmailPage() {
             inReplyTo: draft.inReplyTo ?? null,
             references: draft.references ?? null,
         });
-    }, []);
+    }, [setBccList, setBody, setCcList, setFromAccountId, setPlainBody, setQuotedAllowRemote, setQuotedBodyHtml, setQuotedBodyText, setShowCcBcc, setSubject, setThreadMeta, setToList]);
 
     useEffect(() => {
         ipcClient
@@ -356,7 +356,7 @@ function ComposeEmailPage() {
         return () => {
             clearTimeout(timer);
         };
-    }, [activeRecipientField, blockedRecipientsByField, fromAccountId, recipientDrafts, recipientListsByField]);
+    }, [activeRecipientField, blockedRecipientsByField, fromAccountId, recipientDrafts, recipientListsByField, setRecipientRows]);
 
     const selectedCloudAccount = useMemo(
         () => (typeof cloudAccountId === 'number' ? cloudAccounts.find((account) => account.id === cloudAccountId) ?? null : null),
@@ -455,7 +455,13 @@ function ComposeEmailPage() {
         const quotedHtml = quotedBodyHtml.trim();
         if (!quotedHtml) return null;
         const allowRemoteForQuotedPreview = !blockRemoteContent || quotedAllowRemote;
-        return buildMessageIframeSrcDoc(quotedHtml, allowRemoteForQuotedPreview, enrichAnchorTitles, buildSourceDocCsp);
+        return buildMessageIframeSrcDoc(
+            quotedHtml,
+            allowRemoteForQuotedPreview,
+            false,
+            enrichAnchorTitles,
+            buildSourceDocCsp,
+        );
     }, [quotedBodyHtml, blockRemoteContent, quotedAllowRemote]);
     const mergedHtmlBody = useMemo(() => mergeComposeHtml(body, quotedBodyHtml), [body, quotedBodyHtml]);
     const mergedPlainBody = useMemo(() => mergeComposeText(plainBody, quotedBodyText), [plainBody, quotedBodyText]);

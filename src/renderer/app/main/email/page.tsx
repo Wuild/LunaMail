@@ -189,6 +189,7 @@ function MailPage() {
     const senderWhitelisted = isSenderAllowed(selectedMessage?.from_address, appSettings.remoteContentAllowlist || []);
     const sessionAllowed = selectedMessageId ? sessionRemoteAllowedMessageIds.includes(selectedMessageId) : false;
     const allowRemoteForSelectedMessage = !appSettings.blockRemoteContent || senderWhitelisted || sessionAllowed;
+    const warnOnExternalLinksForSelectedMessage = Boolean(selectedMessage) && !senderWhitelisted;
     const isMailBodyViewportTooSmall =
         mailBodyViewport.width > 0 &&
         mailBodyViewport.height > 0 &&
@@ -214,10 +215,11 @@ function MailPage() {
         return buildMessageIframeSrcDoc(
             renderedBodyHtml,
             allowRemoteForSelectedMessage,
+            warnOnExternalLinksForSelectedMessage,
             enrichAnchorTitles,
             buildSourceDocCsp,
         );
-    }, [allowRemoteForSelectedMessage, selectedMessageBody, renderedBodyHtml]);
+    }, [allowRemoteForSelectedMessage, selectedMessageBody, renderedBodyHtml, warnOnExternalLinksForSelectedMessage]);
 
     useThemePreference(appSettings.theme);
 
@@ -601,16 +603,16 @@ function MailPage() {
         selectedMessageIdRef.current = selectedMessageId;
     }, [selectedMessageId]);
 
-    function isDraftMessageInMailView(message: MessageItem | null | undefined): boolean {
+    const isDraftMessageInMailView = useCallback((message: MessageItem | null | undefined): boolean => {
         if (!message) return false;
         const folder = folders.find((item) => item.id === message.folder_id) ?? null;
         const folderType = String(folder?.type || '').toLowerCase();
         const folderPath = String(folder?.path || '').toLowerCase();
         if (folderType === 'drafts' || folderPath.includes('draft')) return true;
         return /^<draft\./i.test(String(message.message_id || ''));
-    }
+    }, [folders]);
 
-    function openDraftInComposerFromMailView(message: MessageItem): void {
+    const openDraftInComposerFromMailView = useCallback((message: MessageItem): void => {
         if (lastOpenedDraftInMailViewRef.current === message.id) return;
         lastOpenedDraftInMailViewRef.current = message.id;
         setSelectedMessageId((prev) => (prev === message.id ? null : prev));
@@ -622,7 +624,7 @@ function MailPage() {
         if (location.pathname !== fallbackPath) {
             navigate(fallbackPath, {replace: true});
         }
-    }
+    }, [location.pathname, navigate, selectionAnchorIndexRef, setPendingAutoReadMessageId, setSelectedMessageId, setSelectedMessageIds]);
 
     useEffect(() => {
         if (!routeAccountId) return;
@@ -1008,7 +1010,7 @@ function MailPage() {
         if (!selectedMessage) return;
         if (!isDraftMessageInMailView(selectedMessage)) return;
         openDraftInComposerFromMailView(selectedMessage);
-    }, [selectedMessage]);
+    }, [isDraftMessageInMailView, openDraftInComposerFromMailView, selectedMessage]);
 
     function onViewSource(): void {
         if (!selectedMessageId) return;

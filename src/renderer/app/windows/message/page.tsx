@@ -144,16 +144,18 @@ export default function MessageWindowPage() {
 
 	const senderWhitelisted = isSenderAllowed(message?.from_address, appSettings.remoteContentAllowlist || []);
 	const allowRemoteForMessage = !appSettings.blockRemoteContent || senderWhitelisted || sessionRemoteAllowed;
+	const warnOnExternalLinksForMessage = Boolean(message) && !senderWhitelisted;
 
 	const iframeSrcDoc = useMemo(() => {
 		if (!body?.html) return null;
 		return buildMessageIframeSrcDoc(
 			body.html,
 			allowRemoteForMessage,
+			warnOnExternalLinksForMessage,
 			enrichAnchorTitles,
 			buildSourceDocCsp,
 		);
-	}, [allowRemoteForMessage, body]);
+	}, [allowRemoteForMessage, body, warnOnExternalLinksForMessage]);
 	const attachments = body?.attachments ?? [];
     const isDraftMessage = /^<draft\./i.test(String(message?.message_id || ''));
 

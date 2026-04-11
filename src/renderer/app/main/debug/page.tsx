@@ -35,10 +35,6 @@ type DebugPageProps = {
 };
 
 export default function DebugPage({showDebugNavItem, embedded = true}: DebugPageProps) {
-    if (!showDebugNavItem) {
-        return <Navigate to="/settings/developer" replace/>;
-    }
-
     useAppTheme();
     const [logs, setLogs] = useState<DebugLogEntry[]>([]);
     const [autoScroll, setAutoScroll] = useState(true);
@@ -188,6 +184,10 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
             userScrollIntentRef.current = false;
             userScrollIntentTimerRef.current = null;
         }, 250);
+    }
+
+    if (!showDebugNavItem) {
+        return <Navigate to="/settings/developer" replace/>;
     }
 
     return (

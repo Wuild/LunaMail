@@ -1,6 +1,6 @@
 import {ContextMenu, ContextMenuItem} from '@renderer/components/ui/ContextMenu';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ArrowLeft, FileText, Forward, Reply, ReplyAll, Trash2,} from 'lucide-react';
+import {ArrowLeft, FileText, Forward, Reply, ReplyAll, Trash2} from 'lucide-react';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import MainLayout from '@renderer/layouts/MainLayout';
 import {
@@ -54,7 +54,7 @@ import {
 } from './mailAccountOrder';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {createDefaultAppSettings} from '@/shared/defaults';
-import type {FolderItem, MessageItem, OpenMessageTargetEvent, PublicAccount, SyncStatusEvent,} from '@/preload';
+import type {FolderItem, MessageItem, OpenMessageTargetEvent, PublicAccount, SyncStatusEvent} from '@/preload';
 
 const MESSAGE_PAGE_SIZE = 100;
 const SEARCH_FALLBACK_MESSAGES_PER_FOLDER = 1000;
@@ -167,7 +167,7 @@ function MailPage() {
         [messages, selectedMessageId],
     );
     const selectedFolder = useMemo(
-        () => (selectedFolderPath ? folders.find((folder) => folder.path === selectedFolderPath) ?? null : null),
+        () => (selectedFolderPath ? (folders.find((folder) => folder.path === selectedFolderPath) ?? null) : null),
         [folders, selectedFolderPath],
     );
     const isDraftMessageSelected = useMemo(() => {
@@ -186,8 +186,10 @@ function MailPage() {
     const sessionAllowed = selectedMessageId ? sessionRemoteAllowedMessageIds.includes(selectedMessageId) : false;
     const allowRemoteForSelectedMessage = !appSettings.blockRemoteContent || senderWhitelisted || sessionAllowed;
     const warnOnExternalLinksForSelectedMessage = Boolean(selectedMessage) && !senderWhitelisted;
-    const isCompactSideList = appSettings.mailView === 'side-list' && windowViewport.width < SIDE_LIST_SPLIT_BREAKPOINT_PX;
-    const isCompactTopTable = appSettings.mailView === 'top-table' && windowViewport.height < TOP_TABLE_COMPACT_BREAKPOINT_PX;
+    const isCompactSideList =
+        appSettings.mailView === 'side-list' && windowViewport.width < SIDE_LIST_SPLIT_BREAKPOINT_PX;
+    const isCompactTopTable =
+        appSettings.mailView === 'top-table' && windowViewport.height < TOP_TABLE_COMPACT_BREAKPOINT_PX;
     const showMessageOnly = Boolean(selectedMessageId) && (isCompactSideList || isCompactTopTable);
 
     useEffect(() => {
@@ -244,7 +246,15 @@ function MailPage() {
         applyReadOptimistic(selectedMessage, 1, selectedFolderPath);
         setPendingAutoReadMessageId(null);
         void syncReadState(selectedMessage, 1, selectedFolderPath);
-    }, [applyReadOptimistic, pendingAutoReadMessageId, selectedAccountId, selectedFolderPath, selectedMessage, setPendingAutoReadMessageId, syncReadState]);
+    }, [
+        applyReadOptimistic,
+        pendingAutoReadMessageId,
+        selectedAccountId,
+        selectedFolderPath,
+        selectedMessage,
+        setPendingAutoReadMessageId,
+        syncReadState,
+    ]);
 
     const refreshAccountsAndFolders = useCallback(async (isActive: () => boolean = () => true): Promise<void> => {
         const list = await ipcClient.getAccounts();
@@ -495,7 +505,9 @@ function MailPage() {
             try {
                 const perAccountLimit = 120;
                 const rowsByAccount = await Promise.allSettled(
-                    candidateAccountIds.map((accountId) => ipcClient.searchMessages(accountId, query, null, perAccountLimit)),
+                    candidateAccountIds.map((accountId) =>
+                        ipcClient.searchMessages(accountId, query, null, perAccountLimit),
+                    ),
                 );
                 if (!active) return;
                 const fulfilled = rowsByAccount
@@ -525,7 +537,7 @@ function MailPage() {
                     result.status === 'fulfilled'
                         ? result.value.folders.map((folder) => ({
                             accountId: result.value.accountId,
-                            folderPath: folder.path
+                            folderPath: folder.path,
                         }))
                         : [],
                 );
@@ -607,28 +619,41 @@ function MailPage() {
         selectedMessageIdRef.current = selectedMessageId;
     }, [selectedMessageId]);
 
-    const isDraftMessageInMailView = useCallback((message: MessageItem | null | undefined): boolean => {
-        if (!message) return false;
-        const folder = folders.find((item) => item.id === message.folder_id) ?? null;
-        const folderType = String(folder?.type || '').toLowerCase();
-        const folderPath = String(folder?.path || '').toLowerCase();
-        if (folderType === 'drafts' || folderPath.includes('draft')) return true;
-        return /^<draft\./i.test(String(message.message_id || ''));
-    }, [folders]);
+    const isDraftMessageInMailView = useCallback(
+        (message: MessageItem | null | undefined): boolean => {
+            if (!message) return false;
+            const folder = folders.find((item) => item.id === message.folder_id) ?? null;
+            const folderType = String(folder?.type || '').toLowerCase();
+            const folderPath = String(folder?.path || '').toLowerCase();
+            if (folderType === 'drafts' || folderPath.includes('draft')) return true;
+            return /^<draft\./i.test(String(message.message_id || ''));
+        },
+        [folders],
+    );
 
-    const openDraftInComposerFromMailView = useCallback((message: MessageItem): void => {
-        if (lastOpenedDraftInMailViewRef.current === message.id) return;
-        lastOpenedDraftInMailViewRef.current = message.id;
-        setSelectedMessageId((prev) => (prev === message.id ? null : prev));
-        setSelectedMessageIds((prev) => prev.filter((id) => id !== message.id));
-        setPendingAutoReadMessageId((prev) => (prev === message.id ? null : prev));
-        selectionAnchorIndexRef.current = null;
-        void ipcClient.openMessageWindow(message.id);
-        const fallbackPath = `/email/${message.account_id}/${message.folder_id}`;
-        if (location.pathname !== fallbackPath) {
-            navigate(fallbackPath, {replace: true});
-        }
-    }, [location.pathname, navigate, selectionAnchorIndexRef, setPendingAutoReadMessageId, setSelectedMessageId, setSelectedMessageIds]);
+    const openDraftInComposerFromMailView = useCallback(
+        (message: MessageItem): void => {
+            if (lastOpenedDraftInMailViewRef.current === message.id) return;
+            lastOpenedDraftInMailViewRef.current = message.id;
+            setSelectedMessageId((prev) => (prev === message.id ? null : prev));
+            setSelectedMessageIds((prev) => prev.filter((id) => id !== message.id));
+            setPendingAutoReadMessageId((prev) => (prev === message.id ? null : prev));
+            selectionAnchorIndexRef.current = null;
+            void ipcClient.openMessageWindow(message.id);
+            const fallbackPath = `/email/${message.account_id}/${message.folder_id}`;
+            if (location.pathname !== fallbackPath) {
+                navigate(fallbackPath, {replace: true});
+            }
+        },
+        [
+            location.pathname,
+            navigate,
+            selectionAnchorIndexRef,
+            setPendingAutoReadMessageId,
+            setSelectedMessageId,
+            setSelectedMessageIds,
+        ],
+    );
 
     useEffect(() => {
         if (!routeAccountId) return;
@@ -966,7 +991,12 @@ function MailPage() {
             subject,
             bodyHtml: '',
             bodyText: '',
-            quotedBodyHtml: buildForwardQuoteHtml(selectedMessage, selectedMessageBody?.html, originalText, systemLocale),
+            quotedBodyHtml: buildForwardQuoteHtml(
+                selectedMessage,
+                selectedMessageBody?.html,
+                originalText,
+                systemLocale,
+            ),
             quotedBodyText: forwarded,
             quotedAllowRemote: allowRemoteForSelectedMessage,
         });
@@ -1231,14 +1261,11 @@ function MailPage() {
             }}
             onRefreshFolder={async (folder) => {
                 const folderLabel = folder.custom_name || folder.name;
-                const isSelectedFolder =
-                    selectedAccountId === folder.account_id && selectedFolderPath === folder.path;
+                const isSelectedFolder = selectedAccountId === folder.account_id && selectedFolderPath === folder.path;
                 if (!isSelectedFolder) {
                     const accountFolders = accountFoldersById[folder.account_id] ?? [];
                     const folderId = accountFolders.find((item) => item.path === folder.path)?.id ?? null;
-                    const target = folderId
-                        ? `/email/${folder.account_id}/${folderId}`
-                        : `/email/${folder.account_id}`;
+                    const target = folderId ? `/email/${folder.account_id}/${folderId}` : `/email/${folder.account_id}`;
                     if (location.pathname !== target) {
                         navigate(target);
                     }
@@ -1654,7 +1681,6 @@ function MailPage() {
             }}
         >
             <div className={`h-full overflow-hidden ${selectedMessage ? '' : 'ui-surface-content'}`}>
-
                 {selectedMessage && (
                     <article className="flex h-full flex-col">
                         <div
@@ -1672,8 +1698,11 @@ function MailPage() {
                                 <>
                                     <ToolboxButton label="Reply" icon={<Reply size={14}/>} onClick={onReply} primary/>
                                     {canReplyAll && (
-                                        <ToolboxButton label="Reply all" icon={<ReplyAll size={14}/>}
-                                                       onClick={onReplyAll}/>
+                                        <ToolboxButton
+                                            label="Reply all"
+                                            icon={<ReplyAll size={14}/>}
+                                            onClick={onReplyAll}
+                                        />
                                     )}
                                     <ToolboxButton label="Forward" icon={<Forward size={14}/>} onClick={onForward}/>
                                     <span className="divider-default mx-1 h-6 w-px"/>
@@ -1695,9 +1724,13 @@ function MailPage() {
                             onToggleMessageDetails={() => setShowMessageDetails((prev) => !prev)}
                             spoofHints={buildSpoofHints(selectedMessage)}
                             dateLocale={systemLocale}
-                            tagLabel={formatMessageTagLabel((selectedMessage as MessageItem & {
-                                tag?: string | null
-                            }).tag ?? null)}
+                            tagLabel={formatMessageTagLabel(
+                                (
+                                    selectedMessage as MessageItem & {
+                                        tag?: string | null;
+                                    }
+                                ).tag ?? null,
+                            )}
                             avatarSrc={senderAvatarSrc}
                             onQuickActionStatus={setSyncStatusText}
                             onOpenCustomFilter={({accountId}) => {
@@ -1711,9 +1744,7 @@ function MailPage() {
                             plainText={selectedMessageBody?.text}
                             iframeTitle={`message-body-${selectedMessage.id}`}
                             showRemoteContentWarning={Boolean(
-                                renderedBodyHtml &&
-                                appSettings.blockRemoteContent &&
-                                !allowRemoteForSelectedMessage,
+                                renderedBodyHtml && appSettings.blockRemoteContent && !allowRemoteForSelectedMessage,
                             )}
                             onLoadRemoteOnce={allowRemoteContentOnceForSelected}
                             onAllowRemoteForSender={allowRemoteContentForSender}

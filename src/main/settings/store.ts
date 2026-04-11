@@ -28,7 +28,8 @@ function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSe
         if (typeof value === 'string') {
             const normalized = value.trim().toLowerCase();
             if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') return true;
-            if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off') return false;
+            if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off')
+                return false;
         }
         return fallback;
     };
@@ -38,7 +39,8 @@ function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSe
         if (typeof value === 'string') {
             const normalized = value.trim().toLowerCase();
             if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') return true;
-            if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off') return false;
+            if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off')
+                return false;
         }
         return null;
     };
@@ -70,7 +72,10 @@ function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSe
     const pendingHardwareAcceleration = parseNullableBoolean(input?.pendingHardwareAcceleration);
     const pendingUseNativeTitleBar = parseNullableBoolean(input?.pendingUseNativeTitleBar);
     const spellcheckEnabled = parseBoolean(input?.spellcheckEnabled, DEFAULT_APP_SETTINGS.spellcheckEnabled);
-    const playNotificationSound = parseBoolean(input?.playNotificationSound, DEFAULT_APP_SETTINGS.playNotificationSound);
+    const playNotificationSound = parseBoolean(
+        input?.playNotificationSound,
+        DEFAULT_APP_SETTINGS.playNotificationSound,
+    );
     const showUnreadInTitleBar = parseBoolean(input?.showUnreadInTitleBar, DEFAULT_APP_SETTINGS.showUnreadInTitleBar);
     const autoUpdateEnabled = parseBoolean(input?.autoUpdateEnabled, DEFAULT_APP_SETTINGS.autoUpdateEnabled);
     const developerMode = parseBoolean(input?.developerMode, DEFAULT_APP_SETTINGS.developerMode);

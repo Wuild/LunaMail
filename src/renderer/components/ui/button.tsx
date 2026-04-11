@@ -50,7 +50,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             children,
             ...props
         },
-        ref
+        ref,
     ) => {
         const classNameText = typeof className === 'string' ? className : '';
         const hasExplicitJustifyClass = /\bjustify-(start|end|center|between|around|evenly)\b/.test(classNameText);
@@ -66,26 +66,20 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                     sizeStyles[size],
                     groupStyles[groupPosition],
                     groupPosition !== 'none' && 'relative first:-ml-px',
-                    className
+                    className,
                 )}
                 {...props}
             >
-                {leftIcon ? <span className='shrink-0'>{leftIcon}</span> : null}
+                {leftIcon ? <span className="shrink-0">{leftIcon}</span> : null}
                 {children}
-                {rightIcon ? <span className='shrink-0'>{rightIcon}</span> : null}
+                {rightIcon ? <span className="shrink-0">{rightIcon}</span> : null}
             </button>
         );
-    }
+    },
 );
 
 Button.displayName = 'Button';
 
-export function ButtonGroup({
-    className,
-    children,
-}: {
-    className?: string;
-    children: React.ReactNode;
-}) {
+export function ButtonGroup({className, children}: { className?: string; children: React.ReactNode }) {
     return <div className={cn('inline-flex items-stretch', className)}>{children}</div>;
 }

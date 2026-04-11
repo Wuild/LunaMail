@@ -10,12 +10,12 @@ export function useComposeRecipients() {
     const [recipientDrafts, setRecipientDrafts] = useState<Record<RecipientFieldKey, string>>({
         to: '',
         cc: '',
-        bcc: ''
+        bcc: '',
     });
     const [recipientRows, setRecipientRows] = useState<Record<RecipientFieldKey, AutoCompleteRow[]>>({
         to: [],
         cc: [],
-        bcc: []
+        bcc: [],
     });
     const [recipientInvalidMessages, setRecipientInvalidMessages] = useState<Record<RecipientFieldKey, string | null>>({
         to: null,

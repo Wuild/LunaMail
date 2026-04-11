@@ -23,8 +23,8 @@
     input,
     textarea,
     select,
-    [contenteditable="true"],
-    [contenteditable=""],
+    [contenteditable='true'],
+    [contenteditable=''],
     .lexical-editor-input {
         user-select: text;
     }
@@ -185,7 +185,9 @@
     }
 
     .hover-card-trigger {
-        transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+        transition: background-color 140ms ease,
+        border-color 140ms ease,
+        box-shadow 140ms ease;
     }
 
     .hover-card-trigger:hover,

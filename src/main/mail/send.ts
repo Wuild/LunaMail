@@ -5,7 +5,7 @@ import path from 'node:path';
 import {
     getAccountSendCredentials,
     getAccountSyncCredentials,
-    getLocalAccountVCardPath
+    getLocalAccountVCardPath,
 } from '@main/db/repositories/accountsRepo.js';
 import {getMessageContext, upsertLocalDraftSnapshot} from '@main/db/repositories/mailRepo.js';
 import {createMailDebugLogger} from '@main/debug/debugLog.js';
@@ -79,10 +79,7 @@ export async function sendEmail(payload: SendEmailPayload): Promise<SendEmailRes
     const markdown = payload.markdown?.trim() ?? '';
     const inputText = payload.text?.trim() ?? '';
     const inputHtml = payload.html?.trim() || (markdown ? markdownToEmailHtml(markdown) : undefined);
-    const signedBodies = appendAccountSignature(
-        inputText,
-        inputHtml ?? null
-    );
+    const signedBodies = appendAccountSignature(inputText, inputHtml ?? null);
     const regularAttachments = normalizeAttachments(payload.attachments);
     const attachmentsWithVCard = await withOptionalAccountVCardAttachment(account, regularAttachments);
     const inlineImagePrep = extractInlineDataImageAttachments(signedBodies.html);
@@ -146,10 +143,7 @@ export async function sendEmail(payload: SendEmailPayload): Promise<SendEmailRes
     };
 }
 
-function appendAccountSignature(
-    text: string,
-    html: string | null,
-): { text: string; html: string | null } {
+function appendAccountSignature(text: string, html: string | null): { text: string; html: string | null } {
     return {text, html};
 }
 
@@ -183,7 +177,9 @@ export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDra
     const html = payload.html?.trim() ?? '';
     const subject = payload.subject?.trim() ?? '';
     const to = normalizeRecipients(payload.to);
-    const effectiveDraftId = (payload.draftSessionId || '').trim() || `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    const effectiveDraftId =
+        (payload.draftSessionId || '').trim() ||
+        `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     const cc = normalizeRecipients(payload.cc);
     const bcc = normalizeRecipients(payload.bcc);
     const normalizedInReplyTo = normalizeMessageId(payload.inReplyTo);
@@ -579,9 +575,7 @@ function extensionFromImageMime(contentType: string): string {
     return 'png';
 }
 
-function extractInlineDataImageAttachments(
-    inputHtml: string | null,
-): {
+function extractInlineDataImageAttachments(inputHtml: string | null): {
     html: string | null;
     attachments: Array<{ filename: string; contentType: string; content: Buffer; cid: string }>;
 } {

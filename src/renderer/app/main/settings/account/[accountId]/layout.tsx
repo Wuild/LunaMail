@@ -51,34 +51,46 @@ export default function SettingsAccountLayout() {
                                         type="button"
                                         className={cn(
                                             'block w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
-                                            accountSection === 'identity' ? 'ui-surface-active ui-text-primary' : 'account-item',
+                                            accountSection === 'identity'
+                                                ? 'ui-surface-active ui-text-primary'
+                                                : 'account-item',
                                         )}
                                         onClick={() => onAccountSectionNavigate('identity')}
                                     >
                                         Identity
-                                        <span className="ui-text-muted block truncate text-[11px] font-normal">Name, address, signature</span>
+                                        <span className="ui-text-muted block truncate text-[11px] font-normal">
+											Name, address, signature
+										</span>
                                     </Button>
                                     <Button
                                         type="button"
                                         className={cn(
                                             'block w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
-                                            accountSection === 'server' ? 'ui-surface-active ui-text-primary' : 'account-item',
+                                            accountSection === 'server'
+                                                ? 'ui-surface-active ui-text-primary'
+                                                : 'account-item',
                                         )}
                                         onClick={() => onAccountSectionNavigate('server')}
                                     >
                                         Server Settings
-                                        <span className="ui-text-muted block truncate text-[11px] font-normal">IMAP/SMTP and credentials</span>
+                                        <span className="ui-text-muted block truncate text-[11px] font-normal">
+											IMAP/SMTP and credentials
+										</span>
                                     </Button>
                                     <Button
                                         type="button"
                                         className={cn(
                                             'block w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
-                                            accountSection === 'filters' ? 'ui-surface-active ui-text-primary' : 'account-item',
+                                            accountSection === 'filters'
+                                                ? 'ui-surface-active ui-text-primary'
+                                                : 'account-item',
                                         )}
                                         onClick={() => onAccountSectionNavigate('filters')}
                                     >
                                         Filters
-                                        <span className="ui-text-muted block truncate text-[11px] font-normal">Automatic message rules</span>
+                                        <span className="ui-text-muted block truncate text-[11px] font-normal">
+											Automatic message rules
+										</span>
                                     </Button>
                                 </div>
                             </aside>
@@ -92,8 +104,9 @@ export default function SettingsAccountLayout() {
                     <div className="app-footer shrink-0 px-5 py-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                {Boolean((accountStatus || '').trim()) &&
-                                    <span className="ui-text-muted text-xs">{accountStatus}</span>}
+                                {Boolean((accountStatus || '').trim()) && (
+                                    <span className="ui-text-muted text-xs">{accountStatus}</span>
+                                )}
                             </div>
                             <div className="flex items-center gap-2">
                                 <Button

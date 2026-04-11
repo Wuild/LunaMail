@@ -1,9 +1,9 @@
-import React from "react";
-import {FormInput, FormSelect} from "../ui/FormControls";
+import React from 'react';
+import {FormInput, FormSelect} from '../ui/FormControls';
 
-export type ServiceSecurityMode = "ssl" | "starttls" | "none";
-type ControlVariant = "default" | "subtle";
-type ControlSize = "sm" | "md" | "lg";
+export type ServiceSecurityMode = 'ssl' | 'starttls' | 'none';
+type ControlVariant = 'default' | 'subtle';
+type ControlSize = 'sm' | 'md' | 'lg';
 
 type ServiceSettingsCardProps = {
     title: string;
@@ -14,16 +14,16 @@ type ServiceSettingsCardProps = {
     onPortChange: (value: number) => void;
     onSecurityChange: (value: ServiceSecurityMode) => void;
     allowNone?: boolean;
-    tone?: "neutral" | "muted" | "sky" | "cyan";
+    tone?: 'neutral' | 'muted' | 'sky' | 'cyan';
     controlVariant?: ControlVariant;
     controlSize?: ControlSize;
 };
 
-const toneClasses: Record<NonNullable<ServiceSettingsCardProps["tone"]>, string> = {
-    neutral: "panel",
-    muted: "surface-tint-muted",
-    sky: "surface-tint-info",
-    cyan: "surface-tint-cyan",
+const toneClasses: Record<NonNullable<ServiceSettingsCardProps['tone']>, string> = {
+    neutral: 'panel',
+    muted: 'surface-tint-muted',
+    sky: 'surface-tint-info',
+    cyan: 'surface-tint-cyan',
 };
 
 export default function ServiceSettingsCard({
@@ -35,9 +35,9 @@ export default function ServiceSettingsCard({
                                                 onPortChange,
                                                 onSecurityChange,
                                                 allowNone = false,
-                                                tone = "neutral",
-                                                controlVariant = "default",
-                                                controlSize = "md",
+                                                tone = 'neutral',
+                                                controlVariant = 'default',
+                                                controlSize = 'md',
                                             }: ServiceSettingsCardProps) {
     return (
         <div className={`rounded-lg border p-4 ${toneClasses[tone]}`}>

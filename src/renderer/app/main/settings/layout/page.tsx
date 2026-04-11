@@ -95,7 +95,8 @@ export default function SettingsLayoutPage() {
                     {settings.pendingUseNativeTitleBar !== null && (
                         <p className="notice-warning mt-2 rounded px-2 py-1 text-xs">
                             Restart queued: will switch
-                            to {settings.pendingUseNativeTitleBar ? 'native' : 'custom'} titlebar.
+                            to {settings.pendingUseNativeTitleBar ? 'native' : 'custom'}{' '}
+                            titlebar.
                         </p>
                     )}
                 </div>

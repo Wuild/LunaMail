@@ -172,7 +172,7 @@ export async function syncDav(accountId: number): Promise<DavSyncSummary> {
             accountId,
             contacts.map((contact) => ({
                 ...contact,
-                addressBookId: contact.addressBookUrl ? syncedBookIds[contact.addressBookUrl] ?? null : null,
+                addressBookId: contact.addressBookUrl ? (syncedBookIds[contact.addressBookUrl] ?? null) : null,
             })),
             'carddav',
         );
@@ -976,7 +976,9 @@ async function findCardDavContactUrlByEmail(
     email: string,
     logger?: ReturnType<typeof createMailDebugLogger>,
 ): Promise<string | null> {
-    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedEmail = String(email || '')
+        .trim()
+        .toLowerCase();
     if (!normalizedEmail) return null;
     const reportBody = `<?xml version="1.0" encoding="utf-8" ?>
 <c:addressbook-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:carddav">
@@ -994,7 +996,15 @@ async function findCardDavContactUrlByEmail(
             const href = extractTagValue(response, 'href');
             if (!href) continue;
             const parsed = parseVCard(card, href);
-            if (!parsed.emails.some((value) => String(value || '').trim().toLowerCase() === normalizedEmail)) continue;
+            if (
+                !parsed.emails.some(
+                    (value) =>
+                        String(value || '')
+                            .trim()
+                            .toLowerCase() === normalizedEmail,
+                )
+            )
+                continue;
             return resolveUrl(bookUrl, href);
         }
     }
@@ -1111,7 +1121,11 @@ async function removeCardDavContact(current: {
         await deleteCardDavContact(creds, existingCardUrl, current.etag);
         logger.info('Deleted CardDAV contact id=%d sourceUid=%s', current.id, current.source_uid);
     } else {
-        logger.warn('CardDAV href not found for id=%d sourceUid=%s, removing local row only', current.id, current.source_uid);
+        logger.warn(
+            'CardDAV href not found for id=%d sourceUid=%s, removing local row only',
+            current.id,
+            current.source_uid,
+        );
     }
     return deleteContactById(current.id);
 }
@@ -1263,12 +1277,7 @@ async function editCalDavEvent(
     });
 }
 
-async function removeCalDavEvent(current: {
-    id: number;
-    account_id: number;
-    uid: string;
-    etag: string | null;
-}) {
+async function removeCalDavEvent(current: { id: number; account_id: number; uid: string; etag: string | null }) {
     const logger = createMailDebugLogger('caldav', `delete-event:${current.account_id}`);
     const saved = getDavSettings(current.account_id);
     const discovered = saved?.caldav_url
@@ -1347,7 +1356,10 @@ function ensureTrailingSlash(url: string): string {
 }
 
 function normalizeDavDisplayName(value: string | null | undefined): string | null {
-    const normalized = String(value || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+    const normalized = String(value || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .slice(0, 120);
     return normalized || null;
 }
 
@@ -1380,7 +1392,11 @@ function buildVCard(payload: {
     const safeName = escapeVCardValue(displayName);
     const normalizedEmails = dedupe(
         [payload.email, ...(payload.emails || [])]
-            .map((value) => String(value || '').trim().toLowerCase())
+            .map((value) =>
+                String(value || '')
+                    .trim()
+                    .toLowerCase(),
+            )
             .filter(Boolean),
     );
     const safeEmail = escapeVCardValue((normalizedEmails[0] || payload.email).trim().toLowerCase());
@@ -1496,7 +1512,13 @@ function extractContactMeta(note: string | null | undefined): {
         return {
             noteText: noteText.trim(),
             emails: Array.isArray(parsed.emails)
-                ? parsed.emails.map((value) => String(value || '').trim().toLowerCase()).filter(Boolean)
+                ? parsed.emails
+                    .map((value) =>
+                        String(value || '')
+                            .trim()
+                            .toLowerCase(),
+                    )
+                    .filter(Boolean)
                 : [],
             phones: Array.isArray(parsed.phones)
                 ? parsed.phones.map((value) => String(value || '').trim()).filter(Boolean)
@@ -1515,7 +1537,11 @@ function extractCardDavChannels(
     const parsed = extractContactMeta(note);
     const emails = dedupe(
         [primaryEmail, ...parsed.emails]
-            .map((value) => String(value || '').trim().toLowerCase())
+            .map((value) =>
+                String(value || '')
+                    .trim()
+                    .toLowerCase(),
+            )
             .filter(Boolean),
     );
     const phones = dedupe(
@@ -1619,11 +1645,7 @@ function toCalDavDate(d: Date): string {
 }
 
 function escapeIcsText(value: string): string {
-    return value
-        .replace(/\\/g, '\\\\')
-        .replace(/\n/g, '\\n')
-        .replace(/,/g, '\\,')
-        .replace(/;/g, '\\;');
+    return value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
 }
 
 function toIcsText(value: string | null | undefined): string | null {

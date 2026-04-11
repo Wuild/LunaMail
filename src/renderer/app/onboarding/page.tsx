@@ -98,7 +98,8 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
                             <section
                                 className="relative hidden overflow-hidden px-6 py-7 text-inverse md:px-8 md:py-9 lg:block"
                                 style={{
-                                    backgroundImage: 'radial-gradient(120% 120% at 12% 0%, rgba(190, 132, 255, 0.52) 0%, transparent 52%), radial-gradient(120% 120% at 88% 100%, #7b3fe0 0%, transparent 56%), linear-gradient(160deg, #6a34cc 0%, #7440d8 40%, #552ab8 72%, #3c1e86 100%)',
+                                    backgroundImage:
+                                        'radial-gradient(120% 120% at 12% 0%, rgba(190, 132, 255, 0.52) 0%, transparent 52%), radial-gradient(120% 120% at 88% 100%, #7b3fe0 0%, transparent 56%), linear-gradient(160deg, #6a34cc 0%, #7440d8 40%, #552ab8 72%, #3c1e86 100%)',
                                 }}
                             >
                                 <div
@@ -138,30 +139,30 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
                                         </p>
                                         <ul className="mt-6 space-y-3 text-left text-sm text-inverse opacity-90">
                                             <li className="flex items-center gap-2.5">
-                                                <span
+												<span
                                                     className="rounded-full p-1"
                                                     style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
                                                 >
-                                                    <Check size={12}/>
-                                                </span>
+													<Check size={12}/>
+												</span>
                                                 Theme, language, and message layout
                                             </li>
                                             <li className="flex items-center gap-2.5">
-                                                <span
+												<span
                                                     className="rounded-full p-1"
                                                     style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
                                                 >
-                                                    <Check size={12}/>
-                                                </span>
+													<Check size={12}/>
+												</span>
                                                 Startup and update behavior
                                             </li>
                                             <li className="flex items-center gap-2.5">
-                                                <span
+												<span
                                                     className="rounded-full p-1"
                                                     style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
                                                 >
-                                                    <Check size={12}/>
-                                                </span>
+													<Check size={12}/>
+												</span>
                                                 First account setup and sync
                                             </li>
                                         </ul>
@@ -188,7 +189,7 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
                                             </h2>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span
+											<span
                                                 className="h-2.5 w-8 rounded-full"
                                                 style={{backgroundColor: 'var(--color-primary)'}}
                                             />
@@ -218,17 +219,19 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
                                                             className={`h-auto rounded-lg border px-3 py-2.5 text-left ${selected ? 'border-transparent' : 'ui-border-default'}`}
                                                             onClick={() => setTheme(option.value)}
                                                         >
-                                                        <span className="flex w-full items-start gap-2.5">
-                                                            <span className="mt-0.5">{meta.icon}</span>
-                                                            <span className="min-w-0">
-                                                                <span
-                                                                    className="block text-sm font-semibold">{option.label}</span>
-                                                                <span
-                                                                    className={`${selected ? 'text-inverse/80' : 'ui-text-secondary'} block text-xs`}>
-                                                                    {meta.subtitle}
-                                                                </span>
-                                                            </span>
-                                                        </span>
+															<span className="flex w-full items-start gap-2.5">
+																<span className="mt-0.5">{meta.icon}</span>
+																<span className="min-w-0">
+																	<span className="block text-sm font-semibold">
+																		{option.label}
+																	</span>
+																	<span
+                                                                        className={`${selected ? 'text-inverse/80' : 'ui-text-secondary'} block text-xs`}
+                                                                    >
+																		{meta.subtitle}
+																	</span>
+																</span>
+															</span>
                                                         </Button>
                                                     );
                                                 })}
@@ -236,14 +239,16 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
                                         </section>
                                         <section className="grid gap-4 md:grid-cols-2">
                                             <label className="block text-sm">
-                                            <span
-                                                className="ui-text-secondary mb-1.5 inline-flex items-center gap-1.5 font-medium">
-                                                <Globe2 size={14}/>
-                                                Language
-                                            </span>
+												<span
+                                                    className="ui-text-secondary mb-1.5 inline-flex items-center gap-1.5 font-medium">
+													<Globe2 size={14}/>
+													Language
+												</span>
                                                 <FormSelect
                                                     value={language}
-                                                    onChange={(event) => setLanguage(parseAppLanguage(event.target.value))}
+                                                    onChange={(event) =>
+                                                        setLanguage(parseAppLanguage(event.target.value))
+                                                    }
                                                 >
                                                     {APP_LANGUAGE_OPTIONS.map((option) => (
                                                         <option key={option.value} value={option.value}>
@@ -253,11 +258,11 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
                                                 </FormSelect>
                                             </label>
                                             <label className="block text-sm">
-                                            <span
-                                                className="ui-text-secondary mb-1.5 inline-flex items-center gap-1.5 font-medium">
-                                                <LayoutTemplate size={14}/>
-                                                Mail layout
-                                            </span>
+												<span
+                                                    className="ui-text-secondary mb-1.5 inline-flex items-center gap-1.5 font-medium">
+													<LayoutTemplate size={14}/>
+													Mail layout
+												</span>
                                                 <FormSelect
                                                     value={mailView}
                                                     onChange={(event) => setMailView(event.target.value as MailView)}
@@ -273,11 +278,14 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
                                         <section className="space-y-3">
                                             <label
                                                 className="ui-border-default flex items-start justify-between rounded-lg border px-3 py-3 text-sm">
-                                            <span className="pr-4">
-                                                <span
-                                                    className="ui-text-primary block font-medium">Minimize to tray</span>
-                                                <span className="ui-text-secondary block text-xs">Keep LlamaMail running in the background.</span>
-                                            </span>
+												<span className="pr-4">
+													<span className="ui-text-primary block font-medium">
+														Minimize to tray
+													</span>
+													<span className="ui-text-secondary block text-xs">
+														Keep LlamaMail running in the background.
+													</span>
+												</span>
                                                 <FormCheckbox
                                                     checked={minimizeToTray}
                                                     onChange={(event) => setMinimizeToTray(event.target.checked)}
@@ -285,11 +293,14 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
                                             </label>
                                             <label
                                                 className="ui-border-default flex items-start justify-between rounded-lg border px-3 py-3 text-sm">
-                                            <span className="pr-4">
-                                                <span
-                                                    className="ui-text-primary block font-medium">Enable auto updates</span>
-                                                <span className="ui-text-secondary block text-xs">Download and apply updates automatically.</span>
-                                            </span>
+												<span className="pr-4">
+													<span className="ui-text-primary block font-medium">
+														Enable auto updates
+													</span>
+													<span className="ui-text-secondary block text-xs">
+														Download and apply updates automatically.
+													</span>
+												</span>
                                                 <FormCheckbox
                                                     checked={autoUpdateEnabled}
                                                     onChange={(event) => setAutoUpdateEnabled(event.target.checked)}

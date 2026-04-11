@@ -20,15 +20,7 @@ import {
 
 export type ImageAlign = 'none' | 'left' | 'center' | 'right';
 
-type ResizeHandle =
-    | 'left'
-    | 'right'
-    | 'top'
-    | 'bottom'
-    | 'top-left'
-    | 'top-right'
-    | 'bottom-left'
-    | 'bottom-right';
+type ResizeHandle = 'left' | 'right' | 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 export type SerializedImageNode = Spread<
     {
@@ -58,7 +50,9 @@ function normalizeAlign(value: unknown): ImageAlign {
 }
 
 function inferAlignFromStyle(node: HTMLImageElement): ImageAlign {
-    const floatValue = String(node.style.float || '').toLowerCase().trim();
+    const floatValue = String(node.style.float || '')
+        .toLowerCase()
+        .trim();
     if (floatValue === 'left') return 'left';
     if (floatValue === 'right') return 'right';
 
@@ -489,7 +483,8 @@ function EditableImage({
         window.addEventListener('pointercancel', onUp, {passive: false});
     };
 
-    const alignClass = align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : align === 'left' ? 'mr-auto' : '';
+    const alignClass =
+        align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : align === 'left' ? 'mr-auto' : '';
     const style: React.CSSProperties = {width: `${clampWidthPx(widthPx)}px`, maxWidth: '100%'};
     if (align === 'left') {
         style.float = 'left';
@@ -533,48 +528,85 @@ function EditableImage({
                             onMouseDown={stopEvent}
                             onClick={stopEvent}
                         >
-                            <Button type="button"
-                                    className={`rounded px-1.5 text-[11px] ${align === 'none' ? 'ui-surface-active' : ''}`}
-                                    onClick={() => updateNode((n) => n.setAlign('none'))}>B</Button>
-                            <Button type="button"
-                                    className={`rounded px-1.5 text-[11px] ${align === 'left' ? 'ui-surface-active' : ''}`}
-                                    onClick={() => updateNode((n) => n.setAlign('left'))}>L</Button>
-                            <Button type="button"
-                                    className={`rounded px-1.5 text-[11px] ${align === 'center' ? 'ui-surface-active' : ''}`}
-                                    onClick={() => updateNode((n) => n.setAlign('center'))}>C</Button>
-                            <Button type="button"
-                                    className={`rounded px-1.5 text-[11px] ${align === 'right' ? 'ui-surface-active' : ''}`}
-                                    onClick={() => updateNode((n) => n.setAlign('right'))}>R</Button>
+                            <Button
+                                type="button"
+                                className={`rounded px-1.5 text-[11px] ${align === 'none' ? 'ui-surface-active' : ''}`}
+                                onClick={() => updateNode((n) => n.setAlign('none'))}
+                            >
+                                B
+                            </Button>
+                            <Button
+                                type="button"
+                                className={`rounded px-1.5 text-[11px] ${align === 'left' ? 'ui-surface-active' : ''}`}
+                                onClick={() => updateNode((n) => n.setAlign('left'))}
+                            >
+                                L
+                            </Button>
+                            <Button
+                                type="button"
+                                className={`rounded px-1.5 text-[11px] ${align === 'center' ? 'ui-surface-active' : ''}`}
+                                onClick={() => updateNode((n) => n.setAlign('center'))}
+                            >
+                                C
+                            </Button>
+                            <Button
+                                type="button"
+                                className={`rounded px-1.5 text-[11px] ${align === 'right' ? 'ui-surface-active' : ''}`}
+                                onClick={() => updateNode((n) => n.setAlign('right'))}
+                            >
+                                R
+                            </Button>
                             <div className="divider-default mx-0.5 h-4 w-px"/>
-                            <Button type="button" className="text-danger rounded px-1.5 text-[11px]"
-                                    onClick={() => editor.update(() => $getNodeByKey(nodeKey)?.remove())}>x</Button>
+                            <Button
+                                type="button"
+                                className="text-danger rounded px-1.5 text-[11px]"
+                                onClick={() => editor.update(() => $getNodeByKey(nodeKey)?.remove())}
+                            >
+                                x
+                            </Button>
                         </div>
 
-                        <ResizeOverlay handle="left"
-                                       className="image-resize-bar absolute bottom-2 left-[-1px] top-2 w-1.5 cursor-ew-resize rounded"
-                                       startResize={startResize}/>
-                        <ResizeOverlay handle="right"
-                                       className="image-resize-bar absolute bottom-2 right-[-1px] top-2 w-1.5 cursor-ew-resize rounded"
-                                       startResize={startResize}/>
-                        <ResizeOverlay handle="top"
-                                       className="image-resize-bar absolute left-2 right-2 top-[-1px] h-1.5 cursor-ns-resize rounded"
-                                       startResize={startResize}/>
-                        <ResizeOverlay handle="bottom"
-                                       className="image-resize-bar absolute bottom-[-1px] left-2 right-2 h-1.5 cursor-ns-resize rounded"
-                                       startResize={startResize}/>
+                        <ResizeOverlay
+                            handle="left"
+                            className="image-resize-bar absolute bottom-2 left-[-1px] top-2 w-1.5 cursor-ew-resize rounded"
+                            startResize={startResize}
+                        />
+                        <ResizeOverlay
+                            handle="right"
+                            className="image-resize-bar absolute bottom-2 right-[-1px] top-2 w-1.5 cursor-ew-resize rounded"
+                            startResize={startResize}
+                        />
+                        <ResizeOverlay
+                            handle="top"
+                            className="image-resize-bar absolute left-2 right-2 top-[-1px] h-1.5 cursor-ns-resize rounded"
+                            startResize={startResize}
+                        />
+                        <ResizeOverlay
+                            handle="bottom"
+                            className="image-resize-bar absolute bottom-[-1px] left-2 right-2 h-1.5 cursor-ns-resize rounded"
+                            startResize={startResize}
+                        />
 
-                        <ResizeOverlay handle="top-left"
-                                       className="image-resize-corner absolute left-[-1px] top-[-1px] h-2.5 w-2.5 cursor-nwse-resize rounded-sm"
-                                       startResize={startResize}/>
-                        <ResizeOverlay handle="top-right"
-                                       className="image-resize-corner absolute right-[-1px] top-[-1px] h-2.5 w-2.5 cursor-nesw-resize rounded-sm"
-                                       startResize={startResize}/>
-                        <ResizeOverlay handle="bottom-left"
-                                       className="image-resize-corner absolute bottom-[-1px] left-[-1px] h-2.5 w-2.5 cursor-nesw-resize rounded-sm"
-                                       startResize={startResize}/>
-                        <ResizeOverlay handle="bottom-right"
-                                       className="image-resize-corner absolute bottom-[-1px] right-[-1px] h-2.5 w-2.5 cursor-nwse-resize rounded-sm"
-                                       startResize={startResize}/>
+                        <ResizeOverlay
+                            handle="top-left"
+                            className="image-resize-corner absolute left-[-1px] top-[-1px] h-2.5 w-2.5 cursor-nwse-resize rounded-sm"
+                            startResize={startResize}
+                        />
+                        <ResizeOverlay
+                            handle="top-right"
+                            className="image-resize-corner absolute right-[-1px] top-[-1px] h-2.5 w-2.5 cursor-nesw-resize rounded-sm"
+                            startResize={startResize}
+                        />
+                        <ResizeOverlay
+                            handle="bottom-left"
+                            className="image-resize-corner absolute bottom-[-1px] left-[-1px] h-2.5 w-2.5 cursor-nesw-resize rounded-sm"
+                            startResize={startResize}
+                        />
+                        <ResizeOverlay
+                            handle="bottom-right"
+                            className="image-resize-corner absolute bottom-[-1px] right-[-1px] h-2.5 w-2.5 cursor-nwse-resize rounded-sm"
+                            startResize={startResize}
+                        />
                     </>
                 )}
             </div>
@@ -588,8 +620,10 @@ function findScrollParent(element: HTMLElement | null): HTMLElement | null {
         const style = window.getComputedStyle(current);
         const overflowY = style.overflowY;
         const overflowX = style.overflowX;
-        const canScrollY = (overflowY === 'auto' || overflowY === 'scroll') && current.scrollHeight > current.clientHeight;
-        const canScrollX = (overflowX === 'auto' || overflowX === 'scroll') && current.scrollWidth > current.clientWidth;
+        const canScrollY =
+            (overflowY === 'auto' || overflowY === 'scroll') && current.scrollHeight > current.clientHeight;
+        const canScrollX =
+            (overflowX === 'auto' || overflowX === 'scroll') && current.scrollWidth > current.clientWidth;
         if (canScrollY || canScrollX) return current;
         current = current.parentElement;
     }

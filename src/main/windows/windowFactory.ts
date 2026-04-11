@@ -1,6 +1,6 @@
 import {app, BrowserWindow, type BrowserWindowConstructorOptions} from 'electron';
-import path from "path";
-import fs from "fs";
+import path from 'path';
+import fs from 'fs';
 
 type SecureWebPreferencesOptions = {
     preloadPath: string;

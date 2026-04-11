@@ -7,7 +7,7 @@ import {
     attachWindowShortcuts,
     buildSecureWebPreferences,
     createAppWindow,
-    createFramelessAppWindow
+    createFramelessAppWindow,
 } from './windowFactory.js';
 
 const isDev = !app.isPackaged;

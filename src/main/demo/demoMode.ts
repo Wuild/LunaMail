@@ -301,5 +301,9 @@ export async function reconcileDemoData(enabled: boolean): Promise<DemoSeedResul
 }
 
 export function isDemoProvider(value: string | null | undefined): boolean {
-	return String(value || '').trim().toLowerCase() === DEMO_PROVIDER;
+    return (
+        String(value || '')
+            .trim()
+            .toLowerCase() === DEMO_PROVIDER
+    );
 }

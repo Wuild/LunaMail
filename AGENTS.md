@@ -183,18 +183,18 @@ Update UX (main window):
   - `saveMailFilter(accountId, payload)`
   - `deleteMailFilter(accountId, filterId)`
   - `runMailFilters(accountId, payload?)`
-    - `searchMessages(accountId, query, folderPath?, limit?)`
-    - `getMessage(messageId)`
-    - `getMessageBody(messageId, requestId?)`
-    - `cancelMessageBody(requestId)`
-    - `setMessageRead(messageId, isRead)`
+      - `searchMessages(accountId, query, folderPath?, limit?)`
+      - `getMessage(messageId)`
+      - `getMessageBody(messageId, requestId?)`
+      - `cancelMessageBody(requestId)`
+      - `setMessageRead(messageId, isRead)`
   - `markMessageRead(messageId)`
   - `markMessageUnread(messageId)`
-    - `setMessageFlagged(messageId, isFlagged)`
-    - `moveMessage(messageId, targetFolderPath)`
+      - `setMessageFlagged(messageId, isFlagged)`
+      - `moveMessage(messageId, targetFolderPath)`
   - `archiveMessage(messageId)`
-    - `deleteMessage(messageId)`
-    - `openMessageAttachment(messageId, attachmentIndex, action?)`
+      - `deleteMessage(messageId)`
+      - `openMessageAttachment(messageId, attachmentIndex, action?)`
 - Compose/windows:
     - `sendEmail(payload)`
     - `saveDraft(payload)`
@@ -241,13 +241,13 @@ Update UX (main window):
     - `onAccountDeleted(cb)`
     - `onUnreadCountUpdated(cb)`
   - `onMessageReadUpdated(cb)`
-    - `onAccountSyncStatus(cb)`
-    - `onComposeDraft(cb)`
-    - `onAppSettingsUpdated(cb)`
-    - `onOpenMessageTarget(cb)`
-    - `onMessageWindowTarget(cb)`
-    - `onDebugLog(cb)`
-    - `onAutoUpdateStatus(cb)`
+      - `onAccountSyncStatus(cb)`
+      - `onComposeDraft(cb)`
+      - `onAppSettingsUpdated(cb)`
+      - `onOpenMessageTarget(cb)`
+      - `onMessageWindowTarget(cb)`
+      - `onDebugLog(cb)`
+      - `onAutoUpdateStatus(cb)`
 
 ---
 
@@ -400,16 +400,18 @@ Use electron-builder:
 - FAVOR route consolidation over adding more windows for settings/help/debug style pages
 - WHEN refactoring renderer code, remove dead files/imports and fold duplicated page logic into reusable modules
 - USE shared renderer UI primitives for all new/updated form controls and buttons:
-  - Form controls: `src/renderer/components/ui/FormControls.tsx`
-    - `FormInput`, `FormSelect`, `FormTextarea`, `FormCheckbox`, `FormControlGroup`
-    - Prefer variants (`variant`, `size`) over inline one-off styling.
-    - Use icon slots (`leftIcon`, `rightIcon`) where applicable.
-    - Use grouped controls with `FormControlGroup` plus `groupPosition` (`first`/`middle`/`last`) for toolbar-style rows.
-  - Buttons: `src/renderer/components/ui/button.tsx`
-    - `Button`, `ButtonGroup`
-    - Prefer button variants (`default`, `secondary`, `outline`, `ghost`, `danger`, `success`) and sizes.
-    - Use icon slots (`leftIcon`, `rightIcon`) instead of manual icon spacing wrappers.
-    - Use grouped buttons with `ButtonGroup` plus `groupPosition` (`first`/`middle`/`last`) for segmented/toolbar actions.
+    - Form controls: `src/renderer/components/ui/FormControls.tsx`
+        - `FormInput`, `FormSelect`, `FormTextarea`, `FormCheckbox`, `FormControlGroup`
+        - Prefer variants (`variant`, `size`) over inline one-off styling.
+        - Use icon slots (`leftIcon`, `rightIcon`) where applicable.
+        - Use grouped controls with `FormControlGroup` plus `groupPosition` (`first`/`middle`/`last`) for toolbar-style
+          rows.
+    - Buttons: `src/renderer/components/ui/button.tsx`
+        - `Button`, `ButtonGroup`
+        - Prefer button variants (`default`, `secondary`, `outline`, `ghost`, `danger`, `success`) and sizes.
+        - Use icon slots (`leftIcon`, `rightIcon`) instead of manual icon spacing wrappers.
+        - Use grouped buttons with `ButtonGroup` plus `groupPosition` (`first`/`middle`/`last`) for segmented/toolbar
+          actions.
 - Avoid introducing new ad-hoc `<input>`, `<select>`, `<textarea>`, `<input type="checkbox">`, or raw `<button>` styles in pages/components when these shared primitives can be used.
 - RUN `npm run build` after structural refactors and before handoff
 
@@ -433,10 +435,10 @@ Use this as the default process for all future development work.
   consume them from both main and renderer instead of duplicating literals.
 - Keep `src/preload/index.ts` as the single renderer bridge surface.
 - If adding or renaming an IPC channel:
-  - update main `ipcMain.handle(...)` registration
-  - update preload `ipcRenderer.invoke(...)` wrapper
-  - update affected renderer callers/hooks
-  - keep integration contract tests passing
+    - update main `ipcMain.handle(...)` registration
+    - update preload `ipcRenderer.invoke(...)` wrapper
+    - update affected renderer callers/hooks
+    - keep integration contract tests passing
 - Add runtime validation for riskier IPC inputs (especially mutation payloads and file actions).
 
 ### 3) Renderer State Rules

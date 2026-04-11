@@ -33,19 +33,13 @@ export default function MailDragOverlay() {
                 }}
             >
                 <div className="flex items-center gap-2">
-                    <span className="chip-muted mail-drag-overlay-icon">
-                        <Mail size={14}/>
-                    </span>
+					<span className="chip-muted mail-drag-overlay-icon">
+						<Mail size={14}/>
+					</span>
                     <span className="min-w-0 flex-1">
-                        <span className="ui-text-primary block truncate text-sm font-semibold">
-                            {subject}
-                        </span>
-                        {from && (
-                            <span className="ui-text-muted block truncate text-[11px]">
-                                {from}
-                            </span>
-                        )}
-                    </span>
+						<span className="ui-text-primary block truncate text-sm font-semibold">{subject}</span>
+                        {from && <span className="ui-text-muted block truncate text-[11px]">{from}</span>}
+					</span>
                 </div>
             </div>
         </div>

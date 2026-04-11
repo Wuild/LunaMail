@@ -27,7 +27,7 @@ import {
     deleteMailFilter,
     listMailFilters,
     runMailFiltersForMessages,
-    upsertMailFilter
+    upsertMailFilter,
 } from '@main/mail/filterRules.js';
 import {resolveImapSecurity} from '@main/mail/security.js';
 import {
@@ -302,9 +302,10 @@ export function registerAccountIpc(): void {
 function getAccountsSyncSnapshot(): Array<{ id: number; provider: string | null | undefined }> {
     try {
         const db = getDb();
-        const rows = db
-            .prepare('SELECT id, provider FROM accounts ORDER BY created_at ASC')
-            .all() as Array<{ id: number; provider: string | null | undefined }>;
+        const rows = db.prepare('SELECT id, provider FROM accounts ORDER BY created_at ASC').all() as Array<{
+            id: number;
+            provider: string | null | undefined;
+        }>;
         return rows;
     } catch {
         return [];
@@ -384,7 +385,9 @@ async function runAutoSyncCycle(source: 'startup' | 'interval'): Promise<void> {
     autoSyncRunning = true;
     try {
         const accounts = await getAccounts();
-        const syncableAccounts = accounts.filter((account) => !isDemoProvider(account.provider) && !isDemoModeEnabled());
+        const syncableAccounts = accounts.filter(
+            (account) => !isDemoProvider(account.provider) && !isDemoModeEnabled(),
+        );
         void ensureIdleWatchersForAccounts(syncableAccounts.map((account) => account.id));
         for (const account of accounts) {
             if (isDemoModeEnabled()) continue;

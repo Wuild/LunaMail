@@ -122,12 +122,18 @@ export default function SettingsApplicationPage() {
                     <div className="min-w-0">
                         <p className="ui-text-secondary text-sm font-medium">Updates</p>
                         <p className="ui-text-muted mt-1 text-xs">Current version: {autoUpdateState.currentVersion}</p>
-                        <p className="ui-text-muted mt-1 text-xs">{autoUpdateState.message || describeUpdatePhase(autoUpdateState)}</p>
+                        <p className="ui-text-muted mt-1 text-xs">
+                            {autoUpdateState.message || describeUpdatePhase(autoUpdateState)}
+                        </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                         {autoUpdateState.phase === 'downloaded' ? (
-                            <Button type="button" variant="success" className="rounded-md px-3 py-2 text-sm font-medium"
-                                    onClick={() => void onInstallUpdate()}>
+                            <Button
+                                type="button"
+                                variant="success"
+                                className="rounded-md px-3 py-2 text-sm font-medium"
+                                onClick={() => void onInstallUpdate()}
+                            >
                                 Restart to Update
                             </Button>
                         ) : autoUpdateState.phase === 'available' || autoUpdateState.phase === 'downloading' ? (
@@ -157,11 +163,14 @@ export default function SettingsApplicationPage() {
                     className="ui-border-default mt-3 flex w-full items-center justify-between rounded-md border px-3 py-2.5 text-sm">
                     <div className="pr-3">
                         <span className="ui-text-secondary">Auto update</span>
-                        <p className="ui-text-muted mt-1 text-xs">Automatically checks for new versions and prepares
-                            update downloads.</p>
+                        <p className="ui-text-muted mt-1 text-xs">
+                            Automatically checks for new versions and prepares update downloads.
+                        </p>
                     </div>
-                    <FormCheckbox checked={settings.autoUpdateEnabled}
-                                  onChange={(e) => void applySettingsPatch({autoUpdateEnabled: e.target.checked})}/>
+                    <FormCheckbox
+                        checked={settings.autoUpdateEnabled}
+                        onChange={(e) => void applySettingsPatch({autoUpdateEnabled: e.target.checked})}
+                    />
                 </label>
             </div>
 
@@ -169,10 +178,12 @@ export default function SettingsApplicationPage() {
                 <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                         <p className="ui-text-secondary text-sm font-medium">Default Email App</p>
-                        <p className="ui-text-muted mt-1 text-xs">Use LlamaMail for `mailto:` links from browsers and
-                            other apps.</p>
-                        {isDefaultEmailClient === true &&
-                            <p className="text-success mt-1 text-xs">LlamaMail is already your default email app.</p>}
+                        <p className="ui-text-muted mt-1 text-xs">
+                            Use LlamaMail for `mailto:` links from browsers and other apps.
+                        </p>
+                        {isDefaultEmailClient === true && (
+                            <p className="text-success mt-1 text-xs">LlamaMail is already your default email app.</p>
+                        )}
                     </div>
                     {isDefaultEmailClient !== true && (
                         <Button
@@ -191,26 +202,37 @@ export default function SettingsApplicationPage() {
                 <h2 className="ui-text-primary text-base font-semibold">General</h2>
                 <label className="block text-sm">
                     <span className="ui-text-secondary mb-1 block font-medium">Language</span>
-                    <p className="ui-text-muted mb-2 text-xs">Sets the app interface language for menus, labels, and
-                        settings.</p>
-                    <FormSelect className="field-select h-10 w-full rounded-md px-3 text-sm" value={settings.language}
-                                onChange={(e) => void applySettingsPatch({language: parseAppLanguage(e.target.value)})}>
+                    <p className="ui-text-muted mb-2 text-xs">
+                        Sets the app interface language for menus, labels, and settings.
+                    </p>
+                    <FormSelect
+                        className="field-select h-10 w-full rounded-md px-3 text-sm"
+                        value={settings.language}
+                        onChange={(e) => void applySettingsPatch({language: parseAppLanguage(e.target.value)})}
+                    >
                         {APP_LANGUAGE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
                         ))}
                     </FormSelect>
                 </label>
                 <label className="block text-sm">
                     <span className="ui-text-secondary mb-1 block font-medium">Auto sync interval (minutes)</span>
-                    <p className="ui-text-muted mb-2 text-xs">How often the app checks mail and updates unread counts in
-                        the background.</p>
+                    <p className="ui-text-muted mb-2 text-xs">
+                        How often the app checks mail and updates unread counts in the background.
+                    </p>
                     <FormSelect
                         className="field-select h-10 w-full rounded-md px-3 text-sm"
                         value={settings.syncIntervalMinutes}
-                        onChange={(e) => void applySettingsPatch({syncIntervalMinutes: normalizeSyncIntervalMinutes(e.target.value)})}
+                        onChange={(e) =>
+                            void applySettingsPatch({syncIntervalMinutes: normalizeSyncIntervalMinutes(e.target.value)})
+                        }
                     >
                         {SYNC_INTERVAL_OPTIONS.map((m) => (
-                            <option key={m} value={m}>Every {m} minute{m > 1 ? 's' : ''}</option>
+                            <option key={m} value={m}>
+                                Every {m} minute{m > 1 ? 's' : ''}
+                            </option>
                         ))}
                     </FormSelect>
                 </label>
@@ -222,21 +244,27 @@ export default function SettingsApplicationPage() {
                     className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
                     <div className="pr-3">
                         <span className="ui-text-secondary">Minimize to tray</span>
-                        <p className="ui-text-muted mt-1 text-xs">Keeps LunaMail running in the background when
-                            minimized.</p>
+                        <p className="ui-text-muted mt-1 text-xs">
+                            Keeps LunaMail running in the background when minimized.
+                        </p>
                     </div>
-                    <FormCheckbox checked={settings.minimizeToTray}
-                                  onChange={(e) => void applySettingsPatch({minimizeToTray: e.target.checked})}/>
+                    <FormCheckbox
+                        checked={settings.minimizeToTray}
+                        onChange={(e) => void applySettingsPatch({minimizeToTray: e.target.checked})}
+                    />
                 </label>
                 <label
                     className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
                     <div className="pr-3">
                         <span className="ui-text-secondary">Show unread in titlebar</span>
-                        <p className="ui-text-muted mt-1 text-xs">Adds unread count to the window title when new mail is
-                            available.</p>
+                        <p className="ui-text-muted mt-1 text-xs">
+                            Adds unread count to the window title when new mail is available.
+                        </p>
                     </div>
-                    <FormCheckbox checked={settings.showUnreadInTitleBar}
-                                  onChange={(event) => void applySettingsPatch({showUnreadInTitleBar: event.target.checked})}/>
+                    <FormCheckbox
+                        checked={settings.showUnreadInTitleBar}
+                        onChange={(event) => void applySettingsPatch({showUnreadInTitleBar: event.target.checked})}
+                    />
                 </label>
             </section>
 
@@ -246,11 +274,14 @@ export default function SettingsApplicationPage() {
                     className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
                     <div className="pr-3">
                         <span className="ui-text-secondary">Spell check</span>
-                        <p className="ui-text-muted mt-1 text-xs">Highlights misspelled words in editors and compose
-                            fields.</p>
+                        <p className="ui-text-muted mt-1 text-xs">
+                            Highlights misspelled words in editors and compose fields.
+                        </p>
                     </div>
-                    <FormCheckbox checked={settings.spellcheckEnabled}
-                                  onChange={(event) => void applySettingsPatch({spellcheckEnabled: event.target.checked})}/>
+                    <FormCheckbox
+                        checked={settings.spellcheckEnabled}
+                        onChange={(event) => void applySettingsPatch({spellcheckEnabled: event.target.checked})}
+                    />
                 </label>
                 <label
                     className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
@@ -258,8 +289,10 @@ export default function SettingsApplicationPage() {
                         <span className="ui-text-secondary">Notification sound</span>
                         <p className="ui-text-muted mt-1 text-xs">Plays an alert sound for new mail notifications.</p>
                     </div>
-                    <FormCheckbox checked={settings.playNotificationSound}
-                                  onChange={(event) => void applySettingsPatch({playNotificationSound: event.target.checked})}/>
+                    <FormCheckbox
+                        checked={settings.playNotificationSound}
+                        onChange={(event) => void applySettingsPatch({playNotificationSound: event.target.checked})}
+                    />
                 </label>
             </section>
 
@@ -269,11 +302,15 @@ export default function SettingsApplicationPage() {
                     className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
                     <div className="pr-3">
                         <span className="ui-text-secondary">Hardware acceleration</span>
-                        <p className="ui-text-muted mt-1 text-xs">Uses your GPU to render the app. Disable if you see
-                            flickering, blank windows, or driver issues.</p>
+                        <p className="ui-text-muted mt-1 text-xs">
+                            Uses your GPU to render the app. Disable if you see flickering, blank windows, or driver
+                            issues.
+                        </p>
                     </div>
-                    <FormCheckbox checked={effectiveHardwareAcceleration}
-                                  onChange={(event) => void onHardwareAccelerationChange(event.target.checked)}/>
+                    <FormCheckbox
+                        checked={effectiveHardwareAcceleration}
+                        onChange={(event) => void onHardwareAccelerationChange(event.target.checked)}
+                    />
                 </label>
                 {settings.pendingHardwareAcceleration !== null && (
                     <p className="notice-warning rounded-md px-2 py-1 text-xs">

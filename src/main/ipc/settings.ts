@@ -51,11 +51,11 @@ export function registerSettingsIpc(
 			const title = target?.subject
 				? `Test: ${target.subject}`
 				: String(payload?.title || `${APP_NAME} developer notification`).trim() ||
-				`${APP_NAME} developer notification`;
+                `${APP_NAME} developer notification`;
 			const body = target
 				? `${target.from || 'Unknown sender'} -> ${target.accountEmail}`
 				: String(payload?.body || 'No message found in first account/folder.').trim() ||
-				'No message found in first account/folder.';
+                'No message found in first account/folder.';
 			const route = target
 				? `/email/${target.accountId}/${target.folderId}/${target.messageId}`
 				: String(payload?.route || '/email').trim() || '/email';

@@ -25,7 +25,7 @@ function TableColumnsMenuInner<TColumn extends string>(
         ready,
         onClose,
         onToggleColumn,
-        onResetColumns
+        onResetColumns,
     }: TableColumnsMenuProps<TColumn>,
     ref: React.ForwardedRef<HTMLDivElement>,
 ) {
@@ -51,10 +51,7 @@ function TableColumnsMenuInner<TColumn extends string>(
                     >
                         <span>{column.label}</span>
                         <span
-                            className={cn(
-                                'context-menu-checkmark',
-                                checked ? 'text-success' : 'text-transparent',
-                            )}
+                            className={cn('context-menu-checkmark', checked ? 'text-success' : 'text-transparent')}
                             aria-hidden={!checked}
                         >
 							✓
@@ -63,10 +60,7 @@ function TableColumnsMenuInner<TColumn extends string>(
                 );
             })}
             <ContextMenuSeparator/>
-            <ContextMenuItem
-                type="button"
-                onClick={onResetColumns}
-            >
+            <ContextMenuItem type="button" onClick={onResetColumns}>
                 Reset Columns
             </ContextMenuItem>
         </ContextMenu>

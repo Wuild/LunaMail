@@ -142,11 +142,7 @@ export default function MessageFolderContextMenu({
                         }}
                     />
                     <ContextMenuAnchor>
-                        <ContextMenuItem
-                            type="button"
-                            align="between"
-                            className="transition-colors"
-                        >
+                        <ContextMenuItem type="button" align="between" className="transition-colors">
 							<span className="flex items-center gap-2">
 								<span
                                     className={cn(
@@ -162,9 +158,7 @@ export default function MessageFolderContextMenu({
                         </ContextMenuItem>
                         <ContextMenuSubmenu
                             size="md"
-                            className={cn(
-                                moveSubmenuLeft ? 'right-full' : 'left-full',
-                            )}
+                            className={cn(moveSubmenuLeft ? 'right-full' : 'left-full')}
                             style={{transform: `translateY(${moveSubmenuOffsetY}px)`}}
                         >
                             {messageTagOptions.map((tag) => (
@@ -173,9 +167,12 @@ export default function MessageFolderContextMenu({
                                     type="button"
                                     align="between"
                                     onClick={() => {
-                                        const activeTag = (menu.message as MessageItem & {
-                                            tag?: string | null
-                                        }).tag ?? null;
+                                        const activeTag =
+                                            (
+                                                menu.message as MessageItem & {
+                                                    tag?: string | null;
+                                                }
+                                            ).tag ?? null;
                                         onMessageTagChange(menu.message, activeTag === tag.value ? null : tag.value);
                                         onClose();
                                     }}
@@ -185,9 +182,7 @@ export default function MessageFolderContextMenu({
                                         {tag.label}
 									</span>
                                     {((menu.message as MessageItem & { tag?: string | null }).tag || '') ===
-                                        tag.value && (
-                                            <span className="text-success text-xs">On</span>
-                                        )}
+                                        tag.value && <span className="text-success text-xs">On</span>}
                                 </ContextMenuItem>
                             ))}
                             <ContextMenuSeparator/>
@@ -226,9 +221,7 @@ export default function MessageFolderContextMenu({
                         </ContextMenuItem>
                         <ContextMenuSubmenu
                             size="lg"
-                            className={cn(
-                                moveSubmenuLeft ? 'right-full' : 'left-full',
-                            )}
+                            className={cn(moveSubmenuLeft ? 'right-full' : 'left-full')}
                             style={{
                                 transform: `translateY(${moveSubmenuOffsetY}px)`,
                                 maxHeight: 'calc(100vh - 16px)',
@@ -240,12 +233,7 @@ export default function MessageFolderContextMenu({
                                     key={folder.id}
                                     label={folder.custom_name || folder.name}
                                     icon={
-                                        <span
-                                            className={cn(
-                                                getFolderColorClass(folder.color) ||
-                                                'icon-muted',
-                                            )}
-                                        >
+                                        <span className={cn(getFolderColorClass(folder.color) || 'icon-muted')}>
 											{getFolderIcon(folder)}
 										</span>
                                     }
@@ -263,12 +251,7 @@ export default function MessageFolderContextMenu({
                                     key={folder.id}
                                     label={folder.custom_name || folder.name}
                                     icon={
-                                        <span
-                                            className={cn(
-                                                getFolderColorClass(folder.color) ||
-                                                'icon-muted',
-                                            )}
-                                        >
+                                        <span className={cn(getFolderColorClass(folder.color) || 'icon-muted')}>
 											{getFolderIcon(folder)}
 										</span>
                                     }
@@ -337,7 +320,7 @@ export default function MessageFolderContextMenu({
                     {!isProtectedFolder(menu.folder) && (
                         <>
                             <ContextMenuSeparator/>
-                            
+
                             <ContextItem
                                 label="Delete Folder"
                                 icon={<Trash2 size={14}/>}

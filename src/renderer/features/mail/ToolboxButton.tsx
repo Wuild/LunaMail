@@ -1,5 +1,5 @@
 import {Button} from '@renderer/components/ui/button';
-import React from "react";
+import React from 'react';
 
 export default function ToolboxButton({
                                           label,
@@ -14,11 +14,7 @@ export default function ToolboxButton({
     primary?: boolean;
     danger?: boolean;
 }) {
-    const className = primary
-        ? "mail-toolbox-primary"
-        : danger
-            ? "mail-toolbox-danger"
-            : "mail-toolbox-default";
+    const className = primary ? 'mail-toolbox-primary' : danger ? 'mail-toolbox-danger' : 'mail-toolbox-default';
 
     return (
         <Button

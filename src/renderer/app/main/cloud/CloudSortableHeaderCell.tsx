@@ -1,11 +1,11 @@
-import React, {useCallback, useRef} from "react";
-import {useDrag, useDrop} from "react-dnd";
-import {ArrowDown, ArrowUp} from "lucide-react";
-import {Button} from "@renderer/components/ui/button";
-import {CLOUD_TABLE_RESIZE_HANDLE_CLASS, type CloudTableColumnKey} from "./cloudFilesHelpers";
-import {DND_ITEM} from "@renderer/lib/dndTypes";
+import React, {useCallback, useRef} from 'react';
+import {useDrag, useDrop} from 'react-dnd';
+import {ArrowDown, ArrowUp} from 'lucide-react';
+import {Button} from '@renderer/components/ui/button';
+import {CLOUD_TABLE_RESIZE_HANDLE_CLASS, type CloudTableColumnKey} from './cloudFilesHelpers';
+import {DND_ITEM} from '@renderer/lib/dndTypes';
 
-type CloudTableSortDirection = "asc" | "desc";
+type CloudTableSortDirection = 'asc' | 'desc';
 type CloudColumnDragItem = { type: typeof DND_ITEM.CLOUD_TABLE_COLUMN; column: CloudTableColumnKey };
 
 type CloudSortableHeaderCellProps = {
@@ -13,13 +13,13 @@ type CloudSortableHeaderCellProps = {
     label: string;
     index: number;
     visibleColumnCount: number;
-    dragPlaceholder: { column: CloudTableColumnKey; side: "before" | "after" } | null;
+    dragPlaceholder: { column: CloudTableColumnKey; side: 'before' | 'after' } | null;
     tableSort: { column: CloudTableColumnKey; direction: CloudTableSortDirection };
     onToggleSort: (column: CloudTableColumnKey) => void;
     onColumnResizeStart: (key: CloudTableColumnKey, event: React.MouseEvent) => void;
     onDragStart: (column: CloudTableColumnKey) => void;
-    onHover: (column: CloudTableColumnKey, side: "before" | "after", dragged?: CloudTableColumnKey) => void;
-    onDrop: (column: CloudTableColumnKey, side: "before" | "after", dragged?: CloudTableColumnKey) => void;
+    onHover: (column: CloudTableColumnKey, side: 'before' | 'after', dragged?: CloudTableColumnKey) => void;
+    onDrop: (column: CloudTableColumnKey, side: 'before' | 'after', dragged?: CloudTableColumnKey) => void;
     onDragEnd: () => void;
 };
 
@@ -57,13 +57,13 @@ export default function CloudSortableHeaderCell({
                 const rect = headerRef.current.getBoundingClientRect();
                 const client = monitor.getClientOffset();
                 if (!client) return;
-                onHover(columnKey, client.x < rect.left + rect.width / 2 ? "before" : "after", item.column);
+                onHover(columnKey, client.x < rect.left + rect.width / 2 ? 'before' : 'after', item.column);
             },
             drop: (item, monitor) => {
                 if (monitor.didDrop() || !headerRef.current) return;
                 const rect = headerRef.current.getBoundingClientRect();
                 const client = monitor.getClientOffset();
-                const side: "before" | "after" = client && client.x >= rect.left + rect.width / 2 ? "after" : "before";
+                const side: 'before' | 'after' = client && client.x >= rect.left + rect.width / 2 ? 'after' : 'before';
                 onDrop(columnKey, side, item.column);
             },
         }),
@@ -82,10 +82,10 @@ export default function CloudSortableHeaderCell({
         <th
             ref={setHeaderRef}
             className={`cloud-table-head-cell relative px-3 py-2 select-none ${
-                index < visibleColumnCount - 1 ? "has-divider" : ""
+                index < visibleColumnCount - 1 ? 'has-divider' : ''
             }`}
         >
-            {dragPlaceholder?.column === columnKey && dragPlaceholder.side === "before" && (
+            {dragPlaceholder?.column === columnKey && dragPlaceholder.side === 'before' && (
                 <span
                     className="cloud-table-divider pointer-events-none absolute bottom-0 left-0 top-0 w-0.5"
                     aria-hidden="true"
@@ -98,7 +98,7 @@ export default function CloudSortableHeaderCell({
             >
                 <span className="truncate">{label}</span>
                 {tableSort.column === columnKey &&
-                    (tableSort.direction === "asc" ? (
+                    (tableSort.direction === 'asc' ? (
                         <ArrowUp size={12} className="shrink-0"/>
                     ) : (
                         <ArrowDown size={12} className="shrink-0"/>
@@ -112,7 +112,7 @@ export default function CloudSortableHeaderCell({
                     onMouseDown={(event) => onColumnResizeStart(columnKey, event)}
                 />
             )}
-            {dragPlaceholder?.column === columnKey && dragPlaceholder.side === "after" && (
+            {dragPlaceholder?.column === columnKey && dragPlaceholder.side === 'after' && (
                 <span
                     className="cloud-table-divider pointer-events-none absolute bottom-0 right-0 top-0 w-0.5"
                     aria-hidden="true"

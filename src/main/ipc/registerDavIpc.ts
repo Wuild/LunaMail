@@ -18,12 +18,7 @@ type ExportContactsPayload = {
 
 type DavIpcDeps = {
     discoverDav: (accountId: number) => any;
-    discoverDavPreview: (payload: {
-        email: string;
-        user: string;
-        password: string;
-        imapHost: string;
-    }) => any;
+    discoverDavPreview: (payload: { email: string; user: string; password: string; imapHost: string }) => any;
     syncDav: (accountId: number) => any;
     getContacts: (accountId: number, query?: string | null, limit?: number, addressBookId?: number | null) => any[];
     listRecentRecipients: (accountId: number, query?: string | null, limit?: number) => any[];

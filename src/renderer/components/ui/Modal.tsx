@@ -61,7 +61,7 @@ export function Modal({
             className={cn(
                 'panel-overlay-backdrop fixed inset-0 z-1100 flex p-4',
                 align === 'top' ? 'items-start justify-center pt-20' : 'items-center justify-center',
-                backdropClassName
+                backdropClassName,
             )}
             onMouseDown={(event) => {
                 if (!closeOnBackdrop) return;

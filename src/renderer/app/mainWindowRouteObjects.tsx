@@ -26,10 +26,7 @@ import OnboardingPage from './onboarding/page';
 import OnboardingLayout from './onboarding/layout';
 import type {MainWindowRouteContext} from './mainWindowRouteContext';
 
-export function buildMainWindowRouteObjects(
-    context: MainWindowRouteContext,
-    showDebugNavItem: boolean,
-): RouteObject[] {
+export function buildMainWindowRouteObjects(context: MainWindowRouteContext, showDebugNavItem: boolean): RouteObject[] {
     const hasAccounts = context.accounts.length > 0;
     if (!hasAccounts) {
         return [
@@ -56,9 +53,7 @@ export function buildMainWindowRouteObjects(
         },
         {
             element: <AddAccountLayout/>,
-            children: [
-                {path: '/add-account', element: <AddAccountPage hasAccounts/>},
-            ],
+            children: [{path: '/add-account', element: <AddAccountPage hasAccounts/>}],
         },
         {
             element: <MainSectionLayout/>,
@@ -110,15 +105,15 @@ export function buildMainWindowRouteObjects(
                                 {path: '/settings/account/:accountId', element: <SettingsAccountPage/>},
                                 {
                                     path: '/settings/account/:accountId/identity',
-                                    element: <SettingsAccountIdentityPage/>
+                                    element: <SettingsAccountIdentityPage/>,
                                 },
                                 {
                                     path: '/settings/account/:accountId/server',
-                                    element: <SettingsAccountServerPage/>
+                                    element: <SettingsAccountServerPage/>,
                                 },
                                 {
                                     path: '/settings/account/:accountId/filters',
-                                    element: <SettingsAccountFiltersPage/>
+                                    element: <SettingsAccountFiltersPage/>,
                                 },
                             ],
                         },

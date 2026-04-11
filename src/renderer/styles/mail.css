@@ -61,7 +61,8 @@
 
     .mail-list-row {
         border-bottom: 1px solid color-mix(in srgb, var(--app-border) 65%, transparent);
-        transition: background-color 140ms ease, border-color 140ms ease;
+        transition: background-color 140ms ease,
+        border-color 140ms ease;
     }
 
     .mail-list-row:hover {
@@ -148,7 +149,9 @@
         border: 1px solid color-mix(in srgb, var(--content-border) 55%, transparent);
         background-color: color-mix(in srgb, var(--panel-surface) 96%, transparent);
         color: var(--content-text);
-        transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease;
+        transition: border-color 140ms ease,
+        background-color 140ms ease,
+        transform 140ms ease;
     }
 
     .mail-search-result:hover {

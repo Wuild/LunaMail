@@ -1,11 +1,11 @@
-import {createMailDebugLogger} from "@main/debug/debugLog.js";
-import {type CloudAccountCredentials, cloudAccountToDavAccountId} from "@main/db/repositories/cloudRepo.js";
+import {createMailDebugLogger} from '@main/debug/debugLog.js';
+import {type CloudAccountCredentials, cloudAccountToDavAccountId} from '@main/db/repositories/cloudRepo.js';
 import {
     getDavSettings,
     upsertCalendarEvents,
     upsertContacts,
-    upsertDavSettings
-} from "@main/db/repositories/davRepo.js";
+    upsertDavSettings,
+} from '@main/db/repositories/davRepo.js';
 
 type DavCredentials = {
     user: string;
@@ -23,7 +23,7 @@ export interface CloudDavSyncSummary {
 }
 
 export async function syncCloudDav(account: CloudAccountCredentials): Promise<CloudDavSyncSummary> {
-    if (account.provider !== "nextcloud" && account.provider !== "webdav") {
+    if (account.provider !== 'nextcloud' && account.provider !== 'webdav') {
         return {
             cloudAccountId: account.id,
             davAccountId: cloudAccountToDavAccountId(account.id),
@@ -34,10 +34,10 @@ export async function syncCloudDav(account: CloudAccountCredentials): Promise<Cl
         };
     }
 
-    const user = String(account.user || "").trim();
-    const baseUrl = String(account.base_url || "").trim();
+    const user = String(account.user || '').trim();
+    const baseUrl = String(account.base_url || '').trim();
     if (!user || !baseUrl) {
-        throw new Error("Cloud DAV account missing username or base URL.");
+        throw new Error('Cloud DAV account missing username or base URL.');
     }
 
     const creds: DavCredentials = {
@@ -46,33 +46,33 @@ export async function syncCloudDav(account: CloudAccountCredentials): Promise<Cl
         baseUrl,
     };
     const davAccountId = cloudAccountToDavAccountId(account.id);
-    const loggerCarddav = createMailDebugLogger("carddav", `cloud:${account.id}`);
-    const loggerCaldav = createMailDebugLogger("caldav", `cloud:${account.id}`);
+    const loggerCarddav = createMailDebugLogger('carddav', `cloud:${account.id}`);
+    const loggerCaldav = createMailDebugLogger('caldav', `cloud:${account.id}`);
 
     const saved = getDavSettings(davAccountId);
     const carddavUrl =
-        saved?.carddav_url ?? (await discoverHomeUrl(creds, "carddav", "addressbook-home-set", loggerCarddav));
-    const caldavUrl = saved?.caldav_url ?? (await discoverHomeUrl(creds, "caldav", "calendar-home-set", loggerCaldav));
+        saved?.carddav_url ?? (await discoverHomeUrl(creds, 'carddav', 'addressbook-home-set', loggerCarddav));
+    const caldavUrl = saved?.caldav_url ?? (await discoverHomeUrl(creds, 'caldav', 'calendar-home-set', loggerCaldav));
     upsertDavSettings(davAccountId, carddavUrl, caldavUrl);
 
     let contactsResult = {upserted: 0, removed: 0, books: 0};
     if (carddavUrl) {
-        const books = await listCollections(creds, carddavUrl, "addressbook", loggerCarddav);
+        const books = await listCollections(creds, carddavUrl, 'addressbook', loggerCarddav);
         const sourceBooks = books.length > 0 ? books : [carddavUrl];
         const contacts = await pullContacts(creds, sourceBooks, loggerCarddav);
         contactsResult = {
-            ...upsertContacts(davAccountId, contacts, "cloud-carddav"),
+            ...upsertContacts(davAccountId, contacts, 'cloud-carddav'),
             books: sourceBooks.length,
         };
     }
 
     let eventsResult = {upserted: 0, removed: 0, calendars: 0};
     if (caldavUrl) {
-        const calendars = await listCollections(creds, caldavUrl, "calendar", loggerCaldav);
+        const calendars = await listCollections(creds, caldavUrl, 'calendar', loggerCaldav);
         const sourceCalendars = calendars.length > 0 ? calendars : [caldavUrl];
         const events = await pullEvents(creds, sourceCalendars, loggerCaldav);
         eventsResult = {
-            ...upsertCalendarEvents(davAccountId, events, "cloud-caldav"),
+            ...upsertCalendarEvents(davAccountId, events, 'cloud-caldav'),
             calendars: sourceCalendars.length,
         };
     }
@@ -89,9 +89,9 @@ export async function syncCloudDav(account: CloudAccountCredentials): Promise<Cl
 
 async function discoverHomeUrl(
     creds: DavCredentials,
-    kind: "carddav" | "caldav",
-    homeProperty: "addressbook-home-set" | "calendar-home-set",
-    logger: ReturnType<typeof createMailDebugLogger>
+    kind: 'carddav' | 'caldav',
+    homeProperty: 'addressbook-home-set' | 'calendar-home-set',
+    logger: ReturnType<typeof createMailDebugLogger>,
 ): Promise<string | null> {
     const origin = new URL(creds.baseUrl).origin;
     const candidates = dedupe([
@@ -114,18 +114,18 @@ async function discoverHomeUrl(
 async function resolveHomeFromEntry(
     creds: DavCredentials,
     entryUrl: string,
-    homeProperty: "addressbook-home-set" | "calendar-home-set",
-    logger: ReturnType<typeof createMailDebugLogger>
+    homeProperty: 'addressbook-home-set' | 'calendar-home-set',
+    logger: ReturnType<typeof createMailDebugLogger>,
 ): Promise<string | null> {
     const probe = await fetch(entryUrl, {
-        method: "GET",
+        method: 'GET',
         headers: {
             Authorization: authHeader(creds),
-            Accept: "*/*",
+            Accept: '*/*',
         },
     });
     const baseUrl = probe.url || entryUrl;
-    logger.debug("Cloud DAV probe url=%s status=%d", baseUrl, probe.status);
+    logger.debug('Cloud DAV probe url=%s status=%d', baseUrl, probe.status);
     if (!probe.ok && probe.status >= 400) {
         throw new Error(`Probe failed (${probe.status})`);
     }
@@ -136,14 +136,14 @@ async function resolveHomeFromEntry(
     <d:${homeProperty} />
   </d:prop>
 </d:propfind>`;
-    const xml = await davRequest(creds, baseUrl, "PROPFIND", body, "0");
+    const xml = await davRequest(creds, baseUrl, 'PROPFIND', body, '0');
     const root = firstResponse(xml);
     if (!root) return null;
     const directHome = extractPropertyHref(root, homeProperty) ?? extractTagValue(root, homeProperty);
     if (directHome) return resolveUrl(baseUrl, directHome);
 
     const principal =
-        extractPropertyHref(root, "current-user-principal") ?? extractTagValue(root, "current-user-principal");
+        extractPropertyHref(root, 'current-user-principal') ?? extractTagValue(root, 'current-user-principal');
     if (!principal) return null;
     const principalUrl = resolveUrl(baseUrl, principal);
     const principalBody = `<?xml version="1.0" encoding="utf-8" ?>
@@ -152,7 +152,7 @@ async function resolveHomeFromEntry(
     <d:${homeProperty} />
   </d:prop>
 </d:propfind>`;
-    const principalXml = await davRequest(creds, principalUrl, "PROPFIND", principalBody, "0");
+    const principalXml = await davRequest(creds, principalUrl, 'PROPFIND', principalBody, '0');
     const principalResp = firstResponse(principalXml);
     if (!principalResp) return null;
     const home = extractPropertyHref(principalResp, homeProperty) ?? extractTagValue(principalResp, homeProperty);
@@ -162,8 +162,8 @@ async function resolveHomeFromEntry(
 async function listCollections(
     creds: DavCredentials,
     homeUrl: string,
-    kind: "addressbook" | "calendar",
-    logger: ReturnType<typeof createMailDebugLogger>
+    kind: 'addressbook' | 'calendar',
+    logger: ReturnType<typeof createMailDebugLogger>,
 ): Promise<string[]> {
     const body = `<?xml version="1.0" encoding="utf-8" ?>
 <d:propfind xmlns:d="DAV:">
@@ -171,24 +171,24 @@ async function listCollections(
     <d:resourcetype />
   </d:prop>
 </d:propfind>`;
-    const xml = await davRequest(creds, homeUrl, "PROPFIND", body, "1");
+    const xml = await davRequest(creds, homeUrl, 'PROPFIND', body, '1');
     const responses = extractResponses(xml);
     const out: string[] = [];
     for (const response of responses) {
         if (!hasTag(response, kind)) continue;
-        const href = extractTagValue(response, "href");
+        const href = extractTagValue(response, 'href');
         if (!href) continue;
         out.push(resolveUrl(homeUrl, href));
     }
     const deduped = dedupe(out);
-    logger.debug("Cloud DAV collections kind=%s count=%d", kind, deduped.length);
+    logger.debug('Cloud DAV collections kind=%s count=%d', kind, deduped.length);
     return deduped;
 }
 
 async function pullContacts(
     creds: DavCredentials,
     addressBooks: string[],
-    logger: ReturnType<typeof createMailDebugLogger>
+    logger: ReturnType<typeof createMailDebugLogger>,
 ): Promise<
     Array<{
         sourceUid: string;
@@ -220,13 +220,13 @@ async function pullContacts(
         etag?: string | null;
     }> = [];
     for (const bookUrl of addressBooks) {
-        const xml = await davRequest(creds, bookUrl, "REPORT", reportBody, "1");
+        const xml = await davRequest(creds, bookUrl, 'REPORT', reportBody, '1');
         const responses = extractResponses(xml);
         for (const response of responses) {
-            const card = extractTagValue(response, "address-data");
+            const card = extractTagValue(response, 'address-data');
             if (!card) continue;
-            const etag = extractTagValue(response, "getetag") || null;
-            const href = extractTagValue(response, "href") || "";
+            const etag = extractTagValue(response, 'getetag') || null;
+            const href = extractTagValue(response, 'href') || '';
             const parsed = parseVCard(card, href);
             for (const email of parsed.emails) {
                 out.push({
@@ -243,14 +243,14 @@ async function pullContacts(
         }
     }
     const deduped = dedupeBy(out, (row) => `${row.sourceUid}|${row.email.toLowerCase()}`);
-    logger.info("Cloud CardDAV contacts=%d raw=%d", deduped.length, out.length);
+    logger.info('Cloud CardDAV contacts=%d raw=%d', deduped.length, out.length);
     return deduped;
 }
 
 async function pullEvents(
     creds: DavCredentials,
     calendars: string[],
-    logger: ReturnType<typeof createMailDebugLogger>
+    logger: ReturnType<typeof createMailDebugLogger>,
 ): Promise<
     Array<{
         calendarUrl: string;
@@ -296,12 +296,12 @@ async function pullEvents(
     }> = [];
 
     for (const calendarUrl of calendars) {
-        const xml = await davRequest(creds, calendarUrl, "REPORT", reportBody, "1");
+        const xml = await davRequest(creds, calendarUrl, 'REPORT', reportBody, '1');
         const responses = extractResponses(xml);
         for (const response of responses) {
-            const ics = extractTagValue(response, "calendar-data");
+            const ics = extractTagValue(response, 'calendar-data');
             if (!ics) continue;
-            const etag = extractTagValue(response, "getetag") || null;
+            const etag = extractTagValue(response, 'getetag') || null;
             const parsedEvents = parseIcsEvents(ics);
             for (const event of parsedEvents) {
                 out.push({
@@ -319,24 +319,24 @@ async function pullEvents(
         }
     }
     const deduped = dedupeBy(out, (row) => `${row.calendarUrl}|${row.uid}`);
-    logger.info("Cloud CalDAV events=%d raw=%d", deduped.length, out.length);
+    logger.info('Cloud CalDAV events=%d raw=%d', deduped.length, out.length);
     return deduped;
 }
 
 async function davRequest(
     creds: DavCredentials,
     url: string,
-    method: "PROPFIND" | "REPORT",
+    method: 'PROPFIND' | 'REPORT',
     body: string,
-    depth: "0" | "1"
+    depth: '0' | '1',
 ): Promise<string> {
     const response = await fetch(url, {
         method,
         headers: {
             Authorization: authHeader(creds),
             Depth: depth,
-            "Content-Type": "application/xml; charset=utf-8",
-            Accept: "application/xml, text/xml, */*",
+            'Content-Type': 'application/xml; charset=utf-8',
+            Accept: 'application/xml, text/xml, */*',
         },
         body,
     });
@@ -347,11 +347,11 @@ async function davRequest(
 }
 
 function authHeader(creds: DavCredentials): string {
-    return `Basic ${Buffer.from(`${creds.user}:${creds.password}`).toString("base64")}`;
+    return `Basic ${Buffer.from(`${creds.user}:${creds.password}`).toString('base64')}`;
 }
 
 function normalizeXml(xml: string): string {
-    return xml.replace(/<\/?[A-Za-z0-9_-]+:/g, (m) => m.replace(/([<\/]?)[A-Za-z0-9_-]+:/, "$1")).replace(/\r/g, "");
+    return xml.replace(/<\/?[A-Za-z0-9_-]+:/g, (m) => m.replace(/([<\/]?)[A-Za-z0-9_-]+:/, '$1')).replace(/\r/g, '');
 }
 
 function extractResponses(xml: string): string[] {
@@ -366,14 +366,14 @@ function firstResponse(xml: string): string | null {
 }
 
 function extractTagValue(xmlFragment: string, tag: string): string | null {
-    const re = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i");
+    const re = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
     const m = xmlFragment.match(re);
     if (!m) return null;
     return decodeXmlEntities(m[1]).trim();
 }
 
 function extractPropertyHref(xmlFragment: string, propertyTag: string): string | null {
-    const propertyRe = new RegExp(`<${propertyTag}\\b[^>]*>([\\s\\S]*?)<\\/${propertyTag}>`, "i");
+    const propertyRe = new RegExp(`<${propertyTag}\\b[^>]*>([\\s\\S]*?)<\\/${propertyTag}>`, 'i');
     const propertyMatch = xmlFragment.match(propertyRe);
     if (!propertyMatch) return null;
     const hrefMatch = propertyMatch[1].match(/<href\b[^>]*>([\s\S]*?)<\/href>/i);
@@ -382,7 +382,7 @@ function extractPropertyHref(xmlFragment: string, propertyTag: string): string |
 }
 
 function hasTag(xmlFragment: string, tag: string): boolean {
-    const re = new RegExp(`<${tag}(\\s|\\/|>)`, "i");
+    const re = new RegExp(`<${tag}(\\s|\\/|>)`, 'i');
     return re.test(xmlFragment);
 }
 
@@ -391,14 +391,14 @@ function resolveUrl(baseUrl: string, href: string): string {
 }
 
 function ensureTrailingSlash(url: string): string {
-    return url.endsWith("/") ? url : `${url}/`;
+    return url.endsWith('/') ? url : `${url}/`;
 }
 
 function decodeXmlEntities(value: string): string {
     return value
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
         .replace(/&quot;/g, '"')
         .replace(/&apos;/g, "'");
 }
@@ -421,7 +421,7 @@ function dedupeBy<T>(rows: T[], keyFn: (row: T) => string): T[] {
 
 function parseVCard(
     card: string,
-    hrefFallback: string
+    hrefFallback: string,
 ): {
     uid: string;
     fullName: string | null;
@@ -433,10 +433,10 @@ function parseVCard(
 } {
     const unfolded = unfoldIcsLines(card);
     const lines = unfolded
-        .split("\n")
+        .split('\n')
         .map((line) => line.trim())
         .filter(Boolean);
-    let uid = "";
+    let uid = '';
     let fullName: string | null = null;
     const emails: string[] = [];
     let phone: string | null = null;
@@ -445,17 +445,17 @@ function parseVCard(
     let note: string | null = null;
 
     for (const line of lines) {
-        const [left, ...rest] = line.split(":");
+        const [left, ...rest] = line.split(':');
         if (!left || rest.length === 0) continue;
-        const value = unescapeVCardValue(rest.join(":").trim());
-        const name = left.split(";")[0]?.toUpperCase() ?? "";
-        if (name === "UID") uid = value;
-        if (name === "FN" && value) fullName = value;
-        if (name === "EMAIL" && value) emails.push(value.toLowerCase());
-        if (name === "TEL" && value) phone = value;
-        if (name === "ORG" && value) organization = value;
-        if (name === "TITLE" && value) title = value;
-        if (name === "NOTE" && value) note = value;
+        const value = unescapeVCardValue(rest.join(':').trim());
+        const name = left.split(';')[0]?.toUpperCase() ?? '';
+        if (name === 'UID') uid = value;
+        if (name === 'FN' && value) fullName = value;
+        if (name === 'EMAIL' && value) emails.push(value.toLowerCase());
+        if (name === 'TEL' && value) phone = value;
+        if (name === 'ORG' && value) organization = value;
+        if (name === 'TITLE' && value) title = value;
+        if (name === 'NOTE' && value) note = value;
     }
 
     if (!uid) {
@@ -493,26 +493,26 @@ function parseIcsEvents(ics: string): Array<{
     const eventBlocks = normalized.match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g) || [];
     for (const block of eventBlocks) {
         const lines = block
-            .split("\n")
+            .split('\n')
             .map((line) => line.trim())
             .filter(Boolean);
-        let uid = "";
+        let uid = '';
         let summary: string | null = null;
         let description: string | null = null;
         let location: string | null = null;
         let startsAt: string | null = null;
         let endsAt: string | null = null;
         for (const line of lines) {
-            const [left, ...rest] = line.split(":");
+            const [left, ...rest] = line.split(':');
             if (!left || rest.length === 0) continue;
-            const value = rest.join(":").trim();
-            const name = left.split(";")[0]?.toUpperCase() ?? "";
-            if (name === "UID") uid = value;
-            if (name === "SUMMARY") summary = unescapeIcsText(value);
-            if (name === "DESCRIPTION") description = unescapeIcsText(value);
-            if (name === "LOCATION") location = unescapeIcsText(value);
-            if (name === "DTSTART") startsAt = parseIcsDate(value);
-            if (name === "DTEND") endsAt = parseIcsDate(value);
+            const value = rest.join(':').trim();
+            const name = left.split(';')[0]?.toUpperCase() ?? '';
+            if (name === 'UID') uid = value;
+            if (name === 'SUMMARY') summary = unescapeIcsText(value);
+            if (name === 'DESCRIPTION') description = unescapeIcsText(value);
+            if (name === 'LOCATION') location = unescapeIcsText(value);
+            if (name === 'DTSTART') startsAt = parseIcsDate(value);
+            if (name === 'DTEND') endsAt = parseIcsDate(value);
         }
         if (!uid) continue;
         out.push({uid, summary, description, location, startsAt, endsAt});
@@ -521,11 +521,11 @@ function parseIcsEvents(ics: string): Array<{
 }
 
 function unfoldIcsLines(value: string): string {
-    return value.replace(/\r\n[ \t]/g, "").replace(/\r/g, "");
+    return value.replace(/\r\n[ \t]/g, '').replace(/\r/g, '');
 }
 
 function unescapeIcsText(value: string): string {
-    return value.replace(/\\n/gi, "\n").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\").trim();
+    return value.replace(/\\n/gi, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\').trim();
 }
 
 function unescapeVCardValue(value: string): string {
@@ -552,10 +552,10 @@ function parseIcsDate(value: string): string | null {
 
 function toCalDavDate(value: Date): string {
     const yyyy = value.getUTCFullYear();
-    const mm = String(value.getUTCMonth() + 1).padStart(2, "0");
-    const dd = String(value.getUTCDate()).padStart(2, "0");
-    const hh = String(value.getUTCHours()).padStart(2, "0");
-    const mi = String(value.getUTCMinutes()).padStart(2, "0");
-    const ss = String(value.getUTCSeconds()).padStart(2, "0");
+    const mm = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(value.getUTCDate()).padStart(2, '0');
+    const hh = String(value.getUTCHours()).padStart(2, '0');
+    const mi = String(value.getUTCMinutes()).padStart(2, '0');
+    const ss = String(value.getUTCSeconds()).padStart(2, '0');
     return `${yyyy}${mm}${dd}T${hh}${mi}${ss}Z`;
 }

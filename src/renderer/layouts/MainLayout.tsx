@@ -48,7 +48,7 @@ interface MainLayoutProps {
 	folders: FolderItem[];
 	selectedFolderPath: string | null;
 	onSelectFolder: (path: string, accountId?: number) => void;
-    onRefreshFolder: (folder: FolderItem) => Promise<void>;
+	onRefreshFolder: (folder: FolderItem) => Promise<void>;
 	messages: MessageItem[];
 	selectedMessageId: number | null;
 	selectedMessageIds: number[];
@@ -60,7 +60,7 @@ interface MainLayoutProps {
 			ctrlKey?: boolean;
 			metaKey?: boolean;
 		},
-    ) => boolean;
+	) => boolean;
 	searchQuery: string;
 	onSearchQueryChange: (query: string) => void;
 	searchResults: MessageItem[];
@@ -118,9 +118,9 @@ const FOLDER_COLOR_OPTIONS = [
 	{value: 'amber', label: 'Amber'},
 	{value: 'rose', label: 'Rose'},
 	{value: 'violet', label: 'Violet'},
-    {value: 'cyan', label: 'Cyan'},
-    {value: 'lime', label: 'Lime'},
-    {value: 'indigo', label: 'Indigo'},
+	{value: 'cyan', label: 'Cyan'},
+	{value: 'lime', label: 'Lime'},
+	{value: 'indigo', label: 'Indigo'},
 	{value: 'slate', label: 'Slate'},
 ] as const;
 
@@ -137,7 +137,8 @@ const FOLDER_TYPE_OPTIONS = [
 const ACCOUNT_COLLAPSE_STORAGE_KEY = 'llamamail.accountCollapseState.v1';
 const MAIL_TABLE_COLUMNS_STORAGE_KEY = 'llamamail.mailTableColumns.v1';
 const MAIL_TABLE_COLUMN_WIDTHS_STORAGE_KEY = 'llamamail.mailTableColumnWidths.v1';
-const MAIL_TABLE_RESIZE_HANDLE_CLASS = 'mail-table-resize-hover absolute inset-y-0 right-[-8px] z-10 w-4 cursor-col-resize';
+const MAIL_TABLE_RESIZE_HANDLE_CLASS =
+	'mail-table-resize-hover absolute inset-y-0 right-[-8px] z-10 w-4 cursor-col-resize';
 const SIDE_LIST_SPLIT_BREAKPOINT_PX = 1320;
 const SIDE_LIST_SIDEBAR_WINDOW_FRACTION = 0.5;
 const SIDE_LIST_MIN_SIDEBAR_WIDTH_PX = 180;
@@ -152,41 +153,41 @@ const MESSAGE_TAG_OPTIONS: Array<{ value: string; label: string; dotClass: strin
 ];
 
 function isDraftFolderType(folder: FolderItem | null | undefined): boolean {
-    if (!folder) return false;
-    const type = String(folder.type || '').toLowerCase();
-    const path = String(folder.path || '').toLowerCase();
-    return type === 'drafts' || path.includes('draft');
+	if (!folder) return false;
+	const type = String(folder.type || '').toLowerCase();
+	const path = String(folder.path || '').toLowerCase();
+	return type === 'drafts' || path.includes('draft');
 }
 
 function isSentFolderType(folder: FolderItem | null | undefined): boolean {
-    if (!folder) return false;
-    const type = String(folder.type || '').toLowerCase();
-    const path = String(folder.path || '').toLowerCase();
-    return type === 'sent' || path.includes('sent');
+	if (!folder) return false;
+	const type = String(folder.type || '').toLowerCase();
+	const path = String(folder.path || '').toLowerCase();
+	return type === 'sent' || path.includes('sent');
 }
 
 function parseHeadersFromSource(source: string): Record<string, string> {
-    const headerSection = String(source || '').split(/\r?\n\r?\n/, 1)[0] || '';
-    const unfolded = headerSection.replace(/\r?\n[ \t]+/g, ' ');
-    const headers: Record<string, string> = {};
-    for (const line of unfolded.split(/\r?\n/)) {
-        const index = line.indexOf(':');
-        if (index <= 0) continue;
-        const key = line.slice(0, index).trim().toLowerCase();
-        if (!key) continue;
-        headers[key] = line.slice(index + 1).trim();
-    }
-    return headers;
+	const headerSection = String(source || '').split(/\r?\n\r?\n/, 1)[0] || '';
+	const unfolded = headerSection.replace(/\r?\n[ \t]+/g, ' ');
+	const headers: Record<string, string> = {};
+	for (const line of unfolded.split(/\r?\n/)) {
+		const index = line.indexOf(':');
+		if (index <= 0) continue;
+		const key = line.slice(0, index).trim().toLowerCase();
+		if (!key) continue;
+		headers[key] = line.slice(index + 1).trim();
+	}
+	return headers;
 }
 
 function parseReferencesHeader(value: string | null | undefined): string[] | null {
-    const raw = String(value || '').trim();
-    if (!raw) return null;
-    const refs = raw
-        .split(/\s+/)
-        .map((item) => item.trim())
-        .filter((item) => /^<[^>]+>$/.test(item));
-    return refs.length > 0 ? refs : null;
+	const raw = String(value || '').trim();
+	if (!raw) return null;
+	const refs = raw
+		.split(/\s+/)
+		.map((item) => item.trim())
+		.filter((item) => /^<[^>]+>$/.test(item));
+	return refs.length > 0 ? refs : null;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -199,7 +200,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 												   folders,
 												   selectedFolderPath,
 												   onSelectFolder,
-                                                   onRefreshFolder,
+												   onRefreshFolder,
 												   messages,
 												   selectedMessageId,
 												   selectedMessageIds,
@@ -296,7 +297,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 	const [minSizeKbFilter, setMinSizeKbFilter] = React.useState<string>('');
 	const [maxSizeKbFilter, setMaxSizeKbFilter] = React.useState<string>('');
 	const [localSyncingAccountIds, setLocalSyncingAccountIds] = React.useState<Set<number>>(new Set());
-    const [refreshingFolderKeys, setRefreshingFolderKeys] = React.useState<Set<string>>(new Set());
+	const [refreshingFolderKeys, setRefreshingFolderKeys] = React.useState<Set<string>>(new Set());
 	const [folderEditor, setFolderEditor] = React.useState<{
 		folder: FolderItem;
 		customName: string;
@@ -392,18 +393,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		() => folders.filter((f) => f.path !== selectedFolderPath).slice(0, 12),
 		[folders, selectedFolderPath],
 	);
-    const selectedFolder = React.useMemo(
-        () => folders.find((folder) => folder.path === selectedFolderPath) ?? null,
-        [folders, selectedFolderPath],
-    );
-    const showRecipientsAsPrimary = isDraftFolderType(selectedFolder) || isSentFolderType(selectedFolder);
-    const tableColumnOptions = React.useMemo(
-        () =>
-            TABLE_COLUMN_OPTIONS.map((option) =>
-                option.key === 'from' ? {...option, label: showRecipientsAsPrimary ? 'To' : 'From'} : option,
-            ),
-        [showRecipientsAsPrimary],
-    );
+	const selectedFolder = React.useMemo(
+		() => folders.find((folder) => folder.path === selectedFolderPath) ?? null,
+		[folders, selectedFolderPath],
+	);
+	const showRecipientsAsPrimary = isDraftFolderType(selectedFolder) || isSentFolderType(selectedFolder);
+	const tableColumnOptions = React.useMemo(
+		() =>
+			TABLE_COLUMN_OPTIONS.map((option) =>
+				option.key === 'from' ? {...option, label: showRecipientsAsPrimary ? 'To' : 'From'} : option,
+			),
+		[showRecipientsAsPrimary],
+	);
 	const visibleTableColumns = React.useMemo(
 		() => tableColumns.filter((column) => TABLE_COLUMN_OPTIONS.some((item) => item.key === column)),
 		[tableColumns],
@@ -510,49 +511,49 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		advancedSearchOpen,
 	]);
 
-    const openMessageTarget = React.useCallback(
-        (messageId: number) => {
-            const message = messages.find((item) => item.id === messageId);
-            if (!message) {
-                void ipcClient.openMessageWindow(messageId);
-                return;
-            }
+	const openMessageTarget = React.useCallback(
+		(messageId: number) => {
+			const message = messages.find((item) => item.id === messageId);
+			if (!message) {
+				void ipcClient.openMessageWindow(messageId);
+				return;
+			}
 
-            const accountFolders = accountFoldersById[message.account_id] ?? [];
-            const folder = accountFolders.find((item) => item.id === message.folder_id);
-            if (!isDraftFolderType(folder)) {
-                void ipcClient.openMessageWindow(messageId);
-                return;
-            }
+			const accountFolders = accountFoldersById[message.account_id] ?? [];
+			const folder = accountFolders.find((item) => item.id === message.folder_id);
+			if (!isDraftFolderType(folder)) {
+				void ipcClient.openMessageWindow(messageId);
+				return;
+			}
 
-            void Promise.all([
-                ipcClient.getMessageBody(messageId, `open-draft-${messageId}-${Date.now()}`).catch(() => null),
-                ipcClient.getMessageSource(messageId).catch(() => null),
-            ])
-                .then(([bodyResult, sourceResult]) => {
-                    const headers = parseHeadersFromSource(sourceResult?.source || '');
-                    const referencesFromHeader = parseReferencesHeader(headers.references);
-                    const referencesFromMessage = parseReferencesHeader(message.references_text);
-                    void ipcClient.openComposeWindow({
-                        accountId: message.account_id,
-                        draftMessageId: message.id,
-                        draftSessionId: headers['x-llamamail-draft-session'] || null,
-                        to: headers.to || message.to_address || '',
-                        cc: headers.cc || '',
-                        bcc: headers.bcc || '',
-                        subject: message.subject || headers.subject || '',
-                        bodyHtml: bodyResult?.html || '',
-                        bodyText: bodyResult?.text || '',
-                        inReplyTo: headers['in-reply-to'] || message.in_reply_to || null,
-                        references: referencesFromHeader || referencesFromMessage || null,
-                    });
-                })
-                .catch(() => {
-                    void ipcClient.openMessageWindow(messageId);
-                });
-        },
-        [accountFoldersById, messages],
-    );
+			void Promise.all([
+				ipcClient.getMessageBody(messageId, `open-draft-${messageId}-${Date.now()}`).catch(() => null),
+				ipcClient.getMessageSource(messageId).catch(() => null),
+			])
+				.then(([bodyResult, sourceResult]) => {
+					const headers = parseHeadersFromSource(sourceResult?.source || '');
+					const referencesFromHeader = parseReferencesHeader(headers.references);
+					const referencesFromMessage = parseReferencesHeader(message.references_text);
+					void ipcClient.openComposeWindow({
+						accountId: message.account_id,
+						draftMessageId: message.id,
+						draftSessionId: headers['x-llamamail-draft-session'] || null,
+						to: headers.to || message.to_address || '',
+						cc: headers.cc || '',
+						bcc: headers.bcc || '',
+						subject: message.subject || headers.subject || '',
+						bodyHtml: bodyResult?.html || '',
+						bodyText: bodyResult?.text || '',
+						inReplyTo: headers['in-reply-to'] || message.in_reply_to || null,
+						references: referencesFromHeader || referencesFromMessage || null,
+					});
+				})
+				.catch(() => {
+					void ipcClient.openMessageWindow(messageId);
+				});
+		},
+		[accountFoldersById, messages],
+	);
 
 	React.useEffect(() => {
 		if (accountFilter === 'all') return;
@@ -942,27 +943,27 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 			});
 	}
 
-    function toFolderRefreshKey(folder: FolderItem): string {
-        return `${folder.account_id}:${folder.path}`;
-    }
+	function toFolderRefreshKey(folder: FolderItem): string {
+		return `${folder.account_id}:${folder.path}`;
+	}
 
-    function refreshFolderNow(folder: FolderItem): void {
-        const key = toFolderRefreshKey(folder);
-        setRefreshingFolderKeys((prev) => {
-            if (prev.has(key)) return prev;
-            const next = new Set(prev);
-            next.add(key);
-            return next;
-        });
-        void onRefreshFolder(folder).finally(() => {
-            setRefreshingFolderKeys((prev) => {
-                if (!prev.has(key)) return prev;
-                const next = new Set(prev);
-                next.delete(key);
-                return next;
-            });
-        });
-    }
+	function refreshFolderNow(folder: FolderItem): void {
+		const key = toFolderRefreshKey(folder);
+		setRefreshingFolderKeys((prev) => {
+			if (prev.has(key)) return prev;
+			const next = new Set(prev);
+			next.add(key);
+			return next;
+		});
+		void onRefreshFolder(folder).finally(() => {
+			setRefreshingFolderKeys((prev) => {
+				if (!prev.has(key)) return prev;
+				const next = new Set(prev);
+				next.delete(key);
+				return next;
+			});
+		});
+	}
 
 	function toggleAccountExpanded(accountId: number): void {
 		setCollapsedAccountIds((prev) => {
@@ -1032,20 +1033,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		if (multiGesture) {
 			event.preventDefault();
 		}
-        const handled = onSelectMessage(message.id, messageIndex, {
+		const handled = onSelectMessage(message.id, messageIndex, {
 			shiftKey: event.shiftKey,
 			ctrlKey: event.ctrlKey,
 			metaKey: event.metaKey,
 		});
-        if (!multiGesture && !handled) {
+		if (!multiGesture && !handled) {
 			navigateToMessage(message);
 		}
 	}
 
-    function formatPrimaryCounterparty(message: MessageItem): string {
-        const messageFolders = accountFoldersById[message.account_id] ?? folders;
-        return formatMessageCounterparty(message, messageFolders);
-    }
+	function formatPrimaryCounterparty(message: MessageItem): string {
+		const messageFolders = accountFoldersById[message.account_id] ?? folders;
+		return formatMessageCounterparty(message, messageFolders);
+	}
 
 	function onTopListResizeStart(event: React.MouseEvent<HTMLDivElement>): void {
 		topListResizeRef.current = {
@@ -1091,48 +1092,32 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				);
 			case 'from':
 				return (
-					<td
-						key={`${message.id}-from`}
-						className={cn(baseCell, 'ui-text-secondary truncate')}
-					>
-                        {formatPrimaryCounterparty(message)}
+					<td key={`${message.id}-from`} className={cn(baseCell, 'ui-text-secondary truncate')}>
+						{formatPrimaryCounterparty(message)}
 					</td>
 				);
 			case 'recipient':
 				return (
-					<td
-						key={`${message.id}-recipient`}
-						className={cn(baseCell, 'ui-text-secondary truncate')}
-					>
+					<td key={`${message.id}-recipient`} className={cn(baseCell, 'ui-text-secondary truncate')}>
 						{formatMessageRecipient(message)}
 					</td>
 				);
 			case 'date':
 				return (
-					<td
-						key={`${message.id}-date`}
-						className={cn(baseCell, 'ui-text-secondary truncate')}
-					>
+					<td key={`${message.id}-date`} className={cn(baseCell, 'ui-text-secondary truncate')}>
 						{formatSystemDateTime(message.date, dateLocale)}
 					</td>
 				);
 			case 'read_status':
 				return (
-					<td
-						key={`${message.id}-read-status`}
-						className={cn(baseCell, 'ui-text-secondary')}
-					>
+					<td key={`${message.id}-read-status`} className={cn(baseCell, 'ui-text-secondary')}>
 						{message.is_read ? 'Read' : 'Unread'}
 					</td>
 				);
 			case 'flagged':
 				return (
 					<td key={`${message.id}-flagged`} className={cn(baseCell, 'ui-text-secondary')}>
-						{message.is_flagged ? (
-							<Star size={12} className="mail-list-starred fill-current"/>
-						) : (
-							''
-						)}
+						{message.is_flagged ? <Star size={12} className="mail-list-starred fill-current"/> : ''}
 					</td>
 				);
 			case 'tag':
@@ -1143,19 +1128,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				);
 			case 'account':
 				return (
-					<td
-						key={`${message.id}-account`}
-						className={cn(baseCell, 'ui-text-secondary truncate')}
-					>
+					<td key={`${message.id}-account`} className={cn(baseCell, 'ui-text-secondary truncate')}>
 						{formatMessageAccount(message, accounts)}
 					</td>
 				);
 			case 'location':
 				return (
-					<td
-						key={`${message.id}-location`}
-						className={cn(baseCell, 'ui-text-secondary truncate')}
-					>
+					<td key={`${message.id}-location`} className={cn(baseCell, 'ui-text-secondary truncate')}>
 						{formatMessageLocation(message, folders)}
 					</td>
 				);
@@ -1233,8 +1212,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 							});
 							setFolderEditorError(null);
 						}}
-                        onRefreshFolder={refreshFolderNow}
-                        isFolderRefreshing={(folder) => refreshingFolderKeys.has(toFolderRefreshKey(folder))}
+						onRefreshFolder={refreshFolderNow}
+						isFolderRefreshing={(folder) => refreshingFolderKeys.has(toFolderRefreshKey(folder))}
 						onReorderCustomFolders={onReorderCustomFolders}
 						isProtectedFolder={isProtectedFolder}
 						getFolderIcon={getFolderIcon}
@@ -1266,11 +1245,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 								setMenu({kind: 'message', x, y, message});
 							}}
 							onOpenMessageWindow={(messageId) => {
-                                openMessageTarget(messageId);
+								openMessageTarget(messageId);
 							}}
 							onResizeStart={onMailListResizeStart}
 							getThreadCount={getThreadCount}
-                            formatMessageSender={formatPrimaryCounterparty}
+							formatMessageSender={formatPrimaryCounterparty}
 							getTagDotClass={getTagDotClass}
 							getTagLabel={getTagLabel}
 						>
@@ -1288,7 +1267,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 							loadingMoreMessages={loadingMoreMessages}
 							hasMoreMessages={hasMoreMessages}
 							visibleTableColumns={visibleTableColumns}
-                            tableColumnOptions={tableColumnOptions}
+							tableColumnOptions={tableColumnOptions}
 							effectiveTableColumnWidths={effectiveTableColumnWidths}
 							tableMinWidth={tableMinWidth}
 							mailTableResizeHandleClass={MAIL_TABLE_RESIZE_HANDLE_CLASS}
@@ -1305,7 +1284,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 								setMenu({kind: 'message', x, y, message});
 							}}
 							onOpenMessageWindow={(messageId) => {
-                                openMessageTarget(messageId);
+								openMessageTarget(messageId);
 							}}
 							renderTableCell={renderTableCell}
 							onTopListResizeStart={onTopListResizeStart}
@@ -1337,7 +1316,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 			{tableHeadMenu && (
 				<TableColumnsMenu
 					ref={tableHeadMenuRef}
-                    options={tableColumnOptions}
+					options={tableColumnOptions}
 					selectedColumns={tableColumns}
 					position={tableHeadMenuPosition}
 					ready={tableHeadMenuReady}
@@ -1399,7 +1378,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				onSelectMessage={onSelectMessage}
 				dateLocale={dateLocale}
 				formatAccountSearchLabel={formatAccountSearchLabel}
-                formatMessageSender={formatPrimaryCounterparty}
+				formatMessageSender={formatPrimaryCounterparty}
 			/>
 
 			<MessageFolderContextMenu
@@ -1420,7 +1399,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				isProtectedFolder={isProtectedFolder}
 				onClose={() => setMenu(null)}
 				onOpenMessageWindow={(messageId) => {
-                    openMessageTarget(messageId);
+					openMessageTarget(messageId);
 				}}
 				onMessageMarkReadToggle={onMessageMarkReadToggle}
 				onMessageFlagToggle={onMessageFlagToggle}
@@ -1430,7 +1409,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				onMessageDelete={onMessageDelete}
 				onSelectAccount={onSelectAccount}
 				onSelectFolder={onSelectFolder}
-                onRefreshFolder={refreshFolderNow}
+				onRefreshFolder={refreshFolderNow}
 				onOpenFolderSettings={(editor) => {
 					setFolderEditor(editor);
 					setFolderEditorError(null);

@@ -410,7 +410,12 @@ function buildAccountVCard(input: {
     const replyTo = String(input.reply_to || '').trim();
     const fullName = displayName || email;
 
-    const lines = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${escapeVCardValue(fullName)}`, `EMAIL;TYPE=INTERNET:${escapeVCardValue(email)}`];
+    const lines = [
+        'BEGIN:VCARD',
+        'VERSION:3.0',
+        `FN:${escapeVCardValue(fullName)}`,
+        `EMAIL;TYPE=INTERNET:${escapeVCardValue(email)}`,
+    ];
     if (organization) lines.push(`ORG:${escapeVCardValue(organization)}`);
     if (replyTo && replyTo.toLowerCase() !== email.toLowerCase()) {
         lines.push(`EMAIL;TYPE=OTHER:${escapeVCardValue(replyTo)}`);

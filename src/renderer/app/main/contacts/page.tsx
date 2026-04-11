@@ -5,7 +5,7 @@ import type {AddressBookItem, ContactItem, PublicAccount, SyncStatusEvent} from 
 import {
     getAccountAvatarColors,
     getAccountAvatarColorsForAccount,
-    getAccountMonogram
+    getAccountMonogram,
 } from '@renderer/lib/accountAvatar';
 import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
 import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
@@ -112,9 +112,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                 if (!active) return;
                 setAddressBooks(books);
                 const effectiveBookId =
-                    selectedBookId && books.some((book) => book.id === selectedBookId)
-                        ? selectedBookId
-                        : null;
+                    selectedBookId && books.some((book) => book.id === selectedBookId) ? selectedBookId : null;
                 setSelectedBookId(effectiveBookId);
                 const rows = await ipcClient.getContacts(accountId, query.trim() || null, 600, effectiveBookId);
                 if (!active) return;
@@ -165,9 +163,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                 if (!active) return;
                 setAddressBooks(books);
                 const effectiveBookId =
-                    selectedBookId && books.some((book) => book.id === selectedBookId)
-                        ? selectedBookId
-                        : null;
+                    selectedBookId && books.some((book) => book.id === selectedBookId) ? selectedBookId : null;
                 setSelectedBookId(effectiveBookId);
                 await loadContacts(accountId, query, effectiveBookId);
                 if (!active) return;
@@ -352,9 +348,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                 const books = await ipcClient.getAddressBooks(effectiveAccountId);
                 setAddressBooks(books);
                 const effectiveBookId =
-                    selectedBookId && books.some((book) => book.id === selectedBookId)
-                        ? selectedBookId
-                        : null;
+                    selectedBookId && books.some((book) => book.id === selectedBookId) ? selectedBookId : null;
                 setSelectedBookId(effectiveBookId);
                 await loadContacts(effectiveAccountId, query, effectiveBookId);
             }
@@ -372,9 +366,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
     const accountSidebar = (
         <aside className="sidebar flex h-full min-h-0 shrink-0 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                <p className="ui-text-muted px-2 pb-2 text-xs font-semibold uppercase tracking-wide">
-                    Accounts
-                </p>
+                <p className="ui-text-muted px-2 pb-2 text-xs font-semibold uppercase tracking-wide">Accounts</p>
                 <div className="space-y-1">
                     {accounts.map((account) => {
                         const isSyncingAccount = syncing && syncingAccountId === account.id;
@@ -384,9 +376,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                 key={account.id}
                                 className={cn(
                                     'group flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
-                                    accountId === account.id
-                                        ? 'ui-surface-active ui-text-primary'
-                                        : 'account-item',
+                                    accountId === account.id ? 'ui-surface-active ui-text-primary' : 'account-item',
                                 )}
                             >
                                 <Button
@@ -394,7 +384,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                     onClick={() => onSelectAccount(account.id)}
                                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                                 >
-                                    <span
+									<span
                                         className="avatar-ring inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold"
                                         style={{
                                             backgroundColor: avatarColors.background,
@@ -408,8 +398,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
 											{account.display_name?.trim() || account.email}
 										</span>
                                         {account.display_name?.trim() && (
-                                            <span
-                                                className="ui-text-muted block truncate text-[11px] font-normal">
+                                            <span className="ui-text-muted block truncate text-[11px] font-normal">
 												{account.email}
 											</span>
                                         )}
@@ -446,9 +435,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                             </div>
                         );
                     })}
-                    {accounts.length === 0 && (
-                        <p className="ui-text-muted px-2 py-2 text-sm">No accounts available.</p>
-                    )}
+                    {accounts.length === 0 && <p className="ui-text-muted px-2 py-2 text-sm">No accounts available.</p>}
                 </div>
             </div>
         </aside>
@@ -534,9 +521,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
             statusBusy={syncing}
         >
             <div className="mx-auto max-w-5xl">
-                {!accountId && (
-                    <p className="ui-text-muted text-sm">{statusNoAccountSelected()}</p>
-                )}
+                {!accountId && <p className="ui-text-muted text-sm">{statusNoAccountSelected()}</p>}
                 {accountId && (
                     <>
                         {contactError && <p className="text-danger mb-3 text-sm">{contactError}</p>}
@@ -565,27 +550,38 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                                 return (
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div className="flex min-w-0 items-start gap-3">
-                                                    <span
-                                                        className="avatar-ring mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-semibold"
-                                                        style={{
-                                                            backgroundColor: avatarColors.background,
-                                                            color: avatarColors.foreground,
-                                                        }}
-                                                        aria-hidden
-                                                    >
-                                                        {getContactInitials(contact.full_name, preview.primaryEmail)}
-                                                    </span>
+															<span
+                                                                className="avatar-ring mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-semibold"
+                                                                style={{
+                                                                    backgroundColor: avatarColors.background,
+                                                                    color: avatarColors.foreground,
+                                                                }}
+                                                                aria-hidden
+                                                            >
+																{getContactInitials(
+                                                                    contact.full_name,
+                                                                    preview.primaryEmail,
+                                                                )}
+															</span>
                                                             <div className="min-w-0">
                                                                 <p className="ui-text-primary text-sm font-medium">
                                                                     {contact.full_name || '(No name)'}
                                                                 </p>
                                                                 <p className="ui-text-secondary mt-0.5 text-xs">
                                                                     {preview.primaryEmail}
-                                                                    {preview.extraEmails > 0 ? ` (+${preview.extraEmails} more)` : ''}
+                                                                    {preview.extraEmails > 0
+                                                                        ? ` (+${preview.extraEmails} more)`
+                                                                        : ''}
                                                                 </p>
-                                                                {(preview.primaryPhone || contact.organization || contact.title) && (
+                                                                {(preview.primaryPhone ||
+                                                                    contact.organization ||
+                                                                    contact.title) && (
                                                                     <p className="ui-text-muted mt-0.5 text-xs">
-                                                                        {[preview.primaryPhone, contact.organization, contact.title]
+                                                                        {[
+                                                                            preview.primaryPhone,
+                                                                            contact.organization,
+                                                                            contact.title,
+                                                                        ]
                                                                             .filter(Boolean)
                                                                             .join(' • ')}
                                                                     </p>
@@ -676,9 +672,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div className="space-y-3">
                                 <label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">
-										Full name
-									</span>
+                                    <span className="ui-text-secondary mb-1 block font-medium">Full name</span>
                                     <FormInput
                                         type="text"
                                         value={newContactName}
@@ -706,9 +700,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                             </div>
                             <div className="space-y-3">
                                 <label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">
-										Organization
-									</span>
+                                    <span className="ui-text-secondary mb-1 block font-medium">Organization</span>
                                     <FormInput
                                         type="text"
                                         value={newContactOrganization}
@@ -717,9 +709,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                     />
                                 </label>
                                 <label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">
-										Title
-									</span>
+                                    <span className="ui-text-secondary mb-1 block font-medium">Title</span>
                                     <FormInput
                                         type="text"
                                         value={newContactTitle}
@@ -728,9 +718,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                     />
                                 </label>
                                 <label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">
-										Address book
-									</span>
+                                    <span className="ui-text-secondary mb-1 block font-medium">Address book</span>
                                     <FormSelect
                                         value={selectedBookId ?? ''}
                                         onChange={(event) =>
@@ -746,9 +734,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                     </FormSelect>
                                 </label>
                                 <label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">
-										Notes
-									</span>
+                                    <span className="ui-text-secondary mb-1 block font-medium">Notes</span>
                                     <FormTextarea
                                         value={newContactNote}
                                         onChange={(event) => setNewContactNote(event.target.value)}
@@ -809,9 +795,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div className="space-y-3">
                                 <label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">
-										Full name
-									</span>
+                                    <span className="ui-text-secondary mb-1 block font-medium">Full name</span>
                                     <FormInput
                                         type="text"
                                         value={editContactName}
@@ -838,9 +822,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                             </div>
                             <div className="space-y-3">
                                 <label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">
-										Organization
-									</span>
+                                    <span className="ui-text-secondary mb-1 block font-medium">Organization</span>
                                     <FormInput
                                         type="text"
                                         value={editContactOrganization}
@@ -848,9 +830,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                     />
                                 </label>
                                 <label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">
-										Title
-									</span>
+                                    <span className="ui-text-secondary mb-1 block font-medium">Title</span>
                                     <FormInput
                                         type="text"
                                         value={editContactTitle}
@@ -858,9 +838,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                     />
                                 </label>
                                 <label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">
-										Address book
-									</span>
+                                    <span className="ui-text-secondary mb-1 block font-medium">Address book</span>
                                     <FormSelect
                                         value={editContactBookId ?? ''}
                                         onChange={(event) =>
@@ -877,9 +855,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                                     </FormSelect>
                                 </label>
                                 <label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">
-										Notes
-									</span>
+                                    <span className="ui-text-secondary mb-1 block font-medium">Notes</span>
                                     <FormTextarea
                                         value={editContactNote}
                                         onChange={(event) => setEditContactNote(event.target.value)}
@@ -997,9 +973,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
                     </ModalHeader>
                     <div className="mt-4 space-y-3">
                         <label className="block text-sm">
-								<span className="ui-text-secondary mb-1 block font-medium">
-									Format
-								</span>
+                            <span className="ui-text-secondary mb-1 block font-medium">Format</span>
                             <FormSelect
                                 value={exportFormat}
                                 onChange={(event) => setExportFormat(event.target.value === 'vcf' ? 'vcf' : 'csv')}

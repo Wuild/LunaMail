@@ -19,10 +19,8 @@ type GroupPosition = 'none' | 'first' | 'middle' | 'last';
 const fieldBase = 'field w-full transition-all disabled:cursor-not-allowed disabled:opacity-60';
 
 const variantStyles: Record<ControlVariant, string> = {
-    default:
-        '',
-    subtle:
-        'field-subtle',
+    default: '',
+    subtle: 'field-subtle',
 };
 
 const sizeStyles: Record<ControlSize, string> = {
@@ -70,11 +68,11 @@ export type FormSelectOption = {
 
 export type FormSelectProps = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'> &
     InputLikeProps & {
-        options?: FormSelectOption[];
-        renderSelectedOption?: (option: FormSelectOption | null) => React.ReactNode;
-        renderOption?: (option: FormSelectOption, state: {active: boolean; selected: boolean}) => React.ReactNode;
-        dropdownClassName?: string;
-    };
+    options?: FormSelectOption[];
+    renderSelectedOption?: (option: FormSelectOption | null) => React.ReactNode;
+    renderOption?: (option: FormSelectOption, state: { active: boolean; selected: boolean }) => React.ReactNode;
+    dropdownClassName?: string;
+};
 export type FormTextareaProps = Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'size'> &
     Omit<InputLikeProps, 'leftIcon' | 'rightIcon'>;
 
@@ -83,8 +81,8 @@ export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
         <div className="relative">
             {leftIcon ? (
                 <span className="ui-text-muted pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2">
-                    {leftIcon}
-                </span>
+					{leftIcon}
+				</span>
             ) : null}
             <input
                 ref={ref}
@@ -102,8 +100,8 @@ export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
             />
             {rightIcon ? (
                 <span className="ui-text-muted pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2">
-                    {rightIcon}
-                </span>
+					{rightIcon}
+				</span>
             ) : null}
         </div>
     ),
@@ -118,26 +116,9 @@ function createSyntheticInputChangeEvent(name: string | undefined, value: string
 }
 
 export const FormDateInput = React.forwardRef<HTMLInputElement, FormDateInputProps>(
-    (
-        {
-            locale,
-            value,
-            onChange,
-            onBlur,
-            onKeyDown,
-            placeholder,
-            inputMode,
-            autoComplete,
-            name,
-            ...props
-        },
-        ref,
-    ) => {
+    ({locale, value, onChange, onBlur, onKeyDown, placeholder, inputMode, autoComplete, name, ...props}, ref) => {
         const normalizedValue = typeof value === 'string' ? value : '';
-        const displayValue = useMemo(
-            () => formatIsoDateForLocale(normalizedValue, locale),
-            [locale, normalizedValue],
-        );
+        const displayValue = useMemo(() => formatIsoDateForLocale(normalizedValue, locale), [locale, normalizedValue]);
         const [draft, setDraft] = useState(displayValue);
 
         useEffect(() => {
@@ -217,11 +198,7 @@ function addDays(base: Date, days: number): Date {
 }
 
 function isSameCalendarDay(a: Date, b: Date): boolean {
-    return (
-        a.getFullYear() === b.getFullYear() &&
-        a.getMonth() === b.getMonth() &&
-        a.getDate() === b.getDate()
-    );
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
 function buildCalendarGrid(visibleMonth: Date): Date[] {
@@ -404,10 +381,12 @@ export const FormDateTimeInput = React.forwardRef<HTMLInputElement, FormDateTime
                             </div>
                             <div className="date-time-picker-weekdays mb-1 grid grid-cols-7 gap-1">
                                 {weekdayLabels.map((weekday) => (
-                                    <span key={weekday}
-                                          className="date-time-picker-weekday text-center text-[11px] font-medium">
-                                        {weekday}
-                                    </span>
+                                    <span
+                                        key={weekday}
+                                        className="date-time-picker-weekday text-center text-[11px] font-medium"
+                                    >
+										{weekday}
+									</span>
                                 ))}
                             </div>
                             <div className="date-time-picker-days grid grid-cols-7 gap-1">
@@ -440,20 +419,19 @@ export const FormDateTimeInput = React.forwardRef<HTMLInputElement, FormDateTime
                                 value={time || ''}
                                 size="sm"
                                 className="flex-1"
-                                options={[
-                                    {value: '', label: 'Select time'},
-                                    ...timeOptions,
-                                ]}
+                                options={[{value: '', label: 'Select time'}, ...timeOptions]}
                                 onChange={(event) => {
                                     const nextTime = event.target.value;
                                     if (!nextTime) return;
-                                    const baseDate = date || (() => {
-                                        const today = new Date();
-                                        const yyyy = `${today.getFullYear()}`.padStart(4, '0');
-                                        const mm = `${today.getMonth() + 1}`.padStart(2, '0');
-                                        const dd = `${today.getDate()}`.padStart(2, '0');
-                                        return `${yyyy}-${mm}-${dd}`;
-                                    })();
+                                    const baseDate =
+                                        date ||
+                                        (() => {
+                                            const today = new Date();
+                                            const yyyy = `${today.getFullYear()}`.padStart(4, '0');
+                                            const mm = `${today.getMonth() + 1}`.padStart(2, '0');
+                                            const dd = `${today.getDate()}`.padStart(2, '0');
+                                            return `${yyyy}-${mm}-${dd}`;
+                                        })();
                                     emitChange(baseDate, nextTime);
                                 }}
                             />
@@ -518,13 +496,13 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
             () =>
                 options
                     ? options.map((item) => ({
-                          value: item.value,
-                          label: item.label,
-                          disabled: Boolean(item.disabled),
-                          selected: Boolean(item.selected),
-                          description: item.description ?? null,
-                          icon: item.icon,
-                      }))
+                        value: item.value,
+                        label: item.label,
+                        disabled: Boolean(item.disabled),
+                        selected: Boolean(item.selected),
+                        description: item.description ?? null,
+                        icon: item.icon,
+                    }))
                     : flattenSelectOptions(children),
             [children, options],
         );
@@ -628,16 +606,16 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
                 >
                     {options
                         ? options.map((item) => (
-                              <option key={item.value} value={item.value} disabled={item.disabled}>
-                                  {item.label}
-                              </option>
-                          ))
+                            <option key={item.value} value={item.value} disabled={item.disabled}>
+                                {item.label}
+                            </option>
+                        ))
                         : children}
                 </select>
                 {leftIcon ? (
                     <span className="ui-text-muted pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2">
-                        {leftIcon}
-                    </span>
+						{leftIcon}
+					</span>
                 ) : null}
                 <button
                     ref={triggerRef}
@@ -712,16 +690,16 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
                         }
                     }}
                 >
-                    <span className="block min-w-0 truncate">
-                        {renderSelectedOption ? (
+					<span className="block min-w-0 truncate">
+						{renderSelectedOption ? (
                             renderSelectedOption(selectedOption)
                         ) : (
                             <span className="truncate">{displayLabel}</span>
                         )}
-                    </span>
+					</span>
                     <span className="ui-text-muted pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2">
-                        {rightIcon ?? <span aria-hidden>{open ? '▴' : '▾'}</span>}
-                    </span>
+						{rightIcon ?? <span aria-hidden>{open ? '▴' : '▾'}</span>}
+					</span>
                 </button>
                 {open ? (
                     <div
@@ -769,13 +747,13 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
                                         <div className="flex min-w-0 items-center gap-2">
                                             {item.icon ? <span className="shrink-0">{item.icon}</span> : null}
                                             <span className="min-w-0 flex-1">
-                                                <span className="block truncate">{item.label}</span>
+												<span className="block truncate">{item.label}</span>
                                                 {item.description ? (
                                                     <span className="ui-text-muted block truncate text-[11px]">
-                                                        {item.description}
-                                                    </span>
+														{item.description}
+													</span>
                                                 ) : null}
-                                            </span>
+											</span>
                                         </div>
                                     )}
                                 </button>
@@ -805,7 +783,8 @@ function flattenSelectOptions(children: React.ReactNode): SelectOptionItem[] {
             if (!React.isValidElement(child)) return;
             const element = child as React.ReactElement<any>;
             if (element.type === 'option') {
-                const value = element.props.value != null ? String(element.props.value) : getNodeText(element.props.children);
+                const value =
+                    element.props.value != null ? String(element.props.value) : getNodeText(element.props.children);
                 out.push({
                     value,
                     label: getNodeText(element.props.children),
@@ -851,7 +830,11 @@ export const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaPr
             className={cn(
                 fieldBase,
                 variantStyles[variant],
-                size === 'sm' ? 'min-h-[96px] py-2.5 text-sm px-3' : size === 'lg' ? 'min-h-[136px] py-3.5 text-base px-4' : 'min-h-[116px] py-3 text-sm px-3.5',
+                size === 'sm'
+                    ? 'min-h-[96px] py-2.5 text-sm px-3'
+                    : size === 'lg'
+                        ? 'min-h-[136px] py-3.5 text-base px-4'
+                        : 'min-h-[116px] py-3 text-sm px-3.5',
                 groupStyles[groupPosition],
                 groupPosition !== 'none' && 'relative first:-ml-px',
                 className,
@@ -861,34 +844,29 @@ export const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaPr
 );
 FormTextarea.displayName = 'FormTextarea';
 
-export const FormCheckbox = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & {size?: 'sm' | 'md'}>(
-    ({className, size = 'md', ...props}, ref) => (
-        <input
-            ref={ref}
-            type="checkbox"
-            {...props}
-            className={cn(
-                size === 'sm'
-                    ? 'h-5 w-9 before:left-[2px] before:h-4 before:w-4 checked:before:translate-x-4'
-                    : 'h-6 w-11 before:left-[2px] before:h-[18px] before:w-[18px] checked:before:translate-x-[22px]',
-                'relative  flex-shrink-0 appearance-none rounded-full border outline-none transition-all duration-200',
-                'field-toggle',
-                'before:absolute before:top-1/2 before:-translate-y-1/2 before:rounded-full before:shadow before:transition-all before:duration-200 before:content-[\'\']',
-                'focus-ring',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-                className,
-            )}
-        />
-    ),
-);
+export const FormCheckbox = React.forwardRef<
+    HTMLInputElement,
+    React.InputHTMLAttributes<HTMLInputElement> & { size?: 'sm' | 'md' }
+>(({className, size = 'md', ...props}, ref) => (
+    <input
+        ref={ref}
+        type="checkbox"
+        {...props}
+        className={cn(
+            size === 'sm'
+                ? 'h-5 w-9 before:left-[2px] before:h-4 before:w-4 checked:before:translate-x-4'
+                : 'h-6 w-11 before:left-[2px] before:h-[18px] before:w-[18px] checked:before:translate-x-[22px]',
+            'relative  flex-shrink-0 appearance-none rounded-full border outline-none transition-all duration-200',
+            'field-toggle',
+            "before:absolute before:top-1/2 before:-translate-y-1/2 before:rounded-full before:shadow before:transition-all before:duration-200 before:content-['']",
+            'focus-ring',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+            className,
+        )}
+    />
+));
 FormCheckbox.displayName = 'FormCheckbox';
 
-export function FormControlGroup({
-    className,
-    children,
-}: {
-    className?: string;
-    children: React.ReactNode;
-}) {
+export function FormControlGroup({className, children}: { className?: string; children: React.ReactNode }) {
     return <div className={cn('inline-flex items-stretch', className)}>{children}</div>;
 }

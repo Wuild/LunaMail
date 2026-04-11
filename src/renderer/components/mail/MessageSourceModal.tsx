@@ -21,12 +21,7 @@ export default function MessageSourceModal({open, loading, error, source, onClos
         >
             <ModalHeader className="border-b ui-border-default px-4 py-3">
                 <h2 className="ui-text-primary text-sm font-semibold">Message source</h2>
-                <Button
-                    type="button"
-                    variant="outline"
-                    className="rounded-md px-2 py-1 text-xs"
-                    onClick={onClose}
-                >
+                <Button type="button" variant="outline" className="rounded-md px-2 py-1 text-xs" onClick={onClose}>
                     Close
                 </Button>
             </ModalHeader>
@@ -36,8 +31,8 @@ export default function MessageSourceModal({open, loading, error, source, onClos
                 {!loading && !error && (
                     <pre
                         className="surface-card ui-text-primary select-text whitespace-pre-wrap break-words rounded-md border ui-border-default p-3 font-mono text-xs leading-5">
-							{source || '(No source available)'}
-						</pre>
+						{source || '(No source available)'}
+					</pre>
                 )}
             </div>
         </Modal>

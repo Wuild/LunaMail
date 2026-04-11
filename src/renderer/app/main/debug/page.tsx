@@ -38,19 +38,17 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
     useAppTheme();
     const [logs, setLogs] = useState<DebugLogEntry[]>([]);
     const [autoScroll, setAutoScroll] = useState(true);
-    const [selectedSources, setSelectedSources] = useState<DebugLogEntry['source'][]>(
-        () =>
-            readStoredFilterValues<DebugLogEntry['source']>(
-                DEBUG_FILTER_SOURCES_STORAGE_KEY,
-                SOURCE_OPTIONS.map((option) => option.value),
-            ),
+    const [selectedSources, setSelectedSources] = useState<DebugLogEntry['source'][]>(() =>
+        readStoredFilterValues<DebugLogEntry['source']>(
+            DEBUG_FILTER_SOURCES_STORAGE_KEY,
+            SOURCE_OPTIONS.map((option) => option.value),
+        ),
     );
-    const [selectedLevels, setSelectedLevels] = useState<DebugLogEntry['level'][]>(
-        () =>
-            readStoredFilterValues<DebugLogEntry['level']>(
-                DEBUG_FILTER_LEVELS_STORAGE_KEY,
-                LEVEL_OPTIONS.map((option) => option.value),
-            ),
+    const [selectedLevels, setSelectedLevels] = useState<DebugLogEntry['level'][]>(() =>
+        readStoredFilterValues<DebugLogEntry['level']>(
+            DEBUG_FILTER_LEVELS_STORAGE_KEY,
+            LEVEL_OPTIONS.map((option) => option.value),
+        ),
     );
     const listRef = useRef<HTMLDivElement | null>(null);
     const autoScrollManuallyDisabledRef = useRef(false);
@@ -287,8 +285,7 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
 
                         <main className="min-h-0 flex-1">
                             <div
-                                className="debug-log-shell flex h-full min-h-0 flex-col overflow-hidden rounded-xl select-text"
-                            >
+                                className="debug-log-shell flex h-full min-h-0 flex-col overflow-hidden rounded-xl select-text">
                                 <div
                                     ref={listRef}
                                     onScroll={onLogScroll}

@@ -127,28 +127,28 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
                 setImap(
                     discovered?.imap
                         ? {
-                              host: discovered.imap.host,
-                              port: discovered.imap.port,
-                              security: discovered.imap.secure ? 'ssl' : 'starttls',
-                          }
+                            host: discovered.imap.host,
+                            port: discovered.imap.port,
+                            security: discovered.imap.secure ? 'ssl' : 'starttls',
+                        }
                         : {host: domain ? `imap.${domain}` : '', port: 993, security: 'ssl'},
                 );
                 setPop3(
                     discovered?.pop3
                         ? {
-                              host: discovered.pop3.host,
-                              port: discovered.pop3.port,
-                              security: discovered.pop3.secure ? 'ssl' : 'starttls',
-                          }
+                            host: discovered.pop3.host,
+                            port: discovered.pop3.port,
+                            security: discovered.pop3.secure ? 'ssl' : 'starttls',
+                        }
                         : null,
                 );
                 setSmtp(
                     discovered?.smtp
                         ? {
-                              host: discovered.smtp.host,
-                              port: discovered.smtp.port,
-                              security: discovered.smtp.secure ? 'ssl' : 'starttls',
-                          }
+                            host: discovered.smtp.host,
+                            port: discovered.smtp.port,
+                            security: discovered.smtp.secure ? 'ssl' : 'starttls',
+                        }
                         : {host: domain ? `smtp.${domain}` : '', port: 465, security: 'ssl'},
                 );
                 setStep(2);
@@ -165,10 +165,10 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
             setPop3(
                 discovered.pop3
                     ? {
-                          host: discovered.pop3.host,
-                          port: discovered.pop3.port,
-                          security: discovered.pop3.secure ? 'ssl' : 'starttls',
-                      }
+                        host: discovered.pop3.host,
+                        port: discovered.pop3.port,
+                        security: discovered.pop3.secure ? 'ssl' : 'starttls',
+                    }
                     : null,
             );
             setSmtp({
@@ -268,12 +268,12 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
                 ? 'Checking account...'
                 : 'Next'
             : step === 2
-              ? loading
-                  ? 'Verifying...'
-                  : 'Verify and Continue'
-              : loading
-                ? 'Saving...'
-                : 'Add Account';
+                ? loading
+                    ? 'Verifying...'
+                    : 'Verify and Continue'
+                : loading
+                    ? 'Saving...'
+                    : 'Add Account';
 
     async function onPrimaryAction() {
         if (step === 1) {
@@ -354,30 +354,30 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
                                 </p>
                                 <ul className="mt-5 space-y-2.5 text-left text-sm text-inverse opacity-90">
                                     <li className="flex items-center gap-2.5">
-                                        <span
+										<span
                                             className="rounded-full p-1"
                                             style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
                                         >
-                                            <Check size={12}/>
-                                        </span>
+											<Check size={12}/>
+										</span>
                                         Fast autodiscover
                                     </li>
                                     <li className="flex items-center gap-2.5">
-                                        <span
+										<span
                                             className="rounded-full p-1"
                                             style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
                                         >
-                                            <Check size={12}/>
-                                        </span>
+											<Check size={12}/>
+										</span>
                                         Manual fallback when needed
                                     </li>
                                     <li className="flex items-center gap-2.5">
-                                        <span
+										<span
                                             className="rounded-full p-1"
                                             style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
                                         >
-                                            <Check size={12}/>
-                                        </span>
+											<Check size={12}/>
+										</span>
                                         IMAP/SMTP verification before save
                                     </li>
                                 </ul>
@@ -451,14 +451,15 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
                                             {loading && (
                                                 <div
                                                     className="notice-info flex items-start gap-3 rounded-xl px-4 py-3 text-sm">
-                                                    <span
+													<span
                                                         className="spinner-info mt-0.5 inline-block h-4 w-4 shrink-0 animate-spin rounded-full"
                                                         aria-hidden
                                                     />
                                                     <div>
                                                         <p className="font-semibold">Running autodiscover</p>
                                                         <p className="mt-0.5 text-xs opacity-90">
-                                                            Detecting server settings and verifying IMAP/SMTP credentials.
+                                                            Detecting server settings and verifying IMAP/SMTP
+                                                            credentials.
                                                         </p>
                                                     </div>
                                                 </div>
@@ -473,7 +474,8 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
                                                     Manual server setup
                                                 </h3>
                                                 <p className="ui-text-muted mt-1 text-sm">
-                                                    Autodiscover did not return complete settings. Enter IMAP and SMTP manually.
+                                                    Autodiscover did not return complete settings. Enter IMAP and SMTP
+                                                    manually.
                                                 </p>
                                             </header>
 
@@ -520,25 +522,31 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
                                             </header>
 
                                             <div className="space-y-1">
-                                                <SummaryRow label="Email" value={email} />
-                                                <SummaryRow label="Provider" value={provider ?? 'custom'} />
-                                                <SummaryRow label="IMAP" value={`${imap?.host ?? '-'}:${imap?.port ?? '-'}`} />
-                                                <SummaryRow label="SMTP" value={`${smtp?.host ?? '-'}:${smtp?.port ?? '-'}`} />
-                                                {davDiscovery?.carddavUrl && <SummaryRow label="CardDAV" value={davDiscovery.carddavUrl} />}
-                                                {davDiscovery?.caldavUrl && <SummaryRow label="CalDAV" value={davDiscovery.caldavUrl} />}
+                                                <SummaryRow label="Email" value={email}/>
+                                                <SummaryRow label="Provider" value={provider ?? 'custom'}/>
+                                                <SummaryRow
+                                                    label="IMAP"
+                                                    value={`${imap?.host ?? '-'}:${imap?.port ?? '-'}`}
+                                                />
+                                                <SummaryRow
+                                                    label="SMTP"
+                                                    value={`${smtp?.host ?? '-'}:${smtp?.port ?? '-'}`}
+                                                />
+                                                {davDiscovery?.carddavUrl && (
+                                                    <SummaryRow label="CardDAV" value={davDiscovery.carddavUrl}/>
+                                                )}
+                                                {davDiscovery?.caldavUrl && (
+                                                    <SummaryRow label="CalDAV" value={davDiscovery.caldavUrl}/>
+                                                )}
                                             </div>
                                         </section>
                                     )}
 
                                     {error && (
-                                        <p className="notice-danger mt-5 rounded-lg px-4 py-2 text-sm">
-                                            {error}
-                                        </p>
+                                        <p className="notice-danger mt-5 rounded-lg px-4 py-2 text-sm">{error}</p>
                                     )}
                                     {success && (
-                                        <p className="notice-info mt-5 rounded-lg px-4 py-2 text-sm">
-                                            {success}
-                                        </p>
+                                        <p className="notice-info mt-5 rounded-lg px-4 py-2 text-sm">{success}</p>
                                     )}
                                 </div>
                             </div>
@@ -562,9 +570,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
                                 type="submit"
                                 disabled={primaryActionDisabled}
                                 className={`rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
-                                    step === 3
-                                        ? 'button-success'
-                                        : 'button-primary'
+                                    step === 3 ? 'button-success' : 'button-primary'
                                 }`}
                             >
                                 {primaryActionLabel}

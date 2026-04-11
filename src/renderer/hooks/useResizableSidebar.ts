@@ -49,7 +49,7 @@ export function useResizableSidebar(options: ResizableSidebarOptions = {}) {
 	const [sidebarWidth, setSidebarWidth] = useState<number>(() =>
 		readSavedWidth(storageKey, minWidth, maxWidth, defaultWidth),
 	);
-	const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+    const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 	const activeHandleRef = useRef<HTMLElement | null>(null);
 	const widthRef = useRef(sidebarWidth);
 	const draggingClass = 'is-resizing-sidebar';

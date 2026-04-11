@@ -71,9 +71,7 @@ export function MessageBodyPane({
                 )}
                 <div className="min-h-0 flex-1">
                     {loading && (
-                        <div className="ui-text-muted flex h-full items-center justify-center">
-                            {loadingLabel}
-                        </div>
+                        <div className="ui-text-muted flex h-full items-center justify-center">{loadingLabel}</div>
                     )}
                     {!loading && iframeSrcDoc && (
                         <iframe
@@ -141,7 +139,9 @@ export function MessageBodyPane({
 										</span>
 										<span className="ui-text-muted block truncate text-[11px]">
 											{attachment.contentType || 'FILE'}
-                                            {typeof attachment.size === 'number' ? ` • ${formatBytes(attachment.size)}` : ''}
+                                            {typeof attachment.size === 'number'
+                                                ? ` • ${formatBytes(attachment.size)}`
+                                                : ''}
 										</span>
 									</span>
                                 </Button>

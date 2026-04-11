@@ -50,7 +50,7 @@ export function registerComposeIpc(deps: ComposeIpcDeps): void {
                     messages: 0,
                     newMessages: 0,
                     newMessageIds: [],
-                    newestMessageTarget: null
+                    newestMessageTarget: null,
                 },
             });
         }
@@ -98,14 +98,7 @@ export function registerComposeIpc(deps: ComposeIpcDeps): void {
             })
             .catch((error) => {
                 const errorMessage = (error as any)?.message || String(error);
-                console.warn(
-                    'Background send failed:',
-                    errorMessage,
-                    'accountId=',
-                    accountId,
-                    'jobId=',
-                    jobId,
-                );
+                console.warn('Background send failed:', errorMessage, 'accountId=', accountId, 'jobId=', jobId);
                 deps.broadcastSendEmailBackgroundStatus({
                     jobId,
                     accountId,

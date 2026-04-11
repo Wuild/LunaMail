@@ -1,17 +1,17 @@
-import type {PublicAccount} from "@/preload";
+import type {PublicAccount} from '@/preload';
 
 export function getAccountMonogram(account: PublicAccount): string {
-    const base = (account.display_name?.trim() || account.email || "").trim();
-    if (!base) return "?";
+    const base = (account.display_name?.trim() || account.email || '').trim();
+    if (!base) return '?';
     const words = base.split(/[\s._-]+/).filter(Boolean);
     if (words.length >= 2) {
-        return `${words[0][0] ?? ""}${words[1][0] ?? ""}`.toUpperCase();
+        return `${words[0][0] ?? ''}${words[1][0] ?? ''}`.toUpperCase();
     }
     return (words[0] || base).slice(0, 2).toUpperCase();
 }
 
 export function getAccountAvatarColors(seed: string): { background: string; foreground: string } {
-    const hash = hashString(seed.trim().toLowerCase() || "account");
+    const hash = hashString(seed.trim().toLowerCase() || 'account');
     const hue = hash % 360;
     const saturation = 58 + ((hash >>> 9) % 20);
     const lightness = 40 + ((hash >>> 17) % 18);
@@ -20,12 +20,14 @@ export function getAccountAvatarColors(seed: string): { background: string; fore
     const [r, g, b] = hslToRgb(hue, saturation, lightness);
     const whiteContrast = contrastRatio([r, g, b], [255, 255, 255]);
     const darkContrast = contrastRatio([r, g, b], [0, 0, 0]);
-    const foreground = whiteContrast >= darkContrast ? "white" : "black";
+    const foreground = whiteContrast >= darkContrast ? 'white' : 'black';
     return {background, foreground};
 }
 
 export function getAccountAvatarSeed(account: PublicAccount): string {
-    const email = String(account.email || "").trim().toLowerCase();
+    const email = String(account.email || '')
+        .trim()
+        .toLowerCase();
     if (email) return `account-email:${email}`;
     return `account-id:${account.id}`;
 }

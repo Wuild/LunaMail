@@ -76,12 +76,12 @@ type SortableHeaderProps = {
 };
 
 function SortableHeaderCell({
-    column,
-    index,
-    visibleColumnCount,
-    label,
-    mailTableResizeHandleClass,
-    onBeginTableColumnResize,
+                                column,
+                                index,
+                                visibleColumnCount,
+                                label,
+                                mailTableResizeHandleClass,
+                                onBeginTableColumnResize,
 }: SortableHeaderProps) {
     const {attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging} = useSortable({
         id: column,
@@ -121,15 +121,15 @@ function SortableHeaderCell({
 }
 
 function DraggableTableRow({
-    message,
-    messageIndex,
-    selectedMessageIds,
+                               message,
+                               messageIndex,
+                               selectedMessageIds,
                                contextMenuMessageId,
-    onMessageRowClick,
-    onOpenMessageWindow,
-    onOpenMessageMenu,
-    visibleTableColumns,
-    renderTableCell,
+                               onMessageRowClick,
+                               onOpenMessageWindow,
+                               onOpenMessageMenu,
+                               visibleTableColumns,
+                               renderTableCell,
 }: {
     message: MessageItem;
     messageIndex: number;
@@ -143,7 +143,7 @@ function DraggableTableRow({
 }) {
     const dragIds =
         selectedMessageIds.length > 1 && selectedMessageIds.includes(message.id) ? selectedMessageIds : [message.id];
-    const [, dragRef, previewRef] = useDrag<MailMessageDragItemPreview, unknown, {isDragging: boolean}>(
+    const [, dragRef, previewRef] = useDrag<MailMessageDragItemPreview, unknown, { isDragging: boolean }>(
         () => ({
             type: DND_ITEM.MAIL_MESSAGE,
             item: {
@@ -217,26 +217,32 @@ export default function TopTableMailPane({
     const headerSensors = useSensors(useSensor(PointerSensor, {activationConstraint: {distance: 4}}));
     const headerLabelByKey = React.useMemo(
         () =>
-            Object.fromEntries(tableColumnOptions.map((item) => [item.key, item.label])) as Record<MailTableColumnKey, string>,
+            Object.fromEntries(tableColumnOptions.map((item) => [item.key, item.label])) as Record<
+                MailTableColumnKey,
+                string
+            >,
         [tableColumnOptions],
     );
 
-    const onHeaderDragEnd = React.useCallback((event: DragEndEvent) => {
-        const active = String(event.active.id) as MailTableColumnKey;
-        const over = event.over ? (String(event.over.id) as MailTableColumnKey) : null;
-        if (!over || active === over) {
+    const onHeaderDragEnd = React.useCallback(
+        (event: DragEndEvent) => {
+            const active = String(event.active.id) as MailTableColumnKey;
+            const over = event.over ? (String(event.over.id) as MailTableColumnKey) : null;
+            if (!over || active === over) {
+                setDraggingColumn(null);
+                return;
+            }
+            const fromIndex = visibleTableColumns.indexOf(active);
+            const toIndex = visibleTableColumns.indexOf(over);
+            if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+                setDraggingColumn(null);
+                return;
+            }
+            onReorderVisibleTableColumns(arrayMove(visibleTableColumns, fromIndex, toIndex));
             setDraggingColumn(null);
-            return;
-        }
-        const fromIndex = visibleTableColumns.indexOf(active);
-        const toIndex = visibleTableColumns.indexOf(over);
-        if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
-            setDraggingColumn(null);
-            return;
-        }
-        onReorderVisibleTableColumns(arrayMove(visibleTableColumns, fromIndex, toIndex));
-        setDraggingColumn(null);
-    }, [onReorderVisibleTableColumns, visibleTableColumns]);
+        },
+        [onReorderVisibleTableColumns, visibleTableColumns],
+    );
 
     return (
         <section className="workspace-content flex min-w-0 flex-1 flex-col">
@@ -321,9 +327,7 @@ export default function TopTableMailPane({
                     }}
                 >
                     {messages.length === 0 && (
-                        <div className="ui-text-muted p-5 text-sm">
-                            No messages in this folder yet.
-                        </div>
+                        <div className="ui-text-muted p-5 text-sm">No messages in this folder yet.</div>
                     )}
                     {messages.length > 0 && (
                         <DndContext
@@ -351,38 +355,41 @@ export default function TopTableMailPane({
                                         onOpenTableHeadMenuAt(event.clientX, event.clientY);
                                     }}
                                 >
-                                    <SortableContext items={visibleTableColumns} strategy={horizontalListSortingStrategy}>
-                                        <tr className="ui-text-secondary group text-left text-xs uppercase tracking-wide">
-                                            {visibleTableColumns.map((column, index) => (
-                                                <SortableHeaderCell
-                                                    key={column}
-                                                    column={column}
-                                                    index={index}
-                                                    visibleColumnCount={visibleTableColumns.length}
-                                                    label={headerLabelByKey[column] || column}
-                                                    mailTableResizeHandleClass={mailTableResizeHandleClass}
-                                                    onBeginTableColumnResize={onBeginTableColumnResize}
-                                                />
-                                            ))}
-                                            <th className="ui-border-default ui-surface-content border-b px-1 py-1 text-right">
-                                                <Button
-                                                    type="button"
-                                                    className="button-ghost inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors"
-                                                    aria-label="Table column options"
-                                                    title="Table column options"
-                                                    aria-haspopup="menu"
-                                                    aria-expanded={isTableHeadMenuOpen ? 'true' : 'false'}
-                                                    onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
-                                                        event.stopPropagation();
-                                                        const rect = event.currentTarget.getBoundingClientRect();
-                                                        onOpenTableHeadMenuAt(rect.right - 8, rect.bottom + 6);
-                                                    }}
-                                                >
-                                                    <Settings size={13}/>
-                                                </Button>
-                                            </th>
-                                        </tr>
-                                    </SortableContext>
+                                <SortableContext
+                                    items={visibleTableColumns}
+                                    strategy={horizontalListSortingStrategy}
+                                >
+                                    <tr className="ui-text-secondary group text-left text-xs uppercase tracking-wide">
+                                        {visibleTableColumns.map((column, index) => (
+                                            <SortableHeaderCell
+                                                key={column}
+                                                column={column}
+                                                index={index}
+                                                visibleColumnCount={visibleTableColumns.length}
+                                                label={headerLabelByKey[column] || column}
+                                                mailTableResizeHandleClass={mailTableResizeHandleClass}
+                                                onBeginTableColumnResize={onBeginTableColumnResize}
+                                            />
+                                        ))}
+                                        <th className="ui-border-default ui-surface-content border-b px-1 py-1 text-right">
+                                            <Button
+                                                type="button"
+                                                className="button-ghost inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors"
+                                                aria-label="Table column options"
+                                                title="Table column options"
+                                                aria-haspopup="menu"
+                                                aria-expanded={isTableHeadMenuOpen ? 'true' : 'false'}
+                                                onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+                                                    event.stopPropagation();
+                                                    const rect = event.currentTarget.getBoundingClientRect();
+                                                    onOpenTableHeadMenuAt(rect.right - 8, rect.bottom + 6);
+                                                }}
+                                            >
+                                                <Settings size={13}/>
+                                            </Button>
+                                        </th>
+                                    </tr>
+                                </SortableContext>
                                 </thead>
                                 <tbody>
                                 {messages.map((message, messageIndex) => (
@@ -412,9 +419,7 @@ export default function TopTableMailPane({
                         </DndContext>
                     )}
                     {loadingMoreMessages && messages.length > 0 && (
-                        <div className="ui-text-muted px-5 py-3 text-center text-xs">
-                            Loading more messages...
-                        </div>
+                        <div className="ui-text-muted px-5 py-3 text-center text-xs">Loading more messages...</div>
                     )}
                 </ScrollArea>
                 {!isCompactTopTable && (

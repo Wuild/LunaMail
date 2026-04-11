@@ -1,6 +1,6 @@
-import type {PublicAccount} from "@/preload";
+import type {PublicAccount} from '@/preload';
 
-export const ACCOUNT_ORDER_STORAGE_KEY = "llamamail.mail.accountOrder.v1";
+export const ACCOUNT_ORDER_STORAGE_KEY = 'llamamail.mail.accountOrder.v1';
 
 function arraysEqual(a: number[], b: number[]): boolean {
     if (a.length !== b.length) return false;
@@ -27,7 +27,7 @@ export function normalizeAccountOrder(order: number[], accounts: PublicAccount[]
 }
 
 export function readPersistedAccountOrder(): number[] {
-    if (typeof window === "undefined") return [];
+    if (typeof window === 'undefined') return [];
     try {
         const raw = window.localStorage.getItem(ACCOUNT_ORDER_STORAGE_KEY);
         if (!raw) return [];

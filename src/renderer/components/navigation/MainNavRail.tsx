@@ -154,15 +154,21 @@ export default function MainNavRail() {
     }, [topNavOrder, totalUnreadCount]);
 
     const draggingTopNavItem = useMemo(
-        () => (draggingTopNavItemId === null ? null : topNavItems.find((item) => item.id === draggingTopNavItemId) ?? null),
+        () =>
+            draggingTopNavItemId === null
+                ? null
+                : (topNavItems.find((item) => item.id === draggingTopNavItemId) ?? null),
         [topNavItems, draggingTopNavItemId],
     );
 
-    const persistTopNavOrder = useCallback((nextOrder: TopNavItemId[]) => {
-        setTopNavOrder(nextOrder);
-        setAppSettings((prev) => ({...prev, navRailOrder: nextOrder}));
-        void ipcClient.updateAppSettings({navRailOrder: nextOrder}).catch(() => undefined);
-    }, [setAppSettings]);
+    const persistTopNavOrder = useCallback(
+        (nextOrder: TopNavItemId[]) => {
+            setTopNavOrder(nextOrder);
+            setAppSettings((prev) => ({...prev, navRailOrder: nextOrder}));
+            void ipcClient.updateAppSettings({navRailOrder: nextOrder}).catch(() => undefined);
+        },
+        [setAppSettings],
+    );
 
     const onTopNavDragStart = useCallback((event: DragStartEvent) => {
         const id = parseTopNavSortableId(String(event.active.id));
@@ -176,57 +182,60 @@ export default function MainNavRail() {
         }
     }, []);
 
-    const onTopNavDragEnd = useCallback((event: DragEndEvent) => {
-        const activeId = parseTopNavSortableId(String(event.active.id));
-        if (!activeId) {
-            setDraggingTopNavItemId(null);
-            setTopNavOverlaySize(null);
-            return;
-        }
-        const sourceIndex = topNavOrder.indexOf(activeId);
-        if (sourceIndex < 0) {
-            setDraggingTopNavItemId(null);
-            setTopNavOverlaySize(null);
-            return;
-        }
-        let targetIndex = sourceIndex;
-        if (!event.over || event.over.id === 'topnav-end') {
-            targetIndex = Math.max(0, topNavOrder.length - 1);
-        } else {
-            const overId = parseTopNavSortableId(String(event.over.id));
-            if (!overId) {
+    const onTopNavDragEnd = useCallback(
+        (event: DragEndEvent) => {
+            const activeId = parseTopNavSortableId(String(event.active.id));
+            if (!activeId) {
                 setDraggingTopNavItemId(null);
                 setTopNavOverlaySize(null);
                 return;
             }
-            const overIndex = topNavOrder.indexOf(overId);
-            if (overIndex >= 0) targetIndex = overIndex;
-        }
-        if (targetIndex !== sourceIndex) {
-            persistTopNavOrder(arrayMove(topNavOrder, sourceIndex, targetIndex));
-        }
-        setDraggingTopNavItemId(null);
-        setTopNavOverlaySize(null);
-    }, [persistTopNavOrder, topNavOrder]);
+            const sourceIndex = topNavOrder.indexOf(activeId);
+            if (sourceIndex < 0) {
+                setDraggingTopNavItemId(null);
+                setTopNavOverlaySize(null);
+                return;
+            }
+            let targetIndex = sourceIndex;
+            if (!event.over || event.over.id === 'topnav-end') {
+                targetIndex = Math.max(0, topNavOrder.length - 1);
+            } else {
+                const overId = parseTopNavSortableId(String(event.over.id));
+                if (!overId) {
+                    setDraggingTopNavItemId(null);
+                    setTopNavOverlaySize(null);
+                    return;
+                }
+                const overIndex = topNavOrder.indexOf(overId);
+                if (overIndex >= 0) targetIndex = overIndex;
+            }
+            if (targetIndex !== sourceIndex) {
+                persistTopNavOrder(arrayMove(topNavOrder, sourceIndex, targetIndex));
+            }
+            setDraggingTopNavItemId(null);
+            setTopNavOverlaySize(null);
+        },
+        [persistTopNavOrder, topNavOrder],
+    );
 
-    const openMainNavContextMenu = useCallback((
-        event: React.MouseEvent<HTMLDivElement>,
-        item: { id: MainNavContextItemId; label: string; to: string },
-    ) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const menuWidth = 220;
-        const menuHeight = item.id === 'debug' ? 92 : 56;
-        const left = Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8));
-        const top = Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8));
-        setMainNavContextMenu({
-            id: item.id,
-            label: item.label,
-            to: item.to,
-            x: left,
-            y: top,
-        });
-    }, []);
+    const openMainNavContextMenu = useCallback(
+        (event: React.MouseEvent<HTMLDivElement>, item: { id: MainNavContextItemId; label: string; to: string }) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const menuWidth = 220;
+            const menuHeight = item.id === 'debug' ? 92 : 56;
+            const left = Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8));
+            const top = Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8));
+            setMainNavContextMenu({
+                id: item.id,
+                label: item.label,
+                to: item.to,
+                x: left,
+                y: top,
+            });
+        },
+        [],
+    );
 
     return (
         <>
@@ -259,9 +268,7 @@ export default function MainNavRail() {
                                 ))}
                             </div>
                         </SortableContext>
-                        {draggingTopNavItemId !== null && (
-                            <TopNavEndDrop/>
-                        )}
+                        {draggingTopNavItemId !== null && <TopNavEndDrop/>}
                     </div>
                     <DragOverlay dropAnimation={null}>
                         {draggingTopNavItem && (

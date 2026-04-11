@@ -12,12 +12,22 @@ export default function SettingsAccountServerPage() {
             <section className="panel rounded-xl p-4">
                 <h2 className="ui-text-primary text-base font-semibold">Server Settings</h2>
                 <div className="mt-4 flex flex-col gap-4">
-                    <Field label="User" value={editor.user}
-                           onChange={(v) => setEditor((p) => (p ? {...p, user: v} : p))}/>
-                    <Field label="Provider" value={editor.provider || ''}
-                           onChange={(v) => setEditor((p) => (p ? {...p, provider: v} : p))}/>
-                    <Field type="password" label="New password (optional)" value={editor.password || ''}
-                           onChange={(v) => setEditor((p) => (p ? {...p, password: v} : p))}/>
+                    <Field
+                        label="User"
+                        value={editor.user}
+                        onChange={(v) => setEditor((p) => (p ? {...p, user: v} : p))}
+                    />
+                    <Field
+                        label="Provider"
+                        value={editor.provider || ''}
+                        onChange={(v) => setEditor((p) => (p ? {...p, provider: v} : p))}
+                    />
+                    <Field
+                        type="password"
+                        label="New password (optional)"
+                        value={editor.password || ''}
+                        onChange={(v) => setEditor((p) => (p ? {...p, password: v} : p))}
+                    />
                 </div>
             </section>
             <div className="mt-4">
@@ -28,10 +38,16 @@ export default function SettingsAccountServerPage() {
                     security={editor.imap_secure ? 'ssl' : 'starttls'}
                     onHostChange={(value) => setEditor((p) => (p ? {...p, imap_host: value} : p))}
                     onPortChange={(value) => setEditor((p) => (p ? {...p, imap_port: value} : p))}
-                    onSecurityChange={(value) => setEditor((p) => (p ? {
-                        ...p,
-                        imap_secure: value === 'ssl' ? 1 : 0
-                    } : p))}
+                    onSecurityChange={(value) =>
+                        setEditor((p) =>
+                            p
+                                ? {
+                                    ...p,
+                                    imap_secure: value === 'ssl' ? 1 : 0,
+                                }
+                                : p,
+                        )
+                    }
                     controlVariant="subtle"
                     controlSize="lg"
                 />
@@ -44,10 +60,16 @@ export default function SettingsAccountServerPage() {
                     security={editor.smtp_secure ? 'ssl' : 'starttls'}
                     onHostChange={(value) => setEditor((p) => (p ? {...p, smtp_host: value} : p))}
                     onPortChange={(value) => setEditor((p) => (p ? {...p, smtp_port: value} : p))}
-                    onSecurityChange={(value) => setEditor((p) => (p ? {
-                        ...p,
-                        smtp_secure: value === 'ssl' ? 1 : 0
-                    } : p))}
+                    onSecurityChange={(value) =>
+                        setEditor((p) =>
+                            p
+                                ? {
+                                    ...p,
+                                    smtp_secure: value === 'ssl' ? 1 : 0,
+                                }
+                                : p,
+                        )
+                    }
                     controlVariant="subtle"
                     controlSize="lg"
                 />

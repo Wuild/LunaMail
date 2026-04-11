@@ -22,7 +22,8 @@
         border-radius: 0.375rem;
         padding: 0.625rem 0.75rem;
         text-align: left;
-        transition: background-color 140ms ease, color 140ms ease;
+        transition: background-color 140ms ease,
+        color 140ms ease;
         color: var(--content-text);
     }
 

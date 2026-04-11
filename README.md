@@ -1,4 +1,5 @@
 ![LlamaMail Banner](./screenshots/banner.png)
+
 # LlamaMail
 
 LlamaMail is a modern, offline-first desktop mail client built with Electron, React, TypeScript, Tailwind CSS, and SQLite (better-sqlite3 + Drizzle ORM).
@@ -6,7 +7,6 @@ LlamaMail is a modern, offline-first desktop mail client built with Electron, Re
 ## Screenshots
 
 ![LlamaMail Mail View](./screenshots/email-dark.png)![LlamaMail Compose View](./screenshots/compose-dark.png)
-
 
 ## Highlights
 

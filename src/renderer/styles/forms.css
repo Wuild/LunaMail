@@ -7,7 +7,9 @@
         background-color: var(--panel-surface);
         color: var(--content-text);
         outline: none;
-        transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+        transition: border-color 140ms ease,
+        box-shadow 140ms ease,
+        background-color 140ms ease;
     }
 
     .field-subtle,
@@ -42,7 +44,9 @@
 
     .button {
         border: 1px solid transparent;
-        transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+        transition: background-color 140ms ease,
+        color 140ms ease,
+        border-color 140ms ease;
     }
 
     .button-primary,
@@ -133,7 +137,8 @@
     .date-time-picker-nav-button {
         border-radius: 0.45rem;
         color: var(--content-muted);
-        transition: background-color 140ms ease, color 140ms ease;
+        transition: background-color 140ms ease,
+        color 140ms ease;
     }
 
     .date-time-picker-nav-button:hover {
@@ -151,7 +156,9 @@
 
     .date-time-picker-day {
         color: var(--content-text);
-        transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+        transition: background-color 140ms ease,
+        color 140ms ease,
+        border-color 140ms ease;
     }
 
     .date-time-picker-day:hover {

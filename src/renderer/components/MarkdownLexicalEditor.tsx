@@ -243,7 +243,9 @@ function ToolbarPlugin({appearance = 'default'}: { appearance?: 'default' | 'emb
             const anchorNode = selection.anchor.getNode();
             const topLevel = anchorNode.getKey() === 'root' ? anchorNode : anchorNode.getTopLevelElementOrThrow();
             const topTag = typeof (topLevel as any).getTag === 'function' ? String((topLevel as any).getTag()) : '';
-            const nearestList = $isListNode(topLevel as any) ? (topLevel as any) : $getNearestNodeOfType(anchorNode, ListNode);
+            const nearestList = $isListNode(topLevel as any)
+                ? (topLevel as any)
+                : $getNearestNodeOfType(anchorNode, ListNode);
             const listType = nearestList?.getListType?.() ?? null;
 
             setActiveFormats({
@@ -361,26 +363,56 @@ function ToolbarPlugin({appearance = 'default'}: { appearance?: 'default' | 'emb
                     : 'editor-toolbar-default flex shrink-0 flex-wrap items-center gap-1 p-2'
             }
         >
-            <ToolbarIcon title="Bold" onClick={() => format('bold')} appearance={appearance} active={activeFormats.bold}>
+            <ToolbarIcon
+                title="Bold"
+                onClick={() => format('bold')}
+                appearance={appearance}
+                active={activeFormats.bold}
+            >
                 <Bold size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Italic" onClick={() => format('italic')} appearance={appearance} active={activeFormats.italic}>
+            <ToolbarIcon
+                title="Italic"
+                onClick={() => format('italic')}
+                appearance={appearance}
+                active={activeFormats.italic}
+            >
                 <Italic size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Underline" onClick={() => format('underline')} appearance={appearance} active={activeFormats.underline}>
+            <ToolbarIcon
+                title="Underline"
+                onClick={() => format('underline')}
+                appearance={appearance}
+                active={activeFormats.underline}
+            >
                 <Underline size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Strikethrough" onClick={() => format('strikethrough')} appearance={appearance} active={activeFormats.strikethrough}>
+            <ToolbarIcon
+                title="Strikethrough"
+                onClick={() => format('strikethrough')}
+                appearance={appearance}
+                active={activeFormats.strikethrough}
+            >
                 <Strikethrough size={18}/>
             </ToolbarIcon>
             <ToolbarIcon title="Highlight" onClick={() => format('highlight')} appearance={appearance}>
                 <Highlighter size={18}/>
             </ToolbarIcon>
             <div className="editor-toolbar-divider mx-1 h-5 w-px"/>
-            <ToolbarIcon title="H1" onClick={() => setHeading('h1')} appearance={appearance} active={activeFormats.headingH1}>
+            <ToolbarIcon
+                title="H1"
+                onClick={() => setHeading('h1')}
+                appearance={appearance}
+                active={activeFormats.headingH1}
+            >
                 <Heading1 size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="H2" onClick={() => setHeading('h2')} appearance={appearance} active={activeFormats.headingH2}>
+            <ToolbarIcon
+                title="H2"
+                onClick={() => setHeading('h2')}
+                appearance={appearance}
+                active={activeFormats.headingH2}
+            >
                 <Heading2 size={18}/>
             </ToolbarIcon>
             <ToolbarIcon title="Quote" onClick={setQuote} appearance={appearance} active={activeFormats.quote}>
@@ -417,7 +449,11 @@ function ToolbarPlugin({appearance = 'default'}: { appearance?: 'default' | 'emb
             <ToolbarIcon title="Code block" onClick={insertCodeBlock} appearance={appearance}>
                 <Code size={18}/>
             </ToolbarIcon>
-            <ToolbarIcon title="Horizontal rule" onClick={() => editor.dispatchCommand(INSERT_HORIZONTAL_RULE_COMMAND, undefined)} appearance={appearance}>
+            <ToolbarIcon
+                title="Horizontal rule"
+                onClick={() => editor.dispatchCommand(INSERT_HORIZONTAL_RULE_COMMAND, undefined)}
+                appearance={appearance}
+            >
                 <SeparatorHorizontal size={18}/>
             </ToolbarIcon>
         </div>
@@ -425,12 +461,12 @@ function ToolbarPlugin({appearance = 'default'}: { appearance?: 'default' | 'emb
 }
 
 function ToolbarIcon({
-                        title,
-                        onClick,
-                        children,
-                        appearance = 'default',
-                        active = false,
-                    }: {
+                         title,
+                         onClick,
+                         children,
+                         appearance = 'default',
+                         active = false,
+                     }: {
     title: string;
     onClick: () => void;
     children: React.ReactNode;
@@ -443,9 +479,7 @@ function ToolbarIcon({
             title={title}
             onMouseDown={(event) => event.preventDefault()}
             onClick={onClick}
-            className={
-                `${appearance === 'embedded' ? 'editor-toolbar-control-embedded editor-toolbar-button-embedded' : 'editor-toolbar-control-default editor-toolbar-button-default'} editor-toolbar-control editor-toolbar-button ${active ? 'is-active' : ''}`
-            }
+            className={`${appearance === 'embedded' ? 'editor-toolbar-control-embedded editor-toolbar-button-embedded' : 'editor-toolbar-control-default editor-toolbar-button-default'} editor-toolbar-control editor-toolbar-button ${active ? 'is-active' : ''}`}
         >
             {children}
         </Button>
@@ -471,7 +505,17 @@ export default function HtmlLexicalEditor({
             onError: (error: Error) => {
                 throw error;
             },
-            nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, AutoLinkNode, CodeNode, ImageNode, HorizontalRuleNode],
+            nodes: [
+                HeadingNode,
+                QuoteNode,
+                ListNode,
+                ListItemNode,
+                LinkNode,
+                AutoLinkNode,
+                CodeNode,
+                ImageNode,
+                HorizontalRuleNode,
+            ],
         }),
         [],
     );
@@ -512,10 +556,7 @@ export default function HtmlLexicalEditor({
                 <AutoLinkPlugin matchers={AUTO_LINK_MATCHERS}/>
                 <HorizontalRulePlugin/>
                 <ImageDnDPlugin/>
-                <FileDropPlugin
-                    onDropNonImageFiles={onDropNonImageFiles}
-                    onFileDragStateChange={setIsFileDragActive}
-                />
+                <FileDropPlugin onDropNonImageFiles={onDropNonImageFiles} onFileDragStateChange={setIsFileDragActive}/>
                 <ExternalHtmlSyncPlugin value={value} lastInternalHtmlRef={lastInternalHtmlRef}/>
                 <OnChangePlugin
                     onChange={(editorState, editor, tags) => {
@@ -523,10 +564,7 @@ export default function HtmlLexicalEditor({
                         editorState.read(() => {
                             const html = toInlineEmailHtml($generateHtmlFromNodes(editor, null));
                             const plain = $getRoot().getTextContent();
-                            if (
-                                html === lastInternalHtmlRef.current &&
-                                plain === lastInternalPlainRef.current
-                            ) {
+                            if (html === lastInternalHtmlRef.current && plain === lastInternalPlainRef.current) {
                                 return;
                             }
                             lastInternalHtmlRef.current = html;
@@ -680,7 +718,8 @@ async function insertDroppedImages(
     if (!images.length) return;
 
     editor.update(() => {
-        const drop = Number.isFinite(clientX) && Number.isFinite(clientY) ? getDropRangeAtPoint(clientX!, clientY!) : null;
+        const drop =
+            Number.isFinite(clientX) && Number.isFinite(clientY) ? getDropRangeAtPoint(clientX!, clientY!) : null;
         if (drop) {
             const nearestNode = $getNearestNodeFromDOMNode(drop.node);
             if (nearestNode) {
@@ -704,7 +743,9 @@ async function insertDroppedImages(
             selection = $getSelection();
         }
         if ($isRangeSelection(selection)) {
-            selection.insertNodes(images.map((image) => $createImageNode(image.dataUrl, image.alt, image.widthPx, 'none', '')));
+            selection.insertNodes(
+                images.map((image) => $createImageNode(image.dataUrl, image.alt, image.widthPx, 'none', '')),
+            );
         }
     });
 }
@@ -794,20 +835,31 @@ function toInlineEmailHtml(inputHtml: string): string {
 
     doc.querySelectorAll('p').forEach((el) => applyStyle(el, 'margin:0 0 12px 0; line-height:1.55;'));
     doc.querySelectorAll('blockquote').forEach((el) =>
-        applyStyle(el, 'margin:0 0 12px 0; padding-left:12px; border-left:3px solid var(--content-border); color:var(--content-muted);'),
+        applyStyle(
+            el,
+            'margin:0 0 12px 0; padding-left:12px; border-left:3px solid var(--content-border); color:var(--content-muted);',
+        ),
     );
     doc.querySelectorAll('ul').forEach((el) => applyStyle(el, 'margin:0 0 12px 22px; padding:0;'));
     doc.querySelectorAll('ol').forEach((el) => applyStyle(el, 'margin:0 0 12px 22px; padding:0;'));
     doc.querySelectorAll('li').forEach((el) => applyStyle(el, 'margin:0 0 6px 0;'));
     doc.querySelectorAll('a').forEach((el) => applyStyle(el, 'color:var(--color-link); text-decoration:underline;'));
     doc.querySelectorAll('pre').forEach((el) =>
-        applyStyle(el, 'margin:0 0 12px 0; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;'),
+        applyStyle(
+            el,
+            'margin:0 0 12px 0; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;',
+        ),
     );
     doc.querySelectorAll('code').forEach((el) =>
-        applyStyle(el, 'font-family:ui-monospace, SFMono-Regular, Menlo, monospace; background:var(--state-hover); padding:1px 4px; border-radius:4px;'),
+        applyStyle(
+            el,
+            'font-family:ui-monospace, SFMono-Regular, Menlo, monospace; background:var(--state-hover); padding:1px 4px; border-radius:4px;',
+        ),
     );
     doc.querySelectorAll('img').forEach((el) => {
-        const align = String(el.getAttribute('data-llamamail-align') || '').toLowerCase().trim();
+        const align = String(el.getAttribute('data-llamamail-align') || '')
+            .toLowerCase()
+            .trim();
         if (align === 'left') {
             applyStyle(el, 'float:left; margin:0 1rem 0.75rem 0;');
         } else if (align === 'right') {

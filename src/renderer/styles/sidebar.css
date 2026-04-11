@@ -20,7 +20,8 @@
     .account-item {
         color: var(--account-item-text);
         background-color: var(--account-item-surface);
-        transition: background-color 140ms ease, color 140ms ease;
+        transition: background-color 140ms ease,
+        color 140ms ease;
     }
 
     .account-item:hover {
@@ -40,5 +41,4 @@
     .account-item-meta {
         color: var(--sidebar-muted);
     }
-
 }

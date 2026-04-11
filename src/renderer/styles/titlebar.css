@@ -27,7 +27,8 @@
 
     .titlebar-button {
         color: color-mix(in srgb, var(--titlebar-text) 90%, transparent);
-        transition: background-color 140ms ease, color 140ms ease;
+        transition: background-color 140ms ease,
+        color 140ms ease;
     }
 
     .titlebar-button:hover {

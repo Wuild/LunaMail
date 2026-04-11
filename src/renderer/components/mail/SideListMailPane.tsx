@@ -45,19 +45,19 @@ type SideListMailPaneProps = {
 };
 
 function DraggableMessageRow({
-    message,
-    messageIndex,
-    selectedMessageIds,
-    selectedMessageId,
+                                 message,
+                                 messageIndex,
+                                 selectedMessageIds,
+                                 selectedMessageId,
                                  contextMenuMessageId,
-    onMessageRowClick,
-    onOpenMessageWindow,
-    onOpenMessageMenu,
-    getThreadCount,
-    formatMessageSender,
-    getTagDotClass,
-    getTagLabel,
-    dateLocale,
+                                 onMessageRowClick,
+                                 onOpenMessageWindow,
+                                 onOpenMessageMenu,
+                                 getThreadCount,
+                                 formatMessageSender,
+                                 getTagDotClass,
+                                 getTagLabel,
+                                 dateLocale,
 }: {
     message: MessageItem;
     messageIndex: number;
@@ -77,7 +77,7 @@ function DraggableMessageRow({
 
     const dragIds =
         selectedMessageIds.length > 1 && selectedMessageIds.includes(message.id) ? selectedMessageIds : [message.id];
-    const [, dragRef, previewRef] = useDrag<MailMessageDragItem, unknown, {isDragging: boolean}>(
+    const [, dragRef, previewRef] = useDrag<MailMessageDragItem, unknown, { isDragging: boolean }>(
         () => ({
             type: DND_ITEM.MAIL_MESSAGE,
             item: {
@@ -118,7 +118,9 @@ function DraggableMessageRow({
                     <div
                         className={cn(
                             'flex min-w-0 items-center gap-2 text-sm',
-                            message.is_read ? 'mail-list-subject-read font-medium' : 'mail-list-subject-unread font-semibold',
+                            message.is_read
+                                ? 'mail-list-subject-read font-medium'
+                                : 'mail-list-subject-unread font-semibold',
                         )}
                     >
                         {!message.is_read && (
@@ -132,44 +134,43 @@ function DraggableMessageRow({
                         {getThreadCount(message) > 1 && (
                             <span
                                 className="mail-list-thread-count inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none">
-							{getThreadCount(message)}
-						</span>
+								{getThreadCount(message)}
+							</span>
                         )}
                     </div>
                     <div className="mt-1.5 flex items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
-                            <p className="mail-list-sender truncate text-xs">
-                                {senderDisplay}
-                            </p>
+                            <p className="mail-list-sender truncate text-xs">{senderDisplay}</p>
                             {Boolean((message as MessageItem & { tag?: string | null }).tag) && (
                                 <span
                                     className="mail-list-tag-chip inline-flex max-w-[10rem] items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px]">
-							        <span
+									<span
                                         className={cn(
                                             'inline-flex h-1.5 w-1.5 shrink-0 rounded-full',
-                                            getTagDotClass((message as MessageItem & {
-                                                tag?: string | null
-                                            }).tag ?? null),
+                                            getTagDotClass(
+                                                (
+                                                    message as MessageItem & {
+                                                        tag?: string | null;
+                                                    }
+                                                ).tag ?? null,
+                                            ),
                                         )}
                                     />
-							        <span className="truncate">
-								        {getTagLabel((message as MessageItem & { tag?: string | null }).tag ?? null)}
-							        </span>
-						        </span>
+									<span className="truncate">
+										{getTagLabel((message as MessageItem & { tag?: string | null }).tag ?? null)}
+									</span>
+								</span>
                             )}
                         </div>
                         <span
                             className="mail-list-meta ml-3 inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-xs">
-					        {Boolean(message.is_flagged) && (
-                                <span
-                                    className="mail-list-starred inline-flex items-center"
-                                    title="Starred"
-                                >
-							        <Star size={12} className="fill-current"/>
-						        </span>
+							{Boolean(message.is_flagged) && (
+                                <span className="mail-list-starred inline-flex items-center" title="Starred">
+									<Star size={12} className="fill-current"/>
+								</span>
                             )}
                             <span>{formatSystemDateTime(message.date, dateLocale)}</span>
-				        </span>
+						</span>
                     </div>
                 </div>
             </div>
@@ -235,8 +236,7 @@ export default function SideListMailPane({
                 </div>
                 {selectedMessageIds.length > 1 && (
                     <div className="mail-list-pane-header px-2 py-2">
-                        <div
-                            className="mail-selection-toolbar flex flex-wrap items-center gap-2 rounded-md p-2">
+                        <div className="mail-selection-toolbar flex flex-wrap items-center gap-2 rounded-md p-2">
 							<span className="ui-text-secondary text-xs font-medium">
 								{selectedMessageIds.length} selected
 							</span>
@@ -286,9 +286,7 @@ export default function SideListMailPane({
                     }}
                 >
                     {messages.length === 0 && (
-                        <div className="mail-list-empty p-5 text-sm">
-                            No messages in this folder yet.
-                        </div>
+                        <div className="mail-list-empty p-5 text-sm">No messages in this folder yet.</div>
                     )}
                     {messages.map((message, messageIndex) => (
                         <DraggableMessageRow
@@ -309,14 +307,10 @@ export default function SideListMailPane({
                         />
                     ))}
                     {loadingMoreMessages && messages.length > 0 && (
-                        <div className="mail-list-loading px-5 py-3 text-center text-xs">
-                            Loading more messages...
-                        </div>
+                        <div className="mail-list-loading px-5 py-3 text-center text-xs">Loading more messages...</div>
                     )}
                     {!hasMoreMessages && messages.length > 0 && (
-                        <div className="mail-list-end px-5 py-3 text-center text-xs">
-                            End of list
-                        </div>
+                        <div className="mail-list-end px-5 py-3 text-center text-xs">End of list</div>
                     )}
                 </ScrollArea>
                 {!isCompactSideList && (

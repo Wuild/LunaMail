@@ -307,9 +307,7 @@ export function reconcileFolderMessageUids(folderId: number, serverUids: number[
         .from(messages)
         .where(eq(messages.folderId, folderId))
         .all();
-    const staleMessageIds = localRows
-        .filter((row) => !serverUidSet.has(row.uid))
-        .map((row) => row.id);
+    const staleMessageIds = localRows.filter((row) => !serverUidSet.has(row.uid)).map((row) => row.id);
     if (staleMessageIds.length === 0) return;
     const chunkSize = 200;
     for (let index = 0; index < staleMessageIds.length; index += chunkSize) {
@@ -717,9 +715,7 @@ export function listRecentRecipients(
 
 export function getTotalUnreadCount(): number {
     const db = getDb();
-    const foldersRow = db
-        .prepare('SELECT COALESCE(SUM(unread_count), 0) as unread FROM folders')
-        .get() as
+    const foldersRow = db.prepare('SELECT COALESCE(SUM(unread_count), 0) as unread FROM folders').get() as
         | {
         unread: number;
     }
@@ -863,16 +859,17 @@ export function upsertLocalDraftSnapshot(input: UpsertLocalDraftSnapshotInput): 
         typeof input.draftMessageId === 'number' && Number.isFinite(input.draftMessageId)
             ? getMessageContext(Math.floor(input.draftMessageId))
             : null;
-    const targetFolder = localDraftContext && localDraftContext.accountId === input.accountId
-        ? {
-            id: localDraftContext.folderId,
-            path: localDraftContext.folderPath,
-        }
-        : listFoldersByAccount(input.accountId).find((folder) => {
-            const type = String(folder.type || '').toLowerCase();
-            const path = String(folder.path || '').toLowerCase();
-            return type === 'drafts' || path.includes('draft');
-        });
+    const targetFolder =
+        localDraftContext && localDraftContext.accountId === input.accountId
+            ? {
+                id: localDraftContext.folderId,
+                path: localDraftContext.folderPath,
+            }
+            : listFoldersByAccount(input.accountId).find((folder) => {
+                const type = String(folder.type || '').toLowerCase();
+                const path = String(folder.path || '').toLowerCase();
+                return type === 'drafts' || path.includes('draft');
+            });
     if (!targetFolder) return null;
 
     if (localDraftContext && localDraftContext.accountId === input.accountId) {
@@ -899,18 +896,14 @@ export function upsertLocalDraftSnapshot(input: UpsertLocalDraftSnapshotInput): 
             targetDate,
             localDraftContext.messageId,
         );
-        upsertMessageBody(
-            localDraftContext.messageId,
-            input.textContent ?? null,
-            input.htmlContent ?? null,
-        );
+        upsertMessageBody(localDraftContext.messageId, input.textContent ?? null, input.htmlContent ?? null);
         replaceMessageAttachments(localDraftContext.messageId, attachmentRows);
         const unreadRow = db
             .prepare('SELECT count(*) as c FROM messages WHERE folder_id = ? AND is_read = 0')
             .get(targetFolder.id) as { c: number } | undefined;
-        const totalRow = db
-            .prepare('SELECT count(*) as c FROM messages WHERE folder_id = ?')
-            .get(targetFolder.id) as { c: number } | undefined;
+        const totalRow = db.prepare('SELECT count(*) as c FROM messages WHERE folder_id = ?').get(targetFolder.id) as
+            | { c: number }
+            | undefined;
         db.prepare('UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?').run(
             unreadRow?.c ?? 0,
             totalRow?.c ?? 0,
@@ -919,9 +912,9 @@ export function upsertLocalDraftSnapshot(input: UpsertLocalDraftSnapshotInput): 
         return localDraftContext.messageId;
     }
 
-    const minUidRow = db
-        .prepare('SELECT MIN(uid) as minUid FROM messages WHERE folder_id = ?')
-        .get(targetFolder.id) as { minUid?: number | null } | undefined;
+    const minUidRow = db.prepare('SELECT MIN(uid) as minUid FROM messages WHERE folder_id = ?').get(targetFolder.id) as
+        | { minUid?: number | null }
+        | undefined;
     const minUid = Number(minUidRow?.minUid ?? 0);
     const nextTempUid = Number.isFinite(minUid) && minUid <= 0 ? Math.floor(minUid) - 1 : -1;
     upsertMessage({
@@ -947,9 +940,9 @@ export function upsertLocalDraftSnapshot(input: UpsertLocalDraftSnapshotInput): 
     const unreadRow = db
         .prepare('SELECT count(*) as c FROM messages WHERE folder_id = ? AND is_read = 0')
         .get(targetFolder.id) as { c: number } | undefined;
-    const totalRow = db
-        .prepare('SELECT count(*) as c FROM messages WHERE folder_id = ?')
-        .get(targetFolder.id) as { c: number } | undefined;
+    const totalRow = db.prepare('SELECT count(*) as c FROM messages WHERE folder_id = ?').get(targetFolder.id) as
+        | { c: number }
+        | undefined;
     db.prepare('UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?').run(
         unreadRow?.c ?? 0,
         totalRow?.c ?? 0,

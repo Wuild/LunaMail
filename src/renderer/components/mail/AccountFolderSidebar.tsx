@@ -60,11 +60,11 @@ function parseFolderSortableId(id: string): { accountId: number; path: string } 
 }
 
 function MessageDropZone({
-    folder,
-    selectedFolderPath,
-    isSelectedAccount,
-    onDropMessages,
-    children,
+                             folder,
+                             selectedFolderPath,
+                             isSelectedAccount,
+                             onDropMessages,
+                             children,
 }: {
     folder: FolderItem;
     selectedFolderPath: string | null;
@@ -95,8 +95,8 @@ function MessageDropZone({
 }
 
 function SortableCustomFolderRow({
-    folder,
-    children,
+                                     folder,
+                                     children,
 }: {
     folder: FolderItem;
     children: (state: {
@@ -133,10 +133,7 @@ function SortableCustomFolderRow({
     );
 }
 
-function SortableAccountShell({
-    accountId,
-    children,
-}: SortableAccountShellProps) {
+function SortableAccountShell({accountId, children}: SortableAccountShellProps) {
     const {attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging} = useSortable({
         id: `account-${accountId}`,
         data: {accountId},
@@ -233,9 +230,15 @@ export default function AccountFolderSidebar({
                                                  getFolderColorClass,
                                              }: AccountFolderSidebarProps) {
     const [draggingAccountId, setDraggingAccountId] = React.useState<number | null>(null);
-    const [dragOverlaySize, setDragOverlaySize] = React.useState<{width: number; height: number} | null>(null);
-    const [draggingFolder, setDraggingFolder] = React.useState<{accountId: number; path: string; label: string} | null>(null);
-    const [folderOverlaySize, setFolderOverlaySize] = React.useState<{width: number; height: number} | null>(null);
+    const [dragOverlaySize, setDragOverlaySize] = React.useState<{ width: number; height: number } | null>(null);
+    const [draggingFolder, setDraggingFolder] = React.useState<{
+        accountId: number;
+        path: string;
+        label: string
+    } | null>(
+        null,
+    );
+    const [folderOverlaySize, setFolderOverlaySize] = React.useState<{ width: number; height: number } | null>(null);
     const [dragCollapsedRestore, setDragCollapsedRestore] = React.useState<{
         accountId: number;
         shouldRestoreExpanded: boolean;
@@ -243,7 +246,8 @@ export default function AccountFolderSidebar({
     const accountSensors = useSensors(useSensor(PointerSensor, {activationConstraint: {distance: 4}}));
     const accountSortableIds = React.useMemo(() => accounts.map((account) => `account-${account.id}`), [accounts]);
     const draggingAccount = React.useMemo(
-        () => (draggingAccountId === null ? null : accounts.find((account) => account.id === draggingAccountId) ?? null),
+        () =>
+            draggingAccountId === null ? null : (accounts.find((account) => account.id === draggingAccountId) ?? null),
         [accounts, draggingAccountId],
     );
     const clearFolderDragState = React.useCallback(() => {
@@ -255,74 +259,115 @@ export default function AccountFolderSidebar({
         [collapsedAccountIds, selectedAccountId],
     );
 
-    const handleAccountDragStart = React.useCallback((event: DragStartEvent) => {
-        const kind = String(event.active.data.current?.kind || '');
-        if (kind === 'folder') {
+    const handleAccountDragStart = React.useCallback(
+        (event: DragStartEvent) => {
+            const kind = String(event.active.data.current?.kind || '');
+            if (kind === 'folder') {
+                const accountId = Number(event.active.data.current?.accountId);
+                const path = String(event.active.data.current?.path || '');
+                const label = String(event.active.data.current?.label || '');
+                if (!Number.isFinite(accountId) || !path) return;
+                setDraggingFolder({accountId, path, label: label || path});
+                const initialRect = event.active.rect.current.initial;
+                if (initialRect) {
+                    setFolderOverlaySize({width: initialRect.width, height: initialRect.height});
+                } else {
+                    setFolderOverlaySize(null);
+                }
+                return;
+            }
             const accountId = Number(event.active.data.current?.accountId);
-            const path = String(event.active.data.current?.path || '');
-            const label = String(event.active.data.current?.label || '');
-            if (!Number.isFinite(accountId) || !path) return;
-            setDraggingFolder({accountId, path, label: label || path});
+            if (!Number.isFinite(accountId)) return;
+            setDraggingAccountId(accountId);
+            const isSavedExpanded = !collapsedAccountIds.has(accountId);
+            setDragCollapsedRestore({accountId, shouldRestoreExpanded: isSavedExpanded});
+            if (isSavedExpanded) {
+                onToggleAccountExpanded(accountId);
+            }
             const initialRect = event.active.rect.current.initial;
             if (initialRect) {
-                setFolderOverlaySize({width: initialRect.width, height: initialRect.height});
+                setDragOverlaySize({width: initialRect.width, height: initialRect.height});
             } else {
-                setFolderOverlaySize(null);
+                setDragOverlaySize(null);
             }
-            return;
-        }
-        const accountId = Number(event.active.data.current?.accountId);
-        if (!Number.isFinite(accountId)) return;
-        setDraggingAccountId(accountId);
-        const isSavedExpanded = !collapsedAccountIds.has(accountId);
-        setDragCollapsedRestore({accountId, shouldRestoreExpanded: isSavedExpanded});
-        if (isSavedExpanded) {
-            onToggleAccountExpanded(accountId);
-        }
-        const initialRect = event.active.rect.current.initial;
-        if (initialRect) {
-            setDragOverlaySize({width: initialRect.width, height: initialRect.height});
-        } else {
-            setDragOverlaySize(null);
-        }
-    }, [collapsedAccountIds, onToggleAccountExpanded]);
-    const handleAccountDragEnd = React.useCallback((event: DragEndEvent) => {
-        const kind = String(event.active.data.current?.kind || '');
-        if (kind === 'folder') {
-            const activeAccountId = Number(event.active.data.current?.accountId);
-            const activePath = String(event.active.data.current?.path || '');
-            if (!Number.isFinite(activeAccountId) || !activePath || !event.over) {
-                clearFolderDragState();
-                return;
-            }
-            const accountCustom = (accountFoldersById[activeAccountId] ?? []).filter((entry) => !isProtectedFolder(entry));
-            const sourceIndex = accountCustom.findIndex((entry) => entry.path === activePath);
-            if (sourceIndex < 0) {
-                clearFolderDragState();
-                return;
-            }
-            let targetIndex = sourceIndex;
-            const overId = String(event.over.id);
-            if (overId === `folder-end-${activeAccountId}`) {
-                targetIndex = Math.max(0, accountCustom.length - 1);
-            } else {
-                const parsed = parseFolderSortableId(overId);
-                if (!parsed || parsed.accountId !== activeAccountId) {
+        },
+        [collapsedAccountIds, onToggleAccountExpanded],
+    );
+    const handleAccountDragEnd = React.useCallback(
+        (event: DragEndEvent) => {
+            const kind = String(event.active.data.current?.kind || '');
+            if (kind === 'folder') {
+                const activeAccountId = Number(event.active.data.current?.accountId);
+                const activePath = String(event.active.data.current?.path || '');
+                if (!Number.isFinite(activeAccountId) || !activePath || !event.over) {
                     clearFolderDragState();
                     return;
                 }
-                const overIndex = accountCustom.findIndex((entry) => entry.path === parsed.path);
+                const accountCustom = (accountFoldersById[activeAccountId] ?? []).filter(
+                    (entry) => !isProtectedFolder(entry),
+                );
+                const sourceIndex = accountCustom.findIndex((entry) => entry.path === activePath);
+                if (sourceIndex < 0) {
+                    clearFolderDragState();
+                    return;
+                }
+                let targetIndex = sourceIndex;
+                const overId = String(event.over.id);
+                if (overId === `folder-end-${activeAccountId}`) {
+                    targetIndex = Math.max(0, accountCustom.length - 1);
+                } else {
+                    const parsed = parseFolderSortableId(overId);
+                    if (!parsed || parsed.accountId !== activeAccountId) {
+                        clearFolderDragState();
+                        return;
+                    }
+                    const overIndex = accountCustom.findIndex((entry) => entry.path === parsed.path);
+                    if (overIndex >= 0) targetIndex = overIndex;
+                }
+                if (targetIndex !== sourceIndex) {
+                    const nextPaths = arrayMove(accountCustom, sourceIndex, targetIndex).map((entry) => entry.path);
+                    void onReorderCustomFolders(activeAccountId, nextPaths);
+                }
+                clearFolderDragState();
+                return;
+            }
+            const activeAccountId = Number(event.active.data.current?.accountId);
+            if (!Number.isFinite(activeAccountId)) {
+                if (dragCollapsedRestore?.accountId === activeAccountId && dragCollapsedRestore.shouldRestoreExpanded) {
+                    onToggleAccountExpanded(activeAccountId);
+                }
+                setDraggingAccountId(null);
+                setDragOverlaySize(null);
+                setDragCollapsedRestore(null);
+                clearFolderDragState();
+                return;
+            }
+            const order = accounts.map((item) => item.id);
+            const sourceIndex = order.indexOf(activeAccountId);
+            if (sourceIndex < 0) {
+                setDraggingAccountId(null);
+                setDragOverlaySize(null);
+                return;
+            }
+            let targetIndex = sourceIndex;
+            if (!event.over) {
+                targetIndex = Math.max(0, order.length - 1);
+            } else if (event.over.id === 'account-end') {
+                targetIndex = Math.max(0, order.length - 1);
+            } else {
+                const overAccountId = Number(String(event.over.id).replace('account-', ''));
+                if (!Number.isFinite(overAccountId)) {
+                    setDraggingAccountId(null);
+                    setDragOverlaySize(null);
+                    clearFolderDragState();
+                    return;
+                }
+                const overIndex = order.indexOf(overAccountId);
                 if (overIndex >= 0) targetIndex = overIndex;
             }
             if (targetIndex !== sourceIndex) {
-                const nextPaths = arrayMove(accountCustom, sourceIndex, targetIndex).map((entry) => entry.path);
-                void onReorderCustomFolders(activeAccountId, nextPaths);
+                onReorderAccounts(arrayMove(order, sourceIndex, targetIndex));
             }
-            clearFolderDragState();
-            return;
-        }
-        const activeAccountId = Number(event.active.data.current?.accountId);
-        if (!Number.isFinite(activeAccountId)) {
             if (dragCollapsedRestore?.accountId === activeAccountId && dragCollapsedRestore.shouldRestoreExpanded) {
                 onToggleAccountExpanded(activeAccountId);
             }
@@ -330,53 +375,26 @@ export default function AccountFolderSidebar({
             setDragOverlaySize(null);
             setDragCollapsedRestore(null);
             clearFolderDragState();
-            return;
-        }
-        const order = accounts.map((item) => item.id);
-        const sourceIndex = order.indexOf(activeAccountId);
-        if (sourceIndex < 0) {
-            setDraggingAccountId(null);
-            setDragOverlaySize(null);
-            return;
-        }
-        let targetIndex = sourceIndex;
-        if (!event.over) {
-            targetIndex = Math.max(0, order.length - 1);
-        } else if (event.over.id === 'account-end') {
-            targetIndex = Math.max(0, order.length - 1);
-        } else {
-            const overAccountId = Number(String(event.over.id).replace('account-', ''));
-            if (!Number.isFinite(overAccountId)) {
-                setDraggingAccountId(null);
-                setDragOverlaySize(null);
-                clearFolderDragState();
-                return;
-            }
-            const overIndex = order.indexOf(overAccountId);
-            if (overIndex >= 0) targetIndex = overIndex;
-        }
-        if (targetIndex !== sourceIndex) {
-            onReorderAccounts(arrayMove(order, sourceIndex, targetIndex));
-        }
-        if (dragCollapsedRestore?.accountId === activeAccountId && dragCollapsedRestore.shouldRestoreExpanded) {
-            onToggleAccountExpanded(activeAccountId);
-        }
-        setDraggingAccountId(null);
-        setDragOverlaySize(null);
-        setDragCollapsedRestore(null);
-        clearFolderDragState();
-    }, [accountFoldersById, accounts, clearFolderDragState, dragCollapsedRestore, isProtectedFolder, onReorderAccounts, onReorderCustomFolders, onToggleAccountExpanded]);
+        },
+        [
+            accountFoldersById,
+            accounts,
+            clearFolderDragState,
+            dragCollapsedRestore,
+            isProtectedFolder,
+            onReorderAccounts,
+            onReorderCustomFolders,
+            onToggleAccountExpanded,
+        ],
+    );
 
     if (hidden) return null;
 
     return (
         <div className="relative min-h-0 shrink-0" style={{width}}>
-            <aside
-                className="sidebar ui-text-primary flex h-full min-h-0 shrink-0 flex-col">
+            <aside className="sidebar ui-text-primary flex h-full min-h-0 shrink-0 flex-col">
                 <ScrollArea className="min-h-0 flex-1 px-2.5 py-3">
-                    <nav
-                        className="space-y-2 overflow-x-hidden"
-                    >
+                    <nav className="space-y-2 overflow-x-hidden">
                         <div className="ui-border-default mb-2 border-b pb-2">
                             <Button
                                 type="button"
@@ -391,9 +409,7 @@ export default function AccountFolderSidebar({
                         </div>
 
                         {accounts.length === 0 && (
-                            <div className="ui-text-muted rounded-lg px-3 py-2.5 text-sm">
-                                No accounts yet
-                            </div>
+                            <div className="ui-text-muted rounded-lg px-3 py-2.5 text-sm">No accounts yet</div>
                         )}
 
                         <DndContext
@@ -414,275 +430,351 @@ export default function AccountFolderSidebar({
                             <div className="flex min-h-full flex-col">
                                 <SortableContext items={accountSortableIds} strategy={verticalListSortingStrategy}>
                                     {accounts.map((account, accountIndex) => {
-                            const isSelectedAccount = account.id === selectedAccountId;
-                            const isSyncingAccount =
-                                (syncingAccountIds?.has(account.id) ?? false) || localSyncingAccountIds.has(account.id);
+                                        const isSelectedAccount = account.id === selectedAccountId;
+                                        const isSyncingAccount =
+                                            (syncingAccountIds?.has(account.id) ?? false) ||
+                                            localSyncingAccountIds.has(account.id);
                                         const isExpanded = isAccountExpanded(account.id);
-                            const accountFolders = accountFoldersById[account.id] ?? [];
-                            const accountUnread = accountFolders.reduce(
-                                (sum, folder) => sum + Math.max(0, Number(folder.unread_count) || 0),
-                                0,
-                            );
-                            const accountProtectedFolders = accountFolders.filter((folder) =>
-                                isProtectedFolder(folder),
-                            );
-                            const accountCustomFolders = accountFolders.filter((folder) => !isProtectedFolder(folder));
-                            const accountDefaultFolder = accountFolders[0] ?? null;
-                            const accountLinkTarget = accountDefaultFolder
-                                ? `/email/${account.id}/${accountDefaultFolder.id}`
-                                : `/email/${account.id}`;
-                            const avatarColors = getAccountAvatarColorsForAccount(account);
+                                        const accountFolders = accountFoldersById[account.id] ?? [];
+                                        const accountUnread = accountFolders.reduce(
+                                            (sum, folder) => sum + Math.max(0, Number(folder.unread_count) || 0),
+                                            0,
+                                        );
+                                        const accountProtectedFolders = accountFolders.filter((folder) =>
+                                            isProtectedFolder(folder),
+                                        );
+                                        const accountCustomFolders = accountFolders.filter(
+                                            (folder) => !isProtectedFolder(folder),
+                                        );
+                                        const accountDefaultFolder = accountFolders[0] ?? null;
+                                        const accountLinkTarget = accountDefaultFolder
+                                            ? `/email/${account.id}/${accountDefaultFolder.id}`
+                                            : `/email/${account.id}`;
+                                        const avatarColors = getAccountAvatarColorsForAccount(account);
 
-                            return (
-                                <div key={account.id} className="space-y-1">
-                                    <SortableAccountShell
-                                        accountId={account.id}
-                                    >
-                                        {({attributes, listeners, setActivatorRef}) => (
-                                        <>
-                                            <div
-                                                ref={setActivatorRef}
-                                                {...attributes}
-                                                {...listeners}
-                                                className={cn(
-                                                    'account-row-shell group flex items-center gap-1 rounded-lg px-1 py-0.5',
-                                                    isSelectedAccount
-                                                        ? 'is-active'
-                                                        : '',
-                                                )}
-                                            >
-                                            <a
-                                                href={`#${accountLinkTarget}`}
-                                                draggable={false}
-                                                className={cn(
-                                                    'flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm no-underline transition-colors',
-                                                    isSelectedAccount
-                                                        ? 'ui-text-primary font-semibold'
-                                                        : 'ui-text-secondary',
-                                                )}
-                                                onContextMenu={(event) => {
-                                                    event.preventDefault();
-                                                    onOpenAccountContextMenu(account, event.clientX, event.clientY);
-                                                }}
-                                                style={{color: 'inherit'}}
-                                            >
-                                            <span
-                                                className={cn(
-                                                    'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold',
-                                                    isSelectedAccount
-                                                        ? 'avatar-ring-strong'
-                                                        : 'avatar-ring',
-                                                )}
-                                                style={{
-                                                    backgroundColor: avatarColors.background,
-                                                    color: avatarColors.foreground,
-                                                }}
-                                            >
-												{getAccountMonogram(account)}
-											</span>
-                                            <span className="min-w-0 flex-1">
-												<span className="block truncate">
-													{account.display_name?.trim() || account.email}
-												</span>
-                                                {account.display_name?.trim() && (
-                                                    <span
-                                                        className="ui-text-muted block truncate text-[11px] font-normal">
-														{account.email}
-													</span>
-                                                )}
-											</span>
-                                            </a>
-                                            <div className="ml-auto flex items-center gap-1 pr-0">
-                                                <div
-                                                    className={cn(
-                                                        'flex items-center gap-1 transition-opacity',
-                                                        isSyncingAccount
-                                                            ? 'opacity-100'
-                                                            : 'opacity-0 group-hover:opacity-100',
-                                                    )}
-                                                >
-                                                    <Button
-                                                        className="button-ghost rounded p-1 transition-colors"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            onSyncAccount(account.id);
-                                                        }}
-                                                        title="Sync account"
-                                                        aria-label="Sync account"
-                                                        disabled={isSyncingAccount}
-                                                    >
-                                                        <RefreshCw
-                                                            size={13}
-                                                            className={cn(isSyncingAccount && 'animate-spin')}
-                                                        />
-                                                    </Button>
-                                                    <Button
-                                                        className="button-ghost rounded p-1 transition-colors"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            onOpenAccountSettings(account.id);
-                                                        }}
-                                                        title="Edit account"
-                                                        aria-label="Edit account"
-                                                    >
-                                                        <Settings size={13}/>
-                                                    </Button>
-                                                </div>
-                                                {accountUnread > 0 && (
-                                                    <NewEmailBadge
-                                                        count={accountUnread}
-                                                        title={`${accountUnread} unread in account`}
-                                                    />
-                                                )}
-                                                <Button
-                                                    type="button"
-                                                    className="button-ghost rounded p-1 transition-colors"
-                                                    onClick={(event) => {
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
-                                                        onToggleAccountExpanded(account.id);
-                                                    }}
-                                                    title={
-                                                        isExpanded ? 'Collapse account folders' : 'Expand account folders'
-                                                    }
-                                                    aria-label={
-                                                        isExpanded ? 'Collapse account folders' : 'Expand account folders'
-                                                    }
-                                                    aria-expanded={isExpanded}
-                                                >
-                                                    <ChevronRight
-                                                        size={14}
-                                                        className={cn('transition-transform', isExpanded && 'rotate-90')}
-                                                    />
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        {isExpanded && (
-                                            <div
-                                                className="tree-guide relative mt-1 space-y-1 pl-7 before:absolute before:bottom-2 before:left-3.5 before:top-1 before:w-px before:content-['']">
-                                            {accountFolders.length === 0 ? (
-                                                <div
-                                                    className="ui-text-muted rounded-md px-2 py-1.5 text-xs">
-                                                    No folders yet
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    {accountProtectedFolders.map((folder) => (
-                                                        <MessageDropZone
-                                                            key={folder.id}
-                                                            folder={folder}
-                                                            selectedFolderPath={selectedFolderPath}
-                                                            isSelectedAccount={isSelectedAccount}
-                                                            onDropMessages={onHandleMessageDropOnFolder}
-                                                        >
-                                                            {(dropActive) => (
-                                                                <FolderItemRow
-                                                                    to={`/email/${account.id}/${folder.id}`}
-                                                                    icon={getFolderIcon(folder)}
-                                                                    iconColorClassName={getFolderColorClass(folder.color)}
-                                                                    label={folder.custom_name || folder.name}
-                                                                    count={folder.unread_count}
-                                                                    active={
-                                                                        isSelectedAccount &&
-                                                                        selectedFolderPath === folder.path
-                                                                    }
-                                                                    onEditFolder={() => onOpenFolderEditor(folder)}
-                                                                    onRefreshFolder={() => onRefreshFolder(folder)}
-                                                                    refreshing={isFolderRefreshing(folder)}
-                                                                    dropActive={dropActive}
+                                        return (
+                                            <div key={account.id} className="space-y-1">
+                                                <SortableAccountShell accountId={account.id}>
+                                                    {({attributes, listeners, setActivatorRef}) => (
+                                                        <>
+                                                            <div
+                                                                ref={setActivatorRef}
+                                                                {...attributes}
+                                                                {...listeners}
+                                                                className={cn(
+                                                                    'account-row-shell group flex items-center gap-1 rounded-lg px-1 py-0.5',
+                                                                    isSelectedAccount ? 'is-active' : '',
+                                                                )}
+                                                            >
+                                                                <a
+                                                                    href={`#${accountLinkTarget}`}
+                                                                    draggable={false}
+                                                                    className={cn(
+                                                                        'flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm no-underline transition-colors',
+                                                                        isSelectedAccount
+                                                                            ? 'ui-text-primary font-semibold'
+                                                                            : 'ui-text-secondary',
+                                                                    )}
                                                                     onContextMenu={(event) => {
                                                                         event.preventDefault();
-                                                                        onOpenFolderContextMenu(
-                                                                            account.id,
-                                                                            folder,
+                                                                        onOpenAccountContextMenu(
+                                                                            account,
                                                                             event.clientX,
                                                                             event.clientY,
                                                                         );
                                                                     }}
-                                                                />
-                                                            )}
-                                                        </MessageDropZone>
-                                                    ))}
-                                                    {accountProtectedFolders.length > 0 &&
-                                                        accountCustomFolders.length > 0 && (
-                                                            <div
-                                                                className="separator-fade my-1.5 h-px"/>
-                                                        )}
-                                                    <SortableContext
-                                                        items={accountCustomFolders.map((entry) => toFolderSortableId(entry.account_id, entry.path))}
-                                                        strategy={verticalListSortingStrategy}
-                                                    >
-                                                        {accountCustomFolders.map((folder) => (
-                                                            <MessageDropZone
-                                                                key={folder.id}
-                                                                folder={folder}
-                                                                selectedFolderPath={selectedFolderPath}
-                                                                isSelectedAccount={isSelectedAccount}
-                                                                onDropMessages={onHandleMessageDropOnFolder}
-                                                            >
-                                                                {(dropActive) => (
-                                                                    <SortableCustomFolderRow folder={folder}>
-                                                                        {({attributes, listeners, setActivatorRef}) => (
-                                                                            <div
-                                                                                ref={setActivatorRef}
-                                                                                {...attributes}
-                                                                                {...listeners}
-                                                                            >
-                                                                                <FolderItemRow
-                                                                                    to={`/email/${account.id}/${folder.id}`}
-                                                                                    icon={getFolderIcon(folder)}
-                                                                                    iconColorClassName={getFolderColorClass(
-                                                                                        folder.color,
-                                                                                    )}
-                                                                                    label={folder.custom_name || folder.name}
-                                                                                    count={folder.unread_count}
-                                                                                    active={
-                                                                                        isSelectedAccount &&
-                                                                                        selectedFolderPath === folder.path
-                                                                                    }
-                                                                                    onEditFolder={() => onOpenFolderEditor(folder)}
-                                                                                    onRefreshFolder={() => onRefreshFolder(folder)}
-                                                                                    refreshing={isFolderRefreshing(folder)}
-                                                                                    dropActive={dropActive}
-                                                                                    onContextMenu={(event) => {
-                                                                                        event.preventDefault();
-                                                                                        onOpenFolderContextMenu(
-                                                                                            account.id,
-                                                                                            folder,
-                                                                                            event.clientX,
-                                                                                            event.clientY,
-                                                                                        );
-                                                                                    }}
-                                                                                />
-                                                                            </div>
+                                                                    style={{color: 'inherit'}}
+                                                                >
+																	<span
+                                                                        className={cn(
+                                                                            'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold',
+                                                                            isSelectedAccount
+                                                                                ? 'avatar-ring-strong'
+                                                                                : 'avatar-ring',
                                                                         )}
-                                                                    </SortableCustomFolderRow>
-                                                                )}
-                                                            </MessageDropZone>
-                                                        ))}
-                                                        {draggingFolder?.accountId === account.id && accountCustomFolders.length > 0 && (
-                                                            <SortableFolderEndDrop accountId={account.id}/>
-                                                        )}
-                                                    </SortableContext>
-                                                </>
-                                            )}
+                                                                        style={{
+                                                                            backgroundColor: avatarColors.background,
+                                                                            color: avatarColors.foreground,
+                                                                        }}
+                                                                    >
+																		{getAccountMonogram(account)}
+																	</span>
+                                                                    <span className="min-w-0 flex-1">
+																		<span className="block truncate">
+																			{account.display_name?.trim() ||
+                                                                                account.email}
+																		</span>
+                                                                        {account.display_name?.trim() && (
+                                                                            <span
+                                                                                className="ui-text-muted block truncate text-[11px] font-normal">
+																				{account.email}
+																			</span>
+                                                                        )}
+																	</span>
+                                                                </a>
+                                                                <div className="ml-auto flex items-center gap-1 pr-0">
+                                                                    <div
+                                                                        className={cn(
+                                                                            'flex items-center gap-1 transition-opacity',
+                                                                            isSyncingAccount
+                                                                                ? 'opacity-100'
+                                                                                : 'opacity-0 group-hover:opacity-100',
+                                                                        )}
+                                                                    >
+                                                                        <Button
+                                                                            className="button-ghost rounded p-1 transition-colors"
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                onSyncAccount(account.id);
+                                                                            }}
+                                                                            title="Sync account"
+                                                                            aria-label="Sync account"
+                                                                            disabled={isSyncingAccount}
+                                                                        >
+                                                                            <RefreshCw
+                                                                                size={13}
+                                                                                className={cn(
+                                                                                    isSyncingAccount && 'animate-spin',
+                                                                                )}
+                                                                            />
+                                                                        </Button>
+                                                                        <Button
+                                                                            className="button-ghost rounded p-1 transition-colors"
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                onOpenAccountSettings(account.id);
+                                                                            }}
+                                                                            title="Edit account"
+                                                                            aria-label="Edit account"
+                                                                        >
+                                                                            <Settings size={13}/>
+                                                                        </Button>
+                                                                    </div>
+                                                                    {accountUnread > 0 && (
+                                                                        <NewEmailBadge
+                                                                            count={accountUnread}
+                                                                            title={`${accountUnread} unread in account`}
+                                                                        />
+                                                                    )}
+                                                                    <Button
+                                                                        type="button"
+                                                                        className="button-ghost rounded p-1 transition-colors"
+                                                                        onClick={(event) => {
+                                                                            event.preventDefault();
+                                                                            event.stopPropagation();
+                                                                            onToggleAccountExpanded(account.id);
+                                                                        }}
+                                                                        title={
+                                                                            isExpanded
+                                                                                ? 'Collapse account folders'
+                                                                                : 'Expand account folders'
+                                                                        }
+                                                                        aria-label={
+                                                                            isExpanded
+                                                                                ? 'Collapse account folders'
+                                                                                : 'Expand account folders'
+                                                                        }
+                                                                        aria-expanded={isExpanded}
+                                                                    >
+                                                                        <ChevronRight
+                                                                            size={14}
+                                                                            className={cn(
+                                                                                'transition-transform',
+                                                                                isExpanded && 'rotate-90',
+                                                                            )}
+                                                                        />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+
+                                                            {isExpanded && (
+                                                                <div
+                                                                    className="tree-guide relative mt-1 space-y-1 pl-7 before:absolute before:bottom-2 before:left-3.5 before:top-1 before:w-px before:content-['']">
+                                                                    {accountFolders.length === 0 ? (
+                                                                        <div
+                                                                            className="ui-text-muted rounded-md px-2 py-1.5 text-xs">
+                                                                            No folders yet
+                                                                        </div>
+                                                                    ) : (
+                                                                        <>
+                                                                            {accountProtectedFolders.map((folder) => (
+                                                                                <MessageDropZone
+                                                                                    key={folder.id}
+                                                                                    folder={folder}
+                                                                                    selectedFolderPath={
+                                                                                        selectedFolderPath
+                                                                                    }
+                                                                                    isSelectedAccount={
+                                                                                        isSelectedAccount
+                                                                                    }
+                                                                                    onDropMessages={
+                                                                                        onHandleMessageDropOnFolder
+                                                                                    }
+                                                                                >
+                                                                                    {(dropActive) => (
+                                                                                        <FolderItemRow
+                                                                                            to={`/email/${account.id}/${folder.id}`}
+                                                                                            icon={getFolderIcon(folder)}
+                                                                                            iconColorClassName={getFolderColorClass(
+                                                                                                folder.color,
+                                                                                            )}
+                                                                                            label={
+                                                                                                folder.custom_name ||
+                                                                                                folder.name
+                                                                                            }
+                                                                                            count={folder.unread_count}
+                                                                                            active={
+                                                                                                isSelectedAccount &&
+                                                                                                selectedFolderPath ===
+                                                                                                folder.path
+                                                                                            }
+                                                                                            onEditFolder={() =>
+                                                                                                onOpenFolderEditor(
+                                                                                                    folder,
+                                                                                                )
+                                                                                            }
+                                                                                            onRefreshFolder={() =>
+                                                                                                onRefreshFolder(folder)
+                                                                                            }
+                                                                                            refreshing={isFolderRefreshing(
+                                                                                                folder,
+                                                                                            )}
+                                                                                            dropActive={dropActive}
+                                                                                            onContextMenu={(event) => {
+                                                                                                event.preventDefault();
+                                                                                                onOpenFolderContextMenu(
+                                                                                                    account.id,
+                                                                                                    folder,
+                                                                                                    event.clientX,
+                                                                                                    event.clientY,
+                                                                                                );
+                                                                                            }}
+                                                                                        />
+                                                                                    )}
+                                                                                </MessageDropZone>
+                                                                            ))}
+                                                                            {accountProtectedFolders.length > 0 &&
+                                                                                accountCustomFolders.length > 0 && (
+                                                                                    <div
+                                                                                        className="separator-fade my-1.5 h-px"/>
+                                                                                )}
+                                                                            <SortableContext
+                                                                                items={accountCustomFolders.map(
+                                                                                    (entry) =>
+                                                                                        toFolderSortableId(
+                                                                                            entry.account_id,
+                                                                                            entry.path,
+                                                                                        ),
+                                                                                )}
+                                                                                strategy={verticalListSortingStrategy}
+                                                                            >
+                                                                                {accountCustomFolders.map((folder) => (
+                                                                                    <MessageDropZone
+                                                                                        key={folder.id}
+                                                                                        folder={folder}
+                                                                                        selectedFolderPath={
+                                                                                            selectedFolderPath
+                                                                                        }
+                                                                                        isSelectedAccount={
+                                                                                            isSelectedAccount
+                                                                                        }
+                                                                                        onDropMessages={
+                                                                                            onHandleMessageDropOnFolder
+                                                                                        }
+                                                                                    >
+                                                                                        {(dropActive) => (
+                                                                                            <SortableCustomFolderRow
+                                                                                                folder={folder}
+                                                                                            >
+                                                                                                {({
+                                                                                                      attributes,
+                                                                                                      listeners,
+                                                                                                      setActivatorRef,
+                                                                                                  }) => (
+                                                                                                    <div
+                                                                                                        ref={
+                                                                                                            setActivatorRef
+                                                                                                        }
+                                                                                                        {...attributes}
+                                                                                                        {...listeners}
+                                                                                                    >
+                                                                                                        <FolderItemRow
+                                                                                                            to={`/email/${account.id}/${folder.id}`}
+                                                                                                            icon={getFolderIcon(
+                                                                                                                folder,
+                                                                                                            )}
+                                                                                                            iconColorClassName={getFolderColorClass(
+                                                                                                                folder.color,
+                                                                                                            )}
+                                                                                                            label={
+                                                                                                                folder.custom_name ||
+                                                                                                                folder.name
+                                                                                                            }
+                                                                                                            count={
+                                                                                                                folder.unread_count
+                                                                                                            }
+                                                                                                            active={
+                                                                                                                isSelectedAccount &&
+                                                                                                                selectedFolderPath ===
+                                                                                                                folder.path
+                                                                                                            }
+                                                                                                            onEditFolder={() =>
+                                                                                                                onOpenFolderEditor(
+                                                                                                                    folder,
+                                                                                                                )
+                                                                                                            }
+                                                                                                            onRefreshFolder={() =>
+                                                                                                                onRefreshFolder(
+                                                                                                                    folder,
+                                                                                                                )
+                                                                                                            }
+                                                                                                            refreshing={isFolderRefreshing(
+                                                                                                                folder,
+                                                                                                            )}
+                                                                                                            dropActive={
+                                                                                                                dropActive
+                                                                                                            }
+                                                                                                            onContextMenu={(
+                                                                                                                event,
+                                                                                                            ) => {
+                                                                                                                event.preventDefault();
+                                                                                                                onOpenFolderContextMenu(
+                                                                                                                    account.id,
+                                                                                                                    folder,
+                                                                                                                    event.clientX,
+                                                                                                                    event.clientY,
+                                                                                                                );
+                                                                                                            }}
+                                                                                                        />
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </SortableCustomFolderRow>
+                                                                                        )}
+                                                                                    </MessageDropZone>
+                                                                                ))}
+                                                                                {draggingFolder?.accountId ===
+                                                                                    account.id &&
+                                                                                    accountCustomFolders.length > 0 && (
+                                                                                        <SortableFolderEndDrop
+                                                                                            accountId={account.id}
+                                                                                        />
+                                                                                    )}
+                                                                            </SortableContext>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            {accountIndex < accounts.length - 1 && (
+                                                                <div className="separator-fade mx-2 my-1.5 h-px"/>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </SortableAccountShell>
                                             </div>
-                                        )}
-                                        {accountIndex < accounts.length - 1 && (
-                                            <div
-                                                className="separator-fade mx-2 my-1.5 h-px"/>
-                                        )}
-                                        </>
-                                        )}
-                                    </SortableAccountShell>
-                                </div>
-                            );
+                                        );
                                     })}
                                 </SortableContext>
-                                {draggingAccountId !== null && (
-                                    <SortableAccountEndDrop/>
-                                )}
+                                {draggingAccountId !== null && <SortableAccountEndDrop/>}
                             </div>
                             <DragOverlay dropAnimation={null}>
                                 {draggingAccount ? (
@@ -695,21 +787,20 @@ export default function AccountFolderSidebar({
                                         }}
                                     >
                                         <div className="flex items-center gap-2 px-2 py-1.5">
-                                            <span
+											<span
                                                 className="avatar-ring inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold">
-                                                {getAccountMonogram(draggingAccount)}
-                                            </span>
+												{getAccountMonogram(draggingAccount)}
+											</span>
                                             <span className="min-w-0 flex-1">
-                                                <span className="ui-text-primary block truncate text-sm font-semibold">
-                                                    {draggingAccount.display_name?.trim() || draggingAccount.email}
-                                                </span>
+												<span className="ui-text-primary block truncate text-sm font-semibold">
+													{draggingAccount.display_name?.trim() || draggingAccount.email}
+												</span>
                                                 {draggingAccount.display_name?.trim() && (
-                                                    <span
-                                                        className="ui-text-muted block truncate text-[11px]">
-                                                        {draggingAccount.email}
-                                                    </span>
+                                                    <span className="ui-text-muted block truncate text-[11px]">
+														{draggingAccount.email}
+													</span>
                                                 )}
-                                            </span>
+											</span>
                                         </div>
                                     </div>
                                 ) : null}
@@ -725,13 +816,13 @@ export default function AccountFolderSidebar({
                                         }}
                                     >
                                         <div className="flex items-center gap-2 px-2 py-1.5">
-                                            <span
+											<span
                                                 className="ui-surface-hover ui-text-secondary inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md">
-                                                <Folder size={14}/>
-                                            </span>
+												<Folder size={14}/>
+											</span>
                                             <span className="ui-text-primary truncate text-sm font-medium">
-                                                {draggingFolder.label}
-                                            </span>
+												{draggingFolder.label}
+											</span>
                                         </div>
                                     </div>
                                 ) : null}

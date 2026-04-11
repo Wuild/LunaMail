@@ -29,7 +29,7 @@ export default function ImageDnDPlugin() {
     const [editor] = useLexicalComposerContext();
     const draggingRef = useRef(false);
     const placeholderRef = useRef<HTMLDivElement | null>(null);
-    const lastPointerRef = useRef<{x: number; y: number} | null>(null);
+    const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
     useEffect(() => {
         const wheelListenerOptions: AddEventListenerOptions = {capture: true, passive: false};
@@ -255,7 +255,8 @@ function findScrollParent(element: HTMLElement | null): HTMLElement | null {
     while (current) {
         const style = window.getComputedStyle(current);
         const overflowY = style.overflowY;
-        const canScrollY = (overflowY === 'auto' || overflowY === 'scroll') && current.scrollHeight > current.clientHeight;
+        const canScrollY =
+            (overflowY === 'auto' || overflowY === 'scroll') && current.scrollHeight > current.clientHeight;
         if (canScrollY) return current;
         current = current.parentElement;
     }

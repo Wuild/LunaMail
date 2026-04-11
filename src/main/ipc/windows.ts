@@ -1,55 +1,57 @@
-import type {OpenDialogOptions} from "electron";
-import {app, BrowserWindow, dialog, ipcMain} from "electron";
-import path from "node:path";
-import {clearDebugLogs, createAppLogger, getDebugLogs} from "@main/debug/debugLog.js";
-import {getMessageBody, getMessageById, getMessageContext} from "@main/db/repositories/mailRepo.js";
-import {type ComposeDraftPayload, getComposeDraft, openComposeWindow} from "@main/windows/composeWindow.js";
-import {getMessageWindowTargetId, openMessageWindow} from "@main/windows/messageWindow.js";
-import {openDebugWindow} from "@main/windows/debugWindow.js";
-import {openRouteWindow} from "@main/windows/routeWindow.js";
+import type {OpenDialogOptions} from 'electron';
+import {app, BrowserWindow, dialog, ipcMain} from 'electron';
+import path from 'node:path';
+import {clearDebugLogs, createAppLogger, getDebugLogs} from '@main/debug/debugLog.js';
+import {getMessageBody, getMessageById, getMessageContext} from '@main/db/repositories/mailRepo.js';
+import {type ComposeDraftPayload, getComposeDraft, openComposeWindow} from '@main/windows/composeWindow.js';
+import {getMessageWindowTargetId, openMessageWindow} from '@main/windows/messageWindow.js';
+import {openDebugWindow} from '@main/windows/debugWindow.js';
+import {openRouteWindow} from '@main/windows/routeWindow.js';
 
-const logger = createAppLogger("ipc:windows");
+const logger = createAppLogger('ipc:windows');
 
 function isDraftFolderPath(value: string | null | undefined): boolean {
-    const pathValue = String(value || "").trim().toLowerCase();
+    const pathValue = String(value || '')
+        .trim()
+        .toLowerCase();
     if (!pathValue) return false;
-    return /(^|[\/._ -])drafts?($|[\/._ -])/.test(pathValue) || pathValue.includes("draft");
+    return /(^|[\/._ -])drafts?($|[\/._ -])/.test(pathValue) || pathValue.includes('draft');
 }
 
 export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void }): void {
-    ipcMain.handle("open-add-account-window", async (_event) => {
-        logger.info("IPC open-add-account-window");
+    ipcMain.handle('open-add-account-window', async (_event) => {
+        logger.info('IPC open-add-account-window');
         options?.onOpenAddAccountRoute?.();
         return {ok: true} as const;
     });
 
-    ipcMain.handle("open-compose-window", async (event, draft?: ComposeDraftPayload | null) => {
-        logger.info("IPC open-compose-window hasDraft=%s", Boolean(draft));
+    ipcMain.handle('open-compose-window', async (event, draft?: ComposeDraftPayload | null) => {
+        logger.info('IPC open-compose-window hasDraft=%s', Boolean(draft));
         const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
         openComposeWindow(parentWindow, draft ?? null);
         return {ok: true} as const;
     });
 
-    ipcMain.handle("get-compose-draft", async () => {
-        logger.debug("IPC get-compose-draft");
+    ipcMain.handle('get-compose-draft', async () => {
+        logger.debug('IPC get-compose-draft');
         return getComposeDraft();
     });
 
-    ipcMain.handle("get-debug-logs", async (_event, limit?: number) => {
-        logger.debug("IPC get-debug-logs limit=%s", limit ?? "");
+    ipcMain.handle('get-debug-logs', async (_event, limit?: number) => {
+        logger.debug('IPC get-debug-logs limit=%s', limit ?? '');
         return getDebugLogs(limit);
     });
 
-    ipcMain.handle("clear-debug-logs", async () => {
-        logger.warn("IPC clear-debug-logs");
+    ipcMain.handle('clear-debug-logs', async () => {
+        logger.warn('IPC clear-debug-logs');
         clearDebugLogs();
         return {ok: true} as const;
     });
 
-    ipcMain.handle("open-message-window", async (event, messageId?: number | null) => {
-        logger.info("IPC open-message-window messageId=%s", messageId ?? "");
+    ipcMain.handle('open-message-window', async (event, messageId?: number | null) => {
+        logger.info('IPC open-message-window messageId=%s', messageId ?? '');
         const normalizedMessageId =
-            typeof messageId === "number" && Number.isFinite(messageId) ? Math.floor(messageId) : null;
+            typeof messageId === 'number' && Number.isFinite(messageId) ? Math.floor(messageId) : null;
         if (normalizedMessageId && normalizedMessageId > 0) {
             const context = getMessageContext(normalizedMessageId);
             if (context && isDraftFolderPath(context.folderPath)) {
@@ -66,7 +68,7 @@ export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void
                     inReplyTo: message?.in_reply_to ?? null,
                     references: message?.references_text ?? null,
                 };
-                logger.info("Redirected draft message open to compose messageId=%d", normalizedMessageId);
+                logger.info('Redirected draft message open to compose messageId=%d', normalizedMessageId);
                 openComposeWindow(parentWindow, composeDraft);
                 return {ok: true} as const;
             }
@@ -75,33 +77,33 @@ export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void
         return {ok: true} as const;
     });
 
-    ipcMain.handle("open-debug-window", async (_event) => {
-        logger.info("IPC open-debug-window");
+    ipcMain.handle('open-debug-window', async (_event) => {
+        logger.info('IPC open-debug-window');
         openDebugWindow();
         return {ok: true} as const;
     });
 
-    ipcMain.handle("open-route-window", async (_event, route: string) => {
+    ipcMain.handle('open-route-window', async (_event, route: string) => {
         const safeRoute = String(route || '').trim();
         if (!safeRoute) {
             throw new Error('Invalid route');
         }
-        logger.info("IPC open-route-window route=%s", safeRoute);
+        logger.info('IPC open-route-window route=%s', safeRoute);
         openRouteWindow(safeRoute);
         return {ok: true} as const;
     });
 
-    ipcMain.handle("get-message-window-target", async (event) => {
-        logger.debug("IPC get-message-window-target");
+    ipcMain.handle('get-message-window-target', async (event) => {
+        logger.debug('IPC get-message-window-target');
         return getMessageWindowTargetId(event.sender.id);
     });
 
-    ipcMain.handle("pick-compose-attachments", async (event) => {
-        logger.info("IPC pick-compose-attachments");
+    ipcMain.handle('pick-compose-attachments', async (event) => {
+        logger.info('IPC pick-compose-attachments');
         const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
         const dialogOptions: OpenDialogOptions = {
-            title: "Select attachments",
-            properties: ["openFile", "multiSelections"],
+            title: 'Select attachments',
+            properties: ['openFile', 'multiSelections'],
         };
         const result = parentWindow
             ? await dialog.showOpenDialog(parentWindow, dialogOptions)
@@ -115,8 +117,8 @@ export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void
         }));
     });
 
-    ipcMain.handle("window-minimize", async (event) => {
-        logger.debug("IPC window-minimize");
+    ipcMain.handle('window-minimize', async (event) => {
+        logger.debug('IPC window-minimize');
         const win = BrowserWindow.fromWebContents(event.sender);
         if (win && !win.isDestroyed()) {
             win.minimize();
@@ -124,8 +126,8 @@ export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void
         return {ok: true} as const;
     });
 
-    ipcMain.handle("window-toggle-maximize", async (event) => {
-        logger.debug("IPC window-toggle-maximize");
+    ipcMain.handle('window-toggle-maximize', async (event) => {
+        logger.debug('IPC window-toggle-maximize');
         const win = BrowserWindow.fromWebContents(event.sender);
         if (win && !win.isDestroyed()) {
             if (win.isMaximized()) win.unmaximize();
@@ -135,8 +137,8 @@ export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void
         return {ok: true as const, isMaximized: false};
     });
 
-    ipcMain.handle("window-close", async (event) => {
-        logger.debug("IPC window-close");
+    ipcMain.handle('window-close', async (event) => {
+        logger.debug('IPC window-close');
         const win = BrowserWindow.fromWebContents(event.sender);
         if (win && !win.isDestroyed()) {
             win.close();
@@ -144,15 +146,15 @@ export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void
         return {ok: true} as const;
     });
 
-    ipcMain.handle("window-is-maximized", async (event) => {
-        logger.debug("IPC window-is-maximized");
+    ipcMain.handle('window-is-maximized', async (event) => {
+        logger.debug('IPC window-is-maximized');
         const win = BrowserWindow.fromWebContents(event.sender);
         if (!win || win.isDestroyed()) return false;
         return win.isMaximized();
     });
 
-    ipcMain.handle("window-controls-capabilities", async (event) => {
-        logger.debug("IPC window-controls-capabilities");
+    ipcMain.handle('window-controls-capabilities', async (event) => {
+        logger.debug('IPC window-controls-capabilities');
         const win = BrowserWindow.fromWebContents(event.sender);
         if (!win || win.isDestroyed()) {
             return {
@@ -166,17 +168,17 @@ export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void
         };
     });
 
-    ipcMain.handle("window-open-dev-tools", async (event) => {
-        logger.info("IPC window-open-dev-tools");
+    ipcMain.handle('window-open-dev-tools', async (event) => {
+        logger.info('IPC window-open-dev-tools');
         const win = BrowserWindow.fromWebContents(event.sender);
         if (win && !win.isDestroyed()) {
-            win.webContents.openDevTools({mode: "detach"});
+            win.webContents.openDevTools({mode: 'detach'});
         }
         return {ok: true} as const;
     });
 
-    ipcMain.handle("app-restart", async () => {
-        logger.info("IPC app-restart");
+    ipcMain.handle('app-restart', async () => {
+        logger.info('IPC app-restart');
         app.relaunch();
         app.quit();
         return {ok: true} as const;

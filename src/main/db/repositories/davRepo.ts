@@ -888,7 +888,9 @@ export function updateLocalCalendarEvent(
     },
 ): CalendarEventRow {
     const db = getDb();
-    const current = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(eventId) as CalendarEventRow | undefined;
+    const current = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(eventId) as
+        | CalendarEventRow
+        | undefined;
     if (!current) throw new Error('Calendar event not found.');
     if (current.source !== 'local') {
         throw new Error('Only local calendar events can be edited directly.');
@@ -939,7 +941,9 @@ export function updateCalendarEventById(
     },
 ): CalendarEventRow {
     const db = getDb();
-    const current = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(eventId) as CalendarEventRow | undefined;
+    const current = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(eventId) as
+        | CalendarEventRow
+        | undefined;
     if (!current) throw new Error('Calendar event not found.');
 
     const startsAt = String(payload.startsAt || '').trim();

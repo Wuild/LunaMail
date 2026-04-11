@@ -7,7 +7,7 @@ import {useWindowControlsState} from '@renderer/hooks/ipc/useWindowControlsState
 import {useAppSettings} from '@renderer/hooks/ipc/useAppSettings';
 import {DEFAULT_APP_SETTINGS} from '@/shared/defaults';
 import {APP_NAME} from '@/shared/appConfig';
-import {useAutoUpdateState} from "@renderer/hooks/ipc/useAutoUpdateState";
+import {useAutoUpdateState} from '@renderer/hooks/ipc/useAutoUpdateState';
 
 interface WindowTitleBarProps {
     title: string;
@@ -39,10 +39,7 @@ export default function WindowTitleBar({
 
     return (
         <div
-            className={cn(
-                'titlebar relative flex h-9 shrink-0 items-center justify-between px-2',
-                className,
-            )}
+            className={cn('titlebar relative flex h-9 shrink-0 items-center justify-between px-2', className)}
             style={{WebkitAppRegion: 'drag'} as React.CSSProperties}
             onDoubleClick={() => {
                 if (!allowMaximize) return;
@@ -60,14 +57,13 @@ export default function WindowTitleBar({
                     />
                     <span>{APP_NAME}</span>
                     <span className="titlebar-meta text-[10px] font-semibold uppercase tracking-wide">
-								{appVersion}
-							</span>
+						{appVersion}
+					</span>
                 </div>
                 <span aria-hidden className="titlebar-divider h-3.5 w-px shrink-0"/>
-                <span
-                    className="titlebar-title block min-w-0 flex-1 truncate text-xs font-semibold tracking-wide">
-                    {title}
-                </span>
+                <span className="titlebar-title block min-w-0 flex-1 truncate text-xs font-semibold tracking-wide">
+					{title}
+				</span>
             </div>
             <div
                 className="titlebar-actions flex shrink-0 items-center justify-end gap-1"

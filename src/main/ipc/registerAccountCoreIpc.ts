@@ -1,10 +1,5 @@
 import {ipcMain} from 'electron';
-import {
-    parseOptionalText,
-    parsePositiveInt,
-    parseRequiredObject,
-    parseRequiredText,
-} from './validation.js';
+import {parseOptionalText, parsePositiveInt, parseRequiredObject, parseRequiredText} from './validation.js';
 
 type AccountCoreIpcDeps = {
     appLogger: { debug: (...args: any[]) => void; info: (...args: any[]) => void; warn: (...args: any[]) => void };

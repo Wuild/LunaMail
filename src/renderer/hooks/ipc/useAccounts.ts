@@ -40,15 +40,10 @@ export function useAccounts() {
             setFoldersUnreadFallback(0);
             return;
         }
-        const results = await Promise.allSettled(
-            rows.map((account) => ipcClient.getFolders(account.id)),
-        );
+        const results = await Promise.allSettled(rows.map((account) => ipcClient.getFolders(account.id)));
         const total = results.reduce((sum, result) => {
             if (result.status !== 'fulfilled') return sum;
-            const next = result.value.reduce(
-                (acc, folder) => acc + Math.max(0, Number(folder.unread_count) || 0),
-                0,
-            );
+            const next = result.value.reduce((acc, folder) => acc + Math.max(0, Number(folder.unread_count) || 0), 0);
             return sum + next;
         }, 0);
         setFoldersUnreadFallback(Math.max(0, total));

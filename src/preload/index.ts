@@ -260,8 +260,8 @@ export interface MessageSourceResult {
 }
 
 export interface WindowControlsCapabilities {
-    minimizable: boolean;
-    maximizable: boolean;
+	minimizable: boolean;
+	maximizable: boolean;
 }
 
 export interface DavDiscoveryResult {
@@ -463,18 +463,18 @@ export interface SendEmailBackgroundResult {
 }
 
 export interface SendEmailBackgroundStatusEvent {
-    jobId: string;
-    accountId: number;
-    phase: 'queued' | 'sending' | 'sent' | 'failed';
-    progress: number;
-    message: string;
-    error?: string | null;
-    timestamp: string;
+	jobId: string;
+	accountId: number;
+	phase: 'queued' | 'sending' | 'sent' | 'failed';
+	progress: number;
+	message: string;
+	error?: string | null;
+	timestamp: string;
 }
 
 export interface SaveDraftPayload {
 	accountId: number;
-    draftMessageId?: number | null;
+	draftMessageId?: number | null;
 	to?: string | null;
 	cc?: string | null;
 	bcc?: string | null;
@@ -489,14 +489,14 @@ export interface SaveDraftPayload {
 
 export interface SaveDraftResult {
 	ok: true;
-    draftId: string;
-    draftMessageId?: number | null;
+	draftId: string;
+	draftMessageId?: number | null;
 }
 
 export interface ComposeDraftPayload {
 	accountId?: number | null;
-    draftMessageId?: number | null;
-    draftSessionId?: string | null;
+	draftMessageId?: number | null;
+	draftSessionId?: string | null;
 	to?: string | null;
 	cc?: string | null;
 	bcc?: string | null;
@@ -557,8 +557,10 @@ const api = {
 		ipcRenderer.invoke('update-cloud-account', accountId, payload),
 	deleteCloudAccount: (accountId: number): Promise<{ removed: boolean }> =>
 		ipcRenderer.invoke('delete-cloud-account', accountId),
-	linkCloudOAuth: (provider: 'google-drive' | 'onedrive', payload: LinkCloudOAuthPayload): Promise<PublicCloudAccount> =>
-		ipcRenderer.invoke('link-cloud-oauth', provider, payload),
+	linkCloudOAuth: (
+		provider: 'google-drive' | 'onedrive',
+		payload: LinkCloudOAuthPayload,
+	): Promise<PublicCloudAccount> => ipcRenderer.invoke('link-cloud-oauth', provider, payload),
 	listCloudItems: (accountId: number, pathOrToken?: string | null): Promise<{ path: string; items: CloudItem[] }> =>
 		ipcRenderer.invoke('list-cloud-items', accountId, pathOrToken ?? null),
 	getCloudStorageUsage: (accountId: number): Promise<CloudStorageUsage> =>
@@ -651,8 +653,10 @@ const api = {
 			note?: string | null;
 		},
 	): Promise<ContactItem> => ipcRenderer.invoke('update-contact', contactId, payload),
-	deleteContact: (contactId: number): Promise<{
-		removed: boolean
+	deleteContact: (
+		contactId: number,
+	): Promise<{
+		removed: boolean;
 	}> => ipcRenderer.invoke('delete-contact', contactId),
 	exportContacts: (accountId: number, payload: ExportContactsPayload): Promise<ExportContactsResult> =>
 		ipcRenderer.invoke('export-contacts', accountId, payload),
@@ -701,8 +705,10 @@ const api = {
 		action?: 'open' | 'save' | 'prompt',
 	): Promise<OpenMessageAttachmentResult> =>
 		ipcRenderer.invoke('open-message-attachment', messageId, attachmentIndex, action ?? 'prompt'),
-	cancelMessageBody: (requestId: string): Promise<{
-		ok: true
+	cancelMessageBody: (
+		requestId: string,
+	): Promise<{
+		ok: true;
 	}> => ipcRenderer.invoke('cancel-message-body', requestId),
 	setMessageRead: (messageId: number, isRead: number): Promise<SetMessageReadResult> =>
 		ipcRenderer.invoke('set-message-read', messageId, isRead),
@@ -733,18 +739,18 @@ const api = {
 	minimizeWindow: (): Promise<{ ok: true }> => ipcRenderer.invoke('window-minimize'),
 	toggleMaximizeWindow: (): Promise<{
 		ok: true;
-		isMaximized: boolean
+		isMaximized: boolean;
 	}> => ipcRenderer.invoke('window-toggle-maximize'),
 	closeWindow: (): Promise<{ ok: true }> => ipcRenderer.invoke('window-close'),
 	isWindowMaximized: (): Promise<boolean> => ipcRenderer.invoke('window-is-maximized'),
-    getWindowControlsCapabilities: (): Promise<WindowControlsCapabilities> =>
-        ipcRenderer.invoke('window-controls-capabilities'),
+	getWindowControlsCapabilities: (): Promise<WindowControlsCapabilities> =>
+		ipcRenderer.invoke('window-controls-capabilities'),
 	openDevTools: (): Promise<{ ok: true }> => ipcRenderer.invoke('window-open-dev-tools'),
 	restartApp: (): Promise<{ ok: true }> => ipcRenderer.invoke('app-restart'),
 	openMessageWindow: (messageId?: number | null): Promise<{ ok: true }> =>
 		ipcRenderer.invoke('open-message-window', messageId ?? null),
 	openDebugWindow: (): Promise<{ ok: true }> => ipcRenderer.invoke('open-debug-window'),
-    openRouteWindow: (route: string): Promise<{ ok: true }> => ipcRenderer.invoke('open-route-window', route),
+	openRouteWindow: (route: string): Promise<{ ok: true }> => ipcRenderer.invoke('open-route-window', route),
 	getDebugLogs: (limit?: number): Promise<DebugLogEntry[]> => ipcRenderer.invoke('get-debug-logs', limit),
 	clearDebugLogs: (): Promise<{ ok: true }> => ipcRenderer.invoke('clear-debug-logs'),
 	getComposeDraft: (): Promise<ComposeDraftPayload | null> => ipcRenderer.invoke('get-compose-draft'),
@@ -820,11 +826,12 @@ const api = {
 		ipcRenderer.on('compose-draft', listener);
 		return () => ipcRenderer.removeListener('compose-draft', listener);
 	},
-    onSendEmailBackgroundStatus: (callback: (payload: SendEmailBackgroundStatusEvent) => void): (() => void) => {
-        const listener = (_event: Electron.IpcRendererEvent, payload: SendEmailBackgroundStatusEvent) => callback(payload);
-        ipcRenderer.on('send-email-background-status', listener);
-        return () => ipcRenderer.removeListener('send-email-background-status', listener);
-    },
+	onSendEmailBackgroundStatus: (callback: (payload: SendEmailBackgroundStatusEvent) => void): (() => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, payload: SendEmailBackgroundStatusEvent) =>
+			callback(payload);
+		ipcRenderer.on('send-email-background-status', listener);
+		return () => ipcRenderer.removeListener('send-email-background-status', listener);
+	},
 	onAppSettingsUpdated: (callback: (payload: AppSettings) => void): (() => void) => {
 		const listener = (_event: Electron.IpcRendererEvent, payload: AppSettings) => callback(payload);
 		ipcRenderer.on('app-settings-updated', listener);

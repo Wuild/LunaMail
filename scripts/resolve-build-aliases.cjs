@@ -87,11 +87,7 @@ function main() {
         console.log('No build directory found. Skipping alias rewrite.');
         return;
     }
-    const targetDirs = [
-        path.join(buildRoot, 'main'),
-        path.join(buildRoot, 'preload'),
-        path.join(buildRoot, 'tests'),
-    ];
+    const targetDirs = [path.join(buildRoot, 'main'), path.join(buildRoot, 'preload'), path.join(buildRoot, 'tests')];
     const files = targetDirs.flatMap((dir) => walkJsFiles(dir));
     let replacementCount = 0;
     for (const filePath of files) {

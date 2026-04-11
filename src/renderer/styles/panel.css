@@ -11,7 +11,8 @@
 
     .list-row {
         color: var(--content-muted);
-        transition: background-color 140ms ease, color 140ms ease;
+        transition: background-color 140ms ease,
+        color 140ms ease;
     }
 
     .list-row:hover {
@@ -232,7 +233,9 @@
     .swatch-option {
         border: 1px solid var(--app-border);
         color: var(--content-muted);
-        transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+        transition: background-color 140ms ease,
+        border-color 140ms ease,
+        color 140ms ease;
     }
 
     .swatch-option:hover {
@@ -305,7 +308,11 @@
     .debug-log-shell {
         border: 1px solid var(--app-border);
         background-color: color-mix(in srgb, var(--base-black) 92%, var(--base-slate-900));
-        background-image: radial-gradient(circle at top left, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 35%),
+        background-image: radial-gradient(
+                circle at top left,
+                color-mix(in srgb, var(--color-primary) 18%, transparent),
+                transparent 35%
+        ),
         linear-gradient(
                 180deg,
                 color-mix(in srgb, var(--base-slate-900) 94%, var(--base-black)) 0%,
@@ -358,7 +365,9 @@
         border: 1px solid var(--app-border);
         background-color: var(--panel-surface);
         color: var(--content-muted);
-        transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+        transition: background-color 140ms ease,
+        color 140ms ease,
+        border-color 140ms ease;
     }
 
     .debug-toggle:hover {

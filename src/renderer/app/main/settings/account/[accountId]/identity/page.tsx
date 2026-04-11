@@ -17,8 +17,10 @@ export default function SettingsAccountIdentityPage() {
             <div
                 className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[minmax(140px,180px)_minmax(0,1fr)] md:items-center">
                 <Label>Your Name:</Label>
-                <Field value={editor.display_name || ''}
-                       onChange={(v) => setEditor((p) => (p ? {...p, display_name: v} : p))}/>
+                <Field
+                    value={editor.display_name || ''}
+                    onChange={(v) => setEditor((p) => (p ? {...p, display_name: v} : p))}
+                />
                 <Label>Email Address:</Label>
                 <Field value={editor.email} onChange={(v) => setEditor((p) => (p ? {...p, email: v} : p))}/>
                 <Label>Reply-to Address:</Label>
@@ -28,12 +30,14 @@ export default function SettingsAccountIdentityPage() {
                     placeholder="Recipients will reply to this address"
                 />
                 <Label>Organization:</Label>
-                <Field value={editor.organization || ''}
-                       onChange={(v) => setEditor((p) => (p ? {...p, organization: v} : p))}/>
+                <Field
+                    value={editor.organization || ''}
+                    onChange={(v) => setEditor((p) => (p ? {...p, organization: v} : p))}
+                />
                 <Label>Signature text:</Label>
                 <div className="space-y-2">
-                    <div className="ui-text-muted text-xs">Signature is HTML-enabled and will be appended to sent
-                        messages for this account.
+                    <div className="ui-text-muted text-xs">
+                        Signature is HTML-enabled and will be appended to sent messages for this account.
                     </div>
                     <div className="ui-border-default h-56 min-h-56 overflow-hidden rounded-md border">
                         <HtmlLexicalEditor

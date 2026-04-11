@@ -65,9 +65,9 @@ export default function SettingsWhitelistPage() {
                     />
                 </label>
                 <div className="pt-1">
-                    <span className="ui-text-muted mb-1 block text-xs font-medium uppercase tracking-wide">
-                        Allowlist senders/domains
-                    </span>
+					<span className="ui-text-muted mb-1 block text-xs font-medium uppercase tracking-wide">
+						Allowlist senders/domains
+					</span>
                     <div className="flex flex-wrap items-center gap-2">
                         <FormInput
                             type="text"

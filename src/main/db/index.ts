@@ -9,10 +9,7 @@ const logger = createAppLogger('db:init');
 
 function resolveMigrationsFolder(): string {
 	const appPath = app.getAppPath();
-	const candidates = [
-		path.join(appPath, 'drizzle'),
-		path.join(process.cwd(), 'drizzle'),
-	];
+    const candidates = [path.join(appPath, 'drizzle'), path.join(process.cwd(), 'drizzle')];
 	for (const folder of candidates) {
 		if (!fs.existsSync(folder)) continue;
 		return folder;

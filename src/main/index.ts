@@ -35,7 +35,7 @@ import {
 	broadcastAccountSyncStatus,
 	broadcastGlobalError,
 	broadcastToAllWindows,
-	broadcastUnreadCountUpdated
+	broadcastUnreadCountUpdated,
 } from './ipc/broadcast.js';
 import {broadcastAutoUpdateState, registerUpdaterIpc} from './ipc/updater.js';
 import {registerWindowIpc} from './ipc/windows.js';
@@ -43,7 +43,7 @@ import {
 	getAppSettings,
 	getAppSettingsBootSnapshotSync,
 	getAppSettingsSync,
-	getSpellCheckerLanguages
+	getSpellCheckerLanguages,
 } from './settings/store.js';
 import {resolveNotificationIconPath} from './notifications/icon.js';
 import {resolveSenderNotificationIconPath} from './notifications/senderIcon.js';
@@ -264,8 +264,11 @@ function createWindow() {
 	win.on('maximize', scheduleSaveState);
 	win.on('unmaximize', scheduleSaveState);
 	win.webContents.session.setSpellCheckerLanguages(getSpellCheckerLanguages(currentSettings.language));
-	(win.webContents.session as typeof win.webContents.session & {setSpellCheckerEnabled?: (enabled: boolean) => void})
-		.setSpellCheckerEnabled?.(currentSettings.spellcheckEnabled);
+	(
+		win.webContents.session as typeof win.webContents.session & {
+			setSpellCheckerEnabled?: (enabled: boolean) => void;
+		}
+	).setSpellCheckerEnabled?.(currentSettings.spellcheckEnabled);
 	win.on('close', (event) => {
 		const settings = getAppSettingsSync();
 		if (isQuitting || !settings.minimizeToTray) return;
@@ -561,7 +564,9 @@ function navigateMainWindowToRoute(route: string): void {
 	}
 	showMainWindow();
 	if (!mainWindow || mainWindow.isDestroyed()) return;
-	void mainWindow.webContents.executeJavaScript(`window.location.hash = ${JSON.stringify(route)}`).catch(() => undefined);
+	void mainWindow.webContents
+		.executeJavaScript(`window.location.hash = ${JSON.stringify(route)}`)
+		.catch(() => undefined);
 }
 
 function openComposeQuickAction(): void {
@@ -596,9 +601,7 @@ function configurePlatformQuickActions(): void {
 					{label: 'Debug', click: () => navigateMainWindowToRoute('/debug')},
 					{label: 'Help', click: () => navigateMainWindowToRoute('/help')},
 				]
-				: [
-					{label: 'Open Onboarding', click: () => showMainWindow()},
-				],
+				: [{label: 'Open Onboarding', click: () => showMainWindow()}],
 		);
 		app.dock.setMenu(dockMenu);
 	}
@@ -768,8 +771,6 @@ function showMainWindow(): BrowserWindow | null {
 	return mainWindow;
 }
 
-
-
 function resolveLinuxTrayIconPath(): string | null {
 	const candidates = [
 		path.join(app.getAppPath(), 'src/resources/llamatray.png'),
@@ -836,8 +837,11 @@ function applyRuntimeSettings(): void {
 	setAutoUpdateEnabled(settings.autoUpdateEnabled);
 	for (const win of BrowserWindow.getAllWindows()) {
 		win.webContents.session.setSpellCheckerLanguages(getSpellCheckerLanguages(settings.language));
-		(win.webContents.session as typeof win.webContents.session & {setSpellCheckerEnabled?: (enabled: boolean) => void})
-			.setSpellCheckerEnabled?.(settings.spellcheckEnabled);
+		(
+			win.webContents.session as typeof win.webContents.session & {
+				setSpellCheckerEnabled?: (enabled: boolean) => void;
+			}
+		).setSpellCheckerEnabled?.(settings.spellcheckEnabled);
 	}
 	updateUnreadIndicators(currentUnreadCount);
 	ensureTray();
@@ -848,7 +852,7 @@ function registerProtocolHandlers(): void {
 		event.preventDefault();
 		logger.info('Received open-url event url=%s', url);
 		if (queueCloudOAuthCallbackUrl(url)) return;
-        if (handleAppProtocolFallbackUrl(url)) return;
+		if (handleAppProtocolFallbackUrl(url)) return;
 		queueMailtoUrl(url);
 	});
 
@@ -876,10 +880,10 @@ function registerProtocolHandlers(): void {
 		if (protocolUrl && queueCloudOAuthCallbackUrl(protocolUrl)) {
 			showMainWindow();
 			return;
-        }
-        if (protocolUrl && handleAppProtocolFallbackUrl(protocolUrl)) {
-            showMainWindow();
-            return;
+		}
+		if (protocolUrl && handleAppProtocolFallbackUrl(protocolUrl)) {
+			showMainWindow();
+			return;
 		}
 		const mailtoUrl = findMailtoArg(argv);
 		if (mailtoUrl) {
@@ -891,11 +895,11 @@ function registerProtocolHandlers(): void {
 }
 
 function handleAppProtocolFallbackUrl(url: string): boolean {
-    if (!isAppProtocolUrl(url)) return false;
-    if (!resolveWrappedMessageLink(url)) return false;
-    const owner = mainWindow ?? undefined;
-    void handleExternalUrl(url, owner);
-    return true;
+	if (!isAppProtocolUrl(url)) return false;
+	if (!resolveWrappedMessageLink(url)) return false;
+	const owner = mainWindow ?? undefined;
+	void handleExternalUrl(url, owner);
+	return true;
 }
 
 function installExternalNavigationPolicy(): void {
@@ -929,61 +933,61 @@ function installExternalNavigationPolicy(): void {
 				fatal: true,
 			});
 		});
-        contents.on('will-prevent-unload', (event) => {
-            const owner = BrowserWindow.fromWebContents(contents) ?? undefined;
-            if (owner && !owner.isDestroyed()) {
-                if (owner.isMinimized()) owner.restore();
-                if (!owner.isVisible()) owner.show();
-                owner.focus();
-            }
-            const dialogOptions: Electron.MessageBoxSyncOptions = {
-                type: 'warning',
-                title: APP_NAME,
-                message: 'Discard unsaved changes?',
-                detail: 'This window has unsaved changes. Leaving will discard them.',
-                buttons: ['Discard Changes', 'Cancel'],
-                defaultId: 1,
-                cancelId: 1,
-                noLink: true,
-            };
-            const choice = owner
-                ? dialog.showMessageBoxSync(owner, dialogOptions)
-                : dialog.showMessageBoxSync(dialogOptions);
-            if (choice === 0) {
-                event.preventDefault();
-            }
-        });
+		contents.on('will-prevent-unload', (event) => {
+			const owner = BrowserWindow.fromWebContents(contents) ?? undefined;
+			if (owner && !owner.isDestroyed()) {
+				if (owner.isMinimized()) owner.restore();
+				if (!owner.isVisible()) owner.show();
+				owner.focus();
+			}
+			const dialogOptions: Electron.MessageBoxSyncOptions = {
+				type: 'warning',
+				title: APP_NAME,
+				message: 'Discard unsaved changes?',
+				detail: 'This window has unsaved changes. Leaving will discard them.',
+				buttons: ['Discard Changes', 'Cancel'],
+				defaultId: 1,
+				cancelId: 1,
+				noLink: true,
+			};
+			const choice = owner
+				? dialog.showMessageBoxSync(owner, dialogOptions)
+				: dialog.showMessageBoxSync(dialogOptions);
+			if (choice === 0) {
+				event.preventDefault();
+			}
+		});
 		contents.on('context-menu', (_menuEvent, params) => {
 			const canEdit = Boolean(params.isEditable);
 			const editFlags = params.editFlags ?? {};
 			if (canEdit) {
-                const suggestionItems: Electron.MenuItemConstructorOptions[] = [];
-                const misspelledWord = String(params.misspelledWord || '').trim();
+				const suggestionItems: Electron.MenuItemConstructorOptions[] = [];
+				const misspelledWord = String(params.misspelledWord || '').trim();
 				const dictionarySuggestions = Array.isArray(params.dictionarySuggestions)
 					? params.dictionarySuggestions.filter((value) => value.trim().length > 0)
 					: [];
-                if (misspelledWord && dictionarySuggestions.length > 0) {
-                    for (const suggestion of dictionarySuggestions.slice(0, 8)) {
-                        suggestionItems.push({
-                            label: suggestion,
-                            click: () => {
-                                contents.replaceMisspelling(suggestion);
-                            },
-                        });
-                    }
-                    suggestionItems.push({type: 'separator'});
-                }
-                if (misspelledWord) {
-                    suggestionItems.push({
-                        label: 'Add to Dictionary',
-                        click: () => {
-                            contents.session.addWordToSpellCheckerDictionary(misspelledWord);
-                        },
-                    });
-                    suggestionItems.push({type: 'separator'});
-                }
+				if (misspelledWord && dictionarySuggestions.length > 0) {
+					for (const suggestion of dictionarySuggestions.slice(0, 8)) {
+						suggestionItems.push({
+							label: suggestion,
+							click: () => {
+								contents.replaceMisspelling(suggestion);
+							},
+						});
+					}
+					suggestionItems.push({type: 'separator'});
+				}
+				if (misspelledWord) {
+					suggestionItems.push({
+						label: 'Add to Dictionary',
+						click: () => {
+							contents.session.addWordToSpellCheckerDictionary(misspelledWord);
+						},
+					});
+					suggestionItems.push({type: 'separator'});
+				}
 				const nativeEditMenu = Menu.buildFromTemplate([
-                    ...suggestionItems,
+					...suggestionItems,
 					{label: 'Undo', role: 'undo', enabled: Boolean(editFlags.canUndo)},
 					{label: 'Redo', role: 'redo', enabled: Boolean(editFlags.canRedo)},
 					{type: 'separator'},
@@ -1002,26 +1006,26 @@ function installExternalNavigationPolicy(): void {
 				return;
 			}
 
-				const frameUrl = String((params as any)?.frameURL || '');
-				const pageUrl = String((params as any)?.pageURL || contents.getURL() || '');
-				const isDebugConsolePage = /#\/debug(?:$|[/?])/.test(pageUrl);
-				const isIframeContext = Boolean(frameUrl) && frameUrl !== pageUrl;
-				const isMailContentFrame = isIframeContext && /^about:srcdoc/i.test(frameUrl);
-				const template: Electron.MenuItemConstructorOptions[] = [];
+			const frameUrl = String((params as any)?.frameURL || '');
+			const pageUrl = String((params as any)?.pageURL || contents.getURL() || '');
+			const isDebugConsolePage = /#\/debug(?:$|[/?])/.test(pageUrl);
+			const isIframeContext = Boolean(frameUrl) && frameUrl !== pageUrl;
+			const isMailContentFrame = isIframeContext && /^about:srcdoc/i.test(frameUrl);
+			const template: Electron.MenuItemConstructorOptions[] = [];
 			const owner = BrowserWindow.fromWebContents(contents) ?? undefined;
-				const hasSelection = Boolean((params.selectionText || '').trim());
+			const hasSelection = Boolean((params.selectionText || '').trim());
 			const linkUrl = String(params.linkURL || '').trim();
 			const resolvedLinkUrl = resolveWrappedMessageLink(linkUrl)?.targetUrl ?? linkUrl;
-            const hasLink = /^(https?:|mailto:)/i.test(linkUrl) || isAppProtocolUrl(linkUrl);
+			const hasLink = /^(https?:|mailto:)/i.test(linkUrl) || isAppProtocolUrl(linkUrl);
 			const imageUrl = String((params.srcURL || '').trim());
 			const hasImage = Boolean(imageUrl);
 			const imageCanOpenExternally = /^(https?:|file:)/i.test(imageUrl);
 			const imageHasAddress = !/^data:/i.test(imageUrl);
 
-				if (!isMailContentFrame && !hasImage && !(isDebugConsolePage && hasSelection)) {
-					// Renderer-level custom menus handle non-iframe contexts unless this is an image context.
-					return;
-				}
+			if (!isMailContentFrame && !hasImage && !(isDebugConsolePage && hasSelection)) {
+				// Renderer-level custom menus handle non-iframe contexts unless this is an image context.
+				return;
+			}
 
 			if (hasImage) {
 				template.push({
@@ -1065,15 +1069,15 @@ function installExternalNavigationPolicy(): void {
 				template.push({type: 'separator'});
 			}
 
-				if (isMailContentFrame && hasSelection) {
-					template.push({label: 'Copy', role: 'copy'});
-					template.push({type: 'separator'});
-				}
-				if (isDebugConsolePage && hasSelection) {
-					template.push({label: 'Copy', role: 'copy'});
-					template.push({label: 'Select All', role: 'selectAll'});
-					template.push({type: 'separator'});
-				}
+			if (isMailContentFrame && hasSelection) {
+				template.push({label: 'Copy', role: 'copy'});
+				template.push({type: 'separator'});
+			}
+			if (isDebugConsolePage && hasSelection) {
+				template.push({label: 'Copy', role: 'copy'});
+				template.push({label: 'Select All', role: 'selectAll'});
+				template.push({type: 'separator'});
+			}
 
 			while (template[template.length - 1]?.type === 'separator') {
 				template.pop();
@@ -1106,8 +1110,8 @@ function installExternalNavigationPolicy(): void {
 		});
 
 		contents.on('update-target-url', (_event, url) => {
-            const rawUrl = resolveWrappedMessageLink(url || '')?.targetUrl ?? (url || '');
-            contents.send('link-hover-url', rawUrl);
+			const rawUrl = resolveWrappedMessageLink(url || '')?.targetUrl ?? (url || '');
+			contents.send('link-hover-url', rawUrl);
 		});
 	});
 }
@@ -1180,7 +1184,7 @@ function getUrlProtocol(url: string): string | null {
 }
 
 function isAppProtocolUrl(url: string): boolean {
-    return getUrlProtocol(url) === `${APP_PROTOCOL}:`;
+	return getUrlProtocol(url) === `${APP_PROTOCOL}:`;
 }
 
 async function confirmUnsafeUrlOpen(url: string, hints: string[], owner?: BrowserWindow): Promise<boolean> {
@@ -1207,8 +1211,8 @@ function resolveWrappedMessageLink(url: string): { targetUrl: string; senderUntr
 		if (parsed.protocol.toLowerCase() !== LINK_WARNING_WRAPPER_PROTOCOL) {
 			return null;
 		}
-        if (parsed.hostname.toLowerCase() !== 'link') return null;
-        if (parsed.pathname !== '/open') return null;
+		if (parsed.hostname.toLowerCase() !== 'link') return null;
+		if (parsed.pathname !== '/open') return null;
 		const targetUrl = String(parsed.searchParams.get('target') || '').trim();
 		if (!targetUrl) return null;
 		const senderUntrusted = String(parsed.searchParams.get('sender') || '').toLowerCase() === 'untrusted';
@@ -1416,14 +1420,16 @@ if (!gotSingleInstanceLock) {
 				try {
 					const senderAddress =
 						target && target.messageId > 0
-							? getMessageById(target.messageId)?.from_address ?? null
+							? (getMessageById(target.messageId)?.from_address ?? null)
 							: null;
 					const senderIconPath = await resolveSenderNotificationIconPath(senderAddress);
 					const notification = new Notification({
 						title,
 						body,
 						silent: false,
-						...((senderIconPath || notificationIconPath) ? {icon: senderIconPath || notificationIconPath} : {}),
+						...(senderIconPath || notificationIconPath
+							? {icon: senderIconPath || notificationIconPath}
+							: {}),
 					});
 					notification.on('click', () => {
 						focusMainWindowAndOpenMessage(target);
@@ -1443,10 +1449,10 @@ if (!gotSingleInstanceLock) {
 		});
 		registerUpdaterIpc();
 		registerWindowIpc({onOpenAddAccountRoute: openAddAccountRouteInMainWindow});
-			logger.info('IPC handlers registered');
-			registerMailtoProtocolClient();
-			registerAppProtocolClient();
-			configurePlatformQuickActions();
+		logger.info('IPC handlers registered');
+		registerMailtoProtocolClient();
+		registerAppProtocolClient();
+		configurePlatformQuickActions();
 		initAutoUpdater((state) => {
 			broadcastAutoUpdateState(state);
 		});
@@ -1466,34 +1472,34 @@ if (!gotSingleInstanceLock) {
 		}
 		closeSplashWindow();
 
-			const accounts = await getAccounts();
-			logger.info('Loaded accounts count=%d', accounts.length);
+		const accounts = await getAccounts();
+		logger.info('Loaded accounts count=%d', accounts.length);
 		setMainWindowActionsEnabled(accounts.length > 0);
-			pendingStartupRoute = findRouteArg(process.argv);
-			pendingStartupCompose = findActionArg(process.argv) === 'compose';
-			if (accounts.length === 0) {
-				createWindow();
-				openMainWindowEntryPoint();
-			} else {
-				createWindow();
-				if (pendingStartupRoute) {
-					navigateMainWindowToRoute(pendingStartupRoute);
-					pendingStartupRoute = null;
-				}
-				if (pendingStartupCompose) {
-					openComposeQuickAction();
-					pendingStartupCompose = false;
-				}
+		pendingStartupRoute = findRouteArg(process.argv);
+		pendingStartupCompose = findActionArg(process.argv) === 'compose';
+		if (accounts.length === 0) {
+			createWindow();
+			openMainWindowEntryPoint();
+		} else {
+			createWindow();
+			if (pendingStartupRoute) {
+				navigateMainWindowToRoute(pendingStartupRoute);
+				pendingStartupRoute = null;
 			}
-			const initialMailtoUrl = findMailtoArg(process.argv);
-			if (initialMailtoUrl) {
-				queueMailtoUrl(initialMailtoUrl);
+			if (pendingStartupCompose) {
+				openComposeQuickAction();
+				pendingStartupCompose = false;
 			}
-			const initialProtocolUrl = findCustomProtocolArg(process.argv);
-			if (initialProtocolUrl && queueCloudOAuthCallbackUrl(initialProtocolUrl)) {
-				showMainWindow();
-			}
-			flushPendingMailtoUrls();
+		}
+		const initialMailtoUrl = findMailtoArg(process.argv);
+		if (initialMailtoUrl) {
+			queueMailtoUrl(initialMailtoUrl);
+		}
+		const initialProtocolUrl = findCustomProtocolArg(process.argv);
+		if (initialProtocolUrl && queueCloudOAuthCallbackUrl(initialProtocolUrl)) {
+			showMainWindow();
+		}
+		flushPendingMailtoUrls();
 		updateUnreadIndicators(getCurrentUnreadCount());
 		startAccountAutoSync();
 		logger.info('Auto sync started');

@@ -72,12 +72,16 @@ const RISKY_MIME_TYPES = new Set([
 ]);
 
 export function isRiskyFileOpenTarget(filename: string, mimeType?: string | null, content?: Buffer): boolean {
-    const normalizedName = String(filename || '').trim().toLowerCase();
+    const normalizedName = String(filename || '')
+        .trim()
+        .toLowerCase();
     const ext = path.extname(normalizedName);
     if (ext && RISKY_FILE_EXTENSIONS.has(ext)) {
         return true;
     }
-    const normalizedMime = String(mimeType || '').trim().toLowerCase();
+    const normalizedMime = String(mimeType || '')
+        .trim()
+        .toLowerCase();
     if (!normalizedMime) return false;
     if (RISKY_MIME_TYPES.has(normalizedMime)) {
         return true;
@@ -138,7 +142,10 @@ function isExecutableMagic(content: Buffer): boolean {
 }
 
 function hasScriptShebang(content: Buffer): boolean {
-    const head = content.subarray(0, Math.min(256, content.length)).toString('utf8').replace(/^\uFEFF/, '');
+    const head = content
+        .subarray(0, Math.min(256, content.length))
+        .toString('utf8')
+        .replace(/^\uFEFF/, '');
     if (!head.startsWith('#!')) return false;
     const firstLine = head.split(/\r?\n/, 1)[0].toLowerCase();
     return (

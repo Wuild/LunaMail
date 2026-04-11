@@ -10,13 +10,7 @@ export type AppTitlebarControls = {
 
 const AppContext = createContext<AppTitlebarControls | null>(null);
 
-export function AppContextProvider({
-                                       value,
-                                       children,
-                                   }: {
-    value: AppTitlebarControls;
-    children: React.ReactNode;
-}) {
+export function AppContextProvider({value, children}: { value: AppTitlebarControls; children: React.ReactNode }) {
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 

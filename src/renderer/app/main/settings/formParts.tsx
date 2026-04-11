@@ -13,12 +13,7 @@ export function Field({label, value, onChange, type = 'text', placeholder}: Fiel
 	return (
 		<label className="block text-sm">
 			{label && <span className="ui-text-secondary mb-1 block font-medium">{label}</span>}
-			<FormInput
-				type={type}
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				placeholder={placeholder}
-			/>
+            <FormInput type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}/>
 		</label>
 	);
 }

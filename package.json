@@ -1,233 +1,233 @@
 {
-  "name": "llamamail",
-  "type": "module",
-  "version": "v1.0.18",
-  "description": "Modern offline-first desktop email client for Linux.",
-  "homepage": "https://github.com/Wuild/LlamaMail",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Wuild/LlamaMail.git"
-  },
-  "bugs": {
-    "url": "https://github.com/Wuild/LlamaMail/issues"
-  },
-  "main": "build/main/index.js",
-  "maintainers": [
-    "Wuild"
-  ],
-  "scripts": {
-    "build:electron": "npm run build && electron-builder",
-    "build:linux": "npm run build && electron-builder --linux",
-    "build:linux:x64": "npm run build && electron-builder --linux --x64",
-    "build:linux:arm64": "npm run build && electron-builder --linux --arm64",
-    "build:win": "npm run build && electron-builder --win",
-    "build:mac": "node scripts/build-mac.cjs",
-    "build:mac:x64": "node scripts/build-mac.cjs --x64",
-    "build:mac:arm64": "node scripts/build-mac.cjs --arm64",
-    "sync:preload": "node scripts/sync-preload.cjs",
-    "resolve:build-aliases": "node scripts/resolve-build-aliases.cjs",
-    "dev:ui": "vite",
-    "dev:types": "tsc -w --preserveWatchOutput",
-    "dev:electron": "wait-on tcp:127.0.0.1:5174 file:build/main/index.js file:build/preload/index.js && nodemon --watch build/main --watch build/preload --ext js,mjs,cjs,json --exec \"npm run resolve:build-aliases && npm run sync:preload && electron .\"",
-    "dev": "concurrently -k -n TSC,VITE,ELECTRON -c yellow,blue,green \"tsc -w --preserveWatchOutput\" \"vite\" \"npm run dev:electron\"",
-    "rebuild:native": "npm rebuild better-sqlite3 --runtime=electron --target=41.1.1 --dist-url=https://electronjs.org/headers",
-    "generate:icons": "node scripts/generate-icons.cjs",
-    "prebuild": "npm run generate:icons",
-    "postinstall": "npm run rebuild:native",
-    "build": "tsc && npm run resolve:build-aliases && npm run sync:preload && vite build",
-    "typecheck": "tsc",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier . --write",
-    "format:check": "prettier . --check",
-    "check:architecture": "node scripts/check-architecture.cjs",
-    "test:unit": "echo \"Unit tests removed\"",
-    "start": "npm run build && electron .",
-    "drizzle:generate": "drizzle-kit generate --config=drizzle.config.ts",
-    "drizzle:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
-    "test": "npm run test:unit"
-  },
-  "keywords": [],
-  "author": {
-    "name": "Wuild",
-    "email": "wuild@voracious.se"
-  },
-  "license": "ISC",
-  "devDependencies": {
-    "@eslint/js": "^9.39.4",
-    "@tailwindcss/postcss": "^4.2.2",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "autoprefixer": "^10.4.27",
-    "concurrently": "^9.2.1",
-    "drizzle-kit": "^0.31.10",
-    "electron": "^41.1.1",
-    "electron-builder": "^26.8.1",
-    "electron-devtools-installer": "^4.0.0",
-    "eslint": "^9.39.4",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.26",
-    "globals": "^16.5.0",
-    "nodemon": "^3.1.14",
-    "postcss": "^8.5.8",
-    "prettier": "^3.8.1",
-    "sharp": "^0.34.5",
-    "tailwindcss": "^4.2.2",
-    "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.0",
-    "vite": "^8.0.3",
-    "wait-on": "^9.0.4"
-  },
-  "dependencies": {
-    "@dnd-kit/core": "^6.3.1",
-    "@dnd-kit/sortable": "^10.0.0",
-    "@dnd-kit/utilities": "^3.2.2",
-    "@lexical/code": "^0.42.0",
-    "@lexical/history": "^0.42.0",
-    "@lexical/link": "^0.42.0",
-    "@lexical/list": "^0.42.0",
-    "@lexical/markdown": "^0.42.0",
-    "@lexical/react": "^0.42.0",
-    "@lexical/rich-text": "^0.42.0",
-    "@tanstack/react-query": "^5.96.1",
-    "better-sqlite3": "^12.8.0",
-    "clsx": "^2.1.1",
-    "dnd-core": "^16.0.1",
-    "drizzle-orm": "^0.45.2",
-    "electron-updater": "^6.8.3",
-    "fast-glob": "^3.3.3",
-    "imapflow": "^1.2.18",
-    "keytar": "^7.9.0",
-    "lexical": "^0.42.0",
-    "lucide-react": "^1.7.0",
-    "mailparser": "^3.9.6",
-    "nodemailer": "^8.0.4",
-    "path-to-regexp": "^8.4.2",
-    "react": "^19.2.4",
-    "react-dnd": "^16.0.1",
-    "react-dnd-html5-backend": "^16.0.1",
-    "react-dom": "^19.2.4",
-    "react-router-dom": "^7.14.0",
-    "tailwind-merge": "^3.5.0",
-    "zod": "^4.3.6",
-    "zustand": "^5.0.12"
-  },
-  "build": {
-    "appId": "com.llamamail.app",
-    "productName": "LlamaMail",
-    "beforeBuild": "./scripts/electron-builder-before-build.cjs",
-    "directories": {
-      "output": "dist",
-      "buildResources": "build"
-    },
-    "files": [
-      "electron/**/*",
-      "public/**/*",
-      "resources/**/*",
-      "build/**/*",
-      "drizzle/**/*",
-      "preload.cjs",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": ".electron-builder-prod-node_modules/node_modules",
-        "to": "node_modules"
-      }
-    ],
-    "protocols": [
-      {
-        "name": "Email Link",
-        "schemes": [
-          "mailto"
-        ]
-      },
-      {
-        "name": "LlamaMail OAuth Callback",
-        "schemes": [
-          "llamamail"
-        ]
-      }
-    ],
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "Wuild",
-        "repo": "LlamaMail"
-      }
-    ],
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb",
-        "rpm"
-      ],
-      "executableName": "llamamail",
-      "icon": "build/icons",
-      "desktop": {
-        "entry": {
-          "StartupWMClass": "llamamail",
-          "MimeType": "x-scheme-handler/mailto;x-scheme-handler/llamamail;",
-          "Actions": "Compose;Mail;Contacts;Calendar;Cloud;Settings;Debug;Help;"
-        },
-        "desktopActions": {
-          "Compose": {
-            "Name": "Compose Email",
-            "Exec": "llamamail --action=compose"
-          },
-          "Mail": {
-            "Name": "Mail",
-            "Exec": "llamamail --route=/email"
-          },
-          "Contacts": {
-            "Name": "Contacts",
-            "Exec": "llamamail --route=/contacts"
-          },
-          "Calendar": {
-            "Name": "Calendar",
-            "Exec": "llamamail --route=/calendar"
-          },
-          "Cloud": {
-            "Name": "Cloud",
-            "Exec": "llamamail --route=/cloud"
-          },
-          "Settings": {
-            "Name": "Settings",
-            "Exec": "llamamail --route=/settings/application"
-          },
-          "Debug": {
-            "Name": "Debug",
-            "Exec": "llamamail --route=/debug"
-          },
-          "Help": {
-            "Name": "Help",
-            "Exec": "llamamail --route=/help"
-          }
-        }
-      },
-      "category": "Network"
-    },
-    "mac": {
-      "strictVerify": false
-    },
-    "flatpak": {
-      "runtime": "org.freedesktop.Platform",
-      "runtimeVersion": "24.08",
-      "sdk": "org.freedesktop.Sdk",
-      "base": "org.electronjs.Electron2.BaseApp",
-      "baseVersion": "24.08"
-    },
-    "win": {
-      "artifactName": "${productName}.Setup.${version}.${ext}",
-      "icon": "build/icon.ico",
-      "target": [
-        "nsis"
-      ]
-    },
-    "nsis": {
-      "differentialPackage": true
-    }
-  }
+	"name": "llamamail",
+	"type": "module",
+	"version": "v1.0.18",
+	"description": "Modern offline-first desktop email client for Linux.",
+	"homepage": "https://github.com/Wuild/LlamaMail",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Wuild/LlamaMail.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Wuild/LlamaMail/issues"
+	},
+	"main": "build/main/index.js",
+	"maintainers": [
+		"Wuild"
+	],
+	"scripts": {
+		"build:electron": "npm run build && electron-builder",
+		"build:linux": "npm run build && electron-builder --linux",
+		"build:linux:x64": "npm run build && electron-builder --linux --x64",
+		"build:linux:arm64": "npm run build && electron-builder --linux --arm64",
+		"build:win": "npm run build && electron-builder --win",
+		"build:mac": "node scripts/build-mac.cjs",
+		"build:mac:x64": "node scripts/build-mac.cjs --x64",
+		"build:mac:arm64": "node scripts/build-mac.cjs --arm64",
+		"sync:preload": "node scripts/sync-preload.cjs",
+		"resolve:build-aliases": "node scripts/resolve-build-aliases.cjs",
+		"dev:ui": "vite",
+		"dev:types": "tsc -w --preserveWatchOutput",
+		"dev:electron": "wait-on tcp:127.0.0.1:5174 file:build/main/index.js file:build/preload/index.js && nodemon --watch build/main --watch build/preload --ext js,mjs,cjs,json --exec \"npm run resolve:build-aliases && npm run sync:preload && electron .\"",
+		"dev": "concurrently -k -n TSC,VITE,ELECTRON -c yellow,blue,green \"tsc -w --preserveWatchOutput\" \"vite\" \"npm run dev:electron\"",
+		"rebuild:native": "npm rebuild better-sqlite3 --runtime=electron --target=41.1.1 --dist-url=https://electronjs.org/headers",
+		"generate:icons": "node scripts/generate-icons.cjs",
+		"prebuild": "npm run generate:icons",
+		"postinstall": "npm run rebuild:native",
+		"build": "tsc && npm run resolve:build-aliases && npm run sync:preload && vite build",
+		"typecheck": "tsc",
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix",
+		"format": "prettier . --write",
+		"format:check": "prettier . --check",
+		"check:architecture": "node scripts/check-architecture.cjs",
+		"test:unit": "echo \"Unit tests removed\"",
+		"start": "npm run build && electron .",
+		"drizzle:generate": "drizzle-kit generate --config=drizzle.config.ts",
+		"drizzle:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+		"test": "npm run test:unit"
+	},
+	"keywords": [],
+	"author": {
+		"name": "Wuild",
+		"email": "wuild@voracious.se"
+	},
+	"license": "ISC",
+	"devDependencies": {
+		"@eslint/js": "^9.39.4",
+		"@tailwindcss/postcss": "^4.2.2",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@vitejs/plugin-react": "^6.0.1",
+		"autoprefixer": "^10.4.27",
+		"concurrently": "^9.2.1",
+		"drizzle-kit": "^0.31.10",
+		"electron": "^41.1.1",
+		"electron-builder": "^26.8.1",
+		"electron-devtools-installer": "^4.0.0",
+		"eslint": "^9.39.4",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-react-hooks": "^7.0.1",
+		"eslint-plugin-react-refresh": "^0.4.26",
+		"globals": "^16.5.0",
+		"nodemon": "^3.1.14",
+		"postcss": "^8.5.8",
+		"prettier": "^3.8.1",
+		"sharp": "^0.34.5",
+		"tailwindcss": "^4.2.2",
+		"typescript": "^6.0.2",
+		"typescript-eslint": "^8.58.0",
+		"vite": "^8.0.3",
+		"wait-on": "^9.0.4"
+	},
+	"dependencies": {
+		"@dnd-kit/core": "^6.3.1",
+		"@dnd-kit/sortable": "^10.0.0",
+		"@dnd-kit/utilities": "^3.2.2",
+		"@lexical/code": "^0.42.0",
+		"@lexical/history": "^0.42.0",
+		"@lexical/link": "^0.42.0",
+		"@lexical/list": "^0.42.0",
+		"@lexical/markdown": "^0.42.0",
+		"@lexical/react": "^0.42.0",
+		"@lexical/rich-text": "^0.42.0",
+		"@tanstack/react-query": "^5.96.1",
+		"better-sqlite3": "^12.8.0",
+		"clsx": "^2.1.1",
+		"dnd-core": "^16.0.1",
+		"drizzle-orm": "^0.45.2",
+		"electron-updater": "^6.8.3",
+		"fast-glob": "^3.3.3",
+		"imapflow": "^1.2.18",
+		"keytar": "^7.9.0",
+		"lexical": "^0.42.0",
+		"lucide-react": "^1.7.0",
+		"mailparser": "^3.9.6",
+		"nodemailer": "^8.0.4",
+		"path-to-regexp": "^8.4.2",
+		"react": "^19.2.4",
+		"react-dnd": "^16.0.1",
+		"react-dnd-html5-backend": "^16.0.1",
+		"react-dom": "^19.2.4",
+		"react-router-dom": "^7.14.0",
+		"tailwind-merge": "^3.5.0",
+		"zod": "^4.3.6",
+		"zustand": "^5.0.12"
+	},
+	"build": {
+		"appId": "com.llamamail.app",
+		"productName": "LlamaMail",
+		"beforeBuild": "./scripts/electron-builder-before-build.cjs",
+		"directories": {
+			"output": "dist",
+			"buildResources": "build"
+		},
+		"files": [
+			"electron/**/*",
+			"public/**/*",
+			"resources/**/*",
+			"build/**/*",
+			"drizzle/**/*",
+			"preload.cjs",
+			"package.json"
+		],
+		"extraResources": [
+			{
+				"from": ".electron-builder-prod-node_modules/node_modules",
+				"to": "node_modules"
+			}
+		],
+		"protocols": [
+			{
+				"name": "Email Link",
+				"schemes": [
+					"mailto"
+				]
+			},
+			{
+				"name": "LlamaMail OAuth Callback",
+				"schemes": [
+					"llamamail"
+				]
+			}
+		],
+		"publish": [
+			{
+				"provider": "github",
+				"owner": "Wuild",
+				"repo": "LlamaMail"
+			}
+		],
+		"linux": {
+			"target": [
+				"AppImage",
+				"deb",
+				"rpm"
+			],
+			"executableName": "llamamail",
+			"icon": "build/icons",
+			"desktop": {
+				"entry": {
+					"StartupWMClass": "llamamail",
+					"MimeType": "x-scheme-handler/mailto;x-scheme-handler/llamamail;",
+					"Actions": "Compose;Mail;Contacts;Calendar;Cloud;Settings;Debug;Help;"
+				},
+				"desktopActions": {
+					"Compose": {
+						"Name": "Compose Email",
+						"Exec": "llamamail --action=compose"
+					},
+					"Mail": {
+						"Name": "Mail",
+						"Exec": "llamamail --route=/email"
+					},
+					"Contacts": {
+						"Name": "Contacts",
+						"Exec": "llamamail --route=/contacts"
+					},
+					"Calendar": {
+						"Name": "Calendar",
+						"Exec": "llamamail --route=/calendar"
+					},
+					"Cloud": {
+						"Name": "Cloud",
+						"Exec": "llamamail --route=/cloud"
+					},
+					"Settings": {
+						"Name": "Settings",
+						"Exec": "llamamail --route=/settings/application"
+					},
+					"Debug": {
+						"Name": "Debug",
+						"Exec": "llamamail --route=/debug"
+					},
+					"Help": {
+						"Name": "Help",
+						"Exec": "llamamail --route=/help"
+					}
+				}
+			},
+			"category": "Network"
+		},
+		"mac": {
+			"strictVerify": false
+		},
+		"flatpak": {
+			"runtime": "org.freedesktop.Platform",
+			"runtimeVersion": "24.08",
+			"sdk": "org.freedesktop.Sdk",
+			"base": "org.electronjs.Electron2.BaseApp",
+			"baseVersion": "24.08"
+		},
+		"win": {
+			"artifactName": "${productName}.Setup.${version}.${ext}",
+			"icon": "build/icon.ico",
+			"target": [
+				"nsis"
+			]
+		},
+		"nsis": {
+			"differentialPackage": true
+		}
+	}
 }

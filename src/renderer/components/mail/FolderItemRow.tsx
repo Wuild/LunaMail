@@ -67,7 +67,7 @@ export default function FolderItemRow({
                     >
 						{icon}
 					</span>
-                    <span className={cn('truncate pr-14 text-xs', active ? 'font-semibold' : 'font-medium')}>
+					<span className={cn('truncate pr-14 text-xs', active ? 'font-semibold' : 'font-medium')}>
 						{label}
 					</span>
 				</span>

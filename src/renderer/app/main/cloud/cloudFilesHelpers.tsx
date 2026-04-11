@@ -1,63 +1,63 @@
 import {FormInput, FormSelect} from '@renderer/components/ui/FormControls';
-import React from "react";
-import {File, FileArchive, FileAudio2, FileCode, FileImage, FileSpreadsheet, FileText, FileVideo,} from "lucide-react";
-import type {CloudItem, CloudProvider, CloudStorageUsage} from "@/preload";
-import {ONEDRIVE_DEFAULT_CLIENT_ID, ONEDRIVE_DEFAULT_TENANT_ID} from "@/shared/cloudConfig";
+import React from 'react';
+import {File, FileArchive, FileAudio2, FileCode, FileImage, FileSpreadsheet, FileText, FileVideo} from 'lucide-react';
+import type {CloudItem, CloudProvider, CloudStorageUsage} from '@/preload';
+import {ONEDRIVE_DEFAULT_CLIENT_ID, ONEDRIVE_DEFAULT_TENANT_ID} from '@/shared/cloudConfig';
 
 export type NavigationEntry = { token: string; label: string };
-export type CloudTableColumnKey = "name" | "type" | "size" | "modified" | "created";
-export type OneDriveDriveScope = "home" | "my-files" | "shares" | "recycle-bin";
+export type CloudTableColumnKey = 'name' | 'type' | 'size' | 'modified' | 'created';
+export type OneDriveDriveScope = 'home' | 'my-files' | 'shares' | 'recycle-bin';
 
 export const providerLabels: Record<CloudProvider, string> = {
-    nextcloud: "Nextcloud",
-    webdav: "WebDAV",
-    "google-drive": "Google Drive",
-    onedrive: "OneDrive",
+    nextcloud: 'Nextcloud',
+    webdav: 'WebDAV',
+    'google-drive': 'Google Drive',
+    onedrive: 'OneDrive',
 };
 
 export const DEFAULT_ONEDRIVE_CLIENT_ID = ONEDRIVE_DEFAULT_CLIENT_ID;
 export const DEFAULT_ONEDRIVE_TENANT_ID = ONEDRIVE_DEFAULT_TENANT_ID;
 
-const CLOUD_FOLDER_CACHE_PREFIX = "llamamail.cloud.folder.cache.v1";
-const CLOUD_TABLE_COLUMNS_STORAGE_KEY = "llamamail.cloud.table.columns.v1";
-const CLOUD_ACCOUNT_COLLAPSE_STORAGE_KEY = "llamamail.cloud.accountCollapseState.v1";
+const CLOUD_FOLDER_CACHE_PREFIX = 'llamamail.cloud.folder.cache.v1';
+const CLOUD_TABLE_COLUMNS_STORAGE_KEY = 'llamamail.cloud.table.columns.v1';
+const CLOUD_ACCOUNT_COLLAPSE_STORAGE_KEY = 'llamamail.cloud.accountCollapseState.v1';
 
 export const CLOUD_TABLE_RESIZE_HANDLE_CLASS =
     "cloud-resize-handle absolute -right-1 top-1/2 h-[calc(100%-10px)] w-2 -translate-y-1/2 cursor-col-resize rounded bg-transparent after:absolute after:bottom-1 after:left-1/2 after:top-1 after:w-px after:-translate-x-1/2 after:content-['']";
 
 export const CLOUD_TABLE_COLUMN_OPTIONS: Array<{ key: CloudTableColumnKey; label: string }> = [
-    {key: "name", label: "Name"},
-    {key: "type", label: "Type"},
-    {key: "size", label: "Size"},
-    {key: "modified", label: "Modified"},
-    {key: "created", label: "Created"},
+    {key: 'name', label: 'Name'},
+    {key: 'type', label: 'Type'},
+    {key: 'size', label: 'Size'},
+    {key: 'modified', label: 'Modified'},
+    {key: 'created', label: 'Created'},
 ];
 
 export const ONEDRIVE_SCOPE_OPTIONS: Array<{ value: OneDriveDriveScope; label: string; token: string }> = [
-    {value: "home", label: "Home", token: "scope:home"},
-    {value: "my-files", label: "My Files", token: "scope:my-files"},
-    {value: "shares", label: "Shares", token: "scope:shares"},
-    {value: "recycle-bin", label: "Recycle Bin", token: "scope:recycle-bin"},
+    {value: 'home', label: 'Home', token: 'scope:home'},
+    {value: 'my-files', label: 'My Files', token: 'scope:my-files'},
+    {value: 'shares', label: 'Shares', token: 'scope:shares'},
+    {value: 'recycle-bin', label: 'Recycle Bin', token: 'scope:recycle-bin'},
 ];
 
 function rootToken(provider: CloudProvider): string {
-    if (provider === "google-drive") return "root";
-    if (provider === "onedrive") return "scope:home";
-    return "/";
+    if (provider === 'google-drive') return 'root';
+    if (provider === 'onedrive') return 'scope:home';
+    return '/';
 }
 
 export function resolveOneDriveScope(trail: NavigationEntry[]): OneDriveDriveScope {
-    const rootTokenValue = String(trail[0]?.token || "")
+    const rootTokenValue = String(trail[0]?.token || '')
         .trim()
         .toLowerCase();
     const match = ONEDRIVE_SCOPE_OPTIONS.find((option) => option.token === rootTokenValue);
-    if (!match) return "home";
+    if (!match) return 'home';
     return match.value;
 }
 
 export function buildRootTrail(provider: CloudProvider): NavigationEntry[] {
-    if (provider === "onedrive") return [{token: rootToken(provider), label: "Home"}];
-    return [{token: rootToken(provider), label: "Root"}];
+    if (provider === 'onedrive') return [{token: rootToken(provider), label: 'Home'}];
+    return [{token: rootToken(provider), label: 'Root'}];
 }
 
 export function serializeNavigationTrail(trail: NavigationEntry[]): string {
@@ -72,8 +72,8 @@ export function parseNavigationTrail(raw: string | null, provider: CloudProvider
         const normalized: NavigationEntry[] = parsed
             .slice(0, 32)
             .map((entry) => ({
-                token: String(entry?.token || "").trim(),
-                label: String(entry?.label || "").trim(),
+                token: String(entry?.token || '').trim(),
+                label: String(entry?.label || '').trim(),
             }))
             .filter((entry) => entry.token.length > 0 && entry.label.length > 0);
         if (normalized.length === 0) return buildRootTrail(provider);
@@ -85,8 +85,8 @@ export function parseNavigationTrail(raw: string | null, provider: CloudProvider
 
 export function buildCloudRoute(accountId: number, trail: NavigationEntry[]): string {
     const params = new URLSearchParams();
-    params.set("account", String(accountId));
-    params.set("trail", serializeNavigationTrail(trail));
+    params.set('account', String(accountId));
+    params.set('trail', serializeNavigationTrail(trail));
     return `/cloud?${params.toString()}`;
 }
 
@@ -99,7 +99,7 @@ export function readCloudTableColumns(): CloudTableColumnKey[] {
         const valid = parsed
             .map((value) => String(value))
             .filter((value): value is CloudTableColumnKey =>
-                CLOUD_TABLE_COLUMN_OPTIONS.some((column) => column.key === value)
+                CLOUD_TABLE_COLUMN_OPTIONS.some((column) => column.key === value),
             );
         if (valid.length === 0) return CLOUD_TABLE_COLUMN_OPTIONS.map((column) => column.key);
         return Array.from(new Set(valid));
@@ -117,7 +117,7 @@ export function writeCloudTableColumns(columns: CloudTableColumnKey[]): void {
 }
 
 export function readCollapsedCloudAccountIds(): Set<number> {
-    if (typeof window === "undefined") return new Set();
+    if (typeof window === 'undefined') return new Set();
     try {
         const raw = window.localStorage.getItem(CLOUD_ACCOUNT_COLLAPSE_STORAGE_KEY);
         if (!raw) return new Set();
@@ -147,7 +147,7 @@ export function pruneCollapsedCloudAccountIds(ids: Set<number>, accountIds: numb
 }
 
 function isHierarchicalPathToken(token: string): boolean {
-    return token.startsWith("/");
+    return token.startsWith('/');
 }
 
 function shouldInvalidateTokenForDeletedItem(token: string, item: CloudItem): boolean {
@@ -157,7 +157,11 @@ function shouldInvalidateTokenForDeletedItem(token: string, item: CloudItem): bo
     return token.startsWith(`${item.path}/`);
 }
 
-export function invalidateDeletedFolderCaches(cache: Record<string, CloudItem[]>, accountId: number, item: CloudItem): void {
+export function invalidateDeletedFolderCaches(
+    cache: Record<string, CloudItem[]>,
+    accountId: number,
+    item: CloudItem,
+): void {
     const prefix = `${accountId}:`;
     for (const key of Object.keys(cache)) {
         if (!key.startsWith(prefix)) continue;
@@ -187,12 +191,12 @@ export function clearPersistedDeletedFolderCaches(accountId: number, item: Cloud
 }
 
 export function formatStorageUsage(usage: CloudStorageUsage | null): string {
-    if (!usage) return "Storage unavailable";
+    if (!usage) return 'Storage unavailable';
     const used = usage.usedBytes;
     const total = usage.totalBytes;
     const usedLabel =
-        typeof used === "number" && Number.isFinite(used) ? `${(used / 1024 ** 3).toFixed(1)} GB` : "Unknown";
-    if (typeof total !== "number" || !Number.isFinite(total) || total <= 0) {
+        typeof used === 'number' && Number.isFinite(used) ? `${(used / 1024 ** 3).toFixed(1)} GB` : 'Unknown';
+    if (typeof total !== 'number' || !Number.isFinite(total) || total <= 0) {
         return `${usedLabel} used`;
     }
     const totalLabel = `${(total / 1024 ** 3).toFixed(1)} GB`;
@@ -200,29 +204,31 @@ export function formatStorageUsage(usage: CloudStorageUsage | null): string {
 }
 
 export function renderCloudFileTypeIcon(item: CloudItem): React.ReactNode {
-    const type = (item.mimeType || "").toLowerCase();
-    const ext = (item.name.split(".").pop() || "").toLowerCase();
-    const baseClassName = "ui-text-muted shrink-0";
-    if (type.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico"].includes(ext)) {
+    const type = (item.mimeType || '').toLowerCase();
+    const ext = (item.name.split('.').pop() || '').toLowerCase();
+    const baseClassName = 'ui-text-muted shrink-0';
+    if (type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext)) {
         return <FileImage size={15} className={baseClassName}/>;
     }
-    if (type.startsWith("video/") || ["mp4", "mkv", "mov", "avi", "webm"].includes(ext)) {
+    if (type.startsWith('video/') || ['mp4', 'mkv', 'mov', 'avi', 'webm'].includes(ext)) {
         return <FileVideo size={15} className={baseClassName}/>;
     }
-    if (type.startsWith("audio/") || ["mp3", "wav", "ogg", "flac", "m4a"].includes(ext)) {
+    if (type.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(ext)) {
         return <FileAudio2 size={15} className={baseClassName}/>;
     }
-    if (["zip", "rar", "7z", "tar", "gz", "bz2", "xz"].includes(ext)) {
+    if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(ext)) {
         return <FileArchive size={15} className={baseClassName}/>;
     }
-    if (["csv", "xls", "xlsx", "ods"].includes(ext)) {
+    if (['csv', 'xls', 'xlsx', 'ods'].includes(ext)) {
         return <FileSpreadsheet size={15} className={baseClassName}/>;
     }
-    if (["txt", "md", "rtf", "doc", "docx", "pdf"].includes(ext) || type.startsWith("text/")) {
+    if (['txt', 'md', 'rtf', 'doc', 'docx', 'pdf'].includes(ext) || type.startsWith('text/')) {
         return <FileText size={15} className={baseClassName}/>;
     }
     if (
-        ["json", "xml", "yml", "yaml", "js", "ts", "tsx", "jsx", "py", "go", "rs", "java", "c", "cpp", "h"].includes(ext)
+        ['json', 'xml', 'yml', 'yaml', 'js', 'ts', 'tsx', 'jsx', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'h'].includes(
+            ext,
+        )
     ) {
         return <FileCode size={15} className={baseClassName}/>;
     }
@@ -234,9 +240,9 @@ export function formatStorageUsagePercent(usage: CloudStorageUsage | null): numb
     const used = usage.usedBytes;
     const total = usage.totalBytes;
     if (
-        typeof used !== "number" ||
+        typeof used !== 'number' ||
         !Number.isFinite(used) ||
-        typeof total !== "number" ||
+        typeof total !== 'number' ||
         !Number.isFinite(total) ||
         total <= 0
     ) {
@@ -265,7 +271,7 @@ export function writePersistedFolderCache(accountId: number, folderToken: string
     try {
         window.localStorage.setItem(
             buildFolderCacheStorageKey(accountId, folderToken),
-            JSON.stringify({updatedAt: Date.now(), items: items.slice(0, 500)})
+            JSON.stringify({updatedAt: Date.now(), items: items.slice(0, 500)}),
         );
     } catch {
         // Ignore cache persistence failures.
@@ -293,9 +299,14 @@ export function areCloudItemsEqual(a: CloudItem[], b: CloudItem[]): boolean {
     return true;
 }
 
-export function constrainToViewport(x: number, y: number, width: number, height: number): {
+export function constrainToViewport(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+): {
     left: number;
-    top: number
+    top: number;
 } {
     const margin = 8;
     const maxLeft = Math.max(margin, window.innerWidth - width - margin);
@@ -311,14 +322,14 @@ export function Field(props: {
     onChange: (value: string) => void;
     placeholder?: string;
     type?: string;
-    as?: "input" | "select";
+    as?: 'input' | 'select';
     options?: Array<{ value: string; label: string }>;
 }) {
-    const {label, value, onChange, placeholder, type = "text", as = "input", options = []} = props;
+    const {label, value, onChange, placeholder, type = 'text', as = 'input', options = []} = props;
     return (
         <label className="block text-sm">
             <span className="ui-text-secondary mb-1 block font-medium">{label}</span>
-            {as === "select" ? (
+            {as === 'select' ? (
                 <FormSelect
                     value={value}
                     onChange={(event) => onChange(event.target.value)}

@@ -113,7 +113,10 @@ export function MessageHeaderCard({
             .then((contacts) => {
                 if (!active) return;
                 const exists = contacts.some(
-                    (contact) => String(contact.email || '').trim().toLowerCase() === senderEmail.toLowerCase(),
+                    (contact) =>
+                        String(contact.email || '')
+                            .trim()
+                            .toLowerCase() === senderEmail.toLowerCase(),
                 );
                 setSenderIsContact(exists);
             })
@@ -133,7 +136,10 @@ export function MessageHeaderCard({
         try {
             const existing = await ipcClient.getContacts(accountId, senderEmail, 10);
             const alreadyExists = existing.some(
-                (contact) => String(contact.email || '').trim().toLowerCase() === senderEmail.toLowerCase(),
+                (contact) =>
+                    String(contact.email || '')
+                        .trim()
+                        .toLowerCase() === senderEmail.toLowerCase(),
             );
             if (alreadyExists) {
                 reportStatus(`Contact already exists for ${senderEmail}.`, 'success');
@@ -276,13 +282,9 @@ export function MessageHeaderCard({
                                 />
                             )}
                             <div className="min-w-0">
-                                <p className="ui-text-secondary truncate text-sm font-semibold">
-                                    {senderPrimary}
-                                </p>
+                                <p className="ui-text-secondary truncate text-sm font-semibold">{senderPrimary}</p>
                                 {senderSecondary && (
-                                    <p className="ui-text-muted truncate text-xs select-text">
-                                        {senderSecondary}
-                                    </p>
+                                    <p className="ui-text-muted truncate text-xs select-text">{senderSecondary}</p>
                                 )}
                             </div>
                         </div>
@@ -310,8 +312,10 @@ export function MessageHeaderCard({
                 >
                     {!senderIsContact && (
                         <>
-                            <ContextMenuItem disabled={!canRunSenderActions || actionBusy}
-                                             onClick={() => void onAddSenderAsContact()}>
+                            <ContextMenuItem
+                                disabled={!canRunSenderActions || actionBusy}
+                                onClick={() => void onAddSenderAsContact()}
+                            >
                                 <UserPlus size={14}/>
                                 <span>Add contact</span>
                             </ContextMenuItem>
@@ -333,10 +337,7 @@ export function MessageHeaderCard({
                         <span>Auto-star sender</span>
                     </ContextMenuItem>
                     <ContextMenuSeparator/>
-                    <ContextMenuItem
-                        disabled={!canRunSenderActions || actionBusy}
-                        onClick={onCreateCustomFilter}
-                    >
+                    <ContextMenuItem disabled={!canRunSenderActions || actionBusy} onClick={onCreateCustomFilter}>
                         <Filter size={14}/>
                         <span>Custom filter...</span>
                     </ContextMenuItem>

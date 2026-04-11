@@ -57,9 +57,10 @@ export function computeSelectionOnClick({
 
         if (exists) {
             return {
-                selectedMessageId: state.selectedMessageId && nextIds.includes(state.selectedMessageId)
-                    ? state.selectedMessageId
-                    : null,
+                selectedMessageId:
+                    state.selectedMessageId && nextIds.includes(state.selectedMessageId)
+                        ? state.selectedMessageId
+                        : null,
                 selectedMessageIds: nextIds,
                 pendingAutoReadMessageId: null,
                 anchorIndex: selectedIndex,
@@ -137,8 +138,6 @@ export function computeSelectionOnSelectAll(
         selectedMessageId: hasCurrentSelection ? selectedMessageId : null,
         selectedMessageIds: messageIds,
         pendingAutoReadMessageId: null,
-        anchorIndex: hasCurrentSelection
-            ? messageIds.findIndex((messageId) => messageId === selectedMessageId)
-            : null,
+        anchorIndex: hasCurrentSelection ? messageIds.findIndex((messageId) => messageId === selectedMessageId) : null,
     };
 }

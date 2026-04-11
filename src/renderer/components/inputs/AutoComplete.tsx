@@ -23,23 +23,26 @@ type AutoCompleteProps = {
     className?: string;
     showRowsOnFocus?: boolean;
     onInputKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
-    inputProps?: Omit<FormInputProps, 'value' | 'onChange' | 'placeholder' | 'className' | 'onFocus' | 'onBlur' | 'onKeyDown'>;
+    inputProps?: Omit<
+        FormInputProps,
+        'value' | 'onChange' | 'placeholder' | 'className' | 'onFocus' | 'onBlur' | 'onKeyDown'
+    >;
 };
 
 export default function AutoComplete({
-    value,
-    onChange,
-    rows,
-    onPickRow,
-    onCommitValue,
-    onFocus,
-    onBlur,
-    placeholder,
-    inputClassName,
-    className,
-    showRowsOnFocus = true,
-    onInputKeyDown,
-    inputProps,
+                                         value,
+                                         onChange,
+                                         rows,
+                                         onPickRow,
+                                         onCommitValue,
+                                         onFocus,
+                                         onBlur,
+                                         placeholder,
+                                         inputClassName,
+                                         className,
+                                         showRowsOnFocus = true,
+                                         onInputKeyDown,
+                                         inputProps,
 }: AutoCompleteProps) {
     const [open, setOpen] = useState(false);
     const [activeRowIndex, setActiveRowIndex] = useState(0);

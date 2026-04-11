@@ -45,15 +45,15 @@ export function buildMessageIframeSrcDoc(
     const csp = buildSourceDocCsp(allowRemoteForSelectedMessage);
     const rootStyles = window.getComputedStyle(document.documentElement);
     const dark = document.documentElement.classList.contains('dark');
-    const scrollbarTrack = rootStyles.getPropertyValue(
-        dark ? '--sidebar-surface' : '--app-border',
-    ).trim() || (dark ? '#2b2d31' : '#e2e8f0');
-    const scrollbarThumb = rootStyles.getPropertyValue(
-        dark ? '--scrollbar-thumb-dark' : '--scrollbar-thumb-light',
-    ).trim() || (dark ? '#5b5e66' : '#94a3b8');
-    const scrollbarThumbHover = rootStyles.getPropertyValue(
-        dark ? '--scrollbar-thumb-dark-hover' : '--scrollbar-thumb-light-hover',
-    ).trim() || (dark ? '#7a7e87' : '#64748b');
+    const scrollbarTrack =
+        rootStyles.getPropertyValue(dark ? '--sidebar-surface' : '--app-border').trim() ||
+        (dark ? '#2b2d31' : '#e2e8f0');
+    const scrollbarThumb =
+        rootStyles.getPropertyValue(dark ? '--scrollbar-thumb-dark' : '--scrollbar-thumb-light').trim() ||
+        (dark ? '#5b5e66' : '#94a3b8');
+    const scrollbarThumbHover =
+        rootStyles.getPropertyValue(dark ? '--scrollbar-thumb-dark-hover' : '--scrollbar-thumb-light-hover').trim() ||
+        (dark ? '#7a7e87' : '#64748b');
     const frameBackground = '#ffffff';
     const frameText = '#1f2937';
     const frameLink = '#0b57d0';
@@ -95,26 +95,15 @@ function sanitizeRemoteMediaSources(html: string, allowRemote: boolean, warnOnEx
                     node.removeAttribute(attr.name);
                     return;
                 }
-                if (
-                    (name === 'action' || name === 'formaction') &&
-                    isUnsafeNavigableUrl(value)
-                ) {
+                if ((name === 'action' || name === 'formaction') && isUnsafeNavigableUrl(value)) {
                     node.removeAttribute(attr.name);
                     return;
                 }
-                if (
-                    (name === 'href' || name === 'xlink:href') &&
-                    tagName !== 'a' &&
-                    isUnsafeNavigableUrl(value)
-                ) {
+                if ((name === 'href' || name === 'xlink:href') && tagName !== 'a' && isUnsafeNavigableUrl(value)) {
                     node.removeAttribute(attr.name);
                     return;
                 }
-                if (
-                    (name === 'href' || name === 'xlink:href') &&
-                    tagName !== 'a' &&
-                    isRemoteHttpUrl(value)
-                ) {
+                if ((name === 'href' || name === 'xlink:href') && tagName !== 'a' && isRemoteHttpUrl(value)) {
                     node.removeAttribute(attr.name);
                 }
             });
@@ -130,7 +119,9 @@ function sanitizeRemoteMediaSources(html: string, allowRemote: boolean, warnOnEx
                 }
             });
         }
-        const sourceLikeNodes = doc.querySelectorAll<HTMLElement>('source[src], track[src], embed[src], link[href], meta[http-equiv="refresh"]');
+        const sourceLikeNodes = doc.querySelectorAll<HTMLElement>(
+            'source[src], track[src], embed[src], link[href], meta[http-equiv="refresh"]',
+        );
         sourceLikeNodes.forEach((node) => {
             if (node.tagName.toLowerCase() === 'link') {
                 const rel = String(node.getAttribute('rel') || '').toLowerCase();
@@ -149,7 +140,9 @@ function sanitizeRemoteMediaSources(html: string, allowRemote: boolean, warnOnEx
             if (node.tagName.toLowerCase() === 'meta') {
                 const content = String(node.getAttribute('content') || '');
                 const nextContent = content.replace(/url\s*=\s*([^;]+)/i, (full, rawUrl) => {
-                    const normalized = String(rawUrl || '').trim().replace(/^['"]|['"]$/g, '');
+                    const normalized = String(rawUrl || '')
+                        .trim()
+                        .replace(/^['"]|['"]$/g, '');
                     return isRemoteHttpUrl(normalized) ? 'url=about:blank' : full;
                 });
                 node.setAttribute('content', nextContent);
@@ -183,7 +176,9 @@ function sanitizeRemoteMediaSources(html: string, allowRemote: boolean, warnOnEx
             const styleValue = String(node.getAttribute('style') || '');
             if (!styleValue) return;
             const nextStyle = styleValue.replace(/url\(([^)]+)\)/gi, (full, rawUrl) => {
-                const normalized = String(rawUrl || '').trim().replace(/^['"]|['"]$/g, '');
+                const normalized = String(rawUrl || '')
+                    .trim()
+                    .replace(/^['"]|['"]$/g, '');
                 if (shouldBlockMedia && isBlockedMediaUrl(normalized)) return 'none';
                 return full;
             });
@@ -193,14 +188,20 @@ function sanitizeRemoteMediaSources(html: string, allowRemote: boolean, warnOnEx
         styleTags.forEach((styleTag) => {
             const css = String(styleTag.textContent || '');
             if (!css) return;
-            const withoutImports = css.replace(/@import\s+url\(([^)]+)\)\s*;?/gi, (full, rawUrl) => {
-                const normalized = String(rawUrl || '').trim().replace(/^['"]|['"]$/g, '');
-                return shouldBlockMedia && isBlockedMediaUrl(normalized) ? '' : full;
-            }).replace(/@import\s+['"]([^'"]+)['"]\s*;?/gi, (full, rawUrl) => {
-                return shouldBlockMedia && isBlockedMediaUrl(rawUrl) ? '' : full;
-            });
+            const withoutImports = css
+                .replace(/@import\s+url\(([^)]+)\)\s*;?/gi, (full, rawUrl) => {
+                    const normalized = String(rawUrl || '')
+                        .trim()
+                        .replace(/^['"]|['"]$/g, '');
+                    return shouldBlockMedia && isBlockedMediaUrl(normalized) ? '' : full;
+                })
+                .replace(/@import\s+['"]([^'"]+)['"]\s*;?/gi, (full, rawUrl) => {
+                    return shouldBlockMedia && isBlockedMediaUrl(rawUrl) ? '' : full;
+                });
             const nextCss = withoutImports.replace(/url\(([^)]+)\)/gi, (full, rawUrl) => {
-                const normalized = String(rawUrl || '').trim().replace(/^['"]|['"]$/g, '');
+                const normalized = String(rawUrl || '')
+                    .trim()
+                    .replace(/^['"]|['"]$/g, '');
                 if (shouldBlockMedia && isBlockedMediaUrl(normalized)) return 'none';
                 return full;
             });

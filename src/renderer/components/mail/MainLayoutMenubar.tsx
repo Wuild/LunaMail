@@ -9,7 +9,7 @@ import {
     PenSquare,
     Search,
     Settings,
-    Users
+    Users,
 } from 'lucide-react';
 import {Button} from '../ui/button';
 import {ipcClient} from '@renderer/lib/ipcClient';
@@ -29,15 +29,15 @@ type MainLayoutMenubarProps = {
 };
 
 export default function MainLayoutMenubar({
-    canNavigateBack,
-    canNavigateForward,
-    onNavigateBack,
-    onNavigateForward,
-    activeWorkspace,
-    searchModalOpen,
-    onOpenSearch,
-    onOpenCalendar,
-    onOpenContacts,
+                                              canNavigateBack,
+                                              canNavigateForward,
+                                              onNavigateBack,
+                                              onNavigateForward,
+                                              activeWorkspace,
+                                              searchModalOpen,
+                                              onOpenSearch,
+                                              onOpenCalendar,
+                                              onOpenContacts,
 }: MainLayoutMenubarProps) {
     return (
         <div className="flex h-full items-center justify-between gap-3 px-4">
@@ -106,10 +106,7 @@ export default function MainLayoutMenubar({
             <div className="flex items-center justify-end">
                 <Button
                     variant="ghost"
-                    className={cn(
-                        'titlebar-nav-button mr-1 h-9 w-9 rounded-md p-0',
-                        searchModalOpen && 'is-active',
-                    )}
+                    className={cn('titlebar-nav-button mr-1 h-9 w-9 rounded-md p-0', searchModalOpen && 'is-active')}
                     onClick={onOpenSearch}
                     title="Search mail"
                     aria-label="Search mail"

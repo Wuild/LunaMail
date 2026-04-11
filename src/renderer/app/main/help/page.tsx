@@ -71,19 +71,14 @@ export default function SupportPage() {
                         </section>
 
                         <div className="columns-1 gap-4 md:columns-2">
-                            <section
-                                className="panel mb-4 break-inside-avoid rounded-xl p-4 text-sm">
+                            <section className="panel mb-4 break-inside-avoid rounded-xl p-4 text-sm">
                                 <h2 className="ui-text-primary font-semibold">Project Snapshot</h2>
                                 <div className="ui-text-secondary mt-2 grid gap-2">
                                     <div>
-									<span className="ui-text-muted font-medium">
-										App version:
-									</span>{' '}
-                                        {version}
+                                        <span className="ui-text-muted font-medium">App version:</span> {version}
                                     </div>
                                     <div>
-                                        <span className="ui-text-muted font-medium">Built by:</span>{' '}
-                                        {author}
+                                        <span className="ui-text-muted font-medium">Built by:</span> {author}
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <span className="ui-text-muted font-medium">Source:</span>
@@ -99,49 +94,37 @@ export default function SupportPage() {
                                 </div>
                             </section>
 
-                            <section
-                                className="panel mb-4 break-inside-avoid rounded-xl p-4 text-sm">
+                            <section className="panel mb-4 break-inside-avoid rounded-xl p-4 text-sm">
                                 <h2 className="ui-text-primary font-semibold">How It Works</h2>
                                 <div className="ui-text-secondary mt-2 space-y-2">
                                     <p>
-									<span className="ui-text-secondary font-medium">
-										Accounts & sync:
-									</span>{' '}
-                                        Each account syncs over IMAP and is cached locally for fast browsing, even when
+                                        <span className="ui-text-secondary font-medium">Accounts & sync:</span> Each
+                                        account syncs over IMAP and is cached locally for fast browsing, even when
                                         network conditions are poor.
                                     </p>
                                     <p>
-									<span className="ui-text-secondary font-medium">
-										Message actions:
-									</span>{' '}
-                                        Read, move, archive, and flag updates are applied instantly in the UI and synced
-                                        in
+                                        <span className="ui-text-secondary font-medium">Message actions:</span> Read,
+                                        move, archive, and flag updates are applied instantly in the UI and synced in
                                         the background.
                                     </p>
                                     <p>
-                                        <span className="ui-text-secondary font-medium">Search:</span>{' '}
-                                        Local indexing keeps search fast across accounts, folders, read state, date, and
-                                        more.
+                                        <span className="ui-text-secondary font-medium">Search:</span> Local indexing
+                                        keeps search fast across accounts, folders, read state, date, and more.
                                     </p>
                                     <p>
-									<span className="ui-text-secondary font-medium">
-										Security:
-									</span>{' '}
-                                        The renderer has no direct Node access. Sensitive operations are isolated behind
-                                        preload IPC and the Electron main process.
+                                        <span className="ui-text-secondary font-medium">Security:</span> The renderer
+                                        has no direct Node access. Sensitive operations are isolated behind preload IPC
+                                        and the Electron main process.
                                     </p>
                                     <p>
-									<span className="ui-text-secondary font-medium">
-										Privacy controls:
-									</span>{' '}
-                                        Remote content can be blocked by default, then allowed once or permanently for
-                                        trusted senders/domains.
+                                        <span className="ui-text-secondary font-medium">Privacy controls:</span> Remote
+                                        content can be blocked by default, then allowed once or permanently for trusted
+                                        senders/domains.
                                     </p>
                                 </div>
                             </section>
 
-                            <section
-                                className="panel mb-4 break-inside-avoid rounded-xl p-4 text-sm">
+                            <section className="panel mb-4 break-inside-avoid rounded-xl p-4 text-sm">
                                 <h2 className="ui-text-primary font-semibold">Safety Tips</h2>
                                 <ul className="ui-text-secondary mt-2 list-disc space-y-1 pl-5">
                                     <li>Open message details to confirm the full sender address and Message-ID.</li>

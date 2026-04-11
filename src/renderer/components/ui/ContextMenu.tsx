@@ -101,16 +101,7 @@ export type ContextMenuSubmenuProps = React.HTMLAttributes<HTMLDivElement> & {
 };
 
 export function ContextMenuSubmenu({size = 'md', className, ...props}: ContextMenuSubmenuProps) {
-    return (
-        <div
-            className={cn(
-                'menu context-menu-submenu',
-                sizeClassByValue[size],
-                className,
-            )}
-            {...props}
-        />
-    );
+    return <div className={cn('menu context-menu-submenu', sizeClassByValue[size], className)} {...props} />;
 }
 
 export type ContextMenuItemProps = Omit<ButtonProps, 'variant'> & {

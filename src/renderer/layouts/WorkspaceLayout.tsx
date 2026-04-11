@@ -103,15 +103,8 @@ export default function WorkspaceLayout({
     }, [statusHintText, statusScrollDistance]);
 
     return (
-        <section
-            className={cn('workspace app-shell flex h-full min-h-0 flex-col overflow-hidden', className)}
-        >
-            {showMenuBar && (
-                <header
-                    className="workspace-header shrink-0 px-5 py-3">
-                    {menubar}
-                </header>
-            )}
+        <section className={cn('workspace app-shell flex h-full min-h-0 flex-col overflow-hidden', className)}>
+            {showMenuBar && <header className="workspace-header shrink-0 px-5 py-3">{menubar}</header>}
             <div className="min-h-0 flex flex-1 overflow-hidden">
                 {sidebar && (
                     <div className="relative min-h-0 shrink-0" style={sidebarWidth ? {width: sidebarWidth} : undefined}>
@@ -126,24 +119,21 @@ export default function WorkspaceLayout({
                         )}
                     </div>
                 )}
-                <main
-                    className={cn('workspace-content min-h-0 flex-1 overflow-auto p-5', contentClassName)}>{children}</main>
+                <main className={cn('workspace-content min-h-0 flex-1 overflow-auto p-5', contentClassName)}>
+                    {children}
+                </main>
             </div>
-            {shouldShowFooter && (
-                <div
-                    className="app-footer shrink-0 px-5 py-3">
-                    {footer}
-                </div>
-            )}
+            {shouldShowFooter && <div className="app-footer shrink-0 px-5 py-3">{footer}</div>}
             {showStatusBar && (
-                <footer
-                    className="workspace-statusbar h-8 shrink-0 px-3">
+                <footer className="workspace-statusbar h-8 shrink-0 px-3">
                     <div className="flex h-full items-center text-xs">
 						<span className="workspace-status-text flex min-w-0 items-center gap-2 truncate">
 							<span
                                 className={cn(
                                     'inline-flex h-2.5 w-2.5 shrink-0 rounded-full',
-                                    effectiveStatusBusy ? 'workspace-status-dot-busy animate-pulse' : 'workspace-status-dot-idle',
+                                    effectiveStatusBusy
+                                        ? 'workspace-status-dot-busy animate-pulse'
+                                        : 'workspace-status-dot-idle',
                                 )}
                             />
 							<span ref={statusTextViewportRef} className="min-w-0 flex-1 overflow-hidden">

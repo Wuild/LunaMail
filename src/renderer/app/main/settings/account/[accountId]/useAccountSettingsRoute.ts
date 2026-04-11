@@ -54,13 +54,12 @@ export function useAccountSettingsRoute(
     const [mailFilterBusy, setMailFilterBusy] = useState(false);
     const [runningFilterId, setRunningFilterId] = useState<number | null>(null);
     const [mailFilterModal, setMailFilterModal] = useState<MailFilterModalState>(null);
-    const {sidebarWidth: accountSectionSidebarWidth, onResizeStart: onAccountSectionResizeStart} =
-        useResizableSidebar({
-            defaultWidth: 240,
-            minWidth: 180,
-            maxWidth: 420,
-            storageKey: 'llamamail.settings.account.sections.width',
-        });
+    const {sidebarWidth: accountSectionSidebarWidth, onResizeStart: onAccountSectionResizeStart} = useResizableSidebar({
+        defaultWidth: 240,
+        minWidth: 180,
+        maxWidth: 420,
+        storageKey: 'llamamail.settings.account.sections.width',
+    });
 
     const accountFoldersQuery = useQuery({
         queryKey: ['folders', 'account-settings', selectedAccount?.id ?? null],

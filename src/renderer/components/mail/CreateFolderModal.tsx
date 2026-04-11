@@ -53,54 +53,48 @@ export default function CreateFolderModal({
             <p className="ui-text-muted mt-1 text-xs">{accountLabel}</p>
 
             <ModalBody className="space-y-3">
-                    <label className="block text-sm">
-                        <span className="ui-text-secondary mb-1 block font-medium">Folder path</span>
-                        <FormInput
-                            value={state.folderPath}
-                            onChange={(event) => onFolderPathChange(event.target.value)}
-                        />
-                    </label>
+                <label className="block text-sm">
+                    <span className="ui-text-secondary mb-1 block font-medium">Folder path</span>
+                    <FormInput value={state.folderPath} onChange={(event) => onFolderPathChange(event.target.value)}/>
+                </label>
 
-                    <label className="block text-sm">
-                        <span className="ui-text-secondary mb-1 block font-medium">Folder type</span>
-                        <FormSelect
-                            value={state.type}
-                            onChange={(event) => onTypeChange(event.target.value)}
-                        >
-                            {typeOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </FormSelect>
-                    </label>
+                <label className="block text-sm">
+                    <span className="ui-text-secondary mb-1 block font-medium">Folder type</span>
+                    <FormSelect value={state.type} onChange={(event) => onTypeChange(event.target.value)}>
+                        {typeOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </FormSelect>
+                </label>
 
-                    <label className="block text-sm">
-                        <span className="ui-text-secondary mb-1 block font-medium">Folder color</span>
-                        <div className="swatch-grid grid grid-cols-4 gap-2 rounded-md p-2">
-                            {colorOptions.map((option) => (
-                                <Button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() => onColorChange(option.value)}
+                <label className="block text-sm">
+                    <span className="ui-text-secondary mb-1 block font-medium">Folder color</span>
+                    <div className="swatch-grid grid grid-cols-4 gap-2 rounded-md p-2">
+                        {colorOptions.map((option) => (
+                            <Button
+                                key={option.value}
+                                type="button"
+                                onClick={() => onColorChange(option.value)}
+                                className={cn(
+                                    'swatch-option flex items-center gap-2 rounded-md px-2 py-1.5 text-xs',
+                                    state.color === option.value && 'is-selected',
+                                )}
+                                title={option.label}
+                                aria-label={`Set folder color ${option.label}`}
+                            >
+								<span
                                     className={cn(
-                                        'swatch-option flex items-center gap-2 rounded-md px-2 py-1.5 text-xs',
-                                        state.color === option.value && 'is-selected',
+                                        'swatch-dot inline-flex h-3.5 w-3.5 shrink-0 rounded-full',
+                                        getFolderSwatchClass(option.value),
                                     )}
-                                    title={option.label}
-                                    aria-label={`Set folder color ${option.label}`}
-                                >
-                                    <span
-                                        className={cn(
-                                            'swatch-dot inline-flex h-3.5 w-3.5 shrink-0 rounded-full',
-                                            getFolderSwatchClass(option.value),
-                                        )}
-                                    />
-                                    <span className="truncate">{option.label}</span>
-                                </Button>
-                            ))}
-                        </div>
-                    </label>
+                                />
+                                <span className="truncate">{option.label}</span>
+                            </Button>
+                        ))}
+                    </div>
+                </label>
             </ModalBody>
 
             {error && <p className="text-danger mt-3 text-sm">{error}</p>}

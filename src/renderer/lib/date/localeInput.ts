@@ -26,11 +26,7 @@ function parseIsoDate(value: string): { year: number; month: number; day: number
 function isValidDateParts(year: number, month: number, day: number): boolean {
     if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) return false;
     const date = new Date(year, month - 1, day);
-    return (
-        date.getFullYear() === year &&
-        date.getMonth() === month - 1 &&
-        date.getDate() === day
-    );
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
 function buildLocaleDateMeta(locale?: string): LocaleDateMeta {

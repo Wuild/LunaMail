@@ -1,0 +1,46 @@
+@layer components {
+    .workspace {
+        background-color: var(--app-surface);
+        color: var(--app-text);
+    }
+
+    .workspace-header {
+        background-color: var(--panel-surface);
+        border-bottom: 1px solid var(--app-border);
+        color: var(--panel-text);
+    }
+
+    .workspace-content {
+        background-color: var(--content-surface);
+        color: var(--content-text);
+    }
+
+    .workspace-statusbar {
+        background-color: var(--content-surface);
+        border-top: 1px solid var(--app-border);
+        color: var(--content-muted);
+    }
+
+    .workspace-status-text {
+        color: var(--content-muted);
+    }
+
+    .workspace-status-dot-idle,
+    .status-dot-idle {
+        background-color: color-mix(in srgb, var(--content-muted) 45%, transparent);
+    }
+
+    .workspace-status-dot-busy {
+        background-color: var(--color-primary);
+    }
+
+    .workspace-resize-handle,
+    .resize-handle {
+        transition: background-color 140ms ease;
+    }
+
+    .workspace-resize-handle:hover,
+    .resize-handle:hover {
+        background-color: color-mix(in srgb, var(--content-muted) 45%, transparent);
+    }
+}

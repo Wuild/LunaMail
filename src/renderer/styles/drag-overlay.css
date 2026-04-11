@@ -1,0 +1,27 @@
+@layer components {
+    .mail-drag-overlay-layer {
+        pointer-events: none;
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+    }
+
+    .mail-drag-overlay-card {
+        max-width: 420px;
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        opacity: 0.85;
+        box-shadow: 0 20px 25px -5px color-mix(in srgb, var(--base-black) 30%, transparent),
+        0 8px 10px -6px color-mix(in srgb, var(--base-black) 30%, transparent);
+    }
+
+    .mail-drag-overlay-icon {
+        display: inline-flex;
+        height: 1.5rem;
+        width: 1.5rem;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.375rem;
+    }
+}

@@ -1,0 +1,86 @@
+@layer components {
+    .titlebar {
+        background-color: var(--titlebar-surface);
+        border-bottom: 1px solid var(--titlebar-border);
+        color: var(--titlebar-text);
+    }
+
+    .titlebar-left {
+        color: var(--titlebar-text);
+    }
+
+    .titlebar-title {
+        color: var(--titlebar-text);
+    }
+
+    .titlebar-meta {
+        color: var(--titlebar-muted);
+    }
+
+    .titlebar-divider {
+        background-color: color-mix(in srgb, var(--titlebar-text) 35%, transparent);
+    }
+
+    .titlebar-actions {
+        color: var(--titlebar-text);
+    }
+
+    .titlebar-button {
+        color: color-mix(in srgb, var(--titlebar-text) 90%, transparent);
+        transition: background-color 140ms ease, color 140ms ease;
+    }
+
+    .titlebar-button:hover {
+        background-color: color-mix(in srgb, var(--titlebar-text) 18%, transparent);
+        color: var(--text-inverse);
+    }
+
+    .titlebar-button-close {
+        color: color-mix(in srgb, var(--titlebar-text) 90%, transparent);
+    }
+
+    .titlebar-button-close:hover {
+        background-color: var(--color-danger);
+        color: var(--text-inverse);
+    }
+
+    .titlebar-button-accent {
+        color: color-mix(in srgb, var(--color-warning) 88%, var(--titlebar-text));
+    }
+
+    .titlebar-button-accent:hover {
+        background-color: color-mix(in srgb, var(--titlebar-text) 18%, transparent);
+        color: color-mix(in srgb, var(--text-inverse) 90%, var(--titlebar-text));
+    }
+
+    .titlebar-button-dot {
+        background-color: var(--color-warning);
+    }
+
+    .titlebar-divider-fade {
+        background: linear-gradient(
+                to right,
+                transparent,
+                color-mix(in srgb, var(--titlebar-text) 30%, transparent),
+                transparent
+        );
+    }
+
+    .titlebar-nav-button {
+        color: color-mix(in srgb, var(--titlebar-text) 92%, transparent);
+    }
+
+    .titlebar-nav-button:hover {
+        background-color: color-mix(in srgb, var(--base-white) 14%, transparent);
+        color: var(--base-white);
+    }
+
+    .titlebar-nav-button.is-active {
+        background-color: color-mix(in srgb, var(--base-white) 22%, transparent);
+        color: var(--base-white);
+    }
+
+    .titlebar-brand {
+        color: var(--base-white);
+    }
+}

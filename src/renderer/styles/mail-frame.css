@@ -1,0 +1,65 @@
+/* Styles for message-body iframes (srcDoc content). */
+:root {
+    color-scheme: var(--llamamail-color-scheme, light);
+}
+
+html,
+body {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+body {
+    box-sizing: border-box;
+    font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
+    sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    background: var(--llamamail-frame-bg, Canvas);
+    color: var(--llamamail-frame-text, CanvasText);
+}
+
+#llamamail-frame-content {
+    box-sizing: border-box;
+    padding: 16px;
+}
+
+pre,
+code {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+a {
+    color: var(--llamamail-frame-link, LinkText);
+}
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--llamamail-scrollbar-thumb) var(--llamamail-scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: var(--llamamail-scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+    background: var(--llamamail-scrollbar-thumb);
+    border: 2px solid var(--llamamail-scrollbar-track);
+    border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--llamamail-scrollbar-thumb-hover);
+}

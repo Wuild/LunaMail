@@ -1,0 +1,120 @@
+@layer components {
+    .editor-code-block {
+        background-color: color-mix(in srgb, var(--state-hover) 82%, var(--panel-surface));
+    }
+
+    .editor-link {
+        color: var(--color-link);
+    }
+
+    .editor-toolbar-default {
+        border-bottom: 1px solid var(--app-border);
+        background-color: color-mix(in srgb, var(--state-hover) 78%, var(--panel-surface));
+    }
+
+    .editor-toolbar-embedded {
+        border-bottom: 1px solid var(--app-border);
+        background-color: transparent;
+    }
+
+    .editor-toolbar-divider {
+        background-color: var(--app-border);
+    }
+
+    .editor-toolbar-button {
+        border: 1px solid var(--app-border);
+        color: var(--content-muted);
+        transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+
+    .editor-toolbar-button:hover {
+        background-color: var(--state-hover);
+        color: var(--content-text);
+    }
+
+    .editor-toolbar-button-default {
+        background-color: var(--panel-surface);
+    }
+
+    .editor-toolbar-button-embedded {
+        background-color: transparent;
+    }
+
+    .editor-toolbar-button.is-active {
+        border-color: color-mix(in srgb, var(--color-primary) 45%, var(--app-border));
+        background-color: color-mix(in srgb, var(--color-primary) 12%, var(--panel-surface));
+        color: color-mix(in srgb, var(--color-primary) 90%, var(--content-text));
+    }
+
+    .editor-toolbar-control {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.375rem;
+    }
+
+    .editor-toolbar-control-default {
+        height: 2.5rem;
+        width: 2.5rem;
+    }
+
+    .editor-toolbar-control-embedded {
+        height: 2.25rem;
+        width: 2.25rem;
+    }
+
+    .editor-content {
+        color: var(--content-text);
+    }
+
+    .editor-content-default {
+        background-color: var(--panel-surface);
+    }
+
+    .editor-content-embedded {
+        background-color: var(--content-surface);
+    }
+
+    .editor-content-shell {
+        height: 100%;
+        width: 100%;
+        overflow: auto;
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+        line-height: 1.5rem;
+        outline: none;
+    }
+
+    .editor-placeholder {
+        color: color-mix(in srgb, var(--content-muted) 75%, transparent);
+    }
+
+    .editor-placeholder-shell {
+        pointer-events: none;
+        position: absolute;
+        left: 1rem;
+        top: 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .editor-drop-overlay {
+        border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+        background-color: color-mix(in srgb, var(--color-primary) 14%, var(--panel-surface));
+        color: color-mix(in srgb, var(--color-primary) 90%, var(--content-text));
+    }
+
+    .editor-drop-overlay-shell {
+        pointer-events: none;
+        position: absolute;
+        inset: 0.5rem;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.375rem;
+        border-width: 2px;
+        border-style: dashed;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+}

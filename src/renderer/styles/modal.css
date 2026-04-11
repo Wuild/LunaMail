@@ -1,0 +1,45 @@
+@layer components {
+    .overlay,
+    .modal-overlay {
+        background-color: var(--overlay-surface);
+        border: 1px solid var(--overlay-border);
+        color: var(--overlay-text);
+    }
+
+    .panel-overlay-backdrop {
+        background-color: color-mix(in srgb, var(--base-slate-900) 45%, transparent);
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .modal-title {
+        color: var(--content-text);
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    .modal-description {
+        margin-top: 0.25rem;
+        color: var(--content-muted);
+        font-size: 0.75rem;
+        line-height: 1.35;
+    }
+
+    .modal-body {
+        margin-top: 1rem;
+    }
+
+    .modal-footer {
+        margin-top: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+}

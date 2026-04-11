@@ -1,0 +1,17 @@
+@layer components {
+    .menu,
+    .context-menu-surface {
+        background-color: var(--panel-surface);
+        border: 1px solid var(--panel-border);
+        color: var(--panel-text);
+    }
+
+    .menu-item {
+        color: var(--content-muted);
+    }
+
+    .menu-item:hover {
+        background-color: var(--state-hover);
+        color: var(--content-text);
+    }
+}

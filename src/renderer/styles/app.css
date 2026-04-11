@@ -1,0 +1,234 @@
+@layer base {
+    html,
+    body,
+    #root {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        @apply overflow-hidden antialiased;
+        background-color: var(--app-surface);
+        color: var(--app-text);
+    }
+
+    * {
+        user-select: none;
+        scrollbar-width: thin;
+        scrollbar-color: var(--scrollbar-thumb-light) var(--app-border);
+    }
+
+    input,
+    textarea,
+    select,
+    [contenteditable="true"],
+    [contenteditable=""],
+    .lexical-editor-input {
+        user-select: text;
+    }
+
+    button {
+        white-space: nowrap;
+        word-break: normal;
+        overflow-wrap: normal;
+    }
+
+    button:has(svg):not([aria-label]) {
+        min-width: 2.25rem;
+    }
+
+    *::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    *::-webkit-scrollbar-track {
+        background: var(--app-border);
+    }
+
+    *::-webkit-scrollbar-thumb {
+        background: var(--scrollbar-thumb-light);
+        border: 2px solid var(--app-border);
+        border-radius: 999px;
+    }
+
+    *::-webkit-scrollbar-thumb:hover {
+        background: var(--scrollbar-thumb-light-hover);
+    }
+
+    .dark * {
+        scrollbar-color: var(--scrollbar-thumb-dark) var(--sidebar-surface);
+    }
+
+    .dark *::-webkit-scrollbar-track {
+        background: var(--sidebar-surface);
+    }
+
+    .dark *::-webkit-scrollbar-thumb {
+        background: var(--scrollbar-thumb-dark);
+        border-color: var(--sidebar-surface);
+    }
+
+    .dark *::-webkit-scrollbar-thumb:hover {
+        background: var(--scrollbar-thumb-dark-hover);
+    }
+
+    body.is-resizing-sidebar iframe {
+        pointer-events: none !important;
+    }
+
+    body.is-resizing-sidebar,
+    body.is-resizing-sidebar * {
+        cursor: col-resize !important;
+    }
+
+    body.is-resizing-sidebar * {
+        pointer-events: none !important;
+        transition: none !important;
+    }
+
+    body.is-resizing-sidebar [role='separator'][aria-orientation='vertical'].is-active-resize-handle {
+        pointer-events: auto !important;
+        background-color: color-mix(in srgb, var(--content-border) 75%, transparent) !important;
+    }
+
+    [role='separator'][aria-orientation='vertical']:hover,
+    [role='separator'][aria-orientation='horizontal']:hover {
+        background-color: color-mix(in srgb, var(--content-border) 75%, transparent);
+    }
+
+    .dark body.is-resizing-sidebar [role='separator'][aria-orientation='vertical'].is-active-resize-handle {
+        background-color: color-mix(in srgb, var(--content-muted) 60%, transparent) !important;
+    }
+
+    .dark [role='separator'][aria-orientation='vertical']:hover,
+    .dark [role='separator'][aria-orientation='horizontal']:hover {
+        background-color: color-mix(in srgb, var(--content-muted) 60%, transparent);
+    }
+}
+
+@layer components {
+    .app-shell {
+        background-color: var(--app-surface);
+        color: var(--app-text);
+    }
+
+    .app-navrail {
+        background-color: var(--titlebar-surface);
+    }
+
+    .mail-menubar {
+        background-color: var(--panel-surface);
+        border-bottom: 1px solid var(--app-border);
+        color: var(--panel-text);
+    }
+
+    .app-footer {
+        background-color: var(--panel-surface);
+        border-top: 1px solid var(--app-border);
+        color: var(--panel-text);
+    }
+
+    .workspace-content {
+        background-color: var(--content-surface);
+        color: var(--content-text);
+    }
+
+    .ui-text-primary {
+        color: var(--content-text);
+    }
+
+    .ui-text-secondary {
+        color: var(--content-muted);
+    }
+
+    .ui-text-muted {
+        color: var(--sidebar-muted);
+    }
+
+    .text-inverse {
+        color: var(--text-inverse);
+    }
+
+    .ui-hover-text-primary:hover {
+        color: var(--content-text);
+    }
+
+    .ui-border-default {
+        border-color: var(--app-border);
+    }
+
+    .ui-divide-default {
+        --tw-divide-color: var(--app-border);
+    }
+
+    .ui-divide-content {
+        --tw-divide-color: var(--content-border);
+    }
+
+    .ui-surface-card {
+        background-color: var(--panel-surface);
+    }
+
+    .ui-surface-content {
+        background-color: var(--content-surface);
+    }
+
+    .ui-surface-hover:hover {
+        background-color: var(--state-hover);
+    }
+
+    .ui-surface-active {
+        background-color: var(--state-active);
+    }
+
+    .splash-screen {
+        background-color: var(--app-surface);
+        color: var(--app-text);
+    }
+
+    .splash-screen-glow {
+        background-image: radial-gradient(
+                circle at 50% 10%,
+                color-mix(in srgb, var(--color-primary) 24%, transparent),
+                transparent 55%
+        );
+    }
+
+    .splash-brand {
+        color: var(--app-text);
+    }
+
+    .splash-muted {
+        color: var(--content-muted);
+    }
+
+    .splash-progress-track {
+        background-color: color-mix(in srgb, var(--content-border) 72%, transparent);
+    }
+
+    .splash-progress-fill {
+        background-image: linear-gradient(
+                to right,
+                color-mix(in srgb, var(--color-primary) 75%, var(--base-white)),
+                color-mix(in srgb, var(--color-accent) 65%, var(--base-white)),
+                color-mix(in srgb, var(--color-primary) 75%, var(--base-white))
+        );
+    }
+
+    .nav-rail-item {
+        color: color-mix(in srgb, var(--titlebar-text) 65%, transparent);
+    }
+
+    .nav-rail-item:hover {
+        background-color: color-mix(in srgb, var(--base-white) 10%, transparent);
+        color: var(--base-white);
+    }
+
+    .nav-rail-item.is-active {
+        background-color: color-mix(in srgb, var(--color-accent) 62%, transparent);
+        color: var(--base-white);
+    }
+}

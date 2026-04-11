@@ -11,6 +11,7 @@ import {getMessageContext, upsertLocalDraftSnapshot} from '@main/db/repositories
 import {createMailDebugLogger} from '@main/debug/debugLog.js';
 import {markdownToEmailHtml} from './markdown.js';
 import {resolveImapSecurity, resolveSmtpSecurity} from './security.js';
+import {resolveImapAuth, resolveSmtpAuth} from './auth.js';
 
 const DRAFT_SESSION_HEADER = 'X-LlamaMail-Draft-Session';
 
@@ -71,7 +72,7 @@ export async function sendEmail(payload: SendEmailPayload): Promise<SendEmailRes
 		host: account.smtp_host,
 		port: account.smtp_port,
 		...resolveSmtpSecurity(account.smtp_secure),
-		auth: {user: account.user, pass: account.password},
+		auth: resolveSmtpAuth(account),
 		logger: createMailDebugLogger('smtp', `send:${account.email}`),
 		debug: true,
 	});
@@ -219,7 +220,7 @@ export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDra
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: {user: account.user, pass: account.password},
+		auth: resolveImapAuth(account),
 		logger: createMailDebugLogger('imap', `draft:${payload.accountId}`),
 	});
 
@@ -398,7 +399,7 @@ async function appendToSentMailbox(accountId: number, raw: Buffer, date: Date): 
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: {user: account.user, pass: account.password},
+		auth: resolveImapAuth(account),
 		logger: createMailDebugLogger('imap', `sent-append:${accountId}`),
 	});
 
@@ -450,7 +451,7 @@ async function deleteDraftsBySession(accountId: number, draftSessionId: string):
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: {user: account.user, pass: account.password},
+		auth: resolveImapAuth(account),
 		logger: createMailDebugLogger('imap', `draft-cleanup:${accountId}`),
 	});
 
@@ -485,7 +486,7 @@ async function deleteDraftByMessageId(accountId: number, draftMessageId: number)
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: {user: account.user, pass: account.password},
+		auth: resolveImapAuth(account),
 		logger: createMailDebugLogger('imap', `draft-replace:${accountId}`),
 	});
 

@@ -2,10 +2,19 @@ import {contextBridge, ipcRenderer, webUtils} from 'electron';
 import type {
 	AppSettings,
 	AppSettingsPatch,
+	AuthCapabilities,
+	AuthMethod,
+	AuthMethodSupport,
 	AutoUpdateState,
+	DiscoverCandidate,
+	DiscoverResult,
 	GlobalErrorEvent,
 	MailFilter,
 	MailFilterRunSummary,
+	OAuthProvider,
+	OAuthSession,
+	ServiceProtocolType,
+	ServiceSettings,
 	UpsertMailFilterPayload,
 } from '@/shared/ipcTypes';
 
@@ -13,9 +22,14 @@ export type {
 	AppLanguage,
 	AppSettings,
 	AppSettingsPatch,
+	AuthCapabilities,
+	AuthMethod,
+	AuthMethodSupport,
 	AppTheme,
 	AutoUpdatePhase,
 	AutoUpdateState,
+	DiscoverCandidate,
+	DiscoverResult,
 	GlobalErrorEvent,
 	GlobalErrorSource,
 	MailFilter,
@@ -27,12 +41,18 @@ export type {
 	MailFilterOperator,
 	MailFilterRunSummary,
 	MailView,
+	OAuthProvider,
+	OAuthSession,
+	ServiceProtocolType,
+	ServiceSettings,
 	UpsertMailFilterPayload,
 } from '@/shared/ipcTypes';
 
 export interface AddAccountPayload {
 	email: string;
 	provider?: string | null;
+	auth_method?: AuthMethod;
+	oauth_provider?: OAuthProvider | null;
 	display_name?: string | null;
 	reply_to?: string | null;
 	organization?: string | null;
@@ -50,12 +70,15 @@ export interface AddAccountPayload {
 	smtp_port: number;
 	smtp_secure?: number; // 1=SSL/TLS, 0=STARTTLS
 	user: string;
-	password: string;
+	password?: string;
+	oauth_session?: OAuthSession | null;
 }
 
 export interface UpdateAccountPayload {
 	email: string;
 	provider?: string | null;
+	auth_method?: AuthMethod;
+	oauth_provider?: OAuthProvider | null;
 	display_name?: string | null;
 	reply_to?: string | null;
 	organization?: string | null;
@@ -80,6 +103,8 @@ export interface PublicAccount {
 	id: number;
 	email: string;
 	provider: string | null;
+	auth_method?: AuthMethod;
+	oauth_provider?: OAuthProvider | null;
 	display_name: string | null;
 	reply_to: string | null;
 	organization: string | null;
@@ -167,31 +192,27 @@ export interface CloudOpenItemResult {
 	path: string;
 }
 
-export interface ServiceSettings {
-	host: string;
-	port: number;
-	secure: boolean;
-}
-
-export interface DiscoverResult {
-	provider?: string | null;
-	imap?: ServiceSettings;
-	pop3?: ServiceSettings;
-	smtp?: ServiceSettings;
-}
-
 export interface VerifyPayload {
 	type: 'imap' | 'pop3' | 'smtp';
 	host: string;
 	port: number;
 	secure: boolean;
 	user: string;
-	password: string;
+	password?: string;
+	auth_method?: AuthMethod;
+	oauth_session?: OAuthSession | null;
 }
 
 export interface VerifyResult {
 	ok: boolean;
 	error?: string;
+}
+
+export interface StartMailOAuthPayload {
+	email?: string | null;
+	provider?: string | null;
+	clientId?: string | null;
+	tenantId?: string | null;
 }
 
 export interface FolderItem {
@@ -597,6 +618,8 @@ const api = {
 		ipcRenderer.invoke('discover-mail-settings', email),
 	verifyCredentials: (payload: VerifyPayload): Promise<VerifyResult> =>
 		ipcRenderer.invoke('verify-credentials', payload),
+	startMailOAuth: (payload: StartMailOAuthPayload): Promise<OAuthSession> =>
+		ipcRenderer.invoke('start-mail-oauth', payload),
 	syncAccount: (accountId: number): Promise<AccountSyncSummary> => ipcRenderer.invoke('sync-account', accountId),
 	getFolders: (accountId: number): Promise<FolderItem[]> => ipcRenderer.invoke('get-folders', accountId),
 	createFolder: (accountId: number, folderPath: string): Promise<CreateFolderResult> =>

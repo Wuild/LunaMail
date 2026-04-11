@@ -1,19 +1,9 @@
 import {promises as dns} from 'dns';
+import type {AuthCapabilities, AuthMethod, DiscoverResult, ServiceProtocolType, ServiceSettings} from '@/shared/ipcTypes.js';
 
-export interface ServiceSettings {
-	host: string;
-	port: number;
-	secure: boolean; // TLS from start
-}
-
-export interface DiscoveredSettings {
-	provider?: string | null;
-	imap?: ServiceSettings;
-	pop3?: ServiceSettings;
-	smtp?: ServiceSettings;
-	candidates: {type: 'imap' | 'pop3' | 'smtp'; host: string; port: number; secure: boolean; source: string}[];
-	mxPrimaryHost?: string;
-}
+export type DiscoveredSettings = DiscoverResult & {
+	candidates: Array<{type: ServiceProtocolType; host: string; port: number; secure: boolean; source: string}>;
+};
 
 const COMMON_PROVIDERS: Record<string, Partial<DiscoveredSettings> & {provider: string}> = {
 	'gmail.com': {
@@ -120,6 +110,7 @@ export async function autodiscover(email: string): Promise<DiscoveredSettings> {
 	if (!settings.imap) settings.imap = pickFirst(settings, 'imap');
 	if (!settings.pop3) settings.pop3 = pickFirst(settings, 'pop3');
 	if (!settings.smtp) settings.smtp = pickFirst(settings, 'smtp');
+	settings.auth = resolveAuthCapabilities(domain, settings.provider ?? null);
 
 	return settings;
 }
@@ -140,6 +131,7 @@ export async function autodiscoverBasic(email: string): Promise<DiscoveredSettin
 	if (!settings.imap) settings.imap = {host: `imap.${domain}`, port: 993, secure: true};
 	if (!settings.smtp) settings.smtp = {host: `smtp.${domain}`, port: 465, secure: true};
 	if (!settings.pop3) settings.pop3 = {host: `pop.${domain}`, port: 995, secure: true};
+	settings.auth = resolveAuthCapabilities(domain, settings.provider ?? null);
 
 	return settings;
 }
@@ -147,6 +139,82 @@ export async function autodiscoverBasic(email: string): Promise<DiscoveredSettin
 function pickFirst(s: DiscoveredSettings, type: 'imap' | 'pop3' | 'smtp'): ServiceSettings | undefined {
 	const c = s.candidates.find((x) => x.type === type);
 	return c ? {host: c.host, port: c.port, secure: c.secure} : undefined;
+}
+
+function resolveAuthCapabilities(domain: string, provider?: string | null): AuthCapabilities {
+	const key = (provider || domain || '').toLowerCase();
+	if (key.includes('gmail')) {
+		return buildAuthProfile('oauth2', {
+			oauth2: {recommended: true, note: 'Recommended. Supports Google sign-in, including 2FA and passkeys.'},
+			app_password: {supported: true, recommended: false, note: 'Use when IMAP/SMTP is enabled with 2-Step Verification.'},
+			password: {supported: false, recommended: false, note: 'Regular account passwords are blocked for IMAP/SMTP.'},
+		});
+	}
+	if (key.includes('outlook') || key.includes('hotmail') || key.includes('office365') || key.includes('microsoft')) {
+		return buildAuthProfile('oauth2', {
+			oauth2: {recommended: true, note: 'Recommended. Supports Microsoft sign-in, including MFA and passkeys.'},
+			app_password: {supported: true, recommended: false, note: 'May be required on legacy configurations with MFA.'},
+			password: {supported: false, recommended: false, note: 'Password-only sign-in is often disabled by policy.'},
+		});
+	}
+	if (key.includes('icloud') || key.includes('me.com')) {
+		return buildAuthProfile('app_password', {
+			oauth2: {supported: false, recommended: false, note: 'Not used for standard iCloud IMAP/SMTP in this app.'},
+			app_password: {supported: true, recommended: true, note: 'Required when two-factor authentication is enabled.'},
+			password: {supported: false, recommended: false, note: 'Apple ID password is not accepted for IMAP/SMTP.'},
+		});
+	}
+	if (key.includes('yahoo') || key.includes('aol')) {
+		return buildAuthProfile('app_password', {
+			oauth2: {supported: true, recommended: true, note: 'Supported by provider and handles MFA.'},
+			app_password: {supported: true, recommended: true, note: 'Common fallback for IMAP/SMTP clients.'},
+			password: {supported: false, recommended: false, note: 'Account password is typically blocked for IMAP/SMTP.'},
+		});
+	}
+	if (key.includes('zoho')) {
+		return buildAuthProfile('oauth2', {
+			oauth2: {recommended: true, note: 'Recommended for accounts with MFA enabled.'},
+			app_password: {supported: true, recommended: false, note: 'Use when direct IMAP/SMTP login is required.'},
+		});
+	}
+	if (key.includes('gmx')) {
+		return buildAuthProfile('password', {
+			password: {supported: true, recommended: true, note: 'Password login commonly supported.'},
+		});
+	}
+
+	return buildAuthProfile('password', {
+		password: {supported: true, recommended: true, note: 'Default fallback for custom domains.'},
+		app_password: {supported: true, recommended: false, note: 'Use if your provider blocks account password logins.'},
+		oauth2: {supported: false, recommended: false, note: 'Enable if your provider offers OAuth2 for IMAP/SMTP.'},
+	});
+}
+
+function buildAuthProfile(
+	preferredMethod: AuthMethod,
+	overrides: Partial<
+		Record<AuthMethod, {supported?: boolean; recommended?: boolean; note?: string}>
+	>,
+): AuthCapabilities {
+	const methods: AuthCapabilities['methods'] = (['oauth2', 'app_password', 'password'] as const).map((method) => {
+		const override = overrides[method] ?? {};
+		const supported = override.supported ?? method === preferredMethod;
+		const recommended = override.recommended ?? method === preferredMethod;
+		return {
+			method,
+			supported,
+			recommended,
+			note: override.note,
+		};
+	});
+
+	const supportsTwoFactorFlow = methods.some((item) => item.method === 'oauth2' && item.supported);
+	return {
+		preferredMethod,
+		supportsTwoFactorFlow,
+		supportsPasskeysViaProvider: supportsTwoFactorFlow,
+		methods,
+	};
 }
 
 async function trySrv(

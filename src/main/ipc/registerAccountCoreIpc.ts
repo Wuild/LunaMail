@@ -21,6 +21,7 @@ type AccountCoreIpcDeps = {
 	autodiscover: (email: string) => Promise<any>;
 	autodiscoverBasic: (email: string) => Promise<any>;
 	verifyConnection: (payload: any) => Promise<any>;
+	startMailOAuth: (payload: any) => Promise<any>;
 };
 
 export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
@@ -90,6 +91,16 @@ export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
 	ipcMain.handle('verify-credentials', async (_event, payload: any) => {
 		const safePayload = parseRequiredObject(payload, 'payload');
 		return await deps.verifyConnection(safePayload);
+	});
+
+	ipcMain.handle('start-mail-oauth', async (_event, payload: any) => {
+		const safePayload = parseRequiredObject(payload, 'payload');
+		return await deps.startMailOAuth({
+			email: parseOptionalText(safePayload.email, 'payload.email', 320),
+			provider: parseOptionalText(safePayload.provider, 'payload.provider', 80),
+			clientId: parseOptionalText(safePayload.clientId, 'payload.clientId', 256),
+			tenantId: parseOptionalText(safePayload.tenantId, 'payload.tenantId', 128),
+		});
 	});
 
 	ipcMain.handle('sync-account', async (_event, accountId: number) => {

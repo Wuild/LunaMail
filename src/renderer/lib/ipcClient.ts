@@ -46,6 +46,8 @@ import type {
 	VerifyPayload,
 	VerifyResult,
 	WindowControlsCapabilities,
+	StartMailOAuthPayload,
+	OAuthSession,
 } from '@/preload';
 
 const noopUnsubscribe = () => undefined;
@@ -129,6 +131,7 @@ export const ipcClient = {
 	getSystemLocale: (): Promise<string> => window.electronAPI.getSystemLocale(),
 	discoverMailSettings: (email: string): Promise<DiscoverResult> => window.electronAPI.discoverMailSettings(email),
 	verifyCredentials: (payload: VerifyPayload): Promise<VerifyResult> => window.electronAPI.verifyCredentials(payload),
+	startMailOAuth: (payload: StartMailOAuthPayload): Promise<OAuthSession> => window.electronAPI.startMailOAuth(payload),
 	discoverDavPreview: (payload: {
 		email: string;
 		user: string;

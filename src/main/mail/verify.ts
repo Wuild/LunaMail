@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import tls from 'tls';
 import net from 'net';
 import {createMailDebugLogger} from '@main/debug/debugLog.js';
+import type {AuthMethod, OAuthSession} from '@/shared/ipcTypes.js';
 
 export interface VerifyPayload {
 	type: 'imap' | 'pop3' | 'smtp';
@@ -10,7 +11,9 @@ export interface VerifyPayload {
 	port: number;
 	secure: boolean; // TLS from start
 	user: string;
-	password: string;
+	password?: string;
+	auth_method?: AuthMethod;
+	oauth_session?: OAuthSession | null;
 }
 
 export interface VerifyResult {
@@ -40,12 +43,13 @@ export async function verifyConnection(p: VerifyPayload): Promise<VerifyResult> 
 }
 
 async function verifyImap(p: VerifyPayload): Promise<void> {
+	const auth = resolveImapVerifyAuth(p);
 	const client = new ImapFlow({
 		host: p.host,
 		port: p.port,
 		secure: p.secure,
 		doSTARTTLS: !p.secure,
-		auth: {user: p.user, pass: p.password},
+		auth,
 		logger: createMailDebugLogger('imap', `verify:${p.host}:${p.port}`),
 	});
 	try {
@@ -62,12 +66,13 @@ async function verifyImap(p: VerifyPayload): Promise<void> {
 }
 
 async function verifySmtp(p: VerifyPayload): Promise<void> {
+	const auth = resolveSmtpVerifyAuth(p);
 	const transporter = nodemailer.createTransport({
 		host: p.host,
 		port: p.port,
 		secure: p.secure, // true for 465, false for 587/25
 		requireTLS: !p.secure,
-		auth: {user: p.user, pass: p.password},
+		auth,
 		logger: createMailDebugLogger('smtp', `verify:${p.host}:${p.port}`),
 		debug: true,
 	});
@@ -113,7 +118,7 @@ async function verifyPop3(p: VerifyPayload): Promise<void> {
 				}
 				try {
 					await command(sock as any, `USER ${p.user}`);
-					await command(sock as any, `PASS ${p.password}`);
+					await command(sock as any, `PASS ${String(p.password || '').trim()}`);
 					// Quit politely
 					sock.write('QUIT\r\n');
 					greeted = true;
@@ -133,6 +138,30 @@ async function verifyPop3(p: VerifyPayload): Promise<void> {
 			}
 		});
 	});
+}
+
+function resolveImapVerifyAuth(p: VerifyPayload): {user: string; pass?: string; accessToken?: string} {
+	if (p.auth_method === 'oauth2') {
+		const accessToken = String(p.oauth_session?.accessToken || '').trim();
+		if (!accessToken) throw new Error('OAuth access token is missing.');
+		return {user: p.user, accessToken};
+	}
+	const pass = String(p.password || '').trim();
+	if (!pass) throw new Error('Password is required.');
+	return {user: p.user, pass};
+}
+
+function resolveSmtpVerifyAuth(
+	p: VerifyPayload,
+): {user: string; pass: string} | {type: 'OAuth2'; user: string; accessToken: string} {
+	if (p.auth_method === 'oauth2') {
+		const accessToken = String(p.oauth_session?.accessToken || '').trim();
+		if (!accessToken) throw new Error('OAuth access token is missing.');
+		return {type: 'OAuth2', user: p.user, accessToken};
+	}
+	const pass = String(p.password || '').trim();
+	if (!pass) throw new Error('Password is required.');
+	return {user: p.user, pass};
 }
 
 function formatVerifyError(err: any): string {

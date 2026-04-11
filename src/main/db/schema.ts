@@ -4,6 +4,8 @@ export const accounts = sqliteTable('accounts', {
 	id: integer('id').primaryKey({autoIncrement: true}),
 	email: text('email').notNull().unique(),
 	provider: text('provider'),
+	authMethod: text('auth_method').default('password').notNull(),
+	oauthProvider: text('oauth_provider'),
 	displayName: text('display_name'),
 	replyTo: text('reply_to'),
 	organization: text('organization'),

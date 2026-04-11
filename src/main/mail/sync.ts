@@ -2,7 +2,9 @@ import {ImapFlow} from 'imapflow';
 import {simpleParser} from 'mailparser';
 import {createMailDebugLogger} from '@main/debug/debugLog.js';
 import {getAccountSyncCredentials} from '@main/db/repositories/accountsRepo.js';
+import type {OAuthSession} from '@/shared/ipcTypes.js';
 import {resolveImapSecurity} from './security.js';
+import {resolveImapAuth} from './auth.js';
 import {
 	getMessageBody,
 	getMessageContext,
@@ -75,7 +77,9 @@ export async function syncAccountMailboxWithCredentials(
 		imap_port: number;
 		imap_secure: number;
 		user: string;
-		password: string;
+		auth_method: 'password' | 'app_password' | 'oauth2';
+		password: string | null;
+		oauth_session: OAuthSession | null;
 	},
 	options?: AccountSyncOptions,
 ): Promise<SyncSummary> {
@@ -84,7 +88,7 @@ export async function syncAccountMailboxWithCredentials(
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: {user: account.user, pass: account.password},
+		auth: resolveImapAuth(account),
 		logger: createMailDebugLogger('imap', `sync:account:${accountId}`),
 	});
 	options?.onClient?.(client);
@@ -254,7 +258,7 @@ export async function syncMessageBody(messageId: number, options?: MessageBodySy
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: {user: account.user, pass: account.password},
+		auth: resolveImapAuth(account),
 		logger: createMailDebugLogger('imap', `body:message:${messageId}`),
 	});
 	options?.onClient?.(client);
@@ -307,7 +311,7 @@ export async function syncMessageSource(
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: {user: account.user, pass: account.password},
+		auth: resolveImapAuth(account),
 		logger: createMailDebugLogger('imap', `source:message:${messageId}`),
 	});
 	options?.onClient?.(client);
@@ -353,7 +357,7 @@ export async function downloadMessageAttachment(
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: {user: account.user, pass: account.password},
+		auth: resolveImapAuth(account),
 		logger: createMailDebugLogger('imap', `attachment:message:${messageId}`),
 	});
 	options?.onClient?.(client);

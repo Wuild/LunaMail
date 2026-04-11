@@ -30,6 +30,7 @@ import {
 } from './ipc/accounts.js';
 import {installTrustedSenderGuard} from './ipc/installTrustedSenderGuard.js';
 import {queueCloudOAuthCallbackUrl, registerCloudIpc} from './ipc/cloud.js';
+import {queueMailOAuthCallbackUrl} from './mail/oauth.js';
 import {registerSettingsIpc} from './ipc/settings.js';
 import {
 	broadcastAccountSyncStatus,
@@ -851,6 +852,7 @@ function registerProtocolHandlers(): void {
 	app.on('open-url', (event, url) => {
 		event.preventDefault();
 		logger.info('Received open-url event url=%s', url);
+		if (queueMailOAuthCallbackUrl(url)) return;
 		if (queueCloudOAuthCallbackUrl(url)) return;
 		if (handleAppProtocolFallbackUrl(url)) return;
 		queueMailtoUrl(url);
@@ -877,6 +879,10 @@ function registerProtocolHandlers(): void {
 			return;
 		}
 		const protocolUrl = findCustomProtocolArg(argv);
+		if (protocolUrl && queueMailOAuthCallbackUrl(protocolUrl)) {
+			showMainWindow();
+			return;
+		}
 		if (protocolUrl && queueCloudOAuthCallbackUrl(protocolUrl)) {
 			showMainWindow();
 			return;
@@ -1496,6 +1502,9 @@ if (!gotSingleInstanceLock) {
 			queueMailtoUrl(initialMailtoUrl);
 		}
 		const initialProtocolUrl = findCustomProtocolArg(process.argv);
+		if (initialProtocolUrl && queueMailOAuthCallbackUrl(initialProtocolUrl)) {
+			showMainWindow();
+		}
 		if (initialProtocolUrl && queueCloudOAuthCallbackUrl(initialProtocolUrl)) {
 			showMainWindow();
 		}

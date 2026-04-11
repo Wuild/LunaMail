@@ -5,6 +5,8 @@ import {eq} from 'drizzle-orm';
 import {getDb, getDrizzle, getSqlitePath} from '@main/db/drizzle.js';
 import {accounts, type InsertAccount} from '@main/db/schema.js';
 import {APP_NAME} from '@main/config.js';
+import type {AuthMethod, OAuthProvider, OAuthSession} from '@/shared/ipcTypes.js';
+import {ensureFreshMailOAuthSession} from '@main/mail/oauth.js';
 
 // This repository still contains parameterized raw SQL for a few multi-step cleanup paths while Drizzle migration is
 // completed incrementally. Keep new data access Drizzle-first unless there is a documented exception.
@@ -15,6 +17,8 @@ export interface PublicAccount {
 	id: number;
 	email: string;
 	provider: string | null;
+	auth_method: AuthMethod;
+	oauth_provider: OAuthProvider | null;
 	display_name: string | null;
 	reply_to: string | null;
 	organization: string | null;
@@ -44,6 +48,8 @@ export async function getAccounts(): Promise<PublicAccount[]> {
 			id: r.id!,
 			email: r.email!,
 			provider: r.provider ?? null,
+			auth_method: normalizeAuthMethod(r.authMethod ?? 'password'),
+			oauth_provider: normalizeOAuthProvider(r.oauthProvider ?? null),
 			display_name: r.displayName ?? null,
 			reply_to: r.replyTo ?? null,
 			organization: r.organization ?? null,
@@ -69,6 +75,8 @@ export async function getAccounts(): Promise<PublicAccount[]> {
 export interface AddAccountPayload {
 	email: string;
 	provider?: string | null;
+	auth_method?: AuthMethod;
+	oauth_provider?: OAuthProvider | null;
 	display_name?: string | null;
 	reply_to?: string | null;
 	organization?: string | null;
@@ -86,12 +94,15 @@ export interface AddAccountPayload {
 	smtp_port: number;
 	smtp_secure?: number; // 1=SSL/TLS, 0=STARTTLS
 	user: string;
-	password: string;
+	password?: string;
+	oauth_session?: OAuthSession | null;
 }
 
 export interface UpdateAccountPayload {
 	email: string;
 	provider?: string | null;
+	auth_method?: AuthMethod;
+	oauth_provider?: OAuthProvider | null;
 	display_name?: string | null;
 	reply_to?: string | null;
 	organization?: string | null;
@@ -110,6 +121,7 @@ export interface UpdateAccountPayload {
 	smtp_secure?: number;
 	user: string;
 	password?: string | null;
+	oauth_session?: OAuthSession | null;
 }
 
 export async function addAccount(payload: AddAccountPayload): Promise<{id: number; email: string}> {
@@ -134,16 +146,34 @@ export async function addAccount(payload: AddAccountPayload): Promise<{id: numbe
 		smtp_port,
 		smtp_secure = 1,
 		user,
-		password,
+		password = '',
+		auth_method = payload.oauth_session ? 'oauth2' : 'password',
+		oauth_provider = payload.oauth_session?.provider ?? null,
+		oauth_session = null,
 	} = payload;
+	const normalizedAuthMethod = normalizeAuthMethod(auth_method);
+	const normalizedOAuthProvider = normalizeOAuthProvider(oauth_provider);
 
-	if (!email || !imap_host || !imap_port || !smtp_host || !smtp_port || !user || !password) {
+	if (
+		!email ||
+		!imap_host ||
+		!imap_port ||
+		!smtp_host ||
+		!smtp_port ||
+		!user ||
+		(normalizedAuthMethod !== 'oauth2' && !String(password || '').trim())
+	) {
 		throw new Error('Missing required account fields');
+	}
+	if (normalizedAuthMethod === 'oauth2' && !oauth_session?.accessToken?.trim()) {
+		throw new Error('OAuth session is required for OAuth accounts.');
 	}
 
 	const toInsert: InsertAccount = {
 		email,
 		provider: provider ?? undefined,
+		authMethod: normalizedAuthMethod,
+		oauthProvider: normalizedOAuthProvider ?? undefined,
 		displayName: display_name ?? undefined,
 		replyTo: reply_to ?? undefined,
 		organization: organization ?? undefined,
@@ -166,7 +196,15 @@ export async function addAccount(payload: AddAccountPayload): Promise<{id: numbe
 	const result = await db.insert(accounts).values(toInsert).returning({id: accounts.id}).get();
 	const accountId = result?.id as number;
 
-	await keytar.setPassword(SERVICE_NAME, `${accountId}:${email}`, password);
+	if (normalizedAuthMethod !== 'oauth2') {
+		await keytar.setPassword(SERVICE_NAME, getAccountPasswordKey(accountId, email), String(password || '').trim());
+	}
+	if (normalizedAuthMethod === 'oauth2' && oauth_session) {
+		await setAccountOAuthSession(accountId, email, oauth_session);
+		await keytar.deletePassword(SERVICE_NAME, getAccountPasswordKey(accountId, email));
+	} else {
+		await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, email));
+	}
 	await ensureLocalAccountVCard(
 		accountId,
 		{
@@ -184,11 +222,14 @@ export async function addAccount(payload: AddAccountPayload): Promise<{id: numbe
 export interface AccountSyncCredentials {
 	id: number;
 	email: string;
+	auth_method: AuthMethod;
+	oauth_provider: OAuthProvider | null;
 	imap_host: string;
 	imap_port: number;
 	imap_secure: number;
 	user: string;
-	password: string;
+	password: string | null;
+	oauth_session: OAuthSession | null;
 }
 
 export interface AccountSendCredentials {
@@ -204,7 +245,10 @@ export interface AccountSendCredentials {
 	smtp_port: number;
 	smtp_secure: number;
 	user: string;
-	password: string;
+	auth_method: AuthMethod;
+	oauth_provider: OAuthProvider | null;
+	password: string | null;
+	oauth_session: OAuthSession | null;
 }
 
 export async function getAccountSyncCredentials(accountId: number): Promise<AccountSyncCredentials> {
@@ -212,17 +256,33 @@ export async function getAccountSyncCredentials(accountId: number): Promise<Acco
 	const row = await db.select().from(accounts).where(eq(accounts.id, accountId)).get();
 	if (!row?.id) throw new Error(`Account ${accountId} not found`);
 
-	const password = await keytar.getPassword(SERVICE_NAME, `${row.id}:${row.email}`);
-	if (!password) throw new Error('Account password not found in keychain');
+	const authMethod = normalizeAuthMethod(row.authMethod ?? 'password');
+	const oauthProvider = normalizeOAuthProvider(row.oauthProvider ?? null);
+	const password = await keytar.getPassword(SERVICE_NAME, getAccountPasswordKey(row.id, row.email));
+	let oauthSession = authMethod === 'oauth2' ? await getAccountOAuthSession(row.id, row.email) : null;
+	if (oauthSession) {
+		const refreshed = await ensureFreshMailOAuthSession(oauthSession);
+		if (hasOAuthSessionChanged(oauthSession, refreshed)) {
+			await setAccountOAuthSession(row.id, row.email, refreshed);
+		}
+		oauthSession = refreshed;
+	}
+	if (authMethod !== 'oauth2' && !password) throw new Error('Account password not found in keychain');
+	if (authMethod === 'oauth2' && !oauthSession?.accessToken?.trim()) {
+		throw new Error('OAuth access token not found in keychain.');
+	}
 
 	return {
 		id: row.id,
 		email: row.email,
+		auth_method: authMethod,
+		oauth_provider: oauthProvider,
 		imap_host: row.imapHost,
 		imap_port: row.imapPort,
 		imap_secure: row.imapSecure ?? 1,
 		user: row.user,
-		password,
+		password: password ?? null,
+		oauth_session: oauthSession,
 	};
 }
 
@@ -231,12 +291,27 @@ export async function getAccountSendCredentials(accountId: number): Promise<Acco
 	const row = await db.select().from(accounts).where(eq(accounts.id, accountId)).get();
 	if (!row?.id) throw new Error(`Account ${accountId} not found`);
 
-	const password = await keytar.getPassword(SERVICE_NAME, `${row.id}:${row.email}`);
-	if (!password) throw new Error('Account password not found in keychain');
+	const authMethod = normalizeAuthMethod(row.authMethod ?? 'password');
+	const oauthProvider = normalizeOAuthProvider(row.oauthProvider ?? null);
+	const password = await keytar.getPassword(SERVICE_NAME, getAccountPasswordKey(row.id, row.email));
+	let oauthSession = authMethod === 'oauth2' ? await getAccountOAuthSession(row.id, row.email) : null;
+	if (oauthSession) {
+		const refreshed = await ensureFreshMailOAuthSession(oauthSession);
+		if (hasOAuthSessionChanged(oauthSession, refreshed)) {
+			await setAccountOAuthSession(row.id, row.email, refreshed);
+		}
+		oauthSession = refreshed;
+	}
+	if (authMethod !== 'oauth2' && !password) throw new Error('Account password not found in keychain');
+	if (authMethod === 'oauth2' && !oauthSession?.accessToken?.trim()) {
+		throw new Error('OAuth access token not found in keychain.');
+	}
 
 	return {
 		id: row.id,
 		email: row.email,
+		auth_method: authMethod,
+		oauth_provider: oauthProvider,
 		display_name: row.displayName ?? null,
 		organization: row.organization ?? null,
 		reply_to: row.replyTo ?? null,
@@ -247,7 +322,8 @@ export async function getAccountSendCredentials(accountId: number): Promise<Acco
 		smtp_port: row.smtpPort,
 		smtp_secure: row.smtpSecure ?? 1,
 		user: row.user,
-		password,
+		password: password ?? null,
+		oauth_session: oauthSession,
 	};
 }
 
@@ -260,6 +336,8 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 	const imapHost = payload.imap_host?.trim();
 	const smtpHost = payload.smtp_host?.trim();
 	const user = payload.user?.trim();
+	const authMethod = normalizeAuthMethod(payload.auth_method ?? existing.authMethod ?? 'password');
+	const oauthProvider = normalizeOAuthProvider(payload.oauth_provider ?? existing.oauthProvider ?? null);
 	if (!email || !imapHost || !payload.imap_port || !smtpHost || !payload.smtp_port || !user) {
 		throw new Error('Missing required account fields');
 	}
@@ -269,6 +347,8 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 		.set({
 			email,
 			provider: payload.provider?.trim() || null,
+			authMethod,
+			oauthProvider,
 			displayName: payload.display_name?.trim() || null,
 			replyTo: payload.reply_to?.trim() || null,
 			organization: payload.organization?.trim() || null,
@@ -294,11 +374,20 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 	const newServiceAccount = `${accountId}:${email}`;
 	const existingPassword = await keytar.getPassword(SERVICE_NAME, oldServiceAccount);
 	const password = payload.password?.trim() || existingPassword;
-	if (password) {
+	if (authMethod !== 'oauth2' && password) {
 		await keytar.setPassword(SERVICE_NAME, newServiceAccount, password);
+	}
+	if (authMethod === 'oauth2' && payload.oauth_session) {
+		await setAccountOAuthSession(accountId, email, payload.oauth_session);
+		await keytar.deletePassword(SERVICE_NAME, newServiceAccount);
+	}
+	if (authMethod !== 'oauth2') {
+		await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, existing.email));
+		await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, email));
 	}
 	if (oldServiceAccount !== newServiceAccount) {
 		await keytar.deletePassword(SERVICE_NAME, oldServiceAccount);
+		await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, existing.email));
 	}
 	await ensureLocalAccountVCard(
 		accountId,
@@ -317,6 +406,8 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 		id: updated.id,
 		email: updated.email,
 		provider: updated.provider ?? null,
+		auth_method: normalizeAuthMethod(updated.authMethod ?? 'password'),
+		oauth_provider: normalizeOAuthProvider(updated.oauthProvider ?? null),
 		display_name: updated.displayName ?? null,
 		reply_to: updated.replyTo ?? null,
 		organization: updated.organization ?? null,
@@ -374,8 +465,68 @@ export async function deleteAccount(accountId: number): Promise<{id: number; ema
 
 	tx(accountId);
 	await keytar.deletePassword(SERVICE_NAME, `${accountId}:${existing.email}`);
+	await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, existing.email));
 	await removeLocalAccountVCard(accountId, existing.email);
 	return {id: accountId, email: existing.email};
+}
+
+function normalizeAuthMethod(value: string): AuthMethod {
+	const method = String(value || '').trim().toLowerCase();
+	if (method === 'oauth2' || method === 'app_password') return method;
+	return 'password';
+}
+
+function normalizeOAuthProvider(value: string | null): OAuthProvider | null {
+	const provider = String(value || '').trim().toLowerCase();
+	if (provider === 'google' || provider === 'microsoft') return provider;
+	return null;
+}
+
+function getAccountPasswordKey(accountId: number, email: string): string {
+	return `${accountId}:${email}`;
+}
+
+function getAccountOAuthKey(accountId: number, email: string): string {
+	return `${accountId}:${email}:oauth`;
+}
+
+async function getAccountOAuthSession(accountId: number, email: string): Promise<OAuthSession | null> {
+	const raw = await keytar.getPassword(SERVICE_NAME, getAccountOAuthKey(accountId, email));
+	if (!raw) return null;
+	try {
+		const parsed = JSON.parse(raw) as OAuthSession;
+		if (!parsed || !String(parsed.accessToken || '').trim()) return null;
+		const provider = normalizeOAuthProvider(parsed.provider ?? null);
+		if (!provider) return null;
+		return {
+			provider,
+			accessToken: String(parsed.accessToken || '').trim(),
+			refreshToken: String(parsed.refreshToken || '').trim() || null,
+			expiresAt: Number.isFinite(Number(parsed.expiresAt)) ? Number(parsed.expiresAt) : null,
+			tokenType: String(parsed.tokenType || '').trim() || null,
+			scope: String(parsed.scope || '').trim() || null,
+			email: String(parsed.email || '').trim() || null,
+			displayName: String(parsed.displayName || '').trim() || null,
+			clientId: String(parsed.clientId || '').trim() || null,
+			tenantId: String(parsed.tenantId || '').trim() || null,
+		};
+	} catch {
+		return null;
+	}
+}
+
+async function setAccountOAuthSession(accountId: number, email: string, session: OAuthSession): Promise<void> {
+	await keytar.setPassword(SERVICE_NAME, getAccountOAuthKey(accountId, email), JSON.stringify(session));
+}
+
+function hasOAuthSessionChanged(before: OAuthSession, after: OAuthSession): boolean {
+	return (
+		before.accessToken !== after.accessToken ||
+		before.refreshToken !== after.refreshToken ||
+		before.expiresAt !== after.expiresAt ||
+		before.tokenType !== after.tokenType ||
+		before.scope !== after.scope
+	);
 }
 
 export function getLocalAccountVCardPath(accountId: number, email: string): string {

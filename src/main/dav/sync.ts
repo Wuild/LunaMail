@@ -123,6 +123,23 @@ export async function syncDav(accountId: number): Promise<DavSyncSummary> {
 	const caldavLogger = createMailDebugLogger('caldav', `sync:${accountId}`);
 	carddavLogger.info('Starting CardDAV sync');
 	caldavLogger.info('Starting CalDAV sync');
+	const accountCreds = await getAccountSyncCredentials(accountId);
+	if (accountCreds.auth_method === 'oauth2') {
+		carddavLogger.warn(
+			'Skipping DAV sync for OAuth account provider=%s: DAV password/app-password auth is required in current implementation.',
+			accountCreds.oauth_provider ?? 'unknown',
+		);
+		caldavLogger.warn(
+			'Skipping DAV sync for OAuth account provider=%s: DAV password/app-password auth is required in current implementation.',
+			accountCreds.oauth_provider ?? 'unknown',
+		);
+		return {
+			accountId,
+			discovered: {accountId, carddavUrl: null, caldavUrl: null},
+			contacts: {upserted: 0, removed: 0, books: 0},
+			events: {upserted: 0, removed: 0, calendars: 0},
+		};
+	}
 	const saved = getDavSettings(accountId);
 	const discovered =
 		saved?.carddav_url || saved?.caldav_url
@@ -395,6 +412,16 @@ export async function removeCalendarEvent(eventId: number) {
 
 async function resolveCredentials(accountId: number): Promise<DavCredentials> {
 	const creds = await getAccountSyncCredentials(accountId);
+	if (creds.auth_method === 'oauth2') {
+		const providerLabel = creds.oauth_provider ? `${creds.oauth_provider}` : 'selected provider';
+		throw new Error(
+			`Calendar and contacts sync via ${providerLabel} OAuth is not supported yet. ` +
+				`Use account/app password DAV credentials for now, or report this on GitHub: https://github.com/wuild/LlamaMail/issues`,
+		);
+	}
+	if (!creds.password) {
+		throw new Error('DAV sync currently requires account password or app password credentials.');
+	}
 	return {
 		email: creds.email,
 		user: creds.user,
@@ -1148,7 +1175,11 @@ async function createCalDavEvent(
 				carddavUrl: saved.carddav_url ?? null,
 				caldavUrl: saved.caldav_url,
 			}
-		: await discoverDav(accountId);
+		: await discoverDav(accountId).catch(() => ({
+				accountId,
+				carddavUrl: null,
+				caldavUrl: null,
+			}));
 
 	if (!discovered.caldavUrl) {
 		logger.warn('No CalDAV endpoint found, creating local-only event account=%d', accountId);

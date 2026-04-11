@@ -8,7 +8,9 @@ type WorkerCredentials = {
 	imap_port: number;
 	imap_secure: number;
 	user: string;
-	password: string;
+	auth_method: 'password' | 'app_password' | 'oauth2';
+	password: string | null;
+	oauth_session: any | null;
 };
 
 type WorkerInput = {

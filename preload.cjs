@@ -21,6 +21,7 @@ const api = {
     getUnreadCount: () => ipcRenderer.invoke('get-unread-count'),
     discoverMailSettings: (email) => ipcRenderer.invoke('discover-mail-settings', email),
     verifyCredentials: (payload) => ipcRenderer.invoke('verify-credentials', payload),
+    startMailOAuth: (payload) => ipcRenderer.invoke('start-mail-oauth', payload),
     syncAccount: (accountId) => ipcRenderer.invoke('sync-account', accountId),
     getFolders: (accountId) => ipcRenderer.invoke('get-folders', accountId),
     createFolder: (accountId, folderPath) => ipcRenderer.invoke('create-folder', accountId, folderPath),

@@ -7,6 +7,12 @@
       "tag": "0000_baseline",
       "when": 1775606400000,
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "tag": "0001_account_auth_mode",
+      "when": 1775923200000,
+      "breakpoints": true
     }
   ]
 }

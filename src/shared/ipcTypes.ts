@@ -130,3 +130,59 @@ export interface GlobalErrorEvent {
 	timestamp: string;
 	fatal?: boolean;
 }
+
+export type ServiceProtocolType = 'imap' | 'pop3' | 'smtp';
+
+export interface ServiceSettings {
+	host: string;
+	port: number;
+	secure: boolean;
+}
+
+export type AuthMethod = 'oauth2' | 'app_password' | 'password';
+export type OAuthProvider = 'google' | 'microsoft';
+
+export interface AuthMethodSupport {
+	method: AuthMethod;
+	supported: boolean;
+	recommended: boolean;
+	note?: string;
+}
+
+export interface AuthCapabilities {
+	preferredMethod: AuthMethod;
+	supportsTwoFactorFlow: boolean;
+	supportsPasskeysViaProvider: boolean;
+	methods: AuthMethodSupport[];
+}
+
+export interface OAuthSession {
+	provider: OAuthProvider;
+	accessToken: string;
+	refreshToken: string | null;
+	expiresAt: number | null;
+	tokenType: string | null;
+	scope: string | null;
+	email: string | null;
+	displayName: string | null;
+	clientId: string | null;
+	tenantId: string | null;
+}
+
+export interface DiscoverCandidate {
+	type: ServiceProtocolType;
+	host: string;
+	port: number;
+	secure: boolean;
+	source: string;
+}
+
+export interface DiscoverResult {
+	provider?: string | null;
+	imap?: ServiceSettings;
+	pop3?: ServiceSettings;
+	smtp?: ServiceSettings;
+	candidates?: DiscoverCandidate[];
+	mxPrimaryHost?: string;
+	auth?: AuthCapabilities;
+}

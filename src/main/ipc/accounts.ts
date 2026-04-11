@@ -42,6 +42,8 @@ import {saveDraftEmail, sendEmail} from '@main/mail/send.js';
 import {downloadMessageAttachment, syncMessageBody, syncMessageSource, type SyncSummary} from '@main/mail/sync.js';
 import {getDb, getSqlitePath} from '@main/db/drizzle.js';
 import {verifyConnection} from '@main/mail/verify.js';
+import {startMailOAuth} from '@main/mail/oauth.js';
+import {resolveImapAuth} from '@main/mail/auth.js';
 import {
 	addAddressBook,
 	addCalendarEvent,
@@ -233,6 +235,7 @@ export function registerAccountIpc(): void {
 		autodiscover,
 		autodiscoverBasic,
 		verifyConnection,
+		startMailOAuth,
 	});
 
 	registerComposeIpc({
@@ -750,7 +753,7 @@ async function connectIdleWatcher(state: IdleWatcherState): Promise<void> {
 			host: account.imap_host,
 			port: account.imap_port,
 			...resolveImapSecurity(account.imap_secure),
-			auth: {user: account.user, pass: account.password},
+			auth: resolveImapAuth(account),
 			logger: createMailDebugLogger('imap', `idle-probe:${state.accountId}`),
 		});
 		let mailboxes: any[] = [];
@@ -822,7 +825,7 @@ async function connectFolderIdleWatcher(state: IdleWatcherState, folder: FolderI
 			host: account.imap_host,
 			port: account.imap_port,
 			...resolveImapSecurity(account.imap_secure),
-			auth: {user: account.user, pass: account.password},
+			auth: resolveImapAuth(account),
 			logger: createMailDebugLogger('imap', `idle:${state.accountId}:${folder.mailboxPath}`),
 		});
 

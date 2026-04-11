@@ -1,15 +1,15 @@
 import React from 'react';
 import {
-    Bug,
-    CalendarDays,
-    ChevronLeft,
-    ChevronRight,
-    CircleHelp,
-    Mail,
-    PenSquare,
-    Search,
-    Settings,
-    Users,
+	Bug,
+	CalendarDays,
+	ChevronLeft,
+	ChevronRight,
+	CircleHelp,
+	Mail,
+	PenSquare,
+	Search,
+	Settings,
+	Users,
 } from 'lucide-react';
 import {Button} from '../ui/button';
 import {ipcClient} from '@renderer/lib/ipcClient';

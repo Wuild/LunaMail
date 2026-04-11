@@ -3,9 +3,9 @@ import {ImapFlow} from 'imapflow';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
-    getAccountSendCredentials,
-    getAccountSyncCredentials,
-    getLocalAccountVCardPath,
+	getAccountSendCredentials,
+	getAccountSyncCredentials,
+	getLocalAccountVCardPath,
 } from '@main/db/repositories/accountsRepo.js';
 import {getMessageContext, upsertLocalDraftSnapshot} from '@main/db/repositories/mailRepo.js';
 import {createMailDebugLogger} from '@main/debug/debugLog.js';

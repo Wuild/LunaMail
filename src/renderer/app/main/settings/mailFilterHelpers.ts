@@ -1,10 +1,10 @@
 import type {
-    AutoUpdateState,
-    MailFilter,
-    MailFilterActionType,
-    MailFilterField,
-    MailFilterMatchMode,
-    MailFilterOperator,
+	AutoUpdateState,
+	MailFilter,
+	MailFilterActionType,
+	MailFilterField,
+	MailFilterMatchMode,
+	MailFilterOperator,
 } from '@/preload';
 
 export type MailFilterConditionDraft = {

@@ -1,13 +1,13 @@
 import React from 'react';
 import {Search, Settings} from 'lucide-react';
 import {
-    closestCenter,
-    DndContext,
-    type DragEndEvent,
-    DragOverlay,
-    PointerSensor,
-    useSensor,
-    useSensors,
+	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	DragOverlay,
+	PointerSensor,
+	useSensor,
+	useSensors,
 } from '@dnd-kit/core';
 import {arrayMove, horizontalListSortingStrategy, SortableContext, useSortable} from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';

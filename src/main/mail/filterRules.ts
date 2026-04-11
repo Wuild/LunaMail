@@ -1,11 +1,11 @@
 import {getMessageBody, getMessageById} from '@main/db/repositories/mailRepo.js';
 import {
-    deleteMailFilter,
-    listMailFilters,
-    type MailFilter,
-    type MailFilterAction,
-    type MailFilterCondition,
-    upsertMailFilter,
+	deleteMailFilter,
+	listMailFilters,
+	type MailFilter,
+	type MailFilterAction,
+	type MailFilterCondition,
+	upsertMailFilter,
 } from '@main/db/repositories/mailFiltersRepo.js';
 import {moveServerMessage, setServerMessageFlagged, setServerMessageRead} from './actions.js';
 

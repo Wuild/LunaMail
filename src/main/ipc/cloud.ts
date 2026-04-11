@@ -7,33 +7,33 @@ import os from 'node:os';
 import path from 'node:path';
 import {createMailDebugLogger} from '@main/debug/debugLog.js';
 import {
-    addCloudAccount,
-    type AddCloudAccountPayload,
-    deleteCloudAccount,
-    getCloudAccountCredentials,
-    getCloudAccounts,
-    listCloudRecipientContacts,
-    updateCloudAccount,
-    type UpdateCloudAccountPayload,
+	addCloudAccount,
+	type AddCloudAccountPayload,
+	deleteCloudAccount,
+	getCloudAccountCredentials,
+	getCloudAccounts,
+	listCloudRecipientContacts,
+	updateCloudAccount,
+	type UpdateCloudAccountPayload,
 } from '@main/db/repositories/cloudRepo.js';
 import {
-    createCloudFolder,
-    createCloudShareLink,
-    deleteCloudItem,
-    downloadCloudItem,
-    getCloudItemStatus,
-    getCloudStorageUsage,
-    listCloudItems,
-    uploadCloudFile,
+	createCloudFolder,
+	createCloudShareLink,
+	deleteCloudItem,
+	downloadCloudItem,
+	getCloudItemStatus,
+	getCloudStorageUsage,
+	listCloudItems,
+	uploadCloudFile,
 } from '@main/cloud/providers.js';
 import {syncCloudDav} from '@main/cloud/davSync.js';
 import {
-    APP_NAME,
-    ONEDRIVE_APP_ID,
-    ONEDRIVE_AUTHORITY,
-    ONEDRIVE_REDIRECT_URI,
-    ONEDRIVE_RESOURCE,
-    ONEDRIVE_SCOPES,
+	APP_NAME,
+	ONEDRIVE_APP_ID,
+	ONEDRIVE_AUTHORITY,
+	ONEDRIVE_REDIRECT_URI,
+	ONEDRIVE_RESOURCE,
+	ONEDRIVE_SCOPES,
 } from '@main/config.js';
 import {confirmFileOpen, isRiskyFileOpenTarget} from '@main/security/fileOpenRisk.js';
 

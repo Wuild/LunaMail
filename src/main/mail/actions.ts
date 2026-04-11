@@ -3,13 +3,13 @@ import {createMailDebugLogger} from '@main/debug/debugLog.js';
 import {getAccountSyncCredentials} from '@main/db/repositories/accountsRepo.js';
 import {resolveImapSecurity} from './security.js';
 import {
-    getMessageContext,
-    listFoldersByAccount,
-    type MoveMessageResult,
-    moveMessageToFolder,
-    setMessageFlagged,
-    setMessageRead,
-    type SetMessageReadResult,
+	getMessageContext,
+	listFoldersByAccount,
+	type MoveMessageResult,
+	moveMessageToFolder,
+	setMessageFlagged,
+	setMessageRead,
+	type SetMessageReadResult,
 } from '@main/db/repositories/mailRepo.js';
 
 interface ActionResult {

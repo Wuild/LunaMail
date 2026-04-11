@@ -1,9 +1,9 @@
 import {useCallback, useRef, useState} from 'react';
 import type {MessageItem} from '@/preload';
 import {
-    computeSelectionOnClick,
-    computeSelectionOnNavigate,
-    computeSelectionOnSelectAll,
+	computeSelectionOnClick,
+	computeSelectionOnNavigate,
+	computeSelectionOnSelectAll,
 } from '@renderer/lib/mailSelection';
 
 type MailSelectionModifiers = {

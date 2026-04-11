@@ -4,25 +4,25 @@ import {ArrowLeft, FileText, Forward, Reply, ReplyAll, Trash2} from 'lucide-reac
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import MainLayout from '@renderer/layouts/MainLayout';
 import {
-    buildForwardQuoteHtml,
-    buildForwardQuoteText,
-    buildReferences,
-    buildReplyQuoteHtml,
-    buildReplyQuoteText,
-    countRecipients,
-    ensurePrefixedSubject,
-    htmlToText,
-    inferReplyAddress,
-    normalizeMessageId,
+	buildForwardQuoteHtml,
+	buildForwardQuoteText,
+	buildReferences,
+	buildReplyQuoteHtml,
+	buildReplyQuoteText,
+	countRecipients,
+	ensurePrefixedSubject,
+	htmlToText,
+	inferReplyAddress,
+	normalizeMessageId,
 } from '@renderer/features/mail/composeDraft';
 import {isProtectedFolder} from '@renderer/features/mail/folders';
 import {buildSpoofHints} from '@renderer/features/mail/spoof';
 import ToolboxButton from '@renderer/features/mail/ToolboxButton';
 import {
-    buildSourceDocCsp,
-    enrichAnchorTitles,
-    extractEmailAddress,
-    isSenderAllowed,
+	buildSourceDocCsp,
+	enrichAnchorTitles,
+	extractEmailAddress,
+	isSenderAllowed,
 } from '@renderer/features/mail/remoteContent';
 import MessageSourceModal from '@renderer/components/mail/MessageSourceModal';
 import {MessageHeaderCard} from '@renderer/components/mail/MessageHeaderCard';
@@ -30,12 +30,12 @@ import {MessageBodyPane} from '@renderer/components/mail/MessageBodyPane';
 import {isEditableTarget} from '@renderer/lib/dom';
 import {clampToViewport} from '@renderer/lib/format';
 import {
-    statusSyncedMailboxAndDav,
-    statusSyncedMessages,
-    statusSyncFailed,
-    statusSyncingMailbox,
-    statusSyncStarted,
-    toErrorMessage,
+	statusSyncedMailboxAndDav,
+	statusSyncedMessages,
+	statusSyncFailed,
+	statusSyncingMailbox,
+	statusSyncStarted,
+	toErrorMessage,
 } from '@renderer/lib/statusText';
 import {useThemePreference} from '@renderer/hooks/useAppTheme';
 import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
@@ -46,11 +46,11 @@ import {useOptimisticReadState} from '@renderer/hooks/mail/useOptimisticReadStat
 import {useMailActionMutations} from '@renderer/hooks/mail/useMailActionMutations';
 import {buildMessageIframeSrcDoc, formatMessageTagLabel, parseRouteNumber} from './mailPageHelpers';
 import {
-    hasAccountOrderChanged,
-    normalizeAccountOrder,
-    readPersistedAccountOrder,
-    sortAccountsByOrder,
-    writePersistedAccountOrder,
+	hasAccountOrderChanged,
+	normalizeAccountOrder,
+	readPersistedAccountOrder,
+	sortAccountsByOrder,
+	writePersistedAccountOrder,
 } from './mailAccountOrder';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {createDefaultAppSettings} from '@/shared/defaults';

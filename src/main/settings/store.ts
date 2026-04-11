@@ -5,11 +5,11 @@ import path from 'path';
 import type {AppLanguage, AppSettings, AppSettingsPatch, AppTheme, MailView} from '@/shared/ipcTypes.js';
 import {createDefaultAppSettings, DEFAULT_APP_SETTINGS} from '@/shared/defaults.js';
 import {
-    normalizeNavRailOrder,
-    normalizeSyncIntervalMinutes,
-    parseAppLanguage,
-    parseAppTheme,
-    parseMailView,
+	normalizeNavRailOrder,
+	normalizeSyncIntervalMinutes,
+	parseAppLanguage,
+	parseAppTheme,
+	parseMailView,
 } from '@/shared/settingsRules.js';
 
 export type {AppLanguage, AppSettings, AppSettingsPatch, AppTheme, MailView} from '@/shared/ipcTypes.js';

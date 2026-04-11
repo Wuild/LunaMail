@@ -3,9 +3,9 @@ import {BookPlus, Download, Pencil, Plus, RefreshCw, Settings, Trash2, X} from '
 import {useNavigate} from 'react-router-dom';
 import type {AddressBookItem, ContactItem, PublicAccount, SyncStatusEvent} from '@/preload';
 import {
-    getAccountAvatarColors,
-    getAccountAvatarColorsForAccount,
-    getAccountMonogram,
+	getAccountAvatarColors,
+	getAccountAvatarColorsForAccount,
+	getAccountMonogram,
 } from '@renderer/lib/accountAvatar';
 import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
 import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
@@ -14,13 +14,13 @@ import {Button} from '@renderer/components/ui/button';
 import {FormInput, FormSelect, FormTextarea} from '@renderer/components/ui/FormControls';
 import {Modal, ModalHeader, ModalTitle} from '@renderer/components/ui/Modal';
 import {
-    statusAutoSyncFailed,
-    statusNoAccountSelected,
-    statusSyncCompleteDav,
-    statusSyncCompleteMessages,
-    statusSyncFailed,
-    statusSyncing,
-    toErrorMessage,
+	statusAutoSyncFailed,
+	statusNoAccountSelected,
+	statusSyncCompleteDav,
+	statusSyncCompleteMessages,
+	statusSyncFailed,
+	statusSyncing,
+	toErrorMessage,
 } from '@renderer/lib/statusText';
 import {cn} from '@renderer/lib/utils';
 import WorkspaceLayout from '@renderer/layouts/WorkspaceLayout';

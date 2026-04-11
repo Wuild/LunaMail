@@ -1,25 +1,25 @@
 import React from 'react';
 import {
-    Archive,
-    ChevronRight,
-    Folder,
-    Mail,
-    MailOpen,
-    RefreshCw,
-    Settings,
-    SquareArrowOutUpRight,
-    Star,
-    Trash2,
+	Archive,
+	ChevronRight,
+	Folder,
+	Mail,
+	MailOpen,
+	RefreshCw,
+	Settings,
+	SquareArrowOutUpRight,
+	Star,
+	Trash2,
 } from 'lucide-react';
 import type {FolderItem, MessageItem} from '@/preload';
 import ContextItem from './ContextItem';
 import {cn} from '@renderer/lib/utils';
 import {
-    ContextMenu,
-    ContextMenuAnchor,
-    ContextMenuItem,
-    ContextMenuSeparator,
-    ContextMenuSubmenu,
+	ContextMenu,
+	ContextMenuAnchor,
+	ContextMenuItem,
+	ContextMenuSeparator,
+	ContextMenuSubmenu,
 } from '../ui/ContextMenu';
 
 type TagOption = {

@@ -1,10 +1,10 @@
 import {createMailDebugLogger} from '@main/debug/debugLog.js';
 import {type CloudAccountCredentials, cloudAccountToDavAccountId} from '@main/db/repositories/cloudRepo.js';
 import {
-    getDavSettings,
-    upsertCalendarEvents,
-    upsertContacts,
-    upsertDavSettings,
+	getDavSettings,
+	upsertCalendarEvents,
+	upsertContacts,
+	upsertDavSettings,
 } from '@main/db/repositories/davRepo.js';
 
 type DavCredentials = {

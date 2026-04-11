@@ -4,19 +4,19 @@ import {createMailDebugLogger} from '@main/debug/debugLog.js';
 import {getAccountSyncCredentials} from '@main/db/repositories/accountsRepo.js';
 import {resolveImapSecurity} from './security.js';
 import {
-    getMessageBody,
-    getMessageContext,
-    getMessageIdByFolderAndUid,
-    hasMessageByFolderAndUid,
-    listFoldersByAccount,
-    listMessageAttachments,
-    reconcileFolderMessageUids,
-    replaceMessageAttachments,
-    updateFolderCounts,
-    upsertFolder,
-    upsertMessage,
-    upsertMessageBody,
-    upsertThread,
+	getMessageBody,
+	getMessageContext,
+	getMessageIdByFolderAndUid,
+	hasMessageByFolderAndUid,
+	listFoldersByAccount,
+	listMessageAttachments,
+	reconcileFolderMessageUids,
+	replaceMessageAttachments,
+	updateFolderCounts,
+	upsertFolder,
+	upsertMessage,
+	upsertMessageBody,
+	upsertThread,
 } from '@main/db/repositories/mailRepo.js';
 import {buildThreadId, stringifyReferences} from './threading.js';
 

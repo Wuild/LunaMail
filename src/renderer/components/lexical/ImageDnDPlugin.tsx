@@ -1,18 +1,18 @@
 import {useEffect, useRef} from 'react';
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 import {
-    $createRangeSelection,
-    $getNearestNodeFromDOMNode,
-    $getNodeByKey,
-    $getRoot,
-    $getSelection,
-    $isRangeSelection,
-    $isTextNode,
-    $normalizeSelection__EXPERIMENTAL,
-    $setSelection,
-    COMMAND_PRIORITY_LOW,
-    DRAGOVER_COMMAND,
-    DROP_COMMAND,
+	$createRangeSelection,
+	$getNearestNodeFromDOMNode,
+	$getNodeByKey,
+	$getRoot,
+	$getSelection,
+	$isRangeSelection,
+	$isTextNode,
+	$normalizeSelection__EXPERIMENTAL,
+	$setSelection,
+	COMMAND_PRIORITY_LOW,
+	DRAGOVER_COMMAND,
+	DROP_COMMAND,
 } from 'lexical';
 import {$createImageNode, $isImageNode, type ImageAlign} from './ImageNode';
 

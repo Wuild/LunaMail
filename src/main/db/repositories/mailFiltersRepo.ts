@@ -1,13 +1,13 @@
 import {getDb} from '@main/db/drizzle.js';
 import type {
-    MailFilter,
-    MailFilterAction,
-    MailFilterActionType,
-    MailFilterCondition,
-    MailFilterField,
-    MailFilterMatchMode,
-    MailFilterOperator,
-    UpsertMailFilterPayload,
+	MailFilter,
+	MailFilterAction,
+	MailFilterActionType,
+	MailFilterCondition,
+	MailFilterField,
+	MailFilterMatchMode,
+	MailFilterOperator,
+	UpsertMailFilterPayload,
 } from '@/shared/ipcTypes.js';
 
 // Filter CRUD remains intentionally raw SQL for now because it spans parent/child tables with transactional upsert

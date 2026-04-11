@@ -3,19 +3,19 @@ import React, {useEffect, useRef} from 'react';
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 import {useLexicalNodeSelection} from '@lexical/react/useLexicalNodeSelection';
 import {
-    $getNodeByKey,
-    COMMAND_PRIORITY_LOW,
-    DecoratorNode,
-    type DOMConversionMap,
-    type DOMConversionOutput,
-    type DOMExportOutput,
-    type EditorConfig,
-    KEY_BACKSPACE_COMMAND,
-    KEY_DELETE_COMMAND,
-    type LexicalNode,
-    type NodeKey,
-    type SerializedLexicalNode,
-    type Spread,
+	$getNodeByKey,
+	COMMAND_PRIORITY_LOW,
+	DecoratorNode,
+	type DOMConversionMap,
+	type DOMConversionOutput,
+	type DOMExportOutput,
+	type EditorConfig,
+	KEY_BACKSPACE_COMMAND,
+	KEY_DELETE_COMMAND,
+	type LexicalNode,
+	type NodeKey,
+	type SerializedLexicalNode,
+	type Spread,
 } from 'lexical';
 
 export type ImageAlign = 'none' | 'left' | 'center' | 'right';

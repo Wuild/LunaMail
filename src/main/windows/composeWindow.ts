@@ -5,10 +5,10 @@ import {fileURLToPath} from 'url';
 import {loadWindowContent} from './loadWindowContent.js';
 import {getAppSettingsSync, getSpellCheckerLanguages} from '@main/settings/store.js';
 import {
-    attachWindowShortcuts,
-    buildSecureWebPreferences,
-    createAppWindow,
-    createFramelessAppWindow,
+	attachWindowShortcuts,
+	buildSecureWebPreferences,
+	createAppWindow,
+	createFramelessAppWindow,
 } from './windowFactory.js';
 
 const isDev = !app.isPackaged;

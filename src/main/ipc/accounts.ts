@@ -2,62 +2,62 @@ import {Worker} from 'node:worker_threads';
 import {ImapFlow} from 'imapflow';
 import {createAppLogger, createMailDebugLogger} from '@main/debug/debugLog.js';
 import {
-    addAccount,
-    deleteAccount,
-    getAccounts,
-    getAccountSyncCredentials,
-    updateAccount,
+	addAccount,
+	deleteAccount,
+	getAccounts,
+	getAccountSyncCredentials,
+	updateAccount,
 } from '@main/db/repositories/accountsRepo.js';
 import {
-    deleteFolderByPath,
-    deleteMessageLocally,
-    getMessageById,
-    getMessageContext,
-    listFoldersByAccount,
-    listMessagesByFolder,
-    listRecentRecipients,
-    listThreadMessagesByFolder,
-    reorderCustomFolders,
-    searchMessages,
-    setMessageTag,
-    updateFolderSettings,
+	deleteFolderByPath,
+	deleteMessageLocally,
+	getMessageById,
+	getMessageContext,
+	listFoldersByAccount,
+	listMessagesByFolder,
+	listRecentRecipients,
+	listThreadMessagesByFolder,
+	reorderCustomFolders,
+	searchMessages,
+	setMessageTag,
+	updateFolderSettings,
 } from '@main/db/repositories/mailRepo.js';
 import {autodiscover, autodiscoverBasic} from '@main/mail/autodiscover.js';
 import {
-    deleteMailFilter,
-    listMailFilters,
-    runMailFiltersForMessages,
-    upsertMailFilter,
+	deleteMailFilter,
+	listMailFilters,
+	runMailFiltersForMessages,
+	upsertMailFilter,
 } from '@main/mail/filterRules.js';
 import {resolveImapSecurity} from '@main/mail/security.js';
 import {
-    createServerFolder,
-    deleteServerFolder,
-    deleteServerMessageByContext,
-    moveServerMessage,
-    setServerMessageFlagged,
-    setServerMessageRead,
+	createServerFolder,
+	deleteServerFolder,
+	deleteServerMessageByContext,
+	moveServerMessage,
+	setServerMessageFlagged,
+	setServerMessageRead,
 } from '@main/mail/actions.js';
 import {saveDraftEmail, sendEmail} from '@main/mail/send.js';
 import {downloadMessageAttachment, syncMessageBody, syncMessageSource, type SyncSummary} from '@main/mail/sync.js';
 import {getDb, getSqlitePath} from '@main/db/drizzle.js';
 import {verifyConnection} from '@main/mail/verify.js';
 import {
-    addAddressBook,
-    addCalendarEvent,
-    addContact,
-    type DavSyncSummary,
-    discoverDav,
-    discoverDavPreview,
-    editCalendarEvent,
-    editContact,
-    getAddressBooks,
-    getCalendarEvents,
-    getContacts,
-    removeAddressBook,
-    removeCalendarEvent,
-    removeContact,
-    syncDav,
+	addAddressBook,
+	addCalendarEvent,
+	addContact,
+	type DavSyncSummary,
+	discoverDav,
+	discoverDavPreview,
+	editCalendarEvent,
+	editContact,
+	getAddressBooks,
+	getCalendarEvents,
+	getContacts,
+	removeAddressBook,
+	removeCalendarEvent,
+	removeContact,
+	syncDav,
 } from '@main/dav/sync.js';
 import {registerAccountCoreIpc} from './registerAccountCoreIpc.js';
 import {registerComposeIpc} from './registerComposeIpc.js';
@@ -66,10 +66,10 @@ import {registerMailIpc} from './registerMailIpc.js';
 import {normalizeSyncIntervalMinutes} from '@/shared/settingsRules.js';
 import {getAppSettingsSync} from '@main/settings/store.js';
 import {
-    broadcastAccountSyncStatus,
-    broadcastMessageReadUpdated as broadcastMessageReadUpdatedEvent,
-    broadcastToAllWindows,
-    broadcastUnreadCountUpdated,
+	broadcastAccountSyncStatus,
+	broadcastMessageReadUpdated as broadcastMessageReadUpdatedEvent,
+	broadcastToAllWindows,
+	broadcastUnreadCountUpdated,
 } from './broadcast.js';
 import {isDemoProvider} from '@main/demo/demoMode.js';
 

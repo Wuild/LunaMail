@@ -7,10 +7,10 @@ import {ipcClient} from '@renderer/lib/ipcClient';
 import type {UpdateAccountPayload} from '@/preload';
 import type {AccountEditor, AccountPanelSection} from '@renderer/app/main/settings/settingsTypes';
 import {
-    createDefaultMailFilterDraft,
-    type MailFilterDraft,
-    type MailFilterModalState,
-    mapMailFilterToDraft,
+	createDefaultMailFilterDraft,
+	type MailFilterDraft,
+	type MailFilterModalState,
+	mapMailFilterToDraft,
 } from '@renderer/app/main/settings/mailFilterHelpers';
 
 export type UseAccountSettingsRouteResult = {

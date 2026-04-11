@@ -3,22 +3,22 @@ import React from 'react';
 import {ChevronRight, Folder, PenSquare, RefreshCw, Settings} from 'lucide-react';
 import {useDrop} from 'react-dnd';
 import {
-    closestCenter,
-    DndContext,
-    type DragEndEvent,
-    DragOverlay,
-    type DragStartEvent,
-    PointerSensor,
-    useDroppable,
-    useSensor,
-    useSensors,
+	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	DragOverlay,
+	type DragStartEvent,
+	PointerSensor,
+	useDroppable,
+	useSensor,
+	useSensors,
 } from '@dnd-kit/core';
 import {
-    arrayMove,
-    defaultAnimateLayoutChanges,
-    SortableContext,
-    useSortable,
-    verticalListSortingStrategy,
+	arrayMove,
+	defaultAnimateLayoutChanges,
+	SortableContext,
+	useSortable,
+	verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
 import type {FolderItem, PublicAccount} from '@/preload';

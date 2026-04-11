@@ -2,7 +2,7 @@ import {BrowserWindow, dialog, ipcMain, shell} from 'electron';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {confirmRiskyFileOpen, isRiskyFileOpenTarget} from '@main/security/fileOpenRisk.js';
+import {confirmFileOpen, isRiskyFileOpenTarget} from '@main/security/fileOpenRisk.js';
 
 type MailIpcDeps = {
     appLogger: { debug: (...args: any[]) => void; info: (...args: any[]) => void; warn: (...args: any[]) => void };
@@ -394,11 +394,10 @@ export function registerMailIpc(deps: MailIpcDeps): void {
             const safeName = deps.sanitizeAttachmentFilename(attachment.filename);
             const requestedAction = action ?? 'prompt';
             if (requestedAction === 'open') {
-                if (isRiskyFileOpenTarget(safeName)) {
-                    const approved = await confirmRiskyFileOpen(parentWindow, safeName, 'attachment');
-                    if (!approved) {
-                        return {ok: false as const, action: 'cancelled' as const};
-                    }
+                const isRisky = isRiskyFileOpenTarget(safeName, null, attachment.content);
+                const approved = await confirmFileOpen(parentWindow, safeName, 'attachment', isRisky);
+                if (!approved) {
+                    return {ok: false as const, action: 'cancelled' as const};
                 }
                 const targetPath = path.join(os.tmpdir(), `llamamail-${Date.now()}-${safeName}`);
                 await fs.writeFile(targetPath, attachment.content);
@@ -439,11 +438,10 @@ export function registerMailIpc(deps: MailIpcDeps): void {
             }
 
             if (openOrSave.response === 0) {
-                if (isRiskyFileOpenTarget(safeName)) {
-                    const approved = await confirmRiskyFileOpen(parentWindow, safeName, 'attachment');
-                    if (!approved) {
-                        return {ok: false as const, action: 'cancelled' as const};
-                    }
+                const isRisky = isRiskyFileOpenTarget(safeName, null, attachment.content);
+                const approved = await confirmFileOpen(parentWindow, safeName, 'attachment', isRisky);
+                if (!approved) {
+                    return {ok: false as const, action: 'cancelled' as const};
                 }
                 const targetPath = path.join(os.tmpdir(), `llamamail-${Date.now()}-${safeName}`);
                 await fs.writeFile(targetPath, attachment.content);

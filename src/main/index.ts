@@ -88,7 +88,7 @@ const logger = createAppLogger('main');
 installTrustedSenderGuard(ipcMain);
 const MAIN_WINDOW_MIN_WIDTH = 900;
 const MAIN_WINDOW_MIN_HEIGHT = 600;
-const LINK_WARNING_WRAPPER_PROTOCOL = 'llamamail-link:';
+const LINK_WARNING_WRAPPER_PROTOCOL = `${APP_PROTOCOL}:`;
 const UNSAFE_LINK_SCHEMES = new Set(['javascript:', 'data:', 'vbscript:', 'file:', 'ftp:']);
 const NEVER_OPEN_SCHEMES = new Set(['javascript:', 'data:', 'vbscript:', 'about:']);
 const UNSAFE_LINK_EXTENSIONS = new Set([
@@ -863,6 +863,7 @@ function registerProtocolHandlers(): void {
 		event.preventDefault();
 		logger.info('Received open-url event url=%s', url);
 		if (queueCloudOAuthCallbackUrl(url)) return;
+        if (handleAppProtocolFallbackUrl(url)) return;
 		queueMailtoUrl(url);
 	});
 
@@ -890,6 +891,10 @@ function registerProtocolHandlers(): void {
 		if (protocolUrl && queueCloudOAuthCallbackUrl(protocolUrl)) {
 			showMainWindow();
 			return;
+        }
+        if (protocolUrl && handleAppProtocolFallbackUrl(protocolUrl)) {
+            showMainWindow();
+            return;
 		}
 		const mailtoUrl = findMailtoArg(argv);
 		if (mailtoUrl) {
@@ -898,6 +903,14 @@ function registerProtocolHandlers(): void {
 			showMainWindow();
 		}
 	});
+}
+
+function handleAppProtocolFallbackUrl(url: string): boolean {
+    if (!isAppProtocolUrl(url)) return false;
+    if (!resolveWrappedMessageLink(url)) return false;
+    const owner = mainWindow ?? undefined;
+    void handleExternalUrl(url, owner);
+    return true;
 }
 
 function installExternalNavigationPolicy(): void {
@@ -1014,7 +1027,7 @@ function installExternalNavigationPolicy(): void {
 				const hasSelection = Boolean((params.selectionText || '').trim());
 			const linkUrl = String(params.linkURL || '').trim();
 			const resolvedLinkUrl = resolveWrappedMessageLink(linkUrl)?.targetUrl ?? linkUrl;
-			const hasLink = /^(https?:|mailto:|llamamail-link:)/i.test(linkUrl);
+            const hasLink = /^(https?:|mailto:)/i.test(linkUrl) || isAppProtocolUrl(linkUrl);
 			const imageUrl = String((params.srcURL || '').trim());
 			const hasImage = Boolean(imageUrl);
 			const imageCanOpenExternally = /^(https?:|file:)/i.test(imageUrl);
@@ -1108,7 +1121,8 @@ function installExternalNavigationPolicy(): void {
 		});
 
 		contents.on('update-target-url', (_event, url) => {
-			contents.send('link-hover-url', url || '');
+            const rawUrl = resolveWrappedMessageLink(url || '')?.targetUrl ?? (url || '');
+            contents.send('link-hover-url', rawUrl);
 		});
 	});
 }
@@ -1183,6 +1197,10 @@ function getUrlProtocol(url: string): string | null {
 	}
 }
 
+function isAppProtocolUrl(url: string): boolean {
+    return getUrlProtocol(url) === `${APP_PROTOCOL}:`;
+}
+
 async function confirmUnsafeUrlOpen(url: string, hints: string[], owner?: BrowserWindow): Promise<boolean> {
 	const detail = `${hints.join('\n')}\n\n${url}`;
 	const dialogOptions: Electron.MessageBoxOptions = {
@@ -1207,6 +1225,8 @@ function resolveWrappedMessageLink(url: string): { targetUrl: string; senderUntr
 		if (parsed.protocol.toLowerCase() !== LINK_WARNING_WRAPPER_PROTOCOL) {
 			return null;
 		}
+        if (parsed.hostname.toLowerCase() !== 'link') return null;
+        if (parsed.pathname !== '/open') return null;
 		const targetUrl = String(parsed.searchParams.get('target') || '').trim();
 		if (!targetUrl) return null;
 		const senderUntrusted = String(parsed.searchParams.get('sender') || '').toLowerCase() === 'untrusted';

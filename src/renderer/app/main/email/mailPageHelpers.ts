@@ -1,4 +1,5 @@
 import mailFrameCss from '@renderer/styles/mail-frame.css?raw';
+import {APP_PROTOCOL} from '@/shared/appConfig';
 
 export function parseRouteNumber(value?: string): number | null {
     if (!value) return null;
@@ -273,11 +274,11 @@ function shouldWrapAnchorHref(value: string): boolean {
     const raw = String(value || '').trim();
     if (!raw) return false;
     if (raw.startsWith('#')) return false;
-    if (/^llamamail-link:/i.test(raw)) return false;
+    if (new RegExp(`^${APP_PROTOCOL}:`, 'i').test(raw)) return false;
     if (/^\/\//.test(raw)) return true;
     return /^[a-z][a-z0-9+.-]*:/i.test(raw);
 }
 
 function buildUnsafeSenderWarningLink(targetUrl: string): string {
-    return `llamamail-link://open?target=${encodeURIComponent(targetUrl)}&sender=untrusted`;
+    return `${APP_PROTOCOL}://link/open?target=${encodeURIComponent(targetUrl)}&sender=untrusted`;
 }

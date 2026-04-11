@@ -79,6 +79,7 @@ interface MainLayoutProps {
 	onMailViewChange: (view: MailView) => void;
 	activeWorkspace?: Workspace;
 	hideFolderSidebar?: boolean;
+	showMessageOnly?: boolean;
 	hideHeader?: boolean;
 	syncStatusText?: string | null;
 	syncInProgress?: boolean;
@@ -221,6 +222,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 												   onMailViewChange: _onMailViewChange,
 												   activeWorkspace = 'mail',
 												   hideFolderSidebar = false,
+												   showMessageOnly = false,
 												   hideHeader = false,
 												   syncStatusText,
 												   syncInProgress,
@@ -364,6 +366,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 			return DEFAULT_TABLE_COLUMN_WIDTHS;
 		}
 	});
+
 	const topListResizeRef = React.useRef<{ startY: number; startHeight: number } | null>(null);
 	const tableColumnResizeRef = React.useRef<{
 		column: MailTableColumnKey;
@@ -489,8 +492,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 			}
 			const sizeKb = (Number(message.size) || 0) / 1024;
 			if (Number.isFinite(minSizeKb) && sizeKb < minSizeKb) return false;
-			if (Number.isFinite(maxSizeKb) && sizeKb > maxSizeKb) return false;
-			return true;
+			return !(Number.isFinite(maxSizeKb) && sizeKb > maxSizeKb);
 		});
 	}, [
 		searchResults,
@@ -1239,12 +1241,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 						getFolderColorClass={getFolderColorClass}
 					/>
 
-					{mailView === 'side-list' && (
+					{showMessageOnly && (
+						<section className="mail-preview-pane flex min-w-0 flex-1 flex-col">{children}</section>
+					)}
+
+					{!showMessageOnly && mailView === 'side-list' && (
 						<SideListMailPane
 							mailListWidth={mailListWidth}
 							isCompactSideList={isCompactSideList}
 							selectedMessageIds={selectedMessageIds}
 							selectedMessageId={selectedMessageId}
+							contextMenuMessageId={menu?.kind === 'message' ? menu.message.id : null}
 							messages={messages}
 							hasMoreMessages={hasMoreMessages}
 							loadingMoreMessages={loadingMoreMessages}
@@ -1271,28 +1278,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 						</SideListMailPane>
 					)}
 
-					{mailView === 'top-table' && (
+					{!showMessageOnly && mailView === 'top-table' && (
 						<TopTableMailPane
 							isCompactTopTable={isCompactTopTable}
 							topListHeight={topListHeight}
 							selectedMessageIds={selectedMessageIds}
+							contextMenuMessageId={menu?.kind === 'message' ? menu.message.id : null}
 							messages={messages}
 							loadingMoreMessages={loadingMoreMessages}
 							hasMoreMessages={hasMoreMessages}
 							visibleTableColumns={visibleTableColumns}
                             tableColumnOptions={tableColumnOptions}
-								effectiveTableColumnWidths={effectiveTableColumnWidths}
-								tableMinWidth={tableMinWidth}
-								mailTableResizeHandleClass={MAIL_TABLE_RESIZE_HANDLE_CLASS}
-								onOpenSearchModal={() => setSearchModalOpen(true)}
-								onBulkMarkRead={onBulkMarkRead}
-								onBulkDelete={onBulkDelete}
-								onClearMessageSelection={onClearMessageSelection}
-								onLoadMoreMessages={onLoadMoreMessages}
-								onOpenTableHeadMenuAt={openTableHeadMenuAt}
-								onReorderVisibleTableColumns={reorderVisibleTableColumns}
-								onBeginTableColumnResize={beginTableColumnResize}
-								onMessageRowClick={onMessageRowClick}
+							effectiveTableColumnWidths={effectiveTableColumnWidths}
+							tableMinWidth={tableMinWidth}
+							mailTableResizeHandleClass={MAIL_TABLE_RESIZE_HANDLE_CLASS}
+							onOpenSearchModal={() => setSearchModalOpen(true)}
+							onBulkMarkRead={onBulkMarkRead}
+							onBulkDelete={onBulkDelete}
+							onClearMessageSelection={onClearMessageSelection}
+							onLoadMoreMessages={onLoadMoreMessages}
+							onOpenTableHeadMenuAt={openTableHeadMenuAt}
+							onReorderVisibleTableColumns={reorderVisibleTableColumns}
+							onBeginTableColumnResize={beginTableColumnResize}
+							onMessageRowClick={onMessageRowClick}
 							onOpenMessageMenu={(message, x, y) => {
 								setMenu({kind: 'message', x, y, message});
 							}}
@@ -1301,6 +1309,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 							}}
 							renderTableCell={renderTableCell}
 							onTopListResizeStart={onTopListResizeStart}
+							isTableHeadMenuOpen={Boolean(tableHeadMenu)}
 						>
 							{children}
 						</TopTableMailPane>
@@ -1310,7 +1319,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
 			{(menu || accountMenu || tableHeadMenu) && (
 				<div
-					className="fixed inset-0 z-[996]"
+					className="fixed inset-0 z-996"
 					onClick={() => {
 						setMenu(null);
 						setAccountMenu(null);
@@ -1332,6 +1341,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 					selectedColumns={tableColumns}
 					position={tableHeadMenuPosition}
 					ready={tableHeadMenuReady}
+					onClose={() => setTableHeadMenu(null)}
 					onToggleColumn={toggleTableColumn}
 					onResetColumns={resetTableColumns}
 				/>

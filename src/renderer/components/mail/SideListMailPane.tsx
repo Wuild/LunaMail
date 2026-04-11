@@ -23,6 +23,7 @@ type SideListMailPaneProps = {
     isCompactSideList: boolean;
     selectedMessageIds: number[];
     selectedMessageId: number | null;
+    contextMenuMessageId: number | null;
     messages: MessageItem[];
     hasMoreMessages: boolean;
     loadingMoreMessages: boolean;
@@ -46,9 +47,9 @@ type SideListMailPaneProps = {
 function DraggableMessageRow({
     message,
     messageIndex,
-    isCompactSideList,
     selectedMessageIds,
     selectedMessageId,
+                                 contextMenuMessageId,
     onMessageRowClick,
     onOpenMessageWindow,
     onOpenMessageMenu,
@@ -60,9 +61,9 @@ function DraggableMessageRow({
 }: {
     message: MessageItem;
     messageIndex: number;
-    isCompactSideList: boolean;
     selectedMessageIds: number[];
     selectedMessageId: number | null;
+    contextMenuMessageId: number | null;
     onMessageRowClick: (event: React.MouseEvent, message: MessageItem, messageIndex: number) => void;
     onOpenMessageWindow: (messageId: number) => void;
     onOpenMessageMenu: (message: MessageItem, x: number, y: number) => void;
@@ -72,6 +73,8 @@ function DraggableMessageRow({
     getTagLabel: (tag: string | null) => string;
     dateLocale?: string;
 }) {
+    const senderDisplay = formatMessageSender(message);
+
     const dragIds =
         selectedMessageIds.length > 1 && selectedMessageIds.includes(message.id) ? selectedMessageIds : [message.id];
     const [, dragRef, previewRef] = useDrag<MailMessageDragItem, unknown, {isDragging: boolean}>(
@@ -97,12 +100,10 @@ function DraggableMessageRow({
                 'mail-list-row block w-full px-5 py-4 text-left',
                 selectedMessageIds.includes(message.id) && 'is-selected',
                 selectedMessageId === message.id && 'is-focused',
+                contextMenuMessageId === message.id && 'is-menu-open',
             )}
             onClick={(event) => {
                 onMessageRowClick(event, message, messageIndex);
-                if (!isCompactSideList) return;
-                if (event.shiftKey || event.ctrlKey || event.metaKey) return;
-                onOpenMessageWindow(message.id);
             }}
             onDoubleClick={() => {
                 onOpenMessageWindow(message.id);
@@ -112,59 +113,65 @@ function DraggableMessageRow({
                 onOpenMessageMenu(message, event.clientX, event.clientY);
             }}
         >
-            <div
-                className={cn(
-                    'flex min-w-0 items-center gap-2 text-sm',
-                    message.is_read ? 'mail-list-subject-read font-medium' : 'mail-list-subject-unread font-semibold',
-                )}
-            >
-                {!message.is_read && (
-                    <span
-                        className="mail-list-unread-dot inline-flex h-2 w-2 shrink-0 rounded-full"
-                        title="Unread"
-                        aria-label="Unread"
-                    />
-                )}
-                <span className="truncate">{message.subject || '(No subject)'}</span>
-                {getThreadCount(message) > 1 && (
-                    <span
-                        className="mail-list-thread-count inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none">
-						{getThreadCount(message)}
-					</span>
-                )}
-            </div>
-            <div className="mt-1.5 flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                    <p className="mail-list-sender truncate text-xs">
-                        {formatMessageSender(message)}
-                    </p>
-                    {Boolean((message as MessageItem & { tag?: string | null }).tag) && (
-                        <span
-                            className="mail-list-tag-chip inline-flex max-w-[10rem] items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px]">
-							<span
-                                className={cn(
-                                    'inline-flex h-1.5 w-1.5 shrink-0 rounded-full',
-                                    getTagDotClass((message as MessageItem & { tag?: string | null }).tag ?? null),
-                                )}
+            <div className="flex min-w-0 items-center gap-3">
+                <div className="min-w-0 flex-1">
+                    <div
+                        className={cn(
+                            'flex min-w-0 items-center gap-2 text-sm',
+                            message.is_read ? 'mail-list-subject-read font-medium' : 'mail-list-subject-unread font-semibold',
+                        )}
+                    >
+                        {!message.is_read && (
+                            <span
+                                className="mail-list-unread-dot inline-flex h-2 w-2 shrink-0 rounded-full"
+                                title="Unread"
+                                aria-label="Unread"
                             />
-							<span className="truncate">
-								{getTagLabel((message as MessageItem & { tag?: string | null }).tag ?? null)}
-							</span>
+                        )}
+                        <span className="truncate">{message.subject || '(No subject)'}</span>
+                        {getThreadCount(message) > 1 && (
+                            <span
+                                className="mail-list-thread-count inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none">
+							{getThreadCount(message)}
 						</span>
-                    )}
-                </div>
-                <span
-                    className="mail-list-meta ml-3 inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-xs">
-					{Boolean(message.is_flagged) && (
+                        )}
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                            <p className="mail-list-sender truncate text-xs">
+                                {senderDisplay}
+                            </p>
+                            {Boolean((message as MessageItem & { tag?: string | null }).tag) && (
+                                <span
+                                    className="mail-list-tag-chip inline-flex max-w-[10rem] items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px]">
+							        <span
+                                        className={cn(
+                                            'inline-flex h-1.5 w-1.5 shrink-0 rounded-full',
+                                            getTagDotClass((message as MessageItem & {
+                                                tag?: string | null
+                                            }).tag ?? null),
+                                        )}
+                                    />
+							        <span className="truncate">
+								        {getTagLabel((message as MessageItem & { tag?: string | null }).tag ?? null)}
+							        </span>
+						        </span>
+                            )}
+                        </div>
                         <span
-                            className="mail-list-starred inline-flex items-center"
-                            title="Starred"
-                        >
-							<Star size={12} className="fill-current"/>
-						</span>
-                    )}
-                    <span>{formatSystemDateTime(message.date, dateLocale)}</span>
-				</span>
+                            className="mail-list-meta ml-3 inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-xs">
+					        {Boolean(message.is_flagged) && (
+                                <span
+                                    className="mail-list-starred inline-flex items-center"
+                                    title="Starred"
+                                >
+							        <Star size={12} className="fill-current"/>
+						        </span>
+                            )}
+                            <span>{formatSystemDateTime(message.date, dateLocale)}</span>
+				        </span>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -175,6 +182,7 @@ export default function SideListMailPane({
                                              isCompactSideList,
                                              selectedMessageIds,
                                              selectedMessageId,
+                                             contextMenuMessageId,
                                              messages,
                                              hasMoreMessages,
                                              loadingMoreMessages,
@@ -287,9 +295,9 @@ export default function SideListMailPane({
                             key={message.id}
                             message={message}
                             messageIndex={messageIndex}
-                            isCompactSideList={isCompactSideList}
                             selectedMessageIds={selectedMessageIds}
                             selectedMessageId={selectedMessageId}
+                            contextMenuMessageId={contextMenuMessageId}
                             onMessageRowClick={onMessageRowClick}
                             onOpenMessageWindow={onOpenMessageWindow}
                             onOpenMessageMenu={onOpenMessageMenu}

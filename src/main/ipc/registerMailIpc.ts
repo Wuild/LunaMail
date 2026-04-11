@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {confirmFileOpen, isRiskyFileOpenTarget} from '@main/security/fileOpenRisk.js';
+import {resolveSenderNotificationIconPath} from '@main/notifications/senderIcon.js';
 
 type MailIpcDeps = {
     appLogger: { debug: (...args: any[]) => void; info: (...args: any[]) => void; warn: (...args: any[]) => void };
@@ -286,6 +287,35 @@ export function registerMailIpc(deps: MailIpcDeps): void {
     ipcMain.handle('get-message', async (_event, messageId: number) => {
         deps.appLogger.debug('IPC get-message messageId=%d', messageId);
         return deps.getMessageById(messageId);
+    });
+
+    ipcMain.handle('get-sender-avatar', async (_event, fromAddress: string | null) => {
+        const normalizedFromAddress = typeof fromAddress === 'string' ? fromAddress.trim() : '';
+        if (!normalizedFromAddress) {
+            return null;
+        }
+        const iconPath = await resolveSenderNotificationIconPath(normalizedFromAddress);
+        if (!iconPath) {
+            return null;
+        }
+        try {
+            const ext = path.extname(iconPath).toLowerCase();
+            const mimeType =
+                ext === '.png'
+                    ? 'image/png'
+                    : ext === '.jpg' || ext === '.jpeg'
+                        ? 'image/jpeg'
+                        : ext === '.webp'
+                            ? 'image/webp'
+                            : null;
+            if (!mimeType) {
+                return null;
+            }
+            const iconBytes = await fs.readFile(iconPath);
+            return `data:${mimeType};base64,${iconBytes.toString('base64')}`;
+        } catch {
+            return null;
+        }
     });
 
     ipcMain.handle(

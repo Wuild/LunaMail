@@ -42,9 +42,9 @@ export function computeSelectionOnClick({
         const end = Math.max(anchor, selectedIndex);
         const rangeIds = messageIds.slice(start, end + 1);
         return {
-            selectedMessageId: selectedId,
+            selectedMessageId: state.selectedMessageId,
             selectedMessageIds: rangeIds,
-            pendingAutoReadMessageId: selectedId,
+            pendingAutoReadMessageId: null,
             anchorIndex: state.anchorIndex,
         };
     }
@@ -56,17 +56,10 @@ export function computeSelectionOnClick({
             : [...state.selectedMessageIds, selectedId];
 
         if (exists) {
-            if (state.selectedMessageId === selectedId) {
-                const fallbackId = nextIds[nextIds.length - 1] ?? null;
-                return {
-                    selectedMessageId: fallbackId,
-                    selectedMessageIds: nextIds,
-                    pendingAutoReadMessageId: fallbackId,
-                    anchorIndex: selectedIndex,
-                };
-            }
             return {
-                selectedMessageId: state.selectedMessageId,
+                selectedMessageId: state.selectedMessageId && nextIds.includes(state.selectedMessageId)
+                    ? state.selectedMessageId
+                    : null,
                 selectedMessageIds: nextIds,
                 pendingAutoReadMessageId: null,
                 anchorIndex: selectedIndex,
@@ -74,9 +67,9 @@ export function computeSelectionOnClick({
         }
 
         return {
-            selectedMessageId: selectedId,
+            selectedMessageId: state.selectedMessageId,
             selectedMessageIds: nextIds,
-            pendingAutoReadMessageId: selectedId,
+            pendingAutoReadMessageId: null,
             anchorIndex: selectedIndex,
         };
     }
@@ -139,21 +132,13 @@ export function computeSelectionOnSelectAll(
         };
     }
 
-    const selectedIndex = selectedMessageId ? messageIds.findIndex((messageId) => messageId === selectedMessageId) : -1;
-
-    if (selectedIndex >= 0) {
-        return {
-            selectedMessageId,
-            selectedMessageIds: messageIds,
-            pendingAutoReadMessageId: null,
-            anchorIndex: selectedIndex,
-        };
-    }
-
+    const hasCurrentSelection = Boolean(selectedMessageId && messageIds.includes(selectedMessageId));
     return {
-        selectedMessageId: messageIds[0],
+        selectedMessageId: hasCurrentSelection ? selectedMessageId : null,
         selectedMessageIds: messageIds,
         pendingAutoReadMessageId: null,
-        anchorIndex: 0,
+        anchorIndex: hasCurrentSelection
+            ? messageIds.findIndex((messageId) => messageId === selectedMessageId)
+            : null,
     };
 }

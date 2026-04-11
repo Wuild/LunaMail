@@ -40,6 +40,7 @@ type TopTableMailPaneProps = {
     isCompactTopTable: boolean;
     topListHeight: number;
     selectedMessageIds: number[];
+    contextMenuMessageId: number | null;
     messages: MessageItem[];
     loadingMoreMessages: boolean;
     hasMoreMessages: boolean;
@@ -62,6 +63,7 @@ type TopTableMailPaneProps = {
     onOpenMessageWindow: (messageId: number) => void;
     renderTableCell: (message: MessageItem, column: MailTableColumnKey) => React.ReactNode;
     onTopListResizeStart: (event: React.MouseEvent<HTMLDivElement>) => void;
+    isTableHeadMenuOpen: boolean;
 };
 
 type SortableHeaderProps = {
@@ -121,8 +123,8 @@ function SortableHeaderCell({
 function DraggableTableRow({
     message,
     messageIndex,
-    isCompactTopTable,
     selectedMessageIds,
+                               contextMenuMessageId,
     onMessageRowClick,
     onOpenMessageWindow,
     onOpenMessageMenu,
@@ -131,8 +133,8 @@ function DraggableTableRow({
 }: {
     message: MessageItem;
     messageIndex: number;
-    isCompactTopTable: boolean;
     selectedMessageIds: number[];
+    contextMenuMessageId: number | null;
     onMessageRowClick: (event: React.MouseEvent, message: MessageItem, messageIndex: number) => void;
     onOpenMessageWindow: (messageId: number) => void;
     onOpenMessageMenu: (message: MessageItem, x: number, y: number) => void;
@@ -163,12 +165,10 @@ function DraggableTableRow({
             className={cn(
                 'mail-table-row cursor-pointer first:border-t-0',
                 selectedMessageIds.includes(message.id) && 'is-selected',
+                contextMenuMessageId === message.id && 'is-menu-open',
             )}
             onClick={(event) => {
                 onMessageRowClick(event, message, messageIndex);
-                if (!isCompactTopTable) return;
-                if (event.shiftKey || event.ctrlKey || event.metaKey) return;
-                onOpenMessageWindow(message.id);
             }}
             onDoubleClick={() => {
                 onOpenMessageWindow(message.id);
@@ -188,6 +188,7 @@ export default function TopTableMailPane({
                                              isCompactTopTable,
                                              topListHeight,
                                              selectedMessageIds,
+                                             contextMenuMessageId,
                                              messages,
                                              loadingMoreMessages,
                                              hasMoreMessages,
@@ -210,6 +211,7 @@ export default function TopTableMailPane({
                                              onOpenMessageWindow,
                                              renderTableCell,
                                              onTopListResizeStart,
+                                             isTableHeadMenuOpen,
                                          }: TopTableMailPaneProps) {
     const [draggingColumn, setDraggingColumn] = React.useState<MailTableColumnKey | null>(null);
     const headerSensors = useSensors(useSensor(PointerSensor, {activationConstraint: {distance: 4}}));
@@ -368,6 +370,8 @@ export default function TopTableMailPane({
                                                     className="button-ghost inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors"
                                                     aria-label="Table column options"
                                                     title="Table column options"
+                                                    aria-haspopup="menu"
+                                                    aria-expanded={isTableHeadMenuOpen ? 'true' : 'false'}
                                                     onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
                                                         event.stopPropagation();
                                                         const rect = event.currentTarget.getBoundingClientRect();
@@ -386,8 +390,8 @@ export default function TopTableMailPane({
                                         key={message.id}
                                         message={message}
                                         messageIndex={messageIndex}
-                                        isCompactTopTable={isCompactTopTable}
                                         selectedMessageIds={selectedMessageIds}
+                                        contextMenuMessageId={contextMenuMessageId}
                                         onMessageRowClick={onMessageRowClick}
                                         onOpenMessageWindow={onOpenMessageWindow}
                                         onOpenMessageMenu={onOpenMessageMenu}

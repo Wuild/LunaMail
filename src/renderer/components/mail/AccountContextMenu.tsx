@@ -39,6 +39,7 @@ export default function AccountContextMenu({
             layer="1000"
             position={position}
             ready={ready}
+            onRequestClose={onClose}
             onClick={(event) => event.stopPropagation()}
         >
             <ContextItem

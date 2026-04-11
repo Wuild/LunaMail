@@ -10,6 +10,22 @@ export interface ComposeMessageLike {
     references_text: string | null;
 }
 
+export function countRecipients(value: string | null | undefined): number {
+    const raw = String(value || '').trim();
+    if (!raw) return 0;
+
+    const matchedEmails = raw.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi);
+    if (matchedEmails && matchedEmails.length > 0) {
+        return new Set(matchedEmails.map((email) => email.trim().toLowerCase())).size;
+    }
+
+    const fallbackParts = raw
+        .split(/[;,]/)
+        .map((part) => part.trim().replace(/^<|>$/g, ''))
+        .filter(Boolean);
+    return new Set(fallbackParts.map((part) => part.toLowerCase())).size;
+}
+
 export function ensurePrefixedSubject(subject: string | null, prefix: string): string {
     const raw = (subject || '').trim();
     if (!raw) return prefix;

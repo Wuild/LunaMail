@@ -9,7 +9,6 @@ import {
 	nativeTheme,
 	Notification,
 	screen,
-	session,
 	shell,
 	Tray,
 } from 'electron';
@@ -17,7 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import {createAppLogger, onDebugLog} from './debug/debugLog.js';
-import {initDb} from './db/index.js';
+import {initDb} from '@main/db/index.js';
 import {getAccounts} from './db/repositories/accountsRepo.js';
 import {
 	getCurrentUnreadCount,
@@ -46,6 +45,9 @@ import {
 	getAppSettingsSync,
 	getSpellCheckerLanguages
 } from './settings/store.js';
+import {resolveNotificationIconPath} from './notifications/icon.js';
+import {resolveSenderNotificationIconPath} from './notifications/senderIcon.js';
+import {getMessageById} from './db/repositories/mailRepo.js';
 import {reconcileDemoData} from './demo/demoMode.js';
 import {checkForUpdates, initAutoUpdater, runStartupUpdateFlow, setAutoUpdateEnabled} from './updater/autoUpdate.js';
 import type {GlobalErrorEvent, GlobalErrorSource} from '@/shared/ipcTypes.js';
@@ -82,6 +84,7 @@ const pendingGlobalErrors: GlobalErrorEvent[] = [];
 const appIconPath = resolveWindowIconPath();
 const linuxTrayIconPath = resolveLinuxTrayIconPath();
 const windowsTrayIconPath = resolveWindowsTrayIconPath();
+const notificationIconPath = resolveNotificationIconPath();
 const appIconPngBase64 = appIconPath && fs.existsSync(appIconPath) ? fs.readFileSync(appIconPath).toString('base64') : null;
 const mainWindowStatePath = path.join(app.getPath('userData'), 'main-window-state.json');
 const logger = createAppLogger('main');
@@ -454,9 +457,12 @@ function buildTrayIcon(unreadCount: number) {
 		? `<circle cx="24" cy="8" r="7" fill="#ef4444"/><text x="24" y="11" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="#fff">${badgeText}</text>`
 		: '';
 	const baseIcon = trayBaseImage && !trayBaseImage.isEmpty()
-		? `<image href="data:image/png;base64,${trayBaseImage.resize({width: 32, height: 32}).toPNG().toString('base64')}" x="0" y="0" width="32" height="32"/>`
+		? `<image href="data:image/png;base64,${trayBaseImage.resize({
+			width: 32,
+			height: 32
+		}).toPNG().toString('base64')}" style="width:32px;height:32px"/>`
 		: appIconPngBase64
-			? `<image href="data:image/png;base64,${appIconPngBase64}" x="0" y="0" width="32" height="32"/>`
+			? `<image href="data:image/png;base64,${appIconPngBase64}" style="width:32px;height:32px"/>`
 			: `<rect x="3" y="3" width="26" height="26" rx="7" fill="#5865f2"/><path d="M8 11h16v10H8z" fill="#fff" opacity="0.96"/><path d="M8 11l8 6 8-6" fill="none" stroke="#5865f2" stroke-width="2"/>`;
 	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">${baseIcon}${badge}</svg>`;
 	const encoded = Buffer.from(svg).toString('base64');
@@ -557,13 +563,13 @@ function openMainWindowEntryPoint(): void {
 	showMainWindow();
 	if (mainWindowActionsEnabled) return;
 	if (!mainWindow || mainWindow.isDestroyed()) return;
-	void mainWindow.webContents.executeJavaScript(`window.location.hash = "/onboarding"`);
+	void mainWindow.webContents.executeJavaScript(`window.location.hash = "/onboarding"`).catch(() => undefined);
 }
 
 function openAddAccountRouteInMainWindow(): void {
 	showMainWindow();
 	if (!mainWindow || mainWindow.isDestroyed()) return;
-	void mainWindow.webContents.executeJavaScript(`window.location.hash = "/add-account"`);
+	void mainWindow.webContents.executeJavaScript(`window.location.hash = "/add-account"`).catch(() => undefined);
 }
 
 function setMainWindowActionsEnabled(enabled: boolean): void {
@@ -582,7 +588,7 @@ function navigateMainWindowToRoute(route: string): void {
 	}
 	showMainWindow();
 	if (!mainWindow || mainWindow.isDestroyed()) return;
-	void mainWindow.webContents.executeJavaScript(`window.location.hash = ${JSON.stringify(route)}`);
+	void mainWindow.webContents.executeJavaScript(`window.location.hash = ${JSON.stringify(route)}`).catch(() => undefined);
 }
 
 function openComposeQuickAction(): void {
@@ -603,9 +609,8 @@ function toMainProcessLaunchArgs(extraArgs: string[]): string[] {
 
 function configurePlatformQuickActions(): void {
 	if (process.platform === 'darwin' && app.dock) {
-		const canUseMainWindowActions = mainWindowActionsEnabled;
 		const dockMenu = Menu.buildFromTemplate(
-			canUseMainWindowActions
+			mainWindowActionsEnabled
 				? [
 					{label: 'Compose Email', click: () => openComposeQuickAction()},
 					{type: 'separator'},
@@ -627,11 +632,10 @@ function configurePlatformQuickActions(): void {
 
 	if (process.platform === 'win32') {
 		const jumpPath = process.execPath;
-		const canUseMainWindowActions = mainWindowActionsEnabled;
 		void app.setJumpList([
 			{
 				type: 'tasks',
-				items: canUseMainWindowActions
+				items: mainWindowActionsEnabled
 					? [
 						{
 							type: 'task',
@@ -686,7 +690,7 @@ function buildTaskbarOverlayIcon(unreadCount: number) {
 	const fontSize = badgeText.length > 2 ? 8 : 10;
 	const badge = `<circle cx="24" cy="8" r="7" fill="#ef4444"/><text x="24" y="11" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="#fff">${badgeText}</text>`;
 	const baseIcon = appIconPngBase64
-		? `<image href="data:image/png;base64,${appIconPngBase64}" x="0" y="0" width="32" height="32"/>`
+		? `<image href="data:image/png;base64,${appIconPngBase64}" style="width:32px;height:32px"/>`
 		: `<rect x="3" y="3" width="26" height="26" rx="7" fill="#5865f2"/><path d="M8 11h16v10H8z" fill="#fff" opacity="0.96"/><path d="M8 11l8 6 8-6" fill="none" stroke="#5865f2" stroke-width="2"/>`;
 	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">${baseIcon}${badge}</svg>`;
 	const encoded = Buffer.from(svg).toString('base64');
@@ -741,7 +745,11 @@ function focusMainWindowAndOpenMessage(
 		notificationOpenCooldownTimer = null;
 	}, 500);
 
-	showMainWindow();
+	const openedWindow = showMainWindow();
+	if (!openedWindow) {
+		app.emit('activate');
+		return;
+	}
 	if (!target) return;
 	if (!mainWindow || mainWindow.isDestroyed()) return;
 
@@ -754,10 +762,19 @@ function focusMainWindowAndOpenMessage(
 		}
 	};
 
+	const sendTargetWithRetry = (attempt: number) => {
+		sendTarget();
+		if (attempt >= 5) return;
+		setTimeout(() => {
+			if (!mainWindow || mainWindow.isDestroyed()) return;
+			sendTargetWithRetry(attempt + 1);
+		}, 180);
+	};
+
 	const navigateToMailThenSendTarget = () => {
 		if (!mainWindow || mainWindow.isDestroyed()) return;
 		navigateMainWindowToRoute('/email');
-		setTimeout(sendTarget, 120);
+		setTimeout(() => sendTargetWithRetry(0), 120);
 	};
 
 	if (mainWindow.webContents.isLoadingMainFrame()) {
@@ -769,18 +786,29 @@ function focusMainWindowAndOpenMessage(
 	navigateToMailThenSendTarget();
 }
 
-function showMainWindow(): void {
+function showMainWindow(): BrowserWindow | null {
 	if (!mainWindow || mainWindow.isDestroyed()) {
 		createWindow();
 	}
-	if (!mainWindow || mainWindow.isDestroyed()) return;
+	if (!mainWindow || mainWindow.isDestroyed()) return null;
+	try {
+		if (process.platform === 'linux') {
+			app.focus({steal: true});
+		} else {
+			app.focus();
+		}
+	} catch {
+		// ignore app focus failures
+	}
 	if (mainWindow.isMinimized()) {
 		mainWindow.restore();
 	}
 	if (!mainWindow.isVisible()) {
 		mainWindow.show();
 	}
+	mainWindow.moveTop();
 	mainWindow.focus();
+	return mainWindow;
 }
 
 
@@ -974,9 +1002,9 @@ function installExternalNavigationPolicy(): void {
 			if (canEdit) {
                 const suggestionItems: Electron.MenuItemConstructorOptions[] = [];
                 const misspelledWord = String(params.misspelledWord || '').trim();
-                const dictionarySuggestions = Array.isArray(params.dictionarySuggestions)
-                    ? params.dictionarySuggestions.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-                    : [];
+				const dictionarySuggestions = Array.isArray(params.dictionarySuggestions)
+					? params.dictionarySuggestions.filter((value) => value.trim().length > 0)
+					: [];
                 if (misspelledWord && dictionarySuggestions.length > 0) {
                     for (const suggestion of dictionarySuggestions.slice(0, 8)) {
                         suggestionItems.push({
@@ -1132,10 +1160,7 @@ function isInternalAppUrl(url: string): boolean {
 	try {
 		const parsed = new URL(url);
 		if (parsed.protocol === 'file:') return true;
-		if (isDev && (parsed.origin === 'http://127.0.0.1:5174' || parsed.origin === 'http://localhost:5174')) {
-			return true;
-		}
-		return false;
+		return isDev && (parsed.origin === 'http://127.0.0.1:5174' || parsed.origin === 'http://localhost:5174');
 	} catch {
 		return false;
 	}
@@ -1397,110 +1422,6 @@ function configureLinuxDesktopEntryName(): void {
 	}
 }
 
-function compareVersionParts(a: string, b: string): number {
-	const aParts = a.split('.').map((part) => Number(part));
-	const bParts = b.split('.').map((part) => Number(part));
-	const maxLength = Math.max(aParts.length, bParts.length);
-	for (let index = 0; index < maxLength; index += 1) {
-		const aValue = Number.isFinite(aParts[index]) ? aParts[index] : 0;
-		const bValue = Number.isFinite(bParts[index]) ? bParts[index] : 0;
-		if (aValue > bValue) return 1;
-		if (aValue < bValue) return -1;
-	}
-	return 0;
-}
-
-function resolveLocalReactDevToolsPath(): string | null {
-	const extensionId = 'fmkadmapgofadopljbjfkapdkoienihi';
-	const homeDir = app.getPath('home');
-	if (!homeDir) return null;
-	const extensionRoots = [
-		path.join(homeDir, '.config', 'google-chrome', 'Default', 'Extensions', extensionId),
-		path.join(homeDir, '.config', 'google-chrome-beta', 'Default', 'Extensions', extensionId),
-		path.join(homeDir, '.config', 'chromium', 'Default', 'Extensions', extensionId),
-		path.join(homeDir, '.config', 'BraveSoftware', 'Brave-Browser', 'Default', 'Extensions', extensionId),
-	];
-	for (const root of extensionRoots) {
-		try {
-			if (!fs.existsSync(root)) continue;
-			const versions = fs
-				.readdirSync(root, {withFileTypes: true})
-				.filter((entry) => entry.isDirectory())
-				.map((entry) => entry.name)
-				.sort(compareVersionParts);
-			const latestVersion = versions.at(-1);
-			if (!latestVersion) continue;
-			return path.join(root, latestVersion);
-		} catch {
-			// try next candidate root
-		}
-	}
-	return null;
-}
-
-async function loadDevtoolsExtensionByPath(extensionPath: string, sourceLabel: string): Promise<boolean> {
-	try {
-		const extension = await session.defaultSession.loadExtension(extensionPath, {allowFileAccess: true});
-		logger.info(
-			'React DevTools loaded from %s: name=%s id=%s',
-			sourceLabel,
-			String(extension?.name || ''),
-			String(extension?.id || ''),
-		);
-		return true;
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		logger.warn('React DevTools load failed from %s: %s', sourceLabel, message);
-		return false;
-	}
-}
-
-async function installReactDevToolsInDev(): Promise<void> {
-	if (!isDev) return;
-	const extensionsApi = (session.defaultSession as typeof session.defaultSession & {
-		extensions?: { getAllExtensions?: () => Electron.Extension[] };
-	}).extensions;
-	const installed =
-		typeof extensionsApi?.getAllExtensions === 'function'
-			? extensionsApi.getAllExtensions()
-			: session.defaultSession.getAllExtensions();
-	for (const extension of installed) {
-		const extensionName = String(extension?.name || '');
-		if (!/react/i.test(extensionName)) continue;
-		try {
-			session.defaultSession.removeExtension(extension.id);
-			logger.info('Removed preloaded React extension id=%s name=%s', extension.id, extensionName);
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			logger.warn('Failed to remove preloaded React extension id=%s: %s', extension.id, message);
-		}
-	}
-
-	try {
-		const moduleName = 'electron-devtools-installer';
-		const installer = (await import(moduleName)) as any;
-		const installExtension = installer.default ?? installer.installExtension;
-		const reactDevTools = installer.REACT_DEVELOPER_TOOLS;
-		if (typeof installExtension !== 'function' || !reactDevTools) {
-			logger.warn('React DevTools installer module loaded but missing expected exports');
-			return;
-		}
-		const installedName = await installExtension(reactDevTools, {
-			loadExtensionOptions: {allowFileAccess: true},
-		});
-		logger.info('React DevTools installed: %s', String(installedName || 'React Developer Tools'));
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		logger.warn('React DevTools WebStore install failed: %s', message);
-		const localPath = resolveLocalReactDevToolsPath();
-		if (!localPath) {
-			logger.warn('React DevTools local fallback not found in Chrome/Chromium extension folders');
-			return;
-		}
-		await loadDevtoolsExtensionByPath(localPath, 'Chrome/Chromium profile');
-	}
-}
-
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
 	logger.warn('Single instance lock unavailable, quitting');
@@ -1513,7 +1434,6 @@ if (!gotSingleInstanceLock) {
 
 	app.whenReady().then(async () => {
 		logger.info('App ready start');
-		await installReactDevToolsInDev();
 		// Initialize database and IPC handlers
 		initDb();
 		logger.info('Database initialized');
@@ -1535,16 +1455,28 @@ if (!gotSingleInstanceLock) {
 			const title = newMessages === 1 ? 'New email received' : `${newMessages} new emails`;
 			const body =
 				source === 'startup' ? 'Mailbox synced with new unread messages.' : 'You have new unread messages.';
-			try {
-				const notification = new Notification({title, body, silent: false});
-				notification.on('click', () => {
-					focusMainWindowAndOpenMessage(target);
-				});
-				notification.show();
-				playNotificationSound();
-			} catch {
-				// ignore notification failures
-			}
+			void (async () => {
+				try {
+					const senderAddress =
+						target && target.messageId > 0
+							? getMessageById(target.messageId)?.from_address ?? null
+							: null;
+					const senderIconPath = await resolveSenderNotificationIconPath(senderAddress);
+					const notification = new Notification({
+						title,
+						body,
+						silent: false,
+						...((senderIconPath || notificationIconPath) ? {icon: senderIconPath || notificationIconPath} : {}),
+					});
+					notification.on('click', () => {
+						focusMainWindowAndOpenMessage(target);
+					});
+					notification.show();
+					playNotificationSound();
+				} catch {
+					// ignore notification failures
+				}
+			})();
 		});
 		registerAccountIpc();
 		registerCloudIpc();

@@ -111,6 +111,8 @@ export default function MessageFolderContextMenu({
             layer="1000"
             position={menuPosition}
             ready={menuReady}
+            onRequestClose={onClose}
+            dismissOnInteractOutside={false}
             onClick={(event) => event.stopPropagation()}
         >
             {menu.kind === 'message' && (
@@ -161,7 +163,7 @@ export default function MessageFolderContextMenu({
                         <ContextMenuSubmenu
                             size="md"
                             className={cn(
-                                moveSubmenuLeft ? 'right-full mr-1' : 'left-full ml-1',
+                                moveSubmenuLeft ? 'right-full' : 'left-full',
                             )}
                             style={{transform: `translateY(${moveSubmenuOffsetY}px)`}}
                         >
@@ -171,7 +173,10 @@ export default function MessageFolderContextMenu({
                                     type="button"
                                     align="between"
                                     onClick={() => {
-                                        onMessageTagChange(menu.message, tag.value);
+                                        const activeTag = (menu.message as MessageItem & {
+                                            tag?: string | null
+                                        }).tag ?? null;
+                                        onMessageTagChange(menu.message, activeTag === tag.value ? null : tag.value);
                                         onClose();
                                     }}
                                 >
@@ -222,7 +227,7 @@ export default function MessageFolderContextMenu({
                         <ContextMenuSubmenu
                             size="lg"
                             className={cn(
-                                moveSubmenuLeft ? 'right-full mr-1' : 'left-full ml-1',
+                                moveSubmenuLeft ? 'right-full' : 'left-full',
                             )}
                             style={{
                                 transform: `translateY(${moveSubmenuOffsetY}px)`,

@@ -25,7 +25,14 @@ function resolveAliasTarget(specifier) {
         if (!specifier.startsWith(prefix)) continue;
         const relativePath = specifier.slice(prefix.length);
         const directPath = path.join(rootPath, relativePath);
-        if (fs.existsSync(directPath)) return directPath;
+        if (fs.existsSync(directPath)) {
+            const stat = fs.statSync(directPath);
+            if (stat.isDirectory()) {
+                const indexPath = path.join(directPath, 'index.js');
+                if (fs.existsSync(indexPath)) return indexPath;
+            }
+            return directPath;
+        }
         if (!path.extname(directPath) && fs.existsSync(`${directPath}.js`)) return `${directPath}.js`;
         return directPath;
     }

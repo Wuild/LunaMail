@@ -51,6 +51,7 @@ const api = {
     runMailFilters: (accountId, payload) => ipcRenderer.invoke('run-mail-filters', accountId, payload ?? null),
     searchMessages: (accountId, query, folderPath, limit) => ipcRenderer.invoke('search-messages', accountId, query, folderPath ?? null, limit),
     getMessage: (messageId) => ipcRenderer.invoke('get-message', messageId),
+    getSenderAvatar: (fromAddress) => ipcRenderer.invoke('get-sender-avatar', fromAddress ?? null),
     getMessageBody: (messageId, requestId) => ipcRenderer.invoke('get-message-body', messageId, requestId),
     getMessageSource: (messageId) => ipcRenderer.invoke('get-message-source', messageId),
     openMessageAttachment: (messageId, attachmentIndex, action) => ipcRenderer.invoke('open-message-attachment', messageId, attachmentIndex, action ?? 'prompt'),

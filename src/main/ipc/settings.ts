@@ -5,8 +5,10 @@ import {createAppLogger} from '@main/debug/debugLog.js';
 import {APP_NAME} from '@main/config.js';
 import {type AppSettingsPatch, getAppSettings, updateAppSettings} from '@main/settings/store.js';
 import {openSplashWindow} from '@main/windows/splashWindow.js';
+import {resolveNotificationIconPath} from '@main/notifications/icon.js';
 
 const logger = createAppLogger('ipc:settings');
+const notificationIconPath = resolveNotificationIconPath();
 
 export function registerSettingsIpc(
 	onSettingsUpdated: (settings: Awaited<ReturnType<typeof getAppSettings>>) => void,
@@ -57,24 +59,40 @@ export function registerSettingsIpc(
 			const route = target
 				? `/email/${target.accountId}/${target.folderId}/${target.messageId}`
 				: String(payload?.route || '/email').trim() || '/email';
-			const notification = new Notification({title, body, silent: false});
+			const notification = new Notification({
+				title,
+				body,
+				silent: false,
+				...(notificationIconPath ? {icon: notificationIconPath} : {}),
+			});
 			notification.on('click', () => {
+				const navigateAndTarget = (win: BrowserWindow) => {
+					focusWindow(win);
+					void win.webContents
+						.executeJavaScript(`window.location.hash = ${JSON.stringify(route)};`)
+						.catch(() => undefined);
+					if (target) {
+						setTimeout(() => {
+							if (win.isDestroyed()) return;
+							win.webContents.send('open-message-target', {
+								accountId: target.accountId,
+								folderPath: target.folderPath,
+								messageId: target.messageId,
+							});
+						}, 120);
+					}
+				};
 				const win = getFirstAppWindow();
-				if (!win) return;
-				focusWindow(win);
-				void win.webContents
-					.executeJavaScript(`window.location.hash = ${JSON.stringify(route)};`)
-					.catch(() => undefined);
-				if (target) {
-					setTimeout(() => {
-						if (win.isDestroyed()) return;
-						win.webContents.send('open-message-target', {
-							accountId: target.accountId,
-							folderPath: target.folderPath,
-							messageId: target.messageId,
-						});
-					}, 120);
+				if (win) {
+					navigateAndTarget(win);
+					return;
 				}
+				app.emit('activate');
+				setTimeout(() => {
+					const activatedWindow = getFirstAppWindow();
+					if (!activatedWindow) return;
+					navigateAndTarget(activatedWindow);
+				}, 180);
 			});
 			notification.show();
 			return {ok: true, supported: true, hasTarget: Boolean(target)} as const;
@@ -90,6 +108,7 @@ export function registerSettingsIpc(
 					title: `${APP_NAME} sound test`,
 					body: 'Testing notification sound',
 					silent: false,
+					...(notificationIconPath ? {icon: notificationIconPath} : {}),
 				});
 				notification.show();
 				played = true;
@@ -184,8 +203,18 @@ function getFirstAppWindow(): BrowserWindow | null {
 
 function focusWindow(win: BrowserWindow): void {
 	if (win.isDestroyed()) return;
+	try {
+		if (process.platform === 'linux') {
+			app.focus({steal: true});
+		} else {
+			app.focus();
+		}
+	} catch {
+		// ignore app focus failures
+	}
 	if (win.isMinimized()) win.restore();
 	if (!win.isVisible()) win.show();
+	win.moveTop();
 	win.focus();
 }
 

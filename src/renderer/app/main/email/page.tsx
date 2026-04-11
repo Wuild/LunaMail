@@ -1,29 +1,16 @@
-import {Button} from '@renderer/components/ui/button';
 import {ContextMenu, ContextMenuItem} from '@renderer/components/ui/ContextMenu';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {
-    FileText,
-    Forward,
-    MailOpen,
-    Paperclip,
-    Reply,
-    ReplyAll,
-    SquareArrowOutUpRight,
-    Star,
-    Tag,
-    Trash2,
-} from 'lucide-react';
+import {ArrowLeft, FileText, Forward, Reply, ReplyAll, Trash2,} from 'lucide-react';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import MainLayout from '@renderer/layouts/MainLayout';
-import {formatSystemDateTime} from '@renderer/lib/dateTime';
 import {
     buildForwardQuoteHtml,
     buildForwardQuoteText,
     buildReferences,
     buildReplyQuoteHtml,
     buildReplyQuoteText,
+    countRecipients,
     ensurePrefixedSubject,
-    formatFromDisplay,
     htmlToText,
     inferReplyAddress,
     normalizeMessageId,
@@ -38,8 +25,10 @@ import {
     isSenderAllowed,
 } from '@renderer/features/mail/remoteContent';
 import MessageSourceModal from '@renderer/components/mail/MessageSourceModal';
+import {MessageHeaderCard} from '@renderer/components/mail/MessageHeaderCard';
+import {MessageBodyPane} from '@renderer/components/mail/MessageBodyPane';
 import {isEditableTarget} from '@renderer/lib/dom';
-import {clampToViewport, formatBytes} from '@renderer/lib/format';
+import {clampToViewport} from '@renderer/lib/format';
 import {
     statusSyncedMailboxAndDav,
     statusSyncedMessages,
@@ -68,9 +57,9 @@ import {createDefaultAppSettings} from '@/shared/defaults';
 import type {FolderItem, MessageItem, OpenMessageTargetEvent, PublicAccount, SyncStatusEvent,} from '@/preload';
 
 const MESSAGE_PAGE_SIZE = 100;
-const MIN_INLINE_MAIL_BODY_WIDTH = 520;
-const MIN_INLINE_MAIL_BODY_HEIGHT = 260;
 const SEARCH_FALLBACK_MESSAGES_PER_FOLDER = 1000;
+const SIDE_LIST_SPLIT_BREAKPOINT_PX = 1320;
+const TOP_TABLE_COMPACT_BREAKPOINT_PX = 860;
 
 function MailPage() {
     const params = useParams<{ accountId?: string; folderId?: string; emailId?: string }>();
@@ -90,6 +79,7 @@ function MailPage() {
     const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
     const [hasMoreMessages, setHasMoreMessages] = useState(false);
     const [showMessageDetails, setShowMessageDetails] = useState(false);
+    const [senderAvatarSrc, setSenderAvatarSrc] = useState<string | null>(null);
     const [showSourceModal, setShowSourceModal] = useState(false);
     const [messageSource, setMessageSource] = useState('');
     const [sourceLoading, setSourceLoading] = useState(false);
@@ -104,12 +94,14 @@ function MailPage() {
     const pendingDeleteMessageIdsRef = useRef<Set<number>>(new Set());
     const pendingOpenMessageTargetRef = useRef<OpenMessageTargetEvent | null>(null);
     const sourceRequestSeqRef = useRef(0);
+    const senderAvatarRequestSeqRef = useRef(0);
     const accountOrderRef = useRef<number[]>(accountOrder);
-    const mailBodyViewportRef = useRef<HTMLDivElement | null>(null);
-    const autoOpenedForSmallPreviewMessageIdRef = useRef<number | null>(null);
     const lastOpenedDraftInMailViewRef = useRef<number | null>(null);
     const [systemLocale, setSystemLocale] = useState<string>('en-US');
-    const [mailBodyViewport, setMailBodyViewport] = useState<{ width: number; height: number }>({width: 0, height: 0});
+    const [windowViewport, setWindowViewport] = useState<{ width: number; height: number }>({
+        width: window.innerWidth,
+        height: window.innerHeight,
+    });
     const {
         syncStatusText,
         setSyncStatusText,
@@ -185,15 +177,18 @@ function MailPage() {
         if (folderType === 'drafts' || folderPath.includes('draft')) return true;
         return /^<draft\./i.test(String(selectedMessage.message_id || ''));
     }, [selectedFolder, selectedFolderPath, selectedMessage]);
+    const canReplyAll = useMemo(
+        () => countRecipients(selectedMessage?.to_address || '') > 1,
+        [selectedMessage?.to_address],
+    );
     const messageAttachments = selectedMessageBody?.attachments ?? [];
     const senderWhitelisted = isSenderAllowed(selectedMessage?.from_address, appSettings.remoteContentAllowlist || []);
     const sessionAllowed = selectedMessageId ? sessionRemoteAllowedMessageIds.includes(selectedMessageId) : false;
     const allowRemoteForSelectedMessage = !appSettings.blockRemoteContent || senderWhitelisted || sessionAllowed;
     const warnOnExternalLinksForSelectedMessage = Boolean(selectedMessage) && !senderWhitelisted;
-    const isMailBodyViewportTooSmall =
-        mailBodyViewport.width > 0 &&
-        mailBodyViewport.height > 0 &&
-        (mailBodyViewport.width < MIN_INLINE_MAIL_BODY_WIDTH || mailBodyViewport.height < MIN_INLINE_MAIL_BODY_HEIGHT);
+    const isCompactSideList = appSettings.mailView === 'side-list' && windowViewport.width < SIDE_LIST_SPLIT_BREAKPOINT_PX;
+    const isCompactTopTable = appSettings.mailView === 'top-table' && windowViewport.height < TOP_TABLE_COMPACT_BREAKPOINT_PX;
+    const showMessageOnly = Boolean(selectedMessageId) && (isCompactSideList || isCompactTopTable);
 
     useEffect(() => {
         accountOrderRef.current = accountOrder;
@@ -224,32 +219,17 @@ function MailPage() {
     useThemePreference(appSettings.theme);
 
     useEffect(() => {
-        if (!selectedMessageId) {
-            setMailBodyViewport({width: 0, height: 0});
-            return;
-        }
-        const rafId = window.requestAnimationFrame(() => {
-            const node = mailBodyViewportRef.current;
-            if (!node) return;
-            const rect = node.getBoundingClientRect();
-            const width = Math.round(rect.width);
-            const height = Math.round(rect.height);
-            setMailBodyViewport({width, height});
-            const tooSmall =
-                width > 0 && height > 0 && (width < MIN_INLINE_MAIL_BODY_WIDTH || height < MIN_INLINE_MAIL_BODY_HEIGHT);
-            if (!tooSmall) {
-                if (autoOpenedForSmallPreviewMessageIdRef.current === selectedMessageId) {
-                    autoOpenedForSmallPreviewMessageIdRef.current = null;
-                }
-                return;
-            }
-            if (autoOpenedForSmallPreviewMessageIdRef.current === selectedMessageId) return;
-            autoOpenedForSmallPreviewMessageIdRef.current = selectedMessageId;
-            setSyncStatusText('Preview area is too small. Opened message in a separate window.');
-            void ipcClient.openMessageWindow(selectedMessageId);
-        });
-        return () => window.cancelAnimationFrame(rafId);
-    }, [selectedMessageId, setSyncStatusText]);
+        const onResize = () => {
+            setWindowViewport({
+                width: window.innerWidth,
+                height: window.innerHeight,
+            });
+        };
+        window.addEventListener('resize', onResize);
+        return () => {
+            window.removeEventListener('resize', onResize);
+        };
+    }, []);
 
     useEffect(() => {
         if (!selectedMessage) return;
@@ -594,6 +574,30 @@ function MailPage() {
         setHoveredLinkUrl('');
         setIsPointerOverMessageFrame(false);
     }, [selectedMessageId]);
+
+    useEffect(() => {
+        const fromAddress = selectedMessage?.from_address ?? null;
+        const normalizedAddress = typeof fromAddress === 'string' ? fromAddress.trim() : '';
+        const requestSeq = ++senderAvatarRequestSeqRef.current;
+        setSenderAvatarSrc(null);
+        if (!normalizedAddress) {
+            return;
+        }
+        let active = true;
+        void ipcClient
+            .getSenderAvatar(normalizedAddress)
+            .then((avatarSrc) => {
+                if (!active || senderAvatarRequestSeqRef.current !== requestSeq) return;
+                setSenderAvatarSrc(avatarSrc || null);
+            })
+            .catch(() => {
+                if (!active || senderAvatarRequestSeqRef.current !== requestSeq) return;
+                setSenderAvatarSrc(null);
+            });
+        return () => {
+            active = false;
+        };
+    }, [selectedMessage?.from_address, selectedMessageId]);
 
     useEffect(() => {
         selectedFolderPathRef.current = selectedFolderPath;
@@ -1001,9 +1005,23 @@ function MailPage() {
         }
     }
 
-    function onOpenInNewWindow(): void {
-        if (!selectedMessageId) return;
-        void ipcClient.openMessageWindow(selectedMessageId);
+    function onBackToList(): void {
+        if (selectedAccountId && selectedFolder) {
+            const target = `/email/${selectedAccountId}/${selectedFolder.id}`;
+            if (location.pathname !== target) {
+                navigate(target);
+            }
+        } else if (selectedAccountId) {
+            const target = `/email/${selectedAccountId}`;
+            if (location.pathname !== target) {
+                navigate(target);
+            }
+        } else if (location.pathname !== '/email') {
+            navigate('/email');
+        }
+        setSelectedMessageId(null);
+        setSelectedMessageIds([]);
+        selectionAnchorIndexRef.current = null;
     }
 
     useEffect(() => {
@@ -1127,6 +1145,7 @@ function MailPage() {
             if (key === 'r' && event.shiftKey && !event.altKey) {
                 event.preventDefault();
                 if (isDraftMessageSelected) return;
+                if (!canReplyAll) return;
                 onReplyAll();
                 return;
             }
@@ -1154,6 +1173,7 @@ function MailPage() {
         selectedMessageId,
         selectedFolderPath,
         selectedMessage,
+        canReplyAll,
         isDraftMessageSelected,
         selectedMessageBody,
         showSourceModal,
@@ -1259,6 +1279,7 @@ function MailPage() {
             onOpenCalendar={() => navigate('/calendar')}
             onOpenContacts={() => navigate('/contacts')}
             mailView={appSettings.mailView}
+            showMessageOnly={showMessageOnly}
             onMailViewChange={(view) => {
                 setAppSettings((prev) => ({...prev, mailView: view}));
                 void ipcClient.updateAppSettings({mailView: view}).catch(() => undefined);
@@ -1641,19 +1662,23 @@ function MailPage() {
                             aria-label="Message actions"
                             className="mail-menubar shrink-0 flex w-full flex-wrap items-center gap-1.5 px-3 py-2"
                         >
+                            {showMessageOnly && (
+                                <>
+                                    <ToolboxButton label="Back" icon={<ArrowLeft size={14}/>} onClick={onBackToList}/>
+                                    <span className="divider-default mx-1 h-6 w-px"/>
+                                </>
+                            )}
                             {!isDraftMessageSelected && (
                                 <>
                                     <ToolboxButton label="Reply" icon={<Reply size={14}/>} onClick={onReply} primary/>
-                                    <ToolboxButton label="Reply all" icon={<ReplyAll size={14}/>} onClick={onReplyAll}/>
+                                    {canReplyAll && (
+                                        <ToolboxButton label="Reply all" icon={<ReplyAll size={14}/>}
+                                                       onClick={onReplyAll}/>
+                                    )}
                                     <ToolboxButton label="Forward" icon={<Forward size={14}/>} onClick={onForward}/>
                                     <span className="divider-default mx-1 h-6 w-px"/>
                                 </>
                             )}
-                            <ToolboxButton
-                                label="Open"
-                                icon={<SquareArrowOutUpRight size={14}/>}
-                                onClick={onOpenInNewWindow}
-                            />
                             <ToolboxButton label="View source" icon={<FileText size={14}/>} onClick={onViewSource}/>
                             <ToolboxButton
                                 label="Delete"
@@ -1662,266 +1687,47 @@ function MailPage() {
                                 danger
                             />
                         </div>
-                        <div className="mail-message-header shrink-0 px-4 py-3">
-                            <div className="flex items-start justify-between gap-5">
-                                <div className="min-w-0 flex-1">
-                                    <div className="mb-2 flex flex-wrap items-center gap-1.5">
-										<span
-                                            className="badge-muted inline-flex h-5 items-center rounded-md px-2 text-[11px] font-medium">
-											{selectedFolderPath || 'Message'}
-										</span>
-                                        {Boolean(selectedMessage.is_flagged) && (
-                                            <span
-                                                className="chip-warning inline-flex h-5 items-center gap-1 rounded-md px-2 text-[11px] font-medium">
-												<Star size={11} className="fill-current"/>
-												Starred
-											</span>
-                                        )}
-                                        <span
-                                            className="inline-flex h-5 items-center gap-1 rounded-md border ui-border-default ui-surface-card px-2 text-[11px] font-medium ui-text-secondary">
-											<MailOpen size={11}/>
-                                            {selectedMessage.is_read ? 'Read' : 'Unread'}
-										</span>
-                                        {Boolean((selectedMessage as MessageItem & { tag?: string | null }).tag) && (
-                                            <span
-                                                className="chip-info inline-flex h-5 items-center gap-1 rounded-md px-2 text-[11px] font-medium">
-												<Tag size={11}/>
-                                                {formatMessageTagLabel(
-                                                    (
-                                                        selectedMessage as MessageItem & {
-                                                            tag?: string | null;
-                                                        }
-                                                    ).tag ?? null,
-                                                )}
-											</span>
-                                        )}
-                                        {messageAttachments.length > 0 && (
-                                            <span
-                                                className="inline-flex h-5 items-center gap-1 rounded-md border ui-border-default ui-surface-card px-2 text-[11px] font-medium ui-text-secondary">
-												<Paperclip size={11}/>
-                                                {messageAttachments.length} attachment
-                                                {messageAttachments.length > 1 ? 's' : ''}
-											</span>
-                                        )}
-                                        {buildSpoofHints(selectedMessage).length > 0 && (
-                                            <span
-                                                className="chip-warning inline-flex h-5 items-center rounded-md px-2 text-[11px] font-medium">
-												Verify sender
-											</span>
-                                        )}
-                                    </div>
-                                    <h2 className="ui-text-primary truncate text-xl font-semibold tracking-tight">
-                                        {selectedMessage.subject || '(No subject)'}
-                                    </h2>
-                                </div>
-                            </div>
-                            <div className="ui-text-secondary mt-2 grid gap-1 text-xs">
-                                <div className="select-text">
-                                    <span className="ui-text-muted font-medium">From:</span>{' '}
-                                    <span className="select-text">{formatFromDisplay(selectedMessage)}</span>
-                                </div>
-                                <div className="select-text">
-                                    <span className="ui-text-muted font-medium">To:</span>{' '}
-                                    <span className="select-text">{selectedMessage.to_address || '-'}</span>
-                                </div>
-                                <div>
-                                    <span className="ui-text-muted font-medium">Date:</span>{' '}
-                                    {formatSystemDateTime(selectedMessage.date, systemLocale)}
-                                </div>
-                            </div>
-                            <Button
-                                variant="outline"
-                                className="mt-2 inline-flex h-7 items-center rounded-md px-2 text-[11px]"
-                                onClick={() => setShowMessageDetails((prev) => !prev)}
-                            >
-                                {showMessageDetails ? 'Hide message details' : 'Show message details'}
-                            </Button>
-                            {showMessageDetails && (
-                                <div
-                                    className="panel-muted mt-3 rounded-md border ui-border-default p-3 text-xs ui-text-secondary">
-                                    <div>
-                                        <span className="font-medium">From name:</span>{' '}
-                                        {selectedMessage.from_name || '-'}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">From address:</span>{' '}
-                                        {selectedMessage.from_address || '-'}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">To:</span> {selectedMessage.to_address || '-'}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">Date:</span>{' '}
-                                        {formatSystemDateTime(selectedMessage.date, systemLocale)}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">Message-ID:</span>{' '}
-                                        {selectedMessage.message_id || '-'}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">In-Reply-To:</span>{' '}
-                                        {selectedMessage.in_reply_to || '-'}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">References:</span>{' '}
-                                        {selectedMessage.references_text || '-'}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">Size:</span>{' '}
-                                        {selectedMessage.size ? `${selectedMessage.size.toLocaleString()} bytes` : '-'}
-                                    </div>
-                                    {buildSpoofHints(selectedMessage).map((hint) => (
-                                        <div
-                                            key={hint}
-                                            className="notice-warning mt-1 rounded border px-2 py-1"
-                                        >
-                                            {hint}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                        <div className="ui-surface-card min-h-0 flex flex-1 flex-col">
-                            {Boolean(
+                        <MessageHeaderCard
+                            message={selectedMessage}
+                            folderLabel={selectedFolderPath || 'Message'}
+                            attachmentsCount={messageAttachments.length}
+                            showMessageDetails={showMessageDetails}
+                            onToggleMessageDetails={() => setShowMessageDetails((prev) => !prev)}
+                            spoofHints={buildSpoofHints(selectedMessage)}
+                            dateLocale={systemLocale}
+                            tagLabel={formatMessageTagLabel((selectedMessage as MessageItem & {
+                                tag?: string | null
+                            }).tag ?? null)}
+                            avatarSrc={senderAvatarSrc}
+                            onQuickActionStatus={setSyncStatusText}
+                            onOpenCustomFilter={({accountId}) => {
+                                navigate(`/settings/account/${accountId}/filters`);
+                            }}
+                        />
+                        <MessageBodyPane
+                            loading={bodyLoading}
+                            loadingLabel="Loading message body..."
+                            iframeSrcDoc={iframeSrcDoc}
+                            plainText={selectedMessageBody?.text}
+                            iframeTitle={`message-body-${selectedMessage.id}`}
+                            showRemoteContentWarning={Boolean(
                                 renderedBodyHtml &&
-                                selectedMessage &&
                                 appSettings.blockRemoteContent &&
                                 !allowRemoteForSelectedMessage,
-                            ) && (
-                                <div
-                                    className="notice-warning w-full shrink-0 border-b px-4 py-2 text-xs">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <span>Remote content blocked for privacy.</span>
-                                        <Button
-                                            type="button"
-                                            className="notice-button-warning rounded px-2 py-1 text-[11px] font-medium"
-                                            onClick={allowRemoteContentOnceForSelected}
-                                        >
-                                            Load once
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            className="notice-button-warning rounded px-2 py-1 text-[11px] font-medium"
-                                            onClick={allowRemoteContentForSender}
-                                        >
-                                            Always allow sender
-                                        </Button>
-                                    </div>
-                                </div>
                             )}
-                            <div ref={mailBodyViewportRef} className="min-h-0 flex-1">
-                                {isMailBodyViewportTooSmall && (
-                                    <div
-                                        className="ui-surface-card flex h-full items-center justify-center px-4 text-center">
-                                        <div className="max-w-md text-sm ui-text-secondary">
-                                            <p>
-                                                Preview is too small ({mailBodyViewport.width}x{mailBodyViewport.height}
-                                                ). Message opened in a separate window.
-                                            </p>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                className="mt-3 inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs"
-                                                onClick={onOpenInNewWindow}
-                                            >
-                                                <SquareArrowOutUpRight size={13}/>
-                                                Open message window
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
-                                {bodyLoading && (
-                                    <div
-                                        className={
-                                            isMailBodyViewportTooSmall
-                                                ? 'hidden'
-                                                : 'ui-text-muted flex h-full items-center justify-center'
-                                        }
-                                    >
-                                        Loading message body...
-                                    </div>
-                                )}
-                                {!isMailBodyViewportTooSmall && !bodyLoading && iframeSrcDoc && (
-                                    <iframe
-                                        title={`message-body-${selectedMessage.id}`}
-                                        srcDoc={iframeSrcDoc}
-                                        sandbox="allow-popups allow-popups-to-escape-sandbox"
-                                        className="iframe-surface h-full w-full border-0"
-                                        onMouseDown={requestCloseMainOverlays}
-                                        onContextMenu={(event) => {
-                                            event.stopPropagation();
-                                            requestCloseMainOverlays();
-                                        }}
-                                        onFocus={requestCloseMainOverlays}
-                                        onMouseEnter={() => setIsPointerOverMessageFrame(true)}
-                                        onMouseLeave={() => {
-                                            setIsPointerOverMessageFrame(false);
-                                            setHoveredLinkUrl('');
-                                        }}
-                                    />
-                                )}
-                                {!isMailBodyViewportTooSmall && !bodyLoading && !iframeSrcDoc && (
-                                    <div className="ui-surface-card h-full overflow-auto p-4 ui-text-primary">
-										<pre
-                                            className="select-text whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">
-											{selectedMessageBody?.text || 'No body content available for this message.'}
-										</pre>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        {messageAttachments.length > 0 && (
-                            <div
-                                className="shrink-0 border-t ui-border-default bg-[color-mix(in_srgb,var(--surface-content)_80%,transparent)] px-4 py-3">
-                                <div className="overflow-x-auto overflow-y-hidden">
-                                    <div className="flex min-w-full w-max gap-2 pb-1">
-                                        {messageAttachments.map((attachment, index) => (
-                                            <Button
-                                                key={`${attachment.filename || 'attachment'}-${index}`}
-                                                type="button"
-                                                variant="outline"
-                                                className="group flex w-[17rem] shrink-0 items-center gap-2 rounded-lg p-2 text-left text-xs"
-                                                title={attachment.filename || 'Attachment'}
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    setAttachmentMenu({
-                                                        x: event.clientX,
-                                                        y: event.clientY,
-                                                        index,
-                                                    });
-                                                }}
-                                                onContextMenu={(event) => {
-                                                    event.preventDefault();
-                                                    event.stopPropagation();
-                                                    setAttachmentMenu({
-                                                        x: event.clientX,
-                                                        y: event.clientY,
-                                                        index,
-                                                    });
-                                                }}
-                                            >
-												<span
-                                                    className="attachment-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ui-border-default ui-text-muted">
-													<Paperclip size={15}/>
-												</span>
-                                                <span className="min-w-0 flex-1">
-													<span className="block truncate font-medium">
-														{attachment.filename || 'Attachment'}
-													</span>
-													<span
-                                                        className="ui-text-muted block truncate text-[11px]">
-														{attachment.contentType || 'FILE'}
-                                                        {typeof attachment.size === 'number'
-                                                            ? ` • ${formatBytes(attachment.size)}`
-                                                            : ''}
-													</span>
-												</span>
-                                            </Button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                            onLoadRemoteOnce={allowRemoteContentOnceForSelected}
+                            onAllowRemoteForSender={allowRemoteContentForSender}
+                            onRequestCloseOverlays={requestCloseMainOverlays}
+                            onMessageFramePointerEnter={() => setIsPointerOverMessageFrame(true)}
+                            onMessageFramePointerLeave={() => {
+                                setIsPointerOverMessageFrame(false);
+                                setHoveredLinkUrl('');
+                            }}
+                            attachments={messageAttachments}
+                            onOpenAttachmentMenu={(index, x, y) => {
+                                setAttachmentMenu({x, y, index});
+                            }}
+                        />
                     </article>
                 )}
             </div>
@@ -1940,6 +1746,7 @@ function MailPage() {
                         left: clampToViewport(attachmentMenu.x, 184, window.innerWidth),
                         top: clampToViewport(attachmentMenu.y, 108, window.innerHeight),
                     }}
+                    onRequestClose={() => setAttachmentMenu(null)}
                     onClick={(event) => event.stopPropagation()}
                 >
                     <ContextMenuItem

@@ -448,8 +448,7 @@ function ComposeEmailPage() {
         if (toList.length || ccList.length || bccList.length) return true;
         if (subject.trim().length > 0) return true;
         if (attachments.length > 0) return true;
-        if (hasMeaningfulBodyContent(body, plainBody, autoSignatureRef.current?.text || null)) return true;
-        return false;
+        return hasMeaningfulBodyContent(body, plainBody, autoSignatureRef.current?.text || null);
     }, [attachments.length, bccList.length, body, ccList.length, plainBody, subject, toList.length]);
     const quotedPreviewSrcDoc = useMemo(() => {
         const quotedHtml = quotedBodyHtml.trim();
@@ -786,8 +785,7 @@ function ComposeEmailPage() {
 
     async function onCloudRefresh() {
         if (typeof cloudAccountId !== 'number') return;
-        const provider = selectedCloudProvider;
-        await loadCloudItems(cloudAccountId, normalizeRequestedCloudPath(cloudPath, provider), {force: true});
+        await loadCloudItems(cloudAccountId, normalizeRequestedCloudPath(cloudPath, selectedCloudProvider), {force: true});
     }
 
     async function onAttachCloudItem(item: CloudItem) {
@@ -823,7 +821,7 @@ function ComposeEmailPage() {
         >
             {windowDragActive && (
                 <div
-                    className="dropzone-info pointer-events-none absolute inset-x-3 bottom-3 top-[3.25rem] z-[90] flex items-center justify-center rounded-xl border-2 border-dashed text-sm font-medium">
+                    className="dropzone-info pointer-events-none absolute inset-x-3 bottom-3 top-13 z-90 flex items-center justify-center rounded-xl border-2 border-dashed text-sm font-medium">
                     Drop files to attach. Drop on editor body to insert images inline.
                 </div>
             )}
@@ -929,9 +927,9 @@ function ComposeEmailPage() {
                                             <Button
                                                 type="button"
                                                 variant="secondary"
-                                                size="lg"
+                                                size="none"
                                                 groupPosition="last"
-                                                className="shrink-0 px-3 text-xs font-semibold"
+                                                className="min-h-12 shrink-0 self-stretch px-3 text-xs font-semibold"
                                                 onClick={() => setShowCcBcc((prev) => !prev)}
                                             >
                                                 {showCcBcc ? 'Hide Cc/Bcc' : 'Cc/Bcc'}
@@ -1322,10 +1320,10 @@ function CloudAttachmentPickerModal({
                     </Button>
                 </div>
 
-                <div className="min-h-[16rem] max-h-[24rem] overflow-y-auto">
+            <div className="min-h-64 max-h-96 overflow-y-auto">
                     {loading && cloudItems.length === 0 ? (
                         <div
-                            className="ui-text-muted flex min-h-[16rem] items-center justify-center gap-2 px-2 py-3 text-sm">
+                            className="ui-text-muted flex min-h-64 items-center justify-center gap-2 px-2 py-3 text-sm">
                             <Loader2 size={16} className="animate-spin"/>
                             <span>Loading cloud files...</span>
                         </div>
@@ -1334,7 +1332,7 @@ function CloudAttachmentPickerModal({
                             Add a cloud account in Cloud to attach files.
                         </p>
                     ) : cloudItems.length === 0 ? (
-                        <div className="ui-text-muted flex min-h-[16rem] items-center justify-center px-2 py-3 text-sm">
+                        <div className="ui-text-muted flex min-h-64 items-center justify-center px-2 py-3 text-sm">
                             No files in this folder.
                         </div>
                     ) : (
@@ -1521,7 +1519,7 @@ function RecipientMultiInput({
                 onFocus={onFocus}
                 onBlur={onBlur}
                 showRowsOnFocus
-                className="min-w-[180px] flex-1"
+                className="min-w-45 flex-1"
                 inputClassName="h-8 border-0 bg-transparent px-1.5 py-0 text-sm shadow-none focus:ring-0 focus-visible:shadow-none"
             />
             {invalidMessage ? (
@@ -1560,7 +1558,7 @@ function joinRecipients(recipients: string[]): string {
 function AttachmentCard({attachment, onRemove}: { attachment: ComposeAttachment; onRemove: () => void }) {
     return (
         <div
-            className="surface-muted group relative flex w-[17rem] items-center gap-2 rounded-lg border ui-border-default p-2 text-xs ui-text-secondary">
+            className="surface-muted group relative flex w-68 items-center gap-2 rounded-lg border ui-border-default p-2 text-xs ui-text-secondary">
             <div
                 className="h-10 w-10 shrink-0 overflow-hidden rounded-md border ui-border-default ui-surface-card">
                 <div className="ui-text-muted flex h-full w-full items-center justify-center">
@@ -1586,13 +1584,6 @@ function AttachmentCard({attachment, onRemove}: { attachment: ComposeAttachment;
             </Button>
         </div>
     );
-}
-
-function isImageAttachment(filename: string, contentType: string | null): boolean {
-    const type = (contentType || '').toLowerCase();
-    if (type.startsWith('image/')) return true;
-    const ext = (filename.split('.').pop() || '').toLowerCase();
-    return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext);
 }
 
 function fileExtensionLabel(filename: string): string {

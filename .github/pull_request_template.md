@@ -1,7 +1,14 @@
 ## Summary
 
-- What changed:
-- Why:
+Describe what this PR changes.
+
+## Type of Change
+
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Refactor
+- [ ] Documentation
+- [ ] Security improvement
 
 ## Validation (Required)
 

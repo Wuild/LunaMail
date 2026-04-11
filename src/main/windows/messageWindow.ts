@@ -1,4 +1,4 @@
-import {app, BrowserWindow} from 'electron';
+import {app} from 'electron';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import {loadWindowContent} from './loadWindowContent.js';
@@ -14,29 +14,15 @@ const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-let messageWin: BrowserWindow | null = null;
-let messageTargetId: number | null = null;
+const messageWindowTargets = new Map<number, number | null>();
 
 export function openMessageWindow(messageId?: number | null): void {
-    messageTargetId = typeof messageId === 'number' ? messageId : null;
-
-    if (messageWin && !messageWin.isDestroyed()) {
-        messageWin.webContents.send('message-window-target', messageTargetId);
-        if (messageWin.isMinimized()) {
-            messageWin.restore();
-        }
-        if (!messageWin.isVisible()) {
-            messageWin.show();
-        }
-        messageWin.focus();
-        return;
-    }
-
+    const messageTargetId = typeof messageId === 'number' ? messageId : null;
     const preloadPath = path.join(app.getAppPath(), 'preload.cjs');
 
     const useNativeTitleBar = Boolean(getAppSettingsSync().useNativeTitleBar);
     const createWindow = useNativeTitleBar ? createAppWindow : createFramelessAppWindow;
-    messageWin = createWindow({
+    const messageWin = createWindow({
         modal: false,
         width: 980,
         height: 760,
@@ -47,13 +33,15 @@ export function openMessageWindow(messageId?: number | null): void {
         webPreferences: buildSecureWebPreferences({preloadPath}),
     });
     attachWindowShortcuts(messageWin, {closeOnEscape: true});
+    const messageWebContentsId = messageWin.webContents.id;
+    messageWindowTargets.set(messageWebContentsId, messageTargetId);
 
     messageWin.on('closed', () => {
-        messageWin = null;
+        messageWindowTargets.delete(messageWebContentsId);
     });
 
     messageWin.webContents.on('did-finish-load', () => {
-        if (!messageWin || messageWin.isDestroyed()) return;
+        if (messageWin.isDestroyed()) return;
         messageWin.webContents.send('message-window-target', messageTargetId);
     });
 
@@ -81,6 +69,7 @@ export function openMessageWindow(messageId?: number | null): void {
     });
 }
 
-export function getMessageWindowTargetId(): number | null {
-    return messageTargetId;
+export function getMessageWindowTargetId(webContentsId?: number | null): number | null {
+    if (typeof webContentsId !== 'number' || !Number.isFinite(webContentsId)) return null;
+    return messageWindowTargets.get(webContentsId) ?? null;
 }

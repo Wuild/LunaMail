@@ -26,28 +26,58 @@ export type ContextMenuProps = React.HTMLAttributes<HTMLDivElement> & {
     layer?: ContextMenuLayer;
     position?: { left: number; top: number };
     ready?: boolean;
+    onRequestClose?: () => void;
+    dismissOnInteractOutside?: boolean;
 };
 
 export const ContextMenu = React.forwardRef<HTMLDivElement, ContextMenuProps>(
-    ({size = 'lg', layer = '1000', position, ready, className, style, ...props}, ref) => {
+    (
+        {
+            size = 'lg',
+            layer = '1000',
+            position,
+            ready,
+            className,
+            style,
+            onRequestClose,
+            dismissOnInteractOutside = true,
+            ...props
+        },
+        ref,
+    ) => {
         const mergedStyle: React.CSSProperties = {
             ...style,
             ...(position ? {left: position.left, top: position.top} : null),
             ...(ready === undefined ? null : {visibility: ready ? 'visible' : 'hidden'}),
         };
+        const layerValue = Number(layer);
+        const backdropZIndex = Number.isFinite(layerValue) ? Math.max(0, layerValue - 1) : 0;
 
         return (
-            <div
-                ref={ref}
-                className={cn(
-                    'menu context-menu-popover',
-                    sizeClassByValue[size],
-                    layerClassByValue[layer],
-                    className,
+            <>
+                {dismissOnInteractOutside && onRequestClose && (
+                    <div
+                        className="fixed inset-0"
+                        style={{zIndex: backdropZIndex}}
+                        onMouseDown={onRequestClose}
+                        onContextMenu={(event) => {
+                            event.preventDefault();
+                            onRequestClose();
+                        }}
+                    />
                 )}
-                style={mergedStyle}
-                {...props}
-            />
+                <div
+                    ref={ref}
+                    className={cn(
+                        'menu context-menu-popover',
+                        sizeClassByValue[size],
+                        layerClassByValue[layer],
+                        className,
+                    )}
+                    style={mergedStyle}
+                    {...props}
+                />
+            </>
         );
     },
 );

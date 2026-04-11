@@ -91,9 +91,9 @@ export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void
         return {ok: true} as const;
     });
 
-    ipcMain.handle("get-message-window-target", async () => {
+    ipcMain.handle("get-message-window-target", async (event) => {
         logger.debug("IPC get-message-window-target");
-        return getMessageWindowTargetId();
+        return getMessageWindowTargetId(event.sender.id);
     });
 
     ipcMain.handle("pick-compose-attachments", async (event) => {

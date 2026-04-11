@@ -689,6 +689,8 @@ const api = {
 		limit?: number,
 	): Promise<MessageItem[]> => ipcRenderer.invoke('search-messages', accountId, query, folderPath ?? null, limit),
 	getMessage: (messageId: number): Promise<MessageDetails | null> => ipcRenderer.invoke('get-message', messageId),
+	getSenderAvatar: (fromAddress: string | null): Promise<string | null> =>
+		ipcRenderer.invoke('get-sender-avatar', fromAddress ?? null),
 	getMessageBody: (messageId: number, requestId?: string): Promise<MessageBodyResult> =>
 		ipcRenderer.invoke('get-message-body', messageId, requestId),
 	getMessageSource: (messageId: number): Promise<MessageSourceResult> =>

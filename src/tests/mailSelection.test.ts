@@ -5,7 +5,7 @@ import {
     computeSelectionOnNavigate,
     computeSelectionOnSelectAll,
     type MailSelectionState,
-} from '../renderer/lib/mailSelection.js';
+} from '@renderer/lib/mailSelection';
 
 function baseState(): MailSelectionState {
     return {
@@ -43,7 +43,8 @@ test('computeSelectionOnClick supports shift range selection', () => {
         modifiers: {shiftKey: true},
     });
     assert.deepEqual(next.selectedMessageIds, [10, 11, 12, 13]);
-    assert.equal(next.selectedMessageId, 13);
+    assert.equal(next.selectedMessageId, 10);
+    assert.equal(next.pendingAutoReadMessageId, null);
 });
 
 test('computeSelectionOnClick supports ctrl/meta toggle', () => {
@@ -60,7 +61,8 @@ test('computeSelectionOnClick supports ctrl/meta toggle', () => {
         modifiers: {ctrlKey: true},
     });
     assert.deepEqual(next.selectedMessageIds, [10, 12]);
-    assert.equal(next.selectedMessageId, 12);
+    assert.equal(next.selectedMessageId, 10);
+    assert.equal(next.pendingAutoReadMessageId, null);
     assert.equal(next.anchorIndex, 2);
 });
 

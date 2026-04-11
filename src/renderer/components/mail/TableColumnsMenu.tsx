@@ -12,12 +12,21 @@ type TableColumnsMenuProps<TColumn extends string> = {
     selectedColumns: TColumn[];
     position: { left: number; top: number };
     ready: boolean;
+    onClose?: () => void;
     onToggleColumn: (column: TColumn) => void;
     onResetColumns: () => void;
 };
 
 function TableColumnsMenuInner<TColumn extends string>(
-    {options, selectedColumns, position, ready, onToggleColumn, onResetColumns}: TableColumnsMenuProps<TColumn>,
+    {
+        options,
+        selectedColumns,
+        position,
+        ready,
+        onClose,
+        onToggleColumn,
+        onResetColumns
+    }: TableColumnsMenuProps<TColumn>,
     ref: React.ForwardedRef<HTMLDivElement>,
 ) {
     return (
@@ -27,6 +36,7 @@ function TableColumnsMenuInner<TColumn extends string>(
             layer="1015"
             position={position}
             ready={ready}
+            onRequestClose={onClose}
             onClick={(event) => event.stopPropagation()}
         >
             <ContextMenuLabel>Table Columns</ContextMenuLabel>

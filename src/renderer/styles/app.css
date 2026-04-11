@@ -184,6 +184,24 @@
         background-color: var(--state-active);
     }
 
+    .hover-card-trigger {
+        transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+    }
+
+    .hover-card-trigger:hover,
+    .hover-card-trigger[aria-expanded='true'],
+    .hover-card-trigger:focus-visible {
+        background-color: var(--state-hover);
+        border-color: var(--app-border);
+        box-shadow: 0 1px 2px color-mix(in srgb, var(--base-black) 18%, transparent);
+    }
+
+    [aria-haspopup='menu'][aria-expanded='true'] {
+        background-color: var(--state-hover);
+        border-color: var(--app-border);
+        box-shadow: 0 1px 2px color-mix(in srgb, var(--base-black) 18%, transparent);
+    }
+
     .splash-screen {
         background-color: var(--app-surface);
         color: var(--app-text);

@@ -333,6 +333,7 @@ export default function MainNavRail() {
                     size="nav"
                     layer="1202"
                     position={{left: mainNavContextMenu.x, top: mainNavContextMenu.y}}
+                    onRequestClose={() => setMainNavContextMenu(null)}
                     onClick={(event) => event.stopPropagation()}
                     onContextMenu={(event) => event.preventDefault()}
                 >

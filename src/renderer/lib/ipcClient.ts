@@ -33,9 +33,9 @@ import type {
     RecentRecipientItem,
     SaveDraftPayload,
     SaveDraftResult,
-    SendEmailPayload,
     SendEmailBackgroundResult,
     SendEmailBackgroundStatusEvent,
+    SendEmailPayload,
     SendEmailResult,
     SetMessageReadResult,
     SyncStatusEvent,
@@ -190,6 +190,8 @@ export const ipcClient = {
     searchMessages: (accountId: number, query: string, folderPath?: string | null, limit?: number) =>
         window.electronAPI.searchMessages(accountId, query, folderPath ?? null, limit),
     getMessage: (messageId: number) => window.electronAPI.getMessage(messageId),
+    getSenderAvatar: (fromAddress: string | null): Promise<string | null> =>
+        window.electronAPI.getSenderAvatar(fromAddress ?? null),
     getMessageSource: (messageId: number) => window.electronAPI.getMessageSource(messageId),
     openMessageWindow: (messageId?: number) => window.electronAPI.openMessageWindow(messageId),
     openDebugWindow: () => window.electronAPI.openDebugWindow(),

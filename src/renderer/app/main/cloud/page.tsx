@@ -222,7 +222,7 @@ export default function CloudFilesPage() {
         const directionFactor = tableSort.direction === "asc" ? 1 : -1;
         list.sort((a, b) => {
             if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
-            let comparison = 0;
+            let comparison;
             switch (tableSort.column) {
                 case "name":
                     comparison = a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: "base"});
@@ -730,7 +730,7 @@ export default function CloudFilesPage() {
                 clearPersistedDeletedFolderCaches(selectedAccount.id, item);
             }
             await ipcClient.deleteCloudItem(selectedAccount.id, item.path);
-            let stillExists = false;
+            let stillExists;
             try {
                 const statusResult = await ipcClient.getCloudItemStatus(accountId, item.path);
                 stillExists = statusResult.exists;
@@ -1235,20 +1235,20 @@ export default function CloudFilesPage() {
                 <div className="min-h-0 flex-1 overflow-hidden">
                     {!selectedAccount && (
                         <div
-                            className="ui-text-muted flex h-full min-h-[240px] items-center justify-center text-sm">
+                            className="ui-text-muted flex h-full min-h-60 items-center justify-center text-sm">
                             Add a cloud account to start browsing files.
                         </div>
                     )}
                     {selectedAccount && loading && Boolean(pendingFolderToken) && (
                         <div
-                            className="ui-text-muted flex h-full min-h-[240px] flex-col items-center justify-center gap-2 text-sm">
+                            className="ui-text-muted flex h-full min-h-60 flex-col items-center justify-center gap-2 text-sm">
                             <Loader2 size={18} className="animate-spin"/>
                             <span>Loading folder...</span>
                         </div>
                     )}
                     {selectedAccount && !pendingFolderToken && items.length === 0 && !loading && (
                         <div
-                            className="ui-text-muted flex h-full min-h-[240px] flex-col items-center justify-center gap-3 text-sm">
+                            className="ui-text-muted flex h-full min-h-60 flex-col items-center justify-center gap-3 text-sm">
                             <span>No files</span>
                             <Link
                                 to={buildCloudLink(
@@ -1542,6 +1542,7 @@ export default function CloudFilesPage() {
                     layer="1015"
                     position={rowMenuPosition}
                     ready={rowMenuReady}
+                    onRequestClose={() => setRowMenu(null)}
                     onClick={(event) => event.stopPropagation()}
                 >
                     {!rowMenu.item.isFolder && (
@@ -1590,6 +1591,7 @@ export default function CloudFilesPage() {
                     layer="1015"
                     position={tableHeadMenuPosition}
                     ready={tableHeadMenuReady}
+                    onRequestClose={() => setTableHeadMenu(null)}
                     onClick={(event) => event.stopPropagation()}
                 >
                     <ContextMenuLabel>
@@ -1631,6 +1633,7 @@ export default function CloudFilesPage() {
                     layer="1000"
                     position={accountMenuPosition}
                     ready={accountMenuReady}
+                    onRequestClose={() => setAccountMenu(null)}
                     onClick={(event) => event.stopPropagation()}
                 >
                     <ContextMenuItem

@@ -1,9 +1,8 @@
 import {Button} from '@renderer/components/ui/button';
 import {ContextMenu, ContextMenuItem} from '@renderer/components/ui/ContextMenu';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {FileText, Forward, MailOpen, Paperclip, Reply, ReplyAll, Star, Tag, Trash2} from 'lucide-react';
+import {FileText, Forward, Reply, ReplyAll, Trash2} from 'lucide-react';
 import type {MessageBodyResult, MessageDetails} from '@/preload';
-import {formatSystemDateTime} from '@renderer/lib/dateTime';
 import {toErrorMessage} from '@renderer/lib/statusText';
 import {
 	buildForwardQuoteHtml,
@@ -11,14 +10,16 @@ import {
 	buildReferences,
 	buildReplyQuoteHtml,
 	buildReplyQuoteText,
+	countRecipients,
 	ensurePrefixedSubject,
-	formatFromDisplay,
 	htmlToText,
 	inferReplyAddress,
 	normalizeMessageId,
 } from '@renderer/features/mail/composeDraft';
-import {clampToViewport, formatBytes} from '@renderer/lib/format';
+import {clampToViewport} from '@renderer/lib/format';
 import {Modal, ModalHeader} from '@renderer/components/ui/Modal';
+import {MessageHeaderCard} from '@renderer/components/mail/MessageHeaderCard';
+import {MessageBodyPane} from '@renderer/components/mail/MessageBodyPane';
 import {useAppTheme} from '@renderer/hooks/useAppTheme';
 import {
 	buildSourceDocCsp,
@@ -30,7 +31,7 @@ import {ipcClient} from '@renderer/lib/ipcClient';
 import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
 import {useAppSettings as useIpcAppSettings} from '@renderer/hooks/ipc/useAppSettings';
 import {DEFAULT_APP_SETTINGS} from '@/shared/defaults';
-import {buildMessageIframeSrcDoc} from '@renderer/app/main/email/mailPageHelpers';
+import {buildMessageIframeSrcDoc, formatMessageTagLabel} from '@renderer/app/main/email/mailPageHelpers';
 import {useApp} from '@renderer/app/AppContext';
 
 export default function MessageWindowPage() {
@@ -45,9 +46,11 @@ export default function MessageWindowPage() {
 	const [showMessageDetails, setShowMessageDetails] = useState(false);
 	const [showSourceModal, setShowSourceModal] = useState(false);
 	const [messageSource, setMessageSource] = useState('');
+	const [senderAvatarSrc, setSenderAvatarSrc] = useState<string | null>(null);
 	const [sourceLoading, setSourceLoading] = useState(false);
 	const [sourceError, setSourceError] = useState<string | null>(null);
 	const sourceRequestSeqRef = useRef(0);
+	const senderAvatarRequestSeqRef = useRef(0);
 	const [sessionRemoteAllowed, setSessionRemoteAllowed] = useState(false);
 	const [hoveredLinkUrl, setHoveredLinkUrl] = useState('');
 	const [isPointerOverMessageFrame, setIsPointerOverMessageFrame] = useState(false);
@@ -128,6 +131,30 @@ export default function MessageWindowPage() {
 	}, [messageId]);
 
 	useEffect(() => {
+		const fromAddress = message?.from_address ?? null;
+		const normalizedAddress = typeof fromAddress === 'string' ? fromAddress.trim() : '';
+		const requestSeq = ++senderAvatarRequestSeqRef.current;
+		setSenderAvatarSrc(null);
+		if (!normalizedAddress) {
+			return;
+		}
+		let active = true;
+		void ipcClient
+			.getSenderAvatar(normalizedAddress)
+			.then((avatarSrc) => {
+				if (!active || senderAvatarRequestSeqRef.current !== requestSeq) return;
+				setSenderAvatarSrc(avatarSrc || null);
+			})
+			.catch(() => {
+				if (!active || senderAvatarRequestSeqRef.current !== requestSeq) return;
+				setSenderAvatarSrc(null);
+			});
+		return () => {
+			active = false;
+		};
+	}, [message?.from_address, messageId]);
+
+	useEffect(() => {
 		if (!messageId || !message || message.is_read) return;
 		let active = true;
 		void ipcClient
@@ -158,6 +185,7 @@ export default function MessageWindowPage() {
 	}, [allowRemoteForMessage, body, warnOnExternalLinksForMessage]);
 	const attachments = body?.attachments ?? [];
     const isDraftMessage = /^<draft\./i.test(String(message?.message_id || ''));
+	const canReplyAll = useMemo(() => countRecipients(message?.to_address || '') > 1, [message?.to_address]);
 
 	useEffect(() => {
 		if (!attachmentMenu) return;
@@ -313,15 +341,17 @@ export default function MessageWindowPage() {
                                 <Reply size={14}/>
                                 <span>Reply</span>
                             </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium"
-                                onClick={onReplyAll}
-                            >
-                                <ReplyAll size={14}/>
-                                <span>Reply all</span>
-                            </Button>
+							{canReplyAll && (
+								<Button
+									type="button"
+			                        variant="ghost"
+			                        className="h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium"
+			                        onClick={onReplyAll}
+								>
+									<ReplyAll size={14}/>
+									<span>Reply all</span>
+								</Button>
+							)}
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -353,206 +383,43 @@ export default function MessageWindowPage() {
 						<span>Delete</span>
 					</Button>
 				</div>
-				<header
-					className="mail-message-header shrink-0 px-4 py-3">
-					{message && (
-						<>
-							<div className="mb-2 flex flex-wrap items-center gap-1.5">
-								<span
-									className="chip-muted inline-flex h-5 items-center rounded-md px-2 text-[11px] font-medium">
-									Message
-								</span>
-								{Boolean(message.is_flagged) && (
-									<span
-										className="chip-warning inline-flex h-5 items-center gap-1 rounded-md px-2 text-[11px] font-medium">
-										<Star size={11} className="fill-current"/>
-										Starred
-									</span>
-								)}
-								<span
-									className="inline-flex h-5 items-center gap-1 rounded-md border ui-border-default ui-surface-card px-2 text-[11px] font-medium ui-text-secondary">
-									<MailOpen size={11}/>
-									{message.is_read ? 'Read' : 'Unread'}
-								</span>
-								{Boolean((message as MessageDetails & { tag?: string | null }).tag) && (
-									<span
-										className="chip-info inline-flex h-5 items-center gap-1 rounded-md px-2 text-[11px] font-medium">
-										<Tag size={11}/>
-										{formatMessageTagLabel(
-											(
-												message as MessageDetails & {
-													tag?: string | null;
-												}
-											).tag ?? null,
-										)}
-									</span>
-								)}
-								{attachments.length > 0 && (
-									<span
-										className="inline-flex h-5 items-center gap-1 rounded-md border ui-border-default ui-surface-card px-2 text-[11px] font-medium ui-text-secondary">
-										<Paperclip size={11}/>
-										{attachments.length} attachment{attachments.length > 1 ? 's' : ''}
-									</span>
-								)}
-							</div>
-							<h2 className="ui-text-primary truncate text-xl font-semibold tracking-tight">
-								{message.subject || '(No subject)'}
-							</h2>
-							<div className="ui-text-secondary mt-2 grid gap-1 text-xs">
-								<div className="select-text">
-									<span className="ui-text-muted font-medium">From:</span>{' '}
-									<span className="select-text">{formatFromDisplay(message)}</span>
-								</div>
-								<div className="select-text">
-									<span className="ui-text-muted font-medium">To:</span>{' '}
-									<span className="select-text">{message.to_address || '-'}</span>
-								</div>
-								<div>
-									<span className="ui-text-muted font-medium">Date:</span>{' '}
-									{formatSystemDateTime(message.date, systemLocale)}
-								</div>
-							</div>
-							<Button
-								variant="outline"
-								className="mt-2 inline-flex h-7 items-center rounded-md px-2 text-[11px]"
-								onClick={() => setShowMessageDetails((prev) => !prev)}
-							>
-								{showMessageDetails ? 'Hide message details' : 'Show message details'}
-							</Button>
-							{showMessageDetails && (
-								<div
-									className="surface-muted mt-3 rounded-md border ui-border-default p-3 text-xs ui-text-secondary">
-									<div>
-										<span className="font-medium">From name:</span> {message.from_name || '-'}
-									</div>
-									<div>
-										<span className="font-medium">From address:</span> {message.from_address || '-'}
-									</div>
-									<div>
-										<span className="font-medium">To:</span> {message.to_address || '-'}
-									</div>
-									<div>
-										<span className="font-medium">Date:</span>{' '}
-										{formatSystemDateTime(message.date, systemLocale)}
-									</div>
-									<div>
-										<span className="font-medium">Message-ID:</span> {message.message_id || '-'}
-									</div>
-									<div>
-										<span className="font-medium">In-Reply-To:</span> {message.in_reply_to || '-'}
-									</div>
-									<div>
-										<span className="font-medium">References:</span>{' '}
-										{message.references_text || '-'}
-									</div>
-									<div>
-										<span className="font-medium">Size:</span>{' '}
-										{message.size ? `${message.size.toLocaleString()} bytes` : '-'}
-									</div>
-								</div>
-							)}
-						</>
-					)}
-				</header>
-
-				<main className="ui-surface-card min-h-0 flex flex-1 flex-col">
-					{Boolean(iframeSrcDoc && message && appSettings.blockRemoteContent && !allowRemoteForMessage) && (
-						<div className="notice-warning w-full shrink-0 border-b px-4 py-2 text-xs">
-							<div className="flex flex-wrap items-center gap-2">
-								<span>Remote content blocked for privacy.</span>
-								<Button
-									type="button"
-									className="notice-button-warning rounded px-2 py-1 text-[11px] font-medium"
-									onClick={() => setSessionRemoteAllowed(true)}
-								>
-									Load once
-								</Button>
-								<Button
-									type="button"
-									className="notice-button-warning rounded px-2 py-1 text-[11px] font-medium"
-									onClick={allowRemoteContentForSender}
-								>
-									Always allow sender
-								</Button>
-							</div>
-						</div>
-					)}
-					<div className="min-h-0 flex-1">
-						{loading && (
-							<div className="ui-text-muted flex h-full items-center justify-center">
-								Loading message...
-							</div>
-						)}
-						{!loading && iframeSrcDoc && (
-							<iframe
-								title={`message-window-body-${message?.id || 'unknown'}`}
-								srcDoc={iframeSrcDoc}
-								sandbox="allow-popups allow-popups-to-escape-sandbox"
-								className="surface-card h-full w-full border-0"
-								onContextMenu={(event) => {
-									event.stopPropagation();
-								}}
-								onMouseEnter={() => setIsPointerOverMessageFrame(true)}
-								onMouseLeave={() => {
-									setIsPointerOverMessageFrame(false);
-									setHoveredLinkUrl('');
-								}}
-							/>
-						)}
-						{!loading && !iframeSrcDoc && (
-							<div className="ui-surface-card h-full overflow-auto p-4 ui-text-primary">
-								<pre
-									className="select-text whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">
-									{body?.text || 'No body content available for this message.'}
-								</pre>
-							</div>
-						)}
-					</div>
-				</main>
-				{!loading && attachments.length > 0 && (
-					<div
-						className="shrink-0 border-t ui-border-default bg-[color-mix(in_srgb,var(--surface-content)_80%,transparent)] px-4 py-3">
-						<div className="overflow-x-auto overflow-y-hidden">
-							<div className="flex min-w-full w-max gap-2 pb-1">
-								{attachments.map((attachment, index) => (
-									<Button
-										key={`${attachment.filename || 'attachment'}-${index}`}
-										type="button"
-										variant="outline"
-										className="group flex w-[17rem] shrink-0 items-center gap-2 rounded-lg p-2 text-left text-xs"
-										title={attachment.filename || 'Attachment'}
-										onClick={(event) => {
-											event.stopPropagation();
-											setAttachmentMenu({x: event.clientX, y: event.clientY, index});
-										}}
-										onContextMenu={(event) => {
-											event.preventDefault();
-											event.stopPropagation();
-											setAttachmentMenu({x: event.clientX, y: event.clientY, index});
-										}}
-									>
-										<span
-											className="surface-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ui-border-default ui-text-muted">
-											<Paperclip size={15}/>
-										</span>
-										<span className="min-w-0 flex-1">
-											<span className="block truncate font-medium">
-												{attachment.filename || 'Attachment'}
-											</span>
-											<span
-												className="ui-text-muted block truncate text-[11px]">
-												{attachment.contentType || 'FILE'}
-												{typeof attachment.size === 'number'
-													? ` • ${formatBytes(attachment.size)}`
-													: ''}
-											</span>
-										</span>
-									</Button>
-								))}
-							</div>
-						</div>
-					</div>
+				{message && (
+					<MessageHeaderCard
+						message={message}
+			            folderLabel="Message"
+			            attachmentsCount={attachments.length}
+			            showMessageDetails={showMessageDetails}
+			            onToggleMessageDetails={() => setShowMessageDetails((prev) => !prev)}
+			            dateLocale={systemLocale}
+			            tagLabel={formatMessageTagLabel((message as MessageDetails & {
+							tag?: string | null
+						}).tag ?? null)}
+			            avatarSrc={senderAvatarSrc}
+			            onOpenCustomFilter={({accountId}) => {
+							void ipcClient.openRouteWindow(`/settings/account/${accountId}/filters`);
+						}}
+					/>
 				)}
+
+				<MessageBodyPane
+					loading={loading}
+		            loadingLabel="Loading message..."
+		            iframeSrcDoc={iframeSrcDoc}
+		            plainText={body?.text}
+		            iframeTitle={`message-window-body-${message?.id || 'unknown'}`}
+		            showRemoteContentWarning={Boolean(iframeSrcDoc && message && appSettings.blockRemoteContent && !allowRemoteForMessage)}
+		            onLoadRemoteOnce={() => setSessionRemoteAllowed(true)}
+		            onAllowRemoteForSender={allowRemoteContentForSender}
+		            onMessageFramePointerEnter={() => setIsPointerOverMessageFrame(true)}
+		            onMessageFramePointerLeave={() => {
+						setIsPointerOverMessageFrame(false);
+						setHoveredLinkUrl('');
+					}}
+		            attachments={attachments}
+		            onOpenAttachmentMenu={(index, x, y) => {
+						setAttachmentMenu({x, y, index});
+					}}
+				/>
 				{isPointerOverMessageFrame && Boolean(hoveredLinkUrl) && (
 					<div
 						className="pointer-events-none fixed bottom-3 left-3 z-[1210] max-w-[min(60vw,56rem)] rounded-md border ui-border-default bg-[color-mix(in_srgb,var(--surface-card)_95%,transparent)] px-2.5 py-1.5 text-xs ui-text-secondary shadow-md backdrop-blur">
@@ -567,6 +434,7 @@ export default function MessageWindowPage() {
 							left: clampToViewport(attachmentMenu.x, 184, window.innerWidth),
 							top: clampToViewport(attachmentMenu.y, 108, window.innerHeight),
 						}}
+						onRequestClose={() => setAttachmentMenu(null)}
 						onClick={(event) => event.stopPropagation()}
 					>
 						<ContextMenuItem
@@ -635,16 +503,4 @@ export default function MessageWindowPage() {
 			</div>
 		</div>
 	);
-}
-
-function formatMessageTagLabel(tag: string | null): string {
-	const normalized = String(tag || '')
-		.trim()
-		.toLowerCase();
-	if (!normalized) return '';
-	if (normalized === 'important') return 'Important';
-	if (normalized === 'work') return 'Work';
-	if (normalized === 'personal') return 'Personal';
-	if (normalized === 'todo') return 'To-do';
-	return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }

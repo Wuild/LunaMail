@@ -1,38 +1,18 @@
 import {Button} from './components/ui/button';
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {AlertTriangle, CalendarDays, Cloud, Mail, Users, X,} from 'lucide-react';
-import {
-    type DragEndEvent,
-    type DragStartEvent,
-    PointerSensor,
-    useDroppable,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core';
-import {arrayMove, useSortable} from '@dnd-kit/sortable';
-import {CSS} from '@dnd-kit/utilities';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {AlertTriangle, X,} from 'lucide-react';
 import {useLocation, useNavigate} from 'react-router-dom';
 import {DEFAULT_APP_SETTINGS} from '@/shared/defaults';
-import NavRailItem from './components/navigation/NavRailItem';
 import {useAccounts} from './hooks/ipc/useAccounts';
 import {useAutoUpdateState} from './hooks/ipc/useAutoUpdateState';
 import {useAppSettings} from './hooks/ipc/useAppSettings';
 import {useIpcEvent} from './hooks/ipc/useIpcEvent';
 import {ipcClient} from './lib/ipcClient';
-import type {AppSettings, GlobalErrorEvent} from '@/shared/ipcTypes';
+import type {GlobalErrorEvent} from '@/shared/ipcTypes';
 import type {SendEmailBackgroundStatusEvent, SyncStatusEvent} from '@/preload';
 import {ContextMenu, ContextMenuItem} from './components/ui/ContextMenu';
 import MainWindowRoutes from './app/MainWindowRoutes';
 import {useApp} from '@renderer/app/AppContext';
-
-type TopNavItemId = AppSettings['navRailOrder'][number];
-type TopNavItemDef = {
-    id: TopNavItemId;
-    to: string;
-    label: string;
-    icon: React.ReactNode;
-    badgeCount?: number;
-};
 
 type SystemFailureToast = {
     id: string;
@@ -43,7 +23,7 @@ type SystemFailureToast = {
     accountId?: number;
 };
 
-type MainNavContextItemId = TopNavItemId | 'settings' | 'debug' | 'help';
+type MainNavContextItemId = 'email' | 'contacts' | 'calendar' | 'cloud' | 'settings' | 'debug' | 'help';
 type MainNavContextMenuState = {
     id: MainNavContextItemId;
     label: string;
@@ -51,74 +31,6 @@ type MainNavContextMenuState = {
     x: number;
     y: number;
 };
-
-const DEFAULT_TOP_NAV_ORDER: TopNavItemId[] = ['email', 'contacts', 'calendar', 'cloud'];
-
-function isTopNavItemId(value: unknown): value is TopNavItemId {
-    return value === 'email' || value === 'contacts' || value === 'calendar' || value === 'cloud';
-}
-
-function normalizeTopNavOrder(input: unknown): TopNavItemId[] {
-    const source = Array.isArray(input) ? input : [];
-    const normalized: TopNavItemId[] = [];
-    for (const item of source) {
-        if (!isTopNavItemId(item)) continue;
-        if (normalized.includes(item)) continue;
-        normalized.push(item);
-    }
-    for (const item of DEFAULT_TOP_NAV_ORDER) {
-        if (!normalized.includes(item)) normalized.push(item);
-    }
-    return normalized;
-}
-
-function toTopNavSortableId(id: TopNavItemId): string {
-    return `topnav-${id}`;
-}
-
-function parseTopNavSortableId(id: string): TopNavItemId | null {
-    if (!id.startsWith('topnav-')) return null;
-    const value = id.slice('topnav-'.length);
-    return isTopNavItemId(value) ? value : null;
-}
-
-type SortableTopNavItemProps = {
-    item: TopNavItemDef;
-    onContextMenu: (event: React.MouseEvent<HTMLDivElement>, item: TopNavItemDef) => void;
-};
-
-function SortableTopNavItem({
-                                item,
-                                onContextMenu,
-                            }: SortableTopNavItemProps) {
-    const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({
-        id: toTopNavSortableId(item.id),
-        data: {kind: 'topnav', id: item.id, label: item.label},
-    });
-    return (
-        <div
-            ref={setNodeRef}
-            onContextMenu={(event) => onContextMenu(event, item)}
-            style={{
-                transform: CSS.Transform.toString(transform),
-                transition,
-                opacity: isDragging ? 0.2 : 1,
-            }}
-            {...attributes}
-            {...listeners}
-        >
-            <NavRailItem to={item.to} icon={item.icon} label={item.label} badgeCount={item.badgeCount}/>
-        </div>
-    );
-}
-
-function TopNavEndDrop() {
-    const {setNodeRef} = useDroppable({
-        id: 'topnav-end',
-        data: {kind: 'topnav-end'},
-    });
-    return <div ref={setNodeRef} className="h-12 w-full"/>;
-}
 
 export default function MainWindowApp() {
     return <MainWindowShell/>;
@@ -128,9 +40,9 @@ function MainWindowShell() {
     const {setShowNavRail} = useApp();
     const location = useLocation();
     const navigate = useNavigate();
-    const {accounts, selectedAccountId, setSelectedAccountId, totalUnreadCount} = useAccounts();
-    const {appVersion, autoUpdatePhase, autoUpdateMessage} = useAutoUpdateState();
-    const {appSettings, setAppSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
+    const {accounts, selectedAccountId, setSelectedAccountId} = useAccounts();
+    const {autoUpdatePhase, autoUpdateMessage} = useAutoUpdateState();
+    const {appSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
     const developerMode = Boolean(appSettings.developerMode);
     const showRouteOverlay = developerMode && Boolean(appSettings.developerShowRouteOverlay);
     const showSendNotifications = Boolean(appSettings.developerShowSendNotifications);
@@ -138,17 +50,10 @@ function MainWindowShell() {
     const showDebugNavItem = developerMode && Boolean(appSettings.developerShowDebugNavItem);
     const [globalErrors, setGlobalErrors] = useState<GlobalErrorEvent[]>([]);
     const [restartBusy, setRestartBusy] = useState(false);
-    const [topNavOrder, setTopNavOrder] = useState<TopNavItemId[]>(() =>
-        normalizeTopNavOrder(appSettings.navRailOrder),
-    );
-    const [draggingTopNavItemId, setDraggingTopNavItemId] = useState<TopNavItemId | null>(null);
-    const [topNavOverlaySize, setTopNavOverlaySize] = useState<{ width: number; height: number } | null>(null);
     const [sendStatus, setSendStatus] = useState<SendEmailBackgroundStatusEvent | null>(null);
     const [systemFailureToasts, setSystemFailureToasts] = useState<SystemFailureToast[]>([]);
     const [mainNavContextMenu, setMainNavContextMenu] = useState<MainNavContextMenuState | null>(null);
     const mainNavContextMenuRef = useRef<HTMLDivElement | null>(null);
-    const topNavSensors = useSensors(useSensor(PointerSensor, {activationConstraint: {distance: 4}}));
-    const topNavSortableIds = useMemo(() => topNavOrder.map((id) => toTopNavSortableId(id)), [topNavOrder]);
 
     const pushGlobalError = (entry: GlobalErrorEvent) => {
         setGlobalErrors((prev) => {
@@ -374,77 +279,6 @@ function MainWindowShell() {
     const hideMainNavRail =
         location.pathname.startsWith('/onboarding') || location.pathname.startsWith('/add-account');
 
-    useEffect(() => {
-        setTopNavOrder(normalizeTopNavOrder(appSettings.navRailOrder));
-    }, [appSettings.navRailOrder]);
-
-    const topNavItems = useMemo<TopNavItemDef[]>(() => {
-        const all: Record<TopNavItemId, TopNavItemDef> = {
-            email: {id: 'email', to: '/email', label: 'Mail', icon: <Mail size={18}/>, badgeCount: totalUnreadCount},
-            contacts: {id: 'contacts', to: '/contacts', label: 'Contacts', icon: <Users size={18}/>},
-            calendar: {id: 'calendar', to: '/calendar', label: 'Calendar', icon: <CalendarDays size={18}/>},
-            cloud: {id: 'cloud', to: '/cloud', label: 'Cloud', icon: <Cloud size={18}/>},
-        };
-        return topNavOrder.map((id) => all[id]).filter(Boolean);
-    }, [topNavOrder, totalUnreadCount]);
-    const draggingTopNavItem = useMemo(
-        () => (draggingTopNavItemId === null ? null : topNavItems.find((item) => item.id === draggingTopNavItemId) ?? null),
-        [topNavItems, draggingTopNavItemId],
-    );
-
-    const persistTopNavOrder = useCallback((nextOrder: TopNavItemId[]) => {
-        setTopNavOrder(nextOrder);
-        setAppSettings((prev) => ({...prev, navRailOrder: nextOrder}));
-        void ipcClient.updateAppSettings({navRailOrder: nextOrder}).catch(() => undefined);
-    }, [setAppSettings]);
-
-    const onTopNavDragStart = useCallback((event: DragStartEvent) => {
-        const id = parseTopNavSortableId(String(event.active.id));
-        if (!id) return;
-        setDraggingTopNavItemId(id);
-        const initialRect = event.active.rect.current.initial;
-        if (initialRect) {
-            setTopNavOverlaySize({width: initialRect.width, height: initialRect.height});
-        } else {
-            setTopNavOverlaySize(null);
-        }
-    }, []);
-
-    const onTopNavDragEnd = useCallback((event: DragEndEvent) => {
-        const activeId = parseTopNavSortableId(String(event.active.id));
-        if (!activeId) {
-            setDraggingTopNavItemId(null);
-            setTopNavOverlaySize(null);
-            return;
-        }
-        const sourceIndex = topNavOrder.indexOf(activeId);
-        if (sourceIndex < 0) {
-            setDraggingTopNavItemId(null);
-            setTopNavOverlaySize(null);
-            return;
-        }
-        let targetIndex = sourceIndex;
-        if (!event.over) {
-            targetIndex = Math.max(0, topNavOrder.length - 1);
-        } else if (event.over.id === 'topnav-end') {
-            targetIndex = Math.max(0, topNavOrder.length - 1);
-        } else {
-            const overId = parseTopNavSortableId(String(event.over.id));
-            if (!overId) {
-                setDraggingTopNavItemId(null);
-                setTopNavOverlaySize(null);
-                return;
-            }
-            const overIndex = topNavOrder.indexOf(overId);
-            if (overIndex >= 0) targetIndex = overIndex;
-        }
-        if (targetIndex !== sourceIndex) {
-            persistTopNavOrder(arrayMove(topNavOrder, sourceIndex, targetIndex));
-        }
-        setDraggingTopNavItemId(null);
-        setTopNavOverlaySize(null);
-    }, [persistTopNavOrder, topNavOrder]);
-
     const showUpdateBanner =
         autoUpdatePhase === 'available' || autoUpdatePhase === 'downloading' || autoUpdatePhase === 'downloaded';
     const updateBannerText =
@@ -467,24 +301,6 @@ function MainWindowShell() {
         });
     }, [restartBusy]);
 
-    const openMainNavContextMenu = useCallback((
-        event: React.MouseEvent<HTMLDivElement>,
-        item: { id: MainNavContextItemId; label: string; to: string },
-    ) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const menuWidth = 220;
-        const menuHeight = item.id === 'debug' ? 92 : 56;
-        const left = Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8));
-        const top = Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8));
-        setMainNavContextMenu({
-            id: item.id,
-            label: item.label,
-            to: item.to,
-            x: left,
-            y: top,
-        });
-    }, []);
 
     useEffect(() => {
         setShowNavRail(!hideMainNavRail);
@@ -498,7 +314,7 @@ function MainWindowShell() {
             {showUpdateBanner && (
                 <div
                     className="notice-warning shrink-0 border-b px-3 py-2">
-                    <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-3">
+                    <div className="mx-auto flex w-full max-w-350 items-center justify-between gap-3">
                         <span className="text-sm font-medium">{updateBannerText}</span>
                         <Button
                             type="button"
@@ -513,7 +329,7 @@ function MainWindowShell() {
             {globalErrors.length > 0 && (
                 <div
                     className="notice-danger shrink-0 border-b px-3 py-2">
-                    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-2">
+                    <div className="mx-auto flex w-full max-w-350 flex-col gap-2">
                         {globalErrors.map((item) => (
                             <div key={item.id} className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
@@ -567,15 +383,15 @@ function MainWindowShell() {
             </main>
             {showRouteOverlay && (
                 <div
-                    className={`overlay route-overlay-text pointer-events-none fixed right-3 z-[1200] rounded-md px-2.5 py-1.5 font-mono text-[11px] shadow-sm ${
-                        sendStatus ? 'bottom-[5.25rem]' : 'bottom-3'
+                    className={`overlay route-overlay-text pointer-events-none fixed right-3 z-1200 rounded-md px-2.5 py-1.5 font-mono text-[11px] shadow-sm ${
+                        sendStatus ? 'bottom-21' : 'bottom-3'
                     }`}>
                     {`#${location.pathname}${location.search || ''}`}
                 </div>
             )}
             {showSendNotifications && sendStatus && (
                 <div
-                    className="overlay fixed bottom-3 right-3 z-[1190] w-[320px] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-md shadow-lg backdrop-blur">
+                    className="overlay fixed bottom-3 right-3 z-1190 w-[320px] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-md shadow-lg backdrop-blur">
                     <div className="px-3 py-2.5">
                         <div className="flex items-center justify-between gap-2">
                             <p className="ui-text-primary truncate text-sm font-medium">
@@ -601,7 +417,7 @@ function MainWindowShell() {
             )}
             {showSystemFailureNotifications && systemFailureToasts.length > 0 && (
                 <div
-                    className={`fixed right-3 z-[1188] flex w-[320px] max-w-[calc(100vw-1.5rem)] flex-col-reverse gap-2 ${
+                    className={`fixed right-3 z-1188 flex w-[320px] max-w-[calc(100vw-1.5rem)] flex-col-reverse gap-2 ${
                         sendStatus ? 'bottom-[6.8rem]' : 'bottom-3'
                     }`}
                 >
@@ -664,6 +480,7 @@ function MainWindowShell() {
                     size="nav"
                     layer="1202"
                     position={{left: mainNavContextMenu.x, top: mainNavContextMenu.y}}
+                    onRequestClose={() => setMainNavContextMenu(null)}
                     onClick={(event) => event.stopPropagation()}
                     onContextMenu={(event) => event.preventDefault()}
                 >

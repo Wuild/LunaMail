@@ -68,6 +68,10 @@
         background-color: var(--state-hover);
     }
 
+    .mail-list-row.is-menu-open {
+        background-color: var(--state-hover);
+    }
+
     .mail-list-row.is-selected {
         background-color: color-mix(in srgb, var(--color-primary) 10%, var(--panel-surface));
     }
@@ -86,6 +90,10 @@
     }
 
     .mail-table-row:hover {
+        background-color: var(--state-hover);
+    }
+
+    .mail-table-row.is-menu-open {
         background-color: var(--state-hover);
     }
 

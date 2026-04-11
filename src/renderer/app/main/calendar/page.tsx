@@ -373,8 +373,7 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
         const contentHeight = WEEK_HOUR_ROW_HEIGHT * 24;
         const viewportHeight = container.clientHeight;
         const maxScroll = Math.max(0, contentHeight - viewportHeight);
-        const targetScroll = Math.max(0, Math.min(maxScroll, weekNowTopPx - viewportHeight * 0.35));
-        container.scrollTop = targetScroll;
+        container.scrollTop = Math.max(0, Math.min(maxScroll, weekNowTopPx - viewportHeight * 0.35));
         lastWeekAutoScrollKeyRef.current = weekKey;
     }, [
         accountId,
@@ -440,7 +439,8 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
             const startDate = composeLocalDateTime(eventStartDate, eventStartTime);
             const endDate = composeLocalDateTime(eventEndDate, eventEndTime);
             if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-                throw new Error('Please provide a valid start and end date/time.');
+                setCalendarError('Please provide a valid start and end date/time.');
+                return;
             }
             const created = await ipcClient.addCalendarEvent(accountId, {
                 summary: eventTitle.trim() || null,
@@ -495,7 +495,8 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
             const startDate = composeLocalDateTime(editEventStartDate, editEventStartTime);
             const endDate = composeLocalDateTime(editEventEndDate, editEventEndTime);
             if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-                throw new Error('Please provide a valid start and end date/time.');
+                setCalendarError('Please provide a valid start and end date/time.');
+                return;
             }
             const updated = await ipcClient.updateCalendarEvent(editEventId, {
                 summary: editEventTitle.trim() || null,
@@ -573,20 +574,6 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
         if (Number.isNaN(day.getTime())) return;
         const start = new Date(day);
         start.setHours(9, 0, 0, 0);
-        const end = new Date(start);
-        end.setHours(end.getHours() + 1);
-        setEventStartDate(toDateInputValue(start));
-        setEventStartTime(toTimeInputValue(start));
-        setEventEndDate(toDateInputValue(end));
-        setEventEndTime(toTimeInputValue(end));
-        setShowAddEventModal(true);
-    }
-
-    function openNewEventForTimeSlot(dayKey: string, hour: number) {
-        const day = new Date(`${dayKey}T00:00:00`);
-        if (Number.isNaN(day.getTime())) return;
-        const start = new Date(day);
-        start.setHours(hour, 0, 0, 0);
         const end = new Date(start);
         end.setHours(end.getHours() + 1);
         setEventStartDate(toDateInputValue(start));
@@ -1054,11 +1041,11 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
                                                 {weekContainsNow && (
                                                     <>
                                                         <div
-                                                            className="border-danger pointer-events-none absolute left-[88px] right-0 z-20 border-t-2"
+                                                            className="border-danger pointer-events-none absolute left-22 right-0 z-20 border-t-2"
                                                             style={{top: weekNowTopPx}}
                                                         />
                                                         <div
-                                                            className="text-danger pointer-events-none absolute left-0 z-20 w-[88px] -translate-y-1/2 pr-2 text-right text-[10px] font-semibold"
+                                                            className="text-danger pointer-events-none absolute left-0 z-20 w-22 -translate-y-1/2 pr-2 text-right text-[10px] font-semibold"
                                                             style={{top: weekNowTopPx}}
                                                         >
                                                             {now.toLocaleTimeString(systemLocale, {
@@ -1170,6 +1157,7 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
                     size="lg"
                     layer="50"
                     position={{left: dayContextMenu.x, top: dayContextMenu.y}}
+                    onRequestClose={() => setDayContextMenu(null)}
                     onContextMenu={(event) => event.preventDefault()}
                 >
                     <ContextMenuItem

@@ -1,7 +1,7 @@
 import {Button} from '../ui/button';
 import React from 'react';
 import {Link} from 'react-router-dom';
-import {Settings} from 'lucide-react';
+import {RefreshCw, Settings} from 'lucide-react';
 import NewEmailBadge from './NewEmailBadge';
 import {cn} from '@renderer/lib/utils';
 
@@ -16,6 +16,8 @@ type FolderItemRowProps = {
     customDragging?: boolean;
     count?: number;
     onEditFolder?: () => void;
+    onRefreshFolder?: () => void;
+    refreshing?: boolean;
     onClick?: () => void;
     onContextMenu?: (event: React.MouseEvent<HTMLElement>) => void;
 };
@@ -31,6 +33,8 @@ export default function FolderItemRow({
                                           customDragging,
                                           count,
                                           onEditFolder,
+                                          onRefreshFolder,
+                                          refreshing = false,
                                           onClick,
                                           onContextMenu,
                                       }: FolderItemRowProps) {
@@ -63,7 +67,7 @@ export default function FolderItemRow({
                     >
 						{icon}
 					</span>
-					<span className={cn('truncate pr-8 text-xs', active ? 'font-semibold' : 'font-medium')}>
+                    <span className={cn('truncate pr-14 text-xs', active ? 'font-semibold' : 'font-medium')}>
 						{label}
 					</span>
 				</span>
@@ -73,25 +77,45 @@ export default function FolderItemRow({
                             count={count}
                             className={cn(
                                 'transition-opacity',
-                                onEditFolder && 'group-hover:opacity-0',
+                                (onEditFolder || onRefreshFolder) && 'group-hover:opacity-0',
                             )}
                         />
                     )}
 				</span>
             </Link>
-            {onEditFolder && (
-                <Button
-                    type="button"
-                    className="folder-item-edit absolute right-1 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        onEditFolder();
-                    }}
-                    title="Edit folder"
-                    aria-label="Edit folder"
-                >
-                    <Settings size={13}/>
-                </Button>
+            {(onEditFolder || onRefreshFolder) && (
+                <div
+                    className="absolute right-1 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    {onRefreshFolder && (
+                        <Button
+                            type="button"
+                            className="folder-item-edit inline-flex h-7 w-7 items-center justify-center rounded-md"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onRefreshFolder();
+                            }}
+                            title="Refresh folder"
+                            aria-label="Refresh folder"
+                            disabled={refreshing}
+                        >
+                            <RefreshCw size={13} className={cn(refreshing && 'animate-spin')}/>
+                        </Button>
+                    )}
+                    {onEditFolder && (
+                        <Button
+                            type="button"
+                            className="folder-item-edit inline-flex h-7 w-7 items-center justify-center rounded-md"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onEditFolder();
+                            }}
+                            title="Edit folder"
+                            aria-label="Edit folder"
+                        >
+                            <Settings size={13}/>
+                        </Button>
+                    )}
+                </div>
             )}
             {customDragActive && (
                 <div

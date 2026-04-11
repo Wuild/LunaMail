@@ -34,7 +34,8 @@ export function buildMessageIframeSrcDoc(
     enrichAnchorTitles: (html: string) => string,
     buildSourceDocCsp: (allowRemote: boolean) => string,
 ): string {
-    const rawHtml = enrichAnchorTitles(renderedBodyHtml);
+    const sanitizedHtml = sanitizeRemoteMediaSources(renderedBodyHtml, allowRemoteForSelectedMessage);
+    const rawHtml = enrichAnchorTitles(sanitizedHtml);
     const csp = buildSourceDocCsp(allowRemoteForSelectedMessage);
     const rootStyles = window.getComputedStyle(document.documentElement);
     const dark = document.documentElement.classList.contains('dark');
@@ -67,4 +68,60 @@ export function buildMessageIframeSrcDoc(
   </head>
   <body><div id="llamamail-frame-content">${rawHtml}</div></body>
 </html>`;
+}
+
+function sanitizeRemoteMediaSources(html: string, allowRemote: boolean): string {
+    if (allowRemote || !html || typeof window === 'undefined') return html;
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const urlAttrs = ['src', 'poster', 'background', 'data'] as const;
+        for (const attr of urlAttrs) {
+            const nodes = doc.querySelectorAll<HTMLElement>(`[${attr}]`);
+            nodes.forEach((node) => {
+                const value = String(node.getAttribute(attr) || '').trim();
+                if (!value) return;
+                if (isRemoteHttpUrl(value)) {
+                    node.removeAttribute(attr);
+                }
+            });
+        }
+        const srcsetNodes = doc.querySelectorAll<HTMLElement>('[srcset]');
+        srcsetNodes.forEach((node) => {
+            const srcset = String(node.getAttribute('srcset') || '').trim();
+            if (!srcset) return;
+            const safeParts = srcset
+                .split(',')
+                .map((part) => part.trim())
+                .filter(Boolean)
+                .filter((part) => {
+                    const candidateUrl = part.split(/\s+/)[0] || '';
+                    return !isRemoteHttpUrl(candidateUrl);
+                });
+            if (safeParts.length === 0) {
+                node.removeAttribute('srcset');
+                return;
+            }
+            node.setAttribute('srcset', safeParts.join(', '));
+        });
+        const styledNodes = doc.querySelectorAll<HTMLElement>('[style]');
+        styledNodes.forEach((node) => {
+            const styleValue = String(node.getAttribute('style') || '');
+            if (!styleValue) return;
+            const nextStyle = styleValue.replace(/url\(([^)]+)\)/gi, (full, rawUrl) => {
+                const normalized = String(rawUrl || '').trim().replace(/^['"]|['"]$/g, '');
+                if (isRemoteHttpUrl(normalized)) return 'none';
+                return full;
+            });
+            node.setAttribute('style', nextStyle);
+        });
+        return doc.body.innerHTML || html;
+    } catch {
+        return html;
+    }
+}
+
+function isRemoteHttpUrl(value: string): boolean {
+    const raw = String(value || '').trim().toLowerCase();
+    return raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('//');
 }

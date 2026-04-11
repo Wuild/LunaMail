@@ -26,6 +26,7 @@ import type {
     PublicAccount,
     PublicCloudAccount,
     RecentRecipientItem,
+    SaveDraftPayload,
 } from '@/preload';
 import HtmlLexicalEditor from '@renderer/components/HtmlLexicalEditor';
 import AutoComplete, {type AutoCompleteRow} from '@renderer/components/inputs/AutoComplete';
@@ -134,6 +135,7 @@ function ComposeEmailPage() {
     const autosaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const lastSavedSignatureRef = useRef<string>('');
     const isSavingDraftRef = useRef(false);
+    const queuedDraftSaveRef = useRef<{ payload: SaveDraftPayload; signature: string } | null>(null);
     const draftSessionIdRef = useRef<string>(`draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
     const draftMessageIdRef = useRef<number | null>(null);
     const autoSignatureRef = useRef<{ accountId: number; html: string; text: string } | null>(null);
@@ -492,37 +494,75 @@ function ComposeEmailPage() {
         attachments,
     ]);
 
+    const flushQueuedDraftSave = useCallback(() => {
+        if (isSavingDraftRef.current) return;
+        const queued = queuedDraftSaveRef.current;
+        if (!queued) return;
+        queuedDraftSaveRef.current = null;
+        isSavingDraftRef.current = true;
+        void ipcClient
+            .saveDraft(queued.payload)
+            .then((result) => {
+                if (result?.draftId) {
+                    draftSessionIdRef.current = result.draftId;
+                }
+                if (typeof result?.draftMessageId === 'number' && Number.isFinite(result.draftMessageId)) {
+                    draftMessageIdRef.current = Math.floor(result.draftMessageId);
+                }
+            })
+            .catch((e: any) => {
+                if (lastSavedSignatureRef.current === queued.signature) {
+                    lastSavedSignatureRef.current = '';
+                }
+                setStatus((prev) =>
+                    prev?.startsWith('Sending') ? prev : `Draft save failed: ${e?.message || String(e)}`,
+                );
+            })
+            .finally(() => {
+                isSavingDraftRef.current = false;
+                flushQueuedDraftSave();
+            });
+    }, []);
+
+    const saveDraftPayload = useCallback(
+        async (payload: NonNullable<typeof draftPayload>, options?: {
+            skipIfUnchanged?: boolean;
+            awaitRemote?: boolean
+        }) => {
+            if (sending) return;
+            const signature = JSON.stringify(payload);
+            if (options?.skipIfUnchanged !== false && signature === lastSavedSignatureRef.current) return;
+
+            // Optimistic: reflect "saved" immediately and persist in background.
+            lastSavedSignatureRef.current = signature;
+            setStatus((prev) => (prev?.startsWith('Send failed:') ? prev : 'Draft saved'));
+            queuedDraftSaveRef.current = {payload, signature};
+            flushQueuedDraftSave();
+
+            if (options?.awaitRemote) {
+                const startedAt = Date.now();
+                while (isSavingDraftRef.current || queuedDraftSaveRef.current?.signature === signature) {
+                    await new Promise<void>((resolve) => {
+                        window.setTimeout(resolve, 30);
+                    });
+                    if (Date.now() - startedAt > 10000) break;
+                }
+            }
+        },
+        [flushQueuedDraftSave, sending],
+    );
+
     const trySaveDraft = useCallback(
         (payload: NonNullable<typeof draftPayload>) => {
-            if (sending) return;
-            const hasRecipient = Boolean((payload.to || '').trim());
-            if (!hasRecipient) return;
-
-            const signature = JSON.stringify(payload);
-            if (signature === lastSavedSignatureRef.current) return;
-            if (isSavingDraftRef.current) return;
-            isSavingDraftRef.current = true;
-
-            void ipcClient
-                .saveDraft(payload)
-                .then((result) => {
-                    if (result?.draftId) {
-                        draftSessionIdRef.current = result.draftId;
-                    }
-                    lastSavedSignatureRef.current = signature;
-                    setStatus((prev) => (prev?.startsWith('Send failed:') ? prev : 'Draft saved'));
-                })
-                .catch((e: any) => {
-                    setStatus((prev) =>
-                        prev?.startsWith('Sending') ? prev : `Draft save failed: ${e?.message || String(e)}`,
-                    );
-                })
-                .finally(() => {
-                    isSavingDraftRef.current = false;
-                });
+            void saveDraftPayload(payload, {skipIfUnchanged: true});
         },
-        [sending],
+        [saveDraftPayload],
     );
+
+    const saveDraftBeforeClose = useCallback(async () => {
+        if (!draftPayload) return;
+        await saveDraftPayload(draftPayload, {skipIfUnchanged: false, awaitRemote: true});
+    }, [draftPayload, saveDraftPayload]);
 
     useEffect(() => {
         if (!draftPayload) return;
@@ -563,6 +603,7 @@ function ComposeEmailPage() {
         isComposeDirty,
         sending,
         setOnRequestClose,
+        saveDraftBeforeClose,
     });
 
     function clearValidationError(field: keyof ComposeValidationErrors) {

@@ -59,7 +59,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             <button
                 ref={ref}
                 className={cn(
-                    'focus-ring inline-flex items-center transition-colors disabled:pointer-events-none disabled:opacity-50',
+                    'focus-ring inline-flex cursor-pointer items-center transition-colors disabled:cursor-not-allowed disabled:opacity-50',
                     wantsLeftAlignedContent ? 'justify-start' : 'justify-center',
                     (leftIcon || rightIcon) && 'gap-2',
                     variantStyles[variant],

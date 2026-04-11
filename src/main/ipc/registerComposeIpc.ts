@@ -6,6 +6,12 @@ type ComposeIpcDeps = {
     sendEmail: (payload: any) => Promise<any>;
     saveDraftEmail: (payload: any) => Promise<any>;
     runSyncAndBroadcast: (accountId: number, source: string) => Promise<any>;
+    broadcastAccountSyncStatus: (payload: {
+        accountId: number;
+        status: 'syncing' | 'done' | 'error';
+        error?: string;
+        summary?: any;
+    }) => void;
     broadcastSendEmailBackgroundStatus: (payload: {
         jobId: string;
         accountId: number;
@@ -33,7 +39,22 @@ export function registerComposeIpc(deps: ComposeIpcDeps): void {
         const safePayload = parseRequiredObject(payload, 'payload');
         const accountId = parseOptionalPositiveInt(safePayload.accountId, 'payload.accountId');
         deps.appLogger.debug('IPC save-draft accountId=%s', accountId ?? '');
-        return await deps.saveDraftEmail(safePayload);
+        const result = await deps.saveDraftEmail(safePayload);
+        if (accountId) {
+            deps.broadcastAccountSyncStatus({
+                accountId,
+                status: 'done',
+                summary: {
+                    accountId,
+                    folders: 0,
+                    messages: 0,
+                    newMessages: 0,
+                    newMessageIds: [],
+                    newestMessageTarget: null
+                },
+            });
+        }
+        return result;
     });
 
     ipcMain.handle('send-email-background', async (_event, payload: any) => {

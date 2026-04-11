@@ -7,7 +7,7 @@ import {
     getAccountSyncCredentials,
     getLocalAccountVCardPath
 } from '@main/db/repositories/accountsRepo.js';
-import {getMessageContext} from '@main/db/repositories/mailRepo.js';
+import {getMessageContext, upsertLocalDraftSnapshot} from '@main/db/repositories/mailRepo.js';
 import {createMailDebugLogger} from '@main/debug/debugLog.js';
 import {markdownToEmailHtml} from './markdown.js';
 import {resolveImapSecurity, resolveSmtpSecurity} from './security.js';
@@ -58,6 +58,7 @@ export interface SaveDraftPayload {
 export interface SaveDraftResult {
     ok: true;
     draftId: string;
+    draftMessageId?: number | null;
 }
 
 export async function sendEmail(payload: SendEmailPayload): Promise<SendEmailResult> {
@@ -185,20 +186,19 @@ export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDra
     const effectiveDraftId = (payload.draftSessionId || '').trim() || `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     const cc = normalizeRecipients(payload.cc);
     const bcc = normalizeRecipients(payload.bcc);
-    if (!to) {
-        return {ok: true, draftId: effectiveDraftId};
-    }
+    const normalizedInReplyTo = normalizeMessageId(payload.inReplyTo);
+    const normalizedReferences = normalizeReferences(payload.references);
     const attachments = normalizeAttachments(payload.attachments);
     const hasContent = Boolean(to || cc || bcc || subject || text || html || attachments.length > 0);
-    if (!hasContent) {
-        return {ok: true, draftId: effectiveDraftId};
-    }
-
-    const account = await getAccountSyncCredentials(payload.accountId);
     const draftMessageId =
         typeof payload.draftMessageId === 'number' && Number.isFinite(payload.draftMessageId)
             ? Math.floor(payload.draftMessageId)
             : null;
+    if (!hasContent) {
+        return {ok: true, draftId: effectiveDraftId, draftMessageId: draftMessageId ?? null};
+    }
+
+    const account = await getAccountSyncCredentials(payload.accountId);
     if (draftMessageId) {
         await deleteDraftByMessageId(payload.accountId, draftMessageId);
     }
@@ -211,8 +211,8 @@ export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDra
         subject: subject || '(No subject)',
         text: text || undefined,
         html: html || (text ? textToHtml(text) : undefined),
-        inReplyTo: normalizeMessageId(payload.inReplyTo),
-        references: normalizeReferences(payload.references),
+        inReplyTo: normalizedInReplyTo,
+        references: normalizedReferences,
         attachments: await readAttachmentBodies(attachments),
         messageId: `<draft.${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}@llamamail.local>`,
         date: new Date(),
@@ -227,20 +227,45 @@ export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDra
         logger: createMailDebugLogger('imap', `draft:${payload.accountId}`),
     });
 
-    try {
-        await client.connect();
-        const mailbox = await resolveDraftMailbox(client);
-        if (!mailbox) throw new Error('Drafts mailbox not found');
-        await client.append(mailbox, raw, ['\\Seen', '\\Draft'], message.date);
-    } finally {
+    await (async () => {
         try {
-            await client.logout();
-        } catch {
-            // ignore close errors
+            await client.connect();
+            const mailbox = await resolveDraftMailbox(client);
+            if (!mailbox) throw new Error('Drafts mailbox not found');
+            return await client.append(mailbox, raw, ['\\Seen', '\\Draft'], message.date);
+        } finally {
+            try {
+                await client.logout();
+            } catch {
+                // ignore close errors
+            }
         }
-    }
+    })();
 
-    return {ok: true, draftId: effectiveDraftId};
+    const localDraftMessageId = upsertLocalDraftSnapshot({
+        accountId: payload.accountId,
+        draftMessageId,
+        messageId: message.messageId,
+        inReplyTo: normalizedInReplyTo ?? null,
+        referencesText: normalizedReferences?.join(' ') ?? null,
+        subject: subject || '(No subject)',
+        fromAddress: account.email,
+        toAddress: to ?? null,
+        dateIso: message.date.toISOString(),
+        textContent: text || null,
+        htmlContent: html || (text ? textToHtml(text) : null),
+        attachments: attachments.map((attachment) => ({
+            filename: attachment.filename,
+            contentType: attachment.contentType,
+            size: null,
+        })),
+    });
+
+    return {
+        ok: true,
+        draftId: effectiveDraftId,
+        draftMessageId: localDraftMessageId ?? draftMessageId ?? null,
+    };
 }
 
 async function buildRawMessage(message: {

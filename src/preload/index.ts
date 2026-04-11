@@ -490,6 +490,7 @@ export interface SaveDraftPayload {
 export interface SaveDraftResult {
 	ok: true;
     draftId: string;
+    draftMessageId?: number | null;
 }
 
 export interface ComposeDraftPayload {

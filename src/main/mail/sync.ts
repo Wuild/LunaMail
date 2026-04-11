@@ -10,6 +10,7 @@ import {
     hasMessageByFolderAndUid,
     listFoldersByAccount,
     listMessageAttachments,
+    reconcileFolderMessageUids,
     replaceMessageAttachments,
     updateFolderCounts,
     upsertFolder,
@@ -106,6 +107,10 @@ export async function syncAccountMailboxWithCredentials(
                 rawSpecialUse === '\\inbox' ||
                 String(inferredType || '').toLowerCase() === 'inbox' ||
                 box.path.toLowerCase() === 'inbox';
+            const isDraftFolder =
+                rawSpecialUse === '\\drafts' ||
+                String(inferredType || '').toLowerCase() === 'drafts' ||
+                box.path.toLowerCase().includes('draft');
             const folderId = upsertFolder({
                 accountId,
                 name: box.name || box.path,
@@ -120,6 +125,11 @@ export async function syncAccountMailboxWithCredentials(
                 const total = status.messages ?? 0;
                 const unseen = status.unseen ?? 0;
                 updateFolderCounts(accountId, box.path, unseen, total);
+
+                if (isDraftFolder) {
+                    const draftUids = await client.search({}, {uid: true});
+                    reconcileFolderMessageUids(folderId, Array.isArray(draftUids) ? draftUids : []);
+                }
 
                 if (total === 0) continue;
                 const start = Math.max(1, total - 49);

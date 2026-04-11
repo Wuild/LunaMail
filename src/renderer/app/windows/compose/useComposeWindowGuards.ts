@@ -4,28 +4,35 @@ type UseComposeWindowGuardsParams = {
     isComposeDirty: boolean;
     sending: boolean;
     setOnRequestClose: (onRequestClose?: (() => boolean) | null) => void;
+    saveDraftBeforeClose: () => Promise<void>;
 };
 
 export function useComposeWindowGuards({
                                            isComposeDirty,
                                            sending,
                                            setOnRequestClose,
+                                           saveDraftBeforeClose,
                                        }: UseComposeWindowGuardsParams): void {
     const allowWindowCloseRef = useRef(false);
 
     useEffect(() => {
         setOnRequestClose(() => {
-            if (sending || !isComposeDirty) return true;
-            const confirmed = window.confirm('Discard this draft? You have unsent changes.');
-            if (confirmed) {
-                allowWindowCloseRef.current = true;
+            const confirmed = window.confirm(
+                isComposeDirty
+                    ? 'Close this composer window? Your draft will be saved before closing.'
+                    : 'Close this composer window?',
+            );
+            if (!confirmed) return false;
+            if (!sending && isComposeDirty) {
+                void saveDraftBeforeClose();
             }
-            return confirmed;
+            allowWindowCloseRef.current = true;
+            return true;
         });
         return () => {
             setOnRequestClose(undefined);
         };
-    }, [isComposeDirty, sending, setOnRequestClose]);
+    }, [isComposeDirty, saveDraftBeforeClose, sending, setOnRequestClose]);
 
     useEffect(() => {
         const onBeforeUnload = (event: BeforeUnloadEvent) => {

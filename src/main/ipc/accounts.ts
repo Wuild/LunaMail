@@ -13,7 +13,6 @@ import {
     deleteMessageLocally,
     getMessageById,
     getMessageContext,
-    getTotalUnreadCount,
     listFoldersByAccount,
     listMessagesByFolder,
     listRecentRecipients,
@@ -55,8 +54,8 @@ import {
     getAddressBooks,
     getCalendarEvents,
     getContacts,
-    removeCalendarEvent,
     removeAddressBook,
+    removeCalendarEvent,
     removeContact,
     syncDav,
 } from '@main/dav/sync.js';
@@ -241,6 +240,7 @@ export function registerAccountIpc(): void {
         sendEmail,
         saveDraftEmail,
         runSyncAndBroadcast,
+        broadcastAccountSyncStatus,
         broadcastSendEmailBackgroundStatus: (payload) => broadcastToAllWindows('send-email-background-status', payload),
     });
 

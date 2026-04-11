@@ -65,6 +65,7 @@ type MessageFolderContextMenuProps = {
     onMessageDelete: (message: MessageItem) => void;
     onSelectAccount: (accountId: number) => void;
     onSelectFolder: (path: string, accountId?: number) => void;
+    onRefreshFolder: (folder: FolderItem) => void;
     onOpenFolderSettings: (editor: FolderEditorState) => void;
     onSyncAccount: (accountId: number) => void;
     onDeleteFolder: (folder: FolderItem) => void;
@@ -96,6 +97,7 @@ export default function MessageFolderContextMenu({
                                                      onMessageDelete,
                                                      onSelectAccount,
                                                      onSelectFolder,
+                                                     onRefreshFolder,
                                                      onOpenFolderSettings,
                                                      onSyncAccount,
                                                      onDeleteFolder,
@@ -308,6 +310,14 @@ export default function MessageFolderContextMenu({
                                 type: menu.folder.type || '',
                                 color: menu.folder.color || '',
                             });
+                            onClose();
+                        }}
+                    />
+                    <ContextItem
+                        label="Refresh Folder"
+                        icon={<RefreshCw size={14}/>}
+                        onClick={() => {
+                            onRefreshFolder(menu.folder);
                             onClose();
                         }}
                     />

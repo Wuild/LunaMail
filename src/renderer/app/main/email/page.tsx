@@ -107,6 +107,7 @@ function MailPage() {
     const accountOrderRef = useRef<number[]>(accountOrder);
     const mailBodyViewportRef = useRef<HTMLDivElement | null>(null);
     const autoOpenedForSmallPreviewMessageIdRef = useRef<number | null>(null);
+    const lastOpenedDraftInMailViewRef = useRef<number | null>(null);
     const [systemLocale, setSystemLocale] = useState<string>('en-US');
     const [mailBodyViewport, setMailBodyViewport] = useState<{ width: number; height: number }>({width: 0, height: 0});
     const {
@@ -600,6 +601,29 @@ function MailPage() {
         selectedMessageIdRef.current = selectedMessageId;
     }, [selectedMessageId]);
 
+    function isDraftMessageInMailView(message: MessageItem | null | undefined): boolean {
+        if (!message) return false;
+        const folder = folders.find((item) => item.id === message.folder_id) ?? null;
+        const folderType = String(folder?.type || '').toLowerCase();
+        const folderPath = String(folder?.path || '').toLowerCase();
+        if (folderType === 'drafts' || folderPath.includes('draft')) return true;
+        return /^<draft\./i.test(String(message.message_id || ''));
+    }
+
+    function openDraftInComposerFromMailView(message: MessageItem): void {
+        if (lastOpenedDraftInMailViewRef.current === message.id) return;
+        lastOpenedDraftInMailViewRef.current = message.id;
+        setSelectedMessageId((prev) => (prev === message.id ? null : prev));
+        setSelectedMessageIds((prev) => prev.filter((id) => id !== message.id));
+        setPendingAutoReadMessageId((prev) => (prev === message.id ? null : prev));
+        selectionAnchorIndexRef.current = null;
+        void ipcClient.openMessageWindow(message.id);
+        const fallbackPath = `/email/${message.account_id}/${message.folder_id}`;
+        if (location.pathname !== fallbackPath) {
+            navigate(fallbackPath, {replace: true});
+        }
+    }
+
     useEffect(() => {
         if (!routeAccountId) return;
         if (!accounts.some((account) => account.id === routeAccountId)) return;
@@ -625,6 +649,11 @@ function MailPage() {
         }
 
         if (routeEmailId) {
+            const routedMessage = messages.find((message) => message.id === routeEmailId) ?? null;
+            if (routedMessage && isDraftMessageInMailView(routedMessage)) {
+                openDraftInComposerFromMailView(routedMessage);
+                return;
+            }
             if (selectedMessageId !== routeEmailId) {
                 setSelectedMessageId(routeEmailId);
                 setSelectedMessageIds((prev) => (prev.includes(routeEmailId) ? prev : [routeEmailId]));
@@ -634,7 +663,7 @@ function MailPage() {
             setSelectedMessageIds([]);
             selectionAnchorIndexRef.current = null;
         }
-    }, [folders, routeAccountId, routeEmailId, routeFolderId, selectedAccountId, selectedFolderPath]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [folders, messages, routeAccountId, routeEmailId, routeFolderId, selectedAccountId, selectedFolderPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!routeAccountId || !selectedAccountId) return;
@@ -767,11 +796,21 @@ function MailPage() {
         setHasMoreMessages(msgRowsRaw.length >= messageFetchLimit);
         setMessages(msgRows);
         if (preferredMessageId) {
+            const preferredMessage = msgRows.find((message) => message.id === preferredMessageId) ?? null;
+            if (preferredMessage && isDraftMessageInMailView(preferredMessage)) {
+                openDraftInComposerFromMailView(preferredMessage);
+                return;
+            }
             setSelectedMessageId(preferredMessageId);
             return;
         }
         const currentMessageId = selectedMessageIdRef.current;
         if (currentMessageId && msgRows.some((m) => m.id === currentMessageId)) {
+            const currentMessage = msgRows.find((message) => message.id === currentMessageId) ?? null;
+            if (currentMessage && isDraftMessageInMailView(currentMessage)) {
+                openDraftInComposerFromMailView(currentMessage);
+                return;
+            }
             setSelectedMessageId(currentMessageId);
         }
     }
@@ -964,6 +1003,12 @@ function MailPage() {
         if (!selectedMessageId) return;
         void ipcClient.openMessageWindow(selectedMessageId);
     }
+
+    useEffect(() => {
+        if (!selectedMessage) return;
+        if (!isDraftMessageInMailView(selectedMessage)) return;
+        openDraftInComposerFromMailView(selectedMessage);
+    }, [selectedMessage]);
 
     function onViewSource(): void {
         if (!selectedMessageId) return;
@@ -1162,10 +1207,42 @@ function MailPage() {
                     }
                 }
             }}
+            onRefreshFolder={async (folder) => {
+                const folderLabel = folder.custom_name || folder.name;
+                const isSelectedFolder =
+                    selectedAccountId === folder.account_id && selectedFolderPath === folder.path;
+                if (!isSelectedFolder) {
+                    const accountFolders = accountFoldersById[folder.account_id] ?? [];
+                    const folderId = accountFolders.find((item) => item.path === folder.path)?.id ?? null;
+                    const target = folderId
+                        ? `/email/${folder.account_id}/${folderId}`
+                        : `/email/${folder.account_id}`;
+                    if (location.pathname !== target) {
+                        navigate(target);
+                    }
+                    return;
+                }
+                setSyncStatusText(`Refreshing folder ${folderLabel}...`);
+                try {
+                    await reloadAccountData(folder.account_id, folder.path, selectedMessageIdRef.current);
+                    setSyncStatusText(`Folder refreshed: ${folderLabel}`);
+                } catch (error: unknown) {
+                    setSyncStatusText(`Folder refresh failed: ${toErrorMessage(error)}`);
+                    throw error;
+                }
+            }}
             messages={messages}
             selectedMessageId={selectedMessageId}
             selectedMessageIds={selectedMessageIds}
-            onSelectMessage={handleSelectMessage}
+            onSelectMessage={(id, index, modifiers) => {
+                const message = messages.find((entry) => entry.id === id) ?? null;
+                if (message && isDraftMessageInMailView(message)) {
+                    openDraftInComposerFromMailView(message);
+                    return true;
+                }
+                handleSelectMessage(id, index, modifiers);
+                return false;
+            }}
             searchQuery={searchQuery}
             onSearchQueryChange={setSearchQuery}
             searchResults={searchResults}

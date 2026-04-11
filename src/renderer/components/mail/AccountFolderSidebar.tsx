@@ -196,6 +196,8 @@ type AccountFolderSidebarProps = {
     onHandleMessageDropOnFolder: (folder: FolderItem, draggedIds: number[], dragAccountId: number) => void;
     onOpenFolderContextMenu: (accountId: number, folder: FolderItem, x: number, y: number) => void;
     onOpenFolderEditor: (folder: FolderItem) => void;
+    onRefreshFolder: (folder: FolderItem) => void;
+    isFolderRefreshing: (folder: FolderItem) => boolean;
     onReorderCustomFolders: (accountId: number, orderedFolderPaths: string[]) => Promise<void>;
     isProtectedFolder: (folder: FolderItem) => boolean;
     getFolderIcon: (folder: FolderItem) => React.ReactNode;
@@ -223,6 +225,8 @@ export default function AccountFolderSidebar({
                                                  onHandleMessageDropOnFolder,
                                                  onOpenFolderContextMenu,
                                                  onOpenFolderEditor,
+                                                 onRefreshFolder,
+                                                 isFolderRefreshing,
                                                  onReorderCustomFolders,
                                                  isProtectedFolder,
                                                  getFolderIcon,
@@ -584,6 +588,8 @@ export default function AccountFolderSidebar({
                                                                         selectedFolderPath === folder.path
                                                                     }
                                                                     onEditFolder={() => onOpenFolderEditor(folder)}
+                                                                    onRefreshFolder={() => onRefreshFolder(folder)}
+                                                                    refreshing={isFolderRefreshing(folder)}
                                                                     dropActive={dropActive}
                                                                     onContextMenu={(event) => {
                                                                         event.preventDefault();
@@ -636,6 +642,8 @@ export default function AccountFolderSidebar({
                                                                                         selectedFolderPath === folder.path
                                                                                     }
                                                                                     onEditFolder={() => onOpenFolderEditor(folder)}
+                                                                                    onRefreshFolder={() => onRefreshFolder(folder)}
+                                                                                    refreshing={isFolderRefreshing(folder)}
                                                                                     dropActive={dropActive}
                                                                                     onContextMenu={(event) => {
                                                                                         event.preventDefault();

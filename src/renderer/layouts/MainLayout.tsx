@@ -17,9 +17,9 @@ import {formatSystemDateTime} from '@renderer/lib/dateTime';
 import {
 	formatAccountSearchLabel,
 	formatMessageAccount,
+	formatMessageCounterparty,
 	formatMessageLocation,
 	formatMessageRecipient,
-	formatMessageSender,
 	formatMessageSize,
 	getThreadCount,
 } from '@renderer/lib/mailMessageFormat';
@@ -48,6 +48,7 @@ interface MainLayoutProps {
 	folders: FolderItem[];
 	selectedFolderPath: string | null;
 	onSelectFolder: (path: string, accountId?: number) => void;
+    onRefreshFolder: (folder: FolderItem) => Promise<void>;
 	messages: MessageItem[];
 	selectedMessageId: number | null;
 	selectedMessageIds: number[];
@@ -59,7 +60,7 @@ interface MainLayoutProps {
 			ctrlKey?: boolean;
 			metaKey?: boolean;
 		},
-	) => void;
+    ) => boolean;
 	searchQuery: string;
 	onSearchQueryChange: (query: string) => void;
 	searchResults: MessageItem[];
@@ -156,6 +157,13 @@ function isDraftFolderType(folder: FolderItem | null | undefined): boolean {
     return type === 'drafts' || path.includes('draft');
 }
 
+function isSentFolderType(folder: FolderItem | null | undefined): boolean {
+    if (!folder) return false;
+    const type = String(folder.type || '').toLowerCase();
+    const path = String(folder.path || '').toLowerCase();
+    return type === 'sent' || path.includes('sent');
+}
+
 function parseHeadersFromSource(source: string): Record<string, string> {
     const headerSection = String(source || '').split(/\r?\n\r?\n/, 1)[0] || '';
     const unfolded = headerSection.replace(/\r?\n[ \t]+/g, ' ');
@@ -190,6 +198,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 												   folders,
 												   selectedFolderPath,
 												   onSelectFolder,
+                                                   onRefreshFolder,
 												   messages,
 												   selectedMessageId,
 												   selectedMessageIds,
@@ -285,6 +294,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 	const [minSizeKbFilter, setMinSizeKbFilter] = React.useState<string>('');
 	const [maxSizeKbFilter, setMaxSizeKbFilter] = React.useState<string>('');
 	const [localSyncingAccountIds, setLocalSyncingAccountIds] = React.useState<Set<number>>(new Set());
+    const [refreshingFolderKeys, setRefreshingFolderKeys] = React.useState<Set<string>>(new Set());
 	const [folderEditor, setFolderEditor] = React.useState<{
 		folder: FolderItem;
 		customName: string;
@@ -379,6 +389,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		() => folders.filter((f) => f.path !== selectedFolderPath).slice(0, 12),
 		[folders, selectedFolderPath],
 	);
+    const selectedFolder = React.useMemo(
+        () => folders.find((folder) => folder.path === selectedFolderPath) ?? null,
+        [folders, selectedFolderPath],
+    );
+    const showRecipientsAsPrimary = isDraftFolderType(selectedFolder) || isSentFolderType(selectedFolder);
+    const tableColumnOptions = React.useMemo(
+        () =>
+            TABLE_COLUMN_OPTIONS.map((option) =>
+                option.key === 'from' ? {...option, label: showRecipientsAsPrimary ? 'To' : 'From'} : option,
+            ),
+        [showRecipientsAsPrimary],
+    );
 	const visibleTableColumns = React.useMemo(
 		() => tableColumns.filter((column) => TABLE_COLUMN_OPTIONS.some((item) => item.key === column)),
 		[tableColumns],
@@ -918,6 +940,28 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 			});
 	}
 
+    function toFolderRefreshKey(folder: FolderItem): string {
+        return `${folder.account_id}:${folder.path}`;
+    }
+
+    function refreshFolderNow(folder: FolderItem): void {
+        const key = toFolderRefreshKey(folder);
+        setRefreshingFolderKeys((prev) => {
+            if (prev.has(key)) return prev;
+            const next = new Set(prev);
+            next.add(key);
+            return next;
+        });
+        void onRefreshFolder(folder).finally(() => {
+            setRefreshingFolderKeys((prev) => {
+                if (!prev.has(key)) return prev;
+                const next = new Set(prev);
+                next.delete(key);
+                return next;
+            });
+        });
+    }
+
 	function toggleAccountExpanded(accountId: number): void {
 		setCollapsedAccountIds((prev) => {
 			const next = new Set(prev);
@@ -986,15 +1030,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		if (multiGesture) {
 			event.preventDefault();
 		}
-		onSelectMessage(message.id, messageIndex, {
+        const handled = onSelectMessage(message.id, messageIndex, {
 			shiftKey: event.shiftKey,
 			ctrlKey: event.ctrlKey,
 			metaKey: event.metaKey,
 		});
-		if (!multiGesture) {
+        if (!multiGesture && !handled) {
 			navigateToMessage(message);
 		}
 	}
+
+    function formatPrimaryCounterparty(message: MessageItem): string {
+        const messageFolders = accountFoldersById[message.account_id] ?? folders;
+        return formatMessageCounterparty(message, messageFolders);
+    }
 
 	function onTopListResizeStart(event: React.MouseEvent<HTMLDivElement>): void {
 		topListResizeRef.current = {
@@ -1044,7 +1093,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 						key={`${message.id}-from`}
 						className={cn(baseCell, 'ui-text-secondary truncate')}
 					>
-						{formatMessageSender(message)}
+                        {formatPrimaryCounterparty(message)}
 					</td>
 				);
 			case 'recipient':
@@ -1182,6 +1231,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 							});
 							setFolderEditorError(null);
 						}}
+                        onRefreshFolder={refreshFolderNow}
+                        isFolderRefreshing={(folder) => refreshingFolderKeys.has(toFolderRefreshKey(folder))}
 						onReorderCustomFolders={onReorderCustomFolders}
 						isProtectedFolder={isProtectedFolder}
 						getFolderIcon={getFolderIcon}
@@ -1212,7 +1263,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 							}}
 							onResizeStart={onMailListResizeStart}
 							getThreadCount={getThreadCount}
-							formatMessageSender={formatMessageSender}
+                            formatMessageSender={formatPrimaryCounterparty}
 							getTagDotClass={getTagDotClass}
 							getTagLabel={getTagLabel}
 						>
@@ -1229,7 +1280,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 							loadingMoreMessages={loadingMoreMessages}
 							hasMoreMessages={hasMoreMessages}
 							visibleTableColumns={visibleTableColumns}
-							tableColumnOptions={TABLE_COLUMN_OPTIONS}
+                            tableColumnOptions={tableColumnOptions}
 								effectiveTableColumnWidths={effectiveTableColumnWidths}
 								tableMinWidth={tableMinWidth}
 								mailTableResizeHandleClass={MAIL_TABLE_RESIZE_HANDLE_CLASS}
@@ -1277,7 +1328,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 			{tableHeadMenu && (
 				<TableColumnsMenu
 					ref={tableHeadMenuRef}
-					options={TABLE_COLUMN_OPTIONS}
+                    options={tableColumnOptions}
 					selectedColumns={tableColumns}
 					position={tableHeadMenuPosition}
 					ready={tableHeadMenuReady}
@@ -1338,7 +1389,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				onSelectMessage={onSelectMessage}
 				dateLocale={dateLocale}
 				formatAccountSearchLabel={formatAccountSearchLabel}
-				formatMessageSender={formatMessageSender}
+                formatMessageSender={formatPrimaryCounterparty}
 			/>
 
 			<MessageFolderContextMenu
@@ -1369,6 +1420,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				onMessageDelete={onMessageDelete}
 				onSelectAccount={onSelectAccount}
 				onSelectFolder={onSelectFolder}
+                onRefreshFolder={refreshFolderNow}
 				onOpenFolderSettings={(editor) => {
 					setFolderEditor(editor);
 					setFolderEditorError(null);

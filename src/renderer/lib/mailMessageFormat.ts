@@ -14,6 +14,27 @@ export function formatMessageRecipient(message: MessageItem): string {
     return value || 'Unknown recipient';
 }
 
+function isOutgoingFolder(folder: FolderItem | null | undefined): boolean {
+    if (!folder) return false;
+    const type = String(folder.type || '').toLowerCase();
+    const path = String(folder.path || '').toLowerCase();
+    return type === 'drafts' || type === 'sent' || path.includes('draft') || path.includes('sent');
+}
+
+function isOutgoingMessage(message: MessageItem, folders?: FolderItem[] | null): boolean {
+    if (/^<draft\./i.test(String(message.message_id || ''))) return true;
+    if (!folders || folders.length === 0) return false;
+    const folder = folders.find((item) => item.id === message.folder_id);
+    return isOutgoingFolder(folder);
+}
+
+export function formatMessageCounterparty(message: MessageItem, folders?: FolderItem[] | null): string {
+    if (isOutgoingMessage(message, folders)) {
+        return formatMessageRecipient(message);
+    }
+    return formatMessageSender(message);
+}
+
 export function formatMessageAccount(message: MessageItem, accounts: PublicAccount[]): string {
     const account = accounts.find((item) => item.id === message.account_id);
     if (!account) return `Account ${message.account_id}`;

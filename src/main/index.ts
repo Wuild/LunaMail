@@ -74,6 +74,8 @@ let pendingStartupCompose = false;
 let stopDebugForwarding: (() => void) | null = null;
 let backgroundUpdateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let initialBackgroundUpdateCheckTimer: ReturnType<typeof setTimeout> | null = null;
+let notificationOpenCooldownTimer: ReturnType<typeof setTimeout> | null = null;
+let notificationOpenInFlight = false;
 const pendingGlobalErrors: GlobalErrorEvent[] = [];
 const appIconPath = resolveWindowIconPath();
 const linuxTrayIconPath = resolveLinuxTrayIconPath();
@@ -435,7 +437,7 @@ function buildTrayIcon(unreadCount: number) {
 		composed = nativeImage.createFromDataURL(`data:image/svg+xml;base64,${fallbackEncoded}`);
 	}
 	if (composed.isEmpty() && trayBaseImage && !trayBaseImage.isEmpty()) {
-		composed = trayBaseImage;
+		composed = trayBaseImage; 
 	}
 	if (process.platform === 'win32') return composed.resize({width: 16, height: 16});
 	if (process.platform === 'linux') return composed.resize({width: 22, height: 22});
@@ -692,6 +694,16 @@ function focusMainWindowAndOpenMessage(
 		messageId: number;
 	} | null,
 ): void {
+	if (notificationOpenInFlight) return;
+	notificationOpenInFlight = true;
+	if (notificationOpenCooldownTimer) {
+		clearTimeout(notificationOpenCooldownTimer);
+	}
+	notificationOpenCooldownTimer = setTimeout(() => {
+		notificationOpenInFlight = false;
+		notificationOpenCooldownTimer = null;
+	}, 500);
+
 	showMainWindow();
 	if (!target) return;
 	if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -707,23 +719,8 @@ function focusMainWindowAndOpenMessage(
 
 	const navigateToMailThenSendTarget = () => {
 		if (!mainWindow || mainWindow.isDestroyed()) return;
-		const wc = mainWindow.webContents;
-		void wc
-			.executeJavaScript(
-				`
-            try {
-                if (!window.location.hash.startsWith('#/email')) {
-                    window.location.hash = '/email';
-                }
-            } catch {
-                // ignore route adjustment failures
-            }
-        `,
-			)
-			.catch(() => undefined)
-			.finally(() => {
-				setTimeout(sendTarget, 120);
-			});
+		navigateMainWindowToRoute('/email');
+		setTimeout(sendTarget, 120);
 	};
 
 	if (mainWindow.webContents.isLoadingMainFrame()) {

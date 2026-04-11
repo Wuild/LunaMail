@@ -1,4 +1,4 @@
-import {and, desc, eq, ne, sql} from 'drizzle-orm';
+import {and, desc, eq, inArray, ne, sql} from 'drizzle-orm';
 import {getDb, getDrizzle} from '@main/db/drizzle.js';
 import {folders, messages} from '@main/db/schema.js';
 
@@ -68,6 +68,21 @@ export interface MessageContextRow {
     folderPath: string;
     folderId: number;
     uid: number;
+}
+
+export interface UpsertLocalDraftSnapshotInput {
+    accountId: number;
+    draftMessageId?: number | null;
+    messageId?: string | null;
+    inReplyTo?: string | null;
+    referencesText?: string | null;
+    subject?: string | null;
+    fromAddress?: string | null;
+    toAddress?: string | null;
+    dateIso?: string | null;
+    textContent?: string | null;
+    htmlContent?: string | null;
+    attachments?: Array<{ filename?: string | null; contentType?: string | null; size?: number | null }>;
 }
 
 export interface SetMessageReadResult {
@@ -271,6 +286,36 @@ export function upsertMessage(input: UpsertMessageInput): void {
         input.tag ?? null,
         input.size ?? null,
     );
+}
+
+export function reconcileFolderMessageUids(folderId: number, serverUids: number[]): void {
+    const db = getDrizzle();
+    const normalizedServerUids = Array.from(
+        new Set(
+            (Array.isArray(serverUids) ? serverUids : [])
+                .map((value) => Number(value))
+                .filter((value) => Number.isFinite(value) && value > 0)
+                .map((value) => Math.floor(value)),
+        ),
+    );
+    const serverUidSet = new Set<number>(normalizedServerUids);
+    const localRows = db
+        .select({
+            id: messages.id,
+            uid: messages.uid,
+        })
+        .from(messages)
+        .where(eq(messages.folderId, folderId))
+        .all();
+    const staleMessageIds = localRows
+        .filter((row) => !serverUidSet.has(row.uid))
+        .map((row) => row.id);
+    if (staleMessageIds.length === 0) return;
+    const chunkSize = 200;
+    for (let index = 0; index < staleMessageIds.length; index += chunkSize) {
+        const chunk = staleMessageIds.slice(index, index + chunkSize);
+        db.delete(messages).where(inArray(messages.id, chunk)).run();
+    }
 }
 
 export function upsertThread(threadId: string, subject: string | null, updatedAt: string): void {
@@ -802,6 +847,115 @@ export function getMessageContext(messageId: number): MessageContextRow | null {
         )
         .get(messageId) as MessageContextRow | undefined;
     return row ?? null;
+}
+
+export function upsertLocalDraftSnapshot(input: UpsertLocalDraftSnapshotInput): number | null {
+    const db = getDb();
+    const targetDate = input.dateIso ?? new Date().toISOString();
+    const targetSubject = input.subject ?? null;
+    const targetFromAddress = input.fromAddress ?? null;
+    const targetToAddress = input.toAddress ?? null;
+    const targetMessageId = input.messageId ?? null;
+    const targetInReplyTo = input.inReplyTo ?? null;
+    const targetReferencesText = input.referencesText ?? null;
+    const attachmentRows = input.attachments ?? [];
+    const localDraftContext =
+        typeof input.draftMessageId === 'number' && Number.isFinite(input.draftMessageId)
+            ? getMessageContext(Math.floor(input.draftMessageId))
+            : null;
+    const targetFolder = localDraftContext && localDraftContext.accountId === input.accountId
+        ? {
+            id: localDraftContext.folderId,
+            path: localDraftContext.folderPath,
+        }
+        : listFoldersByAccount(input.accountId).find((folder) => {
+            const type = String(folder.type || '').toLowerCase();
+            const path = String(folder.path || '').toLowerCase();
+            return type === 'drafts' || path.includes('draft');
+        });
+    if (!targetFolder) return null;
+
+    if (localDraftContext && localDraftContext.accountId === input.accountId) {
+        db.prepare(
+            `
+                UPDATE messages
+                SET message_id = ?,
+                    in_reply_to = ?,
+                    references_text = ?,
+                    subject = ?,
+                    from_address = ?,
+                    to_address = ?,
+                    date = ?,
+                    is_read = 1
+                WHERE id = ?
+            `,
+        ).run(
+            targetMessageId,
+            targetInReplyTo,
+            targetReferencesText,
+            targetSubject,
+            targetFromAddress,
+            targetToAddress,
+            targetDate,
+            localDraftContext.messageId,
+        );
+        upsertMessageBody(
+            localDraftContext.messageId,
+            input.textContent ?? null,
+            input.htmlContent ?? null,
+        );
+        replaceMessageAttachments(localDraftContext.messageId, attachmentRows);
+        const unreadRow = db
+            .prepare('SELECT count(*) as c FROM messages WHERE folder_id = ? AND is_read = 0')
+            .get(targetFolder.id) as { c: number } | undefined;
+        const totalRow = db
+            .prepare('SELECT count(*) as c FROM messages WHERE folder_id = ?')
+            .get(targetFolder.id) as { c: number } | undefined;
+        db.prepare('UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?').run(
+            unreadRow?.c ?? 0,
+            totalRow?.c ?? 0,
+            targetFolder.id,
+        );
+        return localDraftContext.messageId;
+    }
+
+    const minUidRow = db
+        .prepare('SELECT MIN(uid) as minUid FROM messages WHERE folder_id = ?')
+        .get(targetFolder.id) as { minUid?: number | null } | undefined;
+    const minUid = Number(minUidRow?.minUid ?? 0);
+    const nextTempUid = Number.isFinite(minUid) && minUid <= 0 ? Math.floor(minUid) - 1 : -1;
+    upsertMessage({
+        accountId: input.accountId,
+        folderId: targetFolder.id,
+        uid: nextTempUid,
+        seq: 0,
+        messageId: targetMessageId,
+        inReplyTo: targetInReplyTo,
+        referencesText: targetReferencesText,
+        subject: targetSubject,
+        fromAddress: targetFromAddress,
+        toAddress: targetToAddress,
+        date: targetDate,
+        isRead: 1,
+        isFlagged: 0,
+        size: null,
+    });
+    const newMessageId = getMessageIdByFolderAndUid(targetFolder.id, nextTempUid);
+    if (!newMessageId) return null;
+    upsertMessageBody(newMessageId, input.textContent ?? null, input.htmlContent ?? null);
+    replaceMessageAttachments(newMessageId, attachmentRows);
+    const unreadRow = db
+        .prepare('SELECT count(*) as c FROM messages WHERE folder_id = ? AND is_read = 0')
+        .get(targetFolder.id) as { c: number } | undefined;
+    const totalRow = db
+        .prepare('SELECT count(*) as c FROM messages WHERE folder_id = ?')
+        .get(targetFolder.id) as { c: number } | undefined;
+    db.prepare('UPDATE folders SET unread_count = ?, total_count = ? WHERE id = ?').run(
+        unreadRow?.c ?? 0,
+        totalRow?.c ?? 0,
+        targetFolder.id,
+    );
+    return newMessageId;
 }
 
 export function setMessageRead(messageId: number, isRead: number): SetMessageReadResult {

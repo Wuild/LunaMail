@@ -2,12 +2,19 @@ import type {OpenDialogOptions} from "electron";
 import {app, BrowserWindow, dialog, ipcMain} from "electron";
 import path from "node:path";
 import {clearDebugLogs, createAppLogger, getDebugLogs} from "@main/debug/debugLog.js";
+import {getMessageBody, getMessageById, getMessageContext} from "@main/db/repositories/mailRepo.js";
 import {type ComposeDraftPayload, getComposeDraft, openComposeWindow} from "@main/windows/composeWindow.js";
 import {getMessageWindowTargetId, openMessageWindow} from "@main/windows/messageWindow.js";
 import {openDebugWindow} from "@main/windows/debugWindow.js";
 import {openRouteWindow} from "@main/windows/routeWindow.js";
 
 const logger = createAppLogger("ipc:windows");
+
+function isDraftFolderPath(value: string | null | undefined): boolean {
+    const pathValue = String(value || "").trim().toLowerCase();
+    if (!pathValue) return false;
+    return /(^|[\/._ -])drafts?($|[\/._ -])/.test(pathValue) || pathValue.includes("draft");
+}
 
 export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void }): void {
     ipcMain.handle("open-add-account-window", async (_event) => {
@@ -39,9 +46,32 @@ export function registerWindowIpc(options?: { onOpenAddAccountRoute?: () => void
         return {ok: true} as const;
     });
 
-    ipcMain.handle("open-message-window", async (_event, messageId?: number | null) => {
+    ipcMain.handle("open-message-window", async (event, messageId?: number | null) => {
         logger.info("IPC open-message-window messageId=%s", messageId ?? "");
-        openMessageWindow(messageId ?? null);
+        const normalizedMessageId =
+            typeof messageId === "number" && Number.isFinite(messageId) ? Math.floor(messageId) : null;
+        if (normalizedMessageId && normalizedMessageId > 0) {
+            const context = getMessageContext(normalizedMessageId);
+            if (context && isDraftFolderPath(context.folderPath)) {
+                const message = getMessageById(normalizedMessageId);
+                const body = getMessageBody(normalizedMessageId);
+                const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+                const composeDraft: ComposeDraftPayload = {
+                    accountId: message?.account_id ?? context.accountId,
+                    draftMessageId: normalizedMessageId,
+                    to: message?.to_address ?? null,
+                    subject: message?.subject ?? null,
+                    bodyHtml: body?.html_content ?? null,
+                    bodyText: body?.text_content ?? null,
+                    inReplyTo: message?.in_reply_to ?? null,
+                    references: message?.references_text ?? null,
+                };
+                logger.info("Redirected draft message open to compose messageId=%d", normalizedMessageId);
+                openComposeWindow(parentWindow, composeDraft);
+                return {ok: true} as const;
+            }
+        }
+        openMessageWindow(normalizedMessageId);
         return {ok: true} as const;
     });
 

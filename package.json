@@ -31,7 +31,7 @@
 		"dev:electron:prepare": "npm run resolve:build-aliases && npm run sync:preload",
 		"dev:electron": "wait-on tcp:127.0.0.1:5174 file:build/main/index.js file:build/preload/index.js && npm run dev:electron:prepare && nodemon --delay 300ms --watch build/main --watch build/preload --ext js,json --exec \"npm run dev:electron:prepare && electron .\"",
 		"dev": "concurrently -k -n TSC,VITE,ELECTRON -c yellow,blue,green \"tsc -w --preserveWatchOutput\" \"vite\" \"npm run dev:electron\"",
-		"rebuild:native": "npm rebuild better-sqlite3 --runtime=electron --target=41.1.1 --dist-url=https://electronjs.org/headers",
+		"rebuild:native": "npm rebuild better-sqlite3 --runtime=electron --target=$(node -p \"require('./node_modules/electron/package.json').version\") --dist-url=https://electronjs.org/headers",
 		"generate:icons": "node scripts/generate-icons.cjs",
 		"prebuild": "npm run generate:icons",
 		"postinstall": "npm run rebuild:native",

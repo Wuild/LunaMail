@@ -139,6 +139,7 @@ const MAIL_TABLE_COLUMNS_STORAGE_KEY = 'llamamail.mailTableColumns.v1';
 const MAIL_TABLE_COLUMN_WIDTHS_STORAGE_KEY = 'llamamail.mailTableColumnWidths.v1';
 const MAIL_TABLE_RESIZE_HANDLE_CLASS =
 	'mail-table-resize-hover absolute inset-y-0 right-[-8px] z-10 w-4 cursor-col-resize';
+const INITIAL_SEARCH_NOW_MS = Date.now();
 const SIDE_LIST_SPLIT_BREAKPOINT_PX = 1320;
 const SIDE_LIST_SIDEBAR_WINDOW_FRACTION = 0.5;
 const SIDE_LIST_MIN_SIDEBAR_WIDTH_PX = 180;
@@ -389,6 +390,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		if (typeof window === 'undefined') return 1080;
 		return window.innerHeight;
 	});
+	const [searchNowMs, setSearchNowMs] = React.useState<number>(INITIAL_SEARCH_NOW_MS);
 	const moveTargets = React.useMemo(
 		() => folders.filter((f) => f.path !== selectedFolderPath).slice(0, 12),
 		[folders, selectedFolderPath],
@@ -444,7 +446,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		const effectiveDateRangeFilter = advancedSearchOpen ? dateRangeFilter : 'all';
 		const minSizeKb = advancedSearchOpen ? Number(minSizeKbFilter) : Number.NaN;
 		const maxSizeKb = advancedSearchOpen ? Number(maxSizeKbFilter) : Number.NaN;
-		const nowMs = Date.now();
+		const nowMs = searchNowMs;
 		if (
 			!normalizedFrom &&
 			!normalizedSubject &&
@@ -509,6 +511,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		minSizeKbFilter,
 		maxSizeKbFilter,
 		advancedSearchOpen,
+		searchNowMs,
 	]);
 
 	const openMessageTarget = React.useCallback(
@@ -554,6 +557,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		},
 		[accountFoldersById, messages],
 	);
+
+	React.useEffect(() => {
+		const updateNow = () => {
+			setSearchNowMs(Date.now());
+		};
+		updateNow();
+		const timerId = window.setInterval(updateNow, 60_000);
+		return () => {
+			window.clearInterval(timerId);
+		};
+	}, []);
 
 	React.useEffect(() => {
 		if (accountFilter === 'all') return;

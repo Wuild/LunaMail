@@ -331,8 +331,20 @@ function applyTrayContextMenu(): void {
 
 function openMainWindowEntryPoint(): void {
 	showMainWindow();
+	if (!startupFlowComplete) return;
 	if (mainWindowActionsEnabled) return;
-	navigateMainWindowToRouteDirect('/onboarding');
+	void getAccounts()
+		.then((rows) => {
+			if (rows.length > 0) {
+				setMainWindowActionsEnabled(true);
+				navigateMainWindowToRouteDirect('/email', {replaceHistory: true});
+				return;
+			}
+			navigateMainWindowToRouteDirect('/onboarding', {replaceHistory: true});
+		})
+		.catch(() => {
+			navigateMainWindowToRouteDirect('/onboarding', {replaceHistory: true});
+		});
 }
 
 function openAddAccountRouteInMainWindow(): void {
@@ -1208,7 +1220,7 @@ if (!gotSingleInstanceLock) {
 
 			app.on('activate', () => {
 				if (mainWindow && !mainWindow.isDestroyed()) {
-					openMainWindowEntryPoint();
+					showMainWindow();
 					return;
 				}
 				void getAccounts().then((rows) => {

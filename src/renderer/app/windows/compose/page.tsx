@@ -52,6 +52,14 @@ const EMAIL_ADDRESS_REGEX = /^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/;
 const CONTACT_META_PREFIX = '[LUNAMAIL_CONTACT_META_V1]';
 const CLOUD_FOLDER_CACHE_PREFIX = 'llamamail.cloud.folder.cache.v1';
 const DRAFT_AUTOSAVE_INTERVAL_MS = 15000;
+
+function createDraftSessionId(): string {
+	if (typeof globalThis.crypto?.randomUUID === 'function') {
+		return `draft-${globalThis.crypto.randomUUID()}`;
+	}
+	return `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 type ComposeValidationErrors = {
 	from: string | null;
 	recipients: string | null;
@@ -138,10 +146,19 @@ function ComposeEmailPage() {
 	const lastSavedSignatureRef = useRef<string>('');
 	const isSavingDraftRef = useRef(false);
 	const queuedDraftSaveRef = useRef<{payload: SaveDraftPayload; signature: string} | null>(null);
-	const draftSessionIdRef = useRef<string>(`draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+	const draftSessionIdRef = useRef<string>('');
 	const draftMessageIdRef = useRef<number | null>(null);
+	const [draftSessionId, setDraftSessionId] = useState<string>('');
+	const [draftMessageId, setDraftMessageId] = useState<number | null>(null);
 	const autoSignatureRef = useRef<{accountId: number; html: string; text: string} | null>(null);
 	const recipientSearchSeqRef = useRef(0);
+
+	useEffect(() => {
+		if (draftSessionIdRef.current) return;
+		const nextDraftSessionId = createDraftSessionId();
+		draftSessionIdRef.current = nextDraftSessionId;
+		setDraftSessionId(nextDraftSessionId);
+	}, []);
 
 	useEffect(() => {
 		setTitle('Compose Email');
@@ -175,6 +192,12 @@ function ComposeEmailPage() {
 		[accounts, fromAccountId],
 	);
 	const showFromSelector = accounts.length !== 1;
+	const selectedAutoSignatureText = useMemo(() => {
+		if (!selectedFromAccount) return null;
+		const signatureRaw = (selectedFromAccount.signature_text || '').trim();
+		if (!signatureRaw) return null;
+		return selectedFromAccount.signature_is_html ? htmlToPlainText(signatureRaw) : signatureRaw;
+	}, [selectedFromAccount]);
 	const fromAccountOptions = useMemo<FormSelectOption[]>(() => {
 		if (accounts.length === 0) {
 			return [{value: '', label: 'No accounts', description: null, disabled: true}];
@@ -255,12 +278,17 @@ function ComposeEmailPage() {
 		(draft: ComposeDraftPayload | null | undefined) => {
 			if (!draft) {
 				draftMessageIdRef.current = null;
+				setDraftMessageId(null);
 				return;
 			}
 			if (typeof draft.draftSessionId === 'string' && draft.draftSessionId.trim()) {
-				draftSessionIdRef.current = draft.draftSessionId.trim();
+				const nextDraftSessionId = draft.draftSessionId.trim();
+				draftSessionIdRef.current = nextDraftSessionId;
+				setDraftSessionId(nextDraftSessionId);
 			}
-			draftMessageIdRef.current = typeof draft.draftMessageId === 'number' ? draft.draftMessageId : null;
+			const nextDraftMessageId = typeof draft.draftMessageId === 'number' ? draft.draftMessageId : null;
+			draftMessageIdRef.current = nextDraftMessageId;
+			setDraftMessageId(nextDraftMessageId);
 			if (typeof draft.accountId === 'number') setFromAccountId(draft.accountId);
 			if (typeof draft.to === 'string') setToList(parseRecipients(draft.to));
 			if (typeof draft.cc === 'string') {
@@ -489,8 +517,17 @@ function ComposeEmailPage() {
 		if (toList.length || ccList.length || bccList.length) return true;
 		if (subject.trim().length > 0) return true;
 		if (attachments.length > 0) return true;
-		return hasMeaningfulBodyContent(body, plainBody, autoSignatureRef.current?.text || null);
-	}, [attachments.length, bccList.length, body, ccList.length, plainBody, subject, toList.length]);
+		return hasMeaningfulBodyContent(body, plainBody, selectedAutoSignatureText);
+	}, [
+		attachments.length,
+		bccList.length,
+		body,
+		ccList.length,
+		plainBody,
+		selectedAutoSignatureText,
+		subject,
+		toList.length,
+	]);
 	const quotedPreviewSrcDoc = useMemo(() => {
 		const quotedHtml = quotedBodyHtml.trim();
 		if (!quotedHtml) return null;
@@ -506,10 +543,10 @@ function ComposeEmailPage() {
 	const mergedHtmlBody = useMemo(() => mergeComposeHtml(body, quotedBodyHtml), [body, quotedBodyHtml]);
 	const mergedPlainBody = useMemo(() => mergeComposeText(plainBody, quotedBodyText), [plainBody, quotedBodyText]);
 	const draftPayload = useMemo(() => {
-		if (!fromAccountId) return null;
+		if (!fromAccountId || !draftSessionId) return null;
 		return {
 			accountId: Number(fromAccountId),
-			draftMessageId: draftMessageIdRef.current,
+			draftMessageId,
 			to: toList.length ? joinRecipients(toList) : null,
 			cc: ccList.length ? joinRecipients(ccList) : null,
 			bcc: bccList.length ? joinRecipients(bccList) : null,
@@ -525,9 +562,11 @@ function ComposeEmailPage() {
 						contentType: attachment.contentType,
 					}))
 				: null,
-			draftSessionId: draftSessionIdRef.current,
+			draftSessionId,
 		};
 	}, [
+		draftMessageId,
+		draftSessionId,
 		fromAccountId,
 		toList,
 		ccList,
@@ -541,33 +580,39 @@ function ComposeEmailPage() {
 	]);
 
 	const flushQueuedDraftSave = useCallback(() => {
-		if (isSavingDraftRef.current) return;
-		const queued = queuedDraftSaveRef.current;
-		if (!queued) return;
-		queuedDraftSaveRef.current = null;
-		isSavingDraftRef.current = true;
-		void ipcClient
-			.saveDraft(queued.payload)
-			.then((result) => {
-				if (result?.draftId) {
-					draftSessionIdRef.current = result.draftId;
-				}
-				if (typeof result?.draftMessageId === 'number' && Number.isFinite(result.draftMessageId)) {
-					draftMessageIdRef.current = Math.floor(result.draftMessageId);
-				}
-			})
-			.catch((e: any) => {
-				if (lastSavedSignatureRef.current === queued.signature) {
-					lastSavedSignatureRef.current = '';
-				}
-				setStatus((prev) =>
-					prev?.startsWith('Sending') ? prev : `Draft save failed: ${e?.message || String(e)}`,
-				);
-			})
-			.finally(() => {
-				isSavingDraftRef.current = false;
-				flushQueuedDraftSave();
-			});
+		const flush = () => {
+			if (isSavingDraftRef.current) return;
+			const queued = queuedDraftSaveRef.current;
+			if (!queued) return;
+			queuedDraftSaveRef.current = null;
+			isSavingDraftRef.current = true;
+			void ipcClient
+				.saveDraft(queued.payload)
+				.then((result) => {
+					if (result?.draftId) {
+						draftSessionIdRef.current = result.draftId;
+						setDraftSessionId(result.draftId);
+					}
+					if (typeof result?.draftMessageId === 'number' && Number.isFinite(result.draftMessageId)) {
+						const nextDraftMessageId = Math.floor(result.draftMessageId);
+						draftMessageIdRef.current = nextDraftMessageId;
+						setDraftMessageId(nextDraftMessageId);
+					}
+				})
+				.catch((e: any) => {
+					if (lastSavedSignatureRef.current === queued.signature) {
+						lastSavedSignatureRef.current = '';
+					}
+					setStatus((prev) =>
+						prev?.startsWith('Sending') ? prev : `Draft save failed: ${e?.message || String(e)}`,
+					);
+				})
+				.finally(() => {
+					isSavingDraftRef.current = false;
+					flush();
+				});
+		};
+		flush();
 	}, []);
 
 	const saveDraftPayload = useCallback(

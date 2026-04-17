@@ -29,12 +29,14 @@ import {
 import {syncCloudDav} from '@main/cloud/davSync.js';
 import {
 	APP_NAME,
+} from '@/shared/appConfig.js';
+import {
 	ONEDRIVE_APP_ID,
 	ONEDRIVE_AUTHORITY,
 	ONEDRIVE_REDIRECT_URI,
 	ONEDRIVE_RESOURCE,
 	ONEDRIVE_SCOPES,
-} from '@main/config.js';
+} from '@/shared/cloudConfig.js';
 import {confirmFileOpen, isRiskyFileOpenTarget} from '@main/security/fileOpenRisk.js';
 
 const logger = createMailDebugLogger('cloud', 'ipc:cloud');

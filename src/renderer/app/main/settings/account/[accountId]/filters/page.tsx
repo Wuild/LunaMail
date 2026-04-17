@@ -3,6 +3,8 @@ import type {MailFilterActionType, MailFilterField, MailFilterMatchMode, MailFil
 import {Button} from '@renderer/components/ui/button';
 import {FormCheckbox, FormInput, FormSelect} from '@renderer/components/ui/FormControls';
 import {Modal} from '@renderer/components/ui/Modal';
+import {isProtectedFolder} from '@renderer/features/mail/folders';
+import {getFolderColorClass, getFolderIcon} from '@renderer/lib/mail/folderPresentation';
 import {cn} from '@renderer/lib/utils';
 import type {UseAccountSettingsRouteResult} from '../useAccountSettingsRoute';
 
@@ -24,6 +26,53 @@ export default function SettingsAccountFiltersPage() {
 	} = useOutletContext<UseAccountSettingsRouteResult>();
 
 	if (!editor) return null;
+
+	const getFolderLabel = (name: string, path: string): string => {
+		const displayName = String(name || '').trim();
+		const displayPath = String(path || '').trim();
+		if (!displayPath || displayPath.toLowerCase() === displayName.toLowerCase()) {
+			return displayName || displayPath;
+		}
+		return `${displayName || displayPath} (${displayPath})`;
+	};
+
+	const protectedFolders = accountFolders.filter((folder) => isProtectedFolder(folder));
+	const customFolders = accountFolders.filter((folder) => !isProtectedFolder(folder));
+	const toFolderOption = (folder: (typeof accountFolders)[number]) => {
+		const iconColorClass = getFolderColorClass(folder.color);
+		return {
+			value: folder.path,
+			label: getFolderLabel(folder.custom_name || folder.name || '', folder.path),
+			icon: <span className={cn('inline-flex items-center', iconColorClass)}>{getFolderIcon(folder)}</span>,
+		};
+	};
+
+	const folderOptions = [
+		{
+			value: '',
+			label: 'Choose folder...',
+		},
+		...protectedFolders.map(toFolderOption),
+		...(protectedFolders.length > 0 && customFolders.length > 0
+			? [
+					{
+						value: '__folder-divider__',
+						label: 'Custom folders',
+						disabled: true,
+					},
+				]
+			: []),
+		...customFolders.map(toFolderOption),
+		...(accountFolders.length === 0
+			? [
+					{
+						value: '__no-folders__',
+						label: 'No folders available for this account yet',
+						disabled: true,
+					},
+				]
+			: []),
+	];
 
 	return (
 		<>
@@ -195,7 +244,7 @@ export default function SettingsAccountFiltersPage() {
 						</section>
 
 						<section className="panel rounded-xl p-4">
-							<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+							<div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-end">
 								<label className="block text-sm">
 									<span className="ui-text-secondary mb-1.5 block font-medium">Match mode</span>
 									<FormSelect
@@ -391,6 +440,7 @@ export default function SettingsAccountFiltersPage() {
 										{action.type === 'move_to_folder' ? (
 											<FormSelect
 												value={action.value || ''}
+												options={folderOptions}
 												onChange={(e) =>
 													updateMailFilterDraft((prev) => ({
 														...prev,
@@ -404,14 +454,34 @@ export default function SettingsAccountFiltersPage() {
 														),
 													}))
 												}
-											>
-												<option value="">Choose folder...</option>
-												{accountFolders.map((folder) => (
-													<option key={folder.id} value={folder.path}>
-														{folder.name} ({folder.path})
-													</option>
-												))}
-											</FormSelect>
+												renderSelectedOption={(option) =>
+													option ? (
+														<span className="flex min-w-0 items-center gap-2">
+															{option.icon ? <span className="shrink-0">{option.icon}</span> : null}
+															<span className="truncate">{option.label}</span>
+														</span>
+													) : (
+														<span className="truncate">Choose folder...</span>
+													)
+												}
+												renderOption={(option) => {
+													if (option.value === '__folder-divider__') {
+														return (
+															<div className="ui-text-muted flex items-center gap-2 px-1 text-[11px] uppercase tracking-wide">
+																<span className="ui-border-default h-px flex-1 border-t" />
+																<span>{option.label}</span>
+																<span className="ui-border-default h-px flex-1 border-t" />
+															</div>
+														);
+													}
+													return (
+														<div className="flex min-w-0 items-center gap-2">
+															{option.icon ? <span className="shrink-0">{option.icon}</span> : null}
+															<span className="min-w-0 flex-1 truncate">{option.label}</span>
+														</div>
+													);
+												}}
+											/>
 										) : (
 											<FormInput
 												type="text"

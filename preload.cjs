@@ -1,6 +1,8 @@
 const {contextBridge, ipcRenderer, webUtils} = require('electron');
 const api = {
     getAccounts: () => ipcRenderer.invoke('get-accounts'),
+    getProviderDriverCatalog: () => ipcRenderer.invoke('get-provider-driver-catalog'),
+    getAccountProviderCapabilities: (accountId) => ipcRenderer.invoke('get-account-provider-capabilities', accountId),
     addAccount: (account) => ipcRenderer.invoke('add-account', account),
     updateAccount: (accountId, payload) => ipcRenderer.invoke('update-account', accountId, payload),
     deleteAccount: (accountId) => ipcRenderer.invoke('delete-account', accountId),
@@ -22,6 +24,7 @@ const api = {
     discoverMailSettings: (email) => ipcRenderer.invoke('discover-mail-settings', email),
     verifyCredentials: (payload) => ipcRenderer.invoke('verify-credentials', payload),
     startMailOAuth: (payload) => ipcRenderer.invoke('start-mail-oauth', payload),
+    cancelMailOAuth: () => ipcRenderer.invoke('cancel-mail-oauth'),
     syncAccount: (accountId) => ipcRenderer.invoke('sync-account', accountId),
     getFolders: (accountId) => ipcRenderer.invoke('get-folders', accountId),
     createFolder: (accountId, folderPath) => ipcRenderer.invoke('create-folder', accountId, folderPath),
@@ -30,7 +33,7 @@ const api = {
     reorderCustomFolders: (accountId, orderedFolderPaths) => ipcRenderer.invoke('reorder-custom-folders', accountId, orderedFolderPaths),
     discoverDav: (accountId) => ipcRenderer.invoke('discover-dav', accountId),
     discoverDavPreview: (payload) => ipcRenderer.invoke('discover-dav-preview', payload),
-    syncDav: (accountId) => ipcRenderer.invoke('sync-dav', accountId),
+    syncDav: (accountId, options) => ipcRenderer.invoke('sync-dav', accountId, options ?? null),
     getContacts: (accountId, query, limit, addressBookId) => ipcRenderer.invoke('get-contacts', accountId, query ?? null, limit, addressBookId ?? null),
     getRecentRecipients: (accountId, query, limit) => ipcRenderer.invoke('get-recent-recipients', accountId, query ?? null, limit),
     getAddressBooks: (accountId) => ipcRenderer.invoke('get-address-books', accountId),
@@ -154,6 +157,11 @@ const api = {
         const listener = (_event, payload) => callback(payload);
         ipcRenderer.on('app-settings-updated', listener);
         return () => ipcRenderer.removeListener('app-settings-updated', listener);
+    },
+    onNativeThemeUpdated: (callback) => {
+        const listener = (_event, payload) => callback(payload);
+        ipcRenderer.on('native-theme-updated', listener);
+        return () => ipcRenderer.removeListener('native-theme-updated', listener);
     },
     onOpenMessageTarget: (callback) => {
         const listener = (_event, payload) => callback(payload);

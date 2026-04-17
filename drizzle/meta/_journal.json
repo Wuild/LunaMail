@@ -13,6 +13,12 @@
       "tag": "0001_account_auth_mode",
       "when": 1775923200000,
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "tag": "0002_account_sync_modules",
+      "when": 1776362400000,
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {BookPlus, Download, Pencil, Plus, RefreshCw, Settings, Trash2, X} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
 import type {AddressBookItem, ContactItem, PublicAccount, SyncStatusEvent} from '@/preload';
@@ -8,14 +8,15 @@ import {
 	getAccountMonogram,
 } from '@renderer/lib/accountAvatar';
 import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
+import {useAccount, useAccountDirectory} from '@renderer/hooks/ipc/useAccounts';
 import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {Button} from '@renderer/components/ui/button';
 import {FormInput, FormSelect, FormTextarea} from '@renderer/components/ui/FormControls';
 import {Modal, ModalHeader, ModalTitle} from '@renderer/components/ui/Modal';
 import {
-	statusAutoSyncFailed,
 	statusNoAccountSelected,
+	statusSyncPartial,
 	statusSyncCompleteDav,
 	statusSyncCompleteMessages,
 	statusSyncFailed,
@@ -73,16 +74,27 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
 	const [syncStatusText, setSyncStatusText] = useState<string>('Contacts ready');
 	const [contactError, setContactError] = useState<string | null>(null);
 	const {sidebarWidth, onResizeStart} = useResizableSidebar();
+	const selectedAccount = useAccount(accountId);
+	const accountDirectory = useAccountDirectory();
+	const accountDirectoryRef = useRef(accountDirectory);
+
+	useEffect(() => {
+		accountDirectoryRef.current = accountDirectory;
+	}, [accountDirectory]);
 
 	const loadContacts = React.useCallback(async (targetAccountId: number, q: string, bookId: number | null) => {
 		const trimmedQuery = q.trim();
-		const rows = await ipcClient.getContacts(targetAccountId, trimmedQuery || null, 600, bookId ?? null);
+		const rows = await accountDirectoryRef.current
+			.getAccount(targetAccountId)
+			.contacts.refresh(trimmedQuery || null, 600, bookId ?? null);
 		if (!trimmedQuery || rows.length > 0) {
 			setContacts(rows);
 			return;
 		}
 		// Fallback for any backend search regression: filter locally from the same book/account scope.
-		const unfilteredRows = await ipcClient.getContacts(targetAccountId, null, 600, bookId ?? null);
+		const unfilteredRows = await accountDirectoryRef.current
+			.getAccount(targetAccountId)
+			.contacts.refresh(null, 600, bookId ?? null);
 		const needle = trimmedQuery.toLowerCase();
 		setContacts(unfilteredRows.filter((contact) => contactMatchesQuery(contact, needle)));
 	}, []);
@@ -102,21 +114,23 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
 			setLoading(false);
 			return;
 		}
-		setSyncStatusText('Contacts ready');
 		let active = true;
 		const load = async () => {
+			setSyncStatusText('Contacts ready');
 			setLoading(true);
 			setContactError(null);
 			try {
-				const books = await ipcClient.getAddressBooks(accountId);
+				const targetAccount = accountDirectoryRef.current.getAccount(accountId);
+				const books = await targetAccount.contacts.refreshAddressBooks();
 				if (!active) return;
 				setAddressBooks(books);
 				const effectiveBookId =
 					selectedBookId && books.some((book) => book.id === selectedBookId) ? selectedBookId : null;
 				setSelectedBookId(effectiveBookId);
-				const rows = await ipcClient.getContacts(accountId, query.trim() || null, 600, effectiveBookId);
+				const rows = await targetAccount.contacts.refresh(query.trim() || null, 600, effectiveBookId);
 				if (!active) return;
 				setContacts(rows);
+				setSyncStatusText('Contacts ready');
 			} finally {
 				if (active) setLoading(false);
 			}
@@ -131,57 +145,42 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
 		if (!accountId || evt.accountId !== accountId) return;
 		if (evt.status === 'syncing') {
 			setSyncing(true);
+			setSyncingAccountId(evt.accountId);
 			setSyncStatusText(statusSyncing());
 			return;
 		}
 		if (evt.status === 'error') {
 			setSyncing(false);
-			setSyncStatusText(statusSyncFailed(evt.error));
+			setSyncingAccountId(null);
+			setSyncStatusText(statusSyncFailed(evt.syncError?.message ?? evt.error));
 			return;
 		}
 		setSyncing(false);
+		setSyncingAccountId(null);
 		const davSummary = evt.summary?.dav;
+		if (evt.summary?.partialSuccess) {
+			setSyncStatusText(statusSyncPartial(evt.summary?.messages ?? 0, evt.summary?.failedModules));
+			return;
+		}
 		if (davSummary) {
 			setSyncStatusText(statusSyncCompleteDav(davSummary.contacts.upserted, davSummary.events.upserted));
+			void (async () => {
+				try {
+					const targetAccount = accountDirectoryRef.current.getAccount(accountId);
+					const books = await targetAccount.contacts.refreshAddressBooks();
+					setAddressBooks(books);
+					const effectiveBookId =
+						selectedBookId && books.some((book) => book.id === selectedBookId) ? selectedBookId : null;
+					setSelectedBookId(effectiveBookId);
+					await loadContacts(accountId, query, effectiveBookId);
+				} catch {
+					// ignore background refresh errors; sync status already carries failures
+				}
+			})();
 			return;
 		}
 		setSyncStatusText(statusSyncCompleteMessages(evt.summary?.messages ?? 0));
 	});
-
-	useEffect(() => {
-		if (!accountId) return;
-		let active = true;
-		setSyncing(true);
-		setSyncingAccountId(accountId);
-		setSyncStatusText(statusSyncing());
-		setContactError(null);
-		void ipcClient
-			.syncDav(accountId)
-			.then(async () => {
-				if (!active) return;
-				const books = await ipcClient.getAddressBooks(accountId);
-				if (!active) return;
-				setAddressBooks(books);
-				const effectiveBookId =
-					selectedBookId && books.some((book) => book.id === selectedBookId) ? selectedBookId : null;
-				setSelectedBookId(effectiveBookId);
-				await loadContacts(accountId, query, effectiveBookId);
-				if (!active) return;
-				setSyncing(false);
-				setSyncingAccountId(null);
-				setSyncStatusText('Contacts synced');
-			})
-			.catch((error: any) => {
-				if (!active) return;
-				setSyncing(false);
-				setSyncingAccountId(null);
-				setContactError(toErrorMessage(error));
-				setSyncStatusText(statusAutoSyncFailed(error));
-			});
-		return () => {
-			active = false;
-		};
-	}, [accountId]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	async function onAddContact() {
 		if (!accountId) return;
@@ -191,7 +190,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
 		if (!email) return;
 		setContactError(null);
 		try {
-			await ipcClient.addContact(accountId, {
+			await selectedAccount.contacts.add({
 				addressBookId: selectedBookId,
 				fullName: newContactName.trim() || null,
 				email,
@@ -221,7 +220,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
 		if (!confirmed) return;
 		setContactError(null);
 		try {
-			await ipcClient.deleteContact(contactId);
+			await selectedAccount.contacts.remove(contactId);
 			await loadContacts(accountId, query, selectedBookId);
 		} catch (error: any) {
 			setContactError(toErrorMessage(error));
@@ -250,7 +249,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
 		setSavingEditContact(true);
 		setContactError(null);
 		try {
-			await ipcClient.updateContact(editingContact.id, {
+			await selectedAccount.contacts.update(editingContact.id, {
 				addressBookId: editContactBookId,
 				fullName: editContactName.trim() || null,
 				email,
@@ -275,8 +274,8 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
 		setAddingAddressBook(true);
 		setContactError(null);
 		try {
-			const added = await ipcClient.addAddressBook(accountId, name);
-			const books = await ipcClient.getAddressBooks(accountId);
+			const added = await selectedAccount.contacts.addAddressBook(name);
+			const books = await selectedAccount.contacts.refreshAddressBooks();
 			setAddressBooks(books);
 			setSelectedBookId(added.id);
 			setShowAddAddressBookModal(false);
@@ -295,7 +294,7 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
 		setExportingContacts(true);
 		setContactError(null);
 		try {
-			const result = await ipcClient.exportContacts(accountId, {
+			const result = await selectedAccount.contacts.export({
 				format: exportFormat,
 				addressBookId: exportBookMode === 'selected' ? selectedBookId : null,
 			});
@@ -324,8 +323,8 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
 		if (!shouldDelete) return;
 		setContactError(null);
 		try {
-			await ipcClient.deleteAddressBook(accountId, selectedBookId);
-			const books = await ipcClient.getAddressBooks(accountId);
+			await selectedAccount.contacts.deleteAddressBook(selectedBookId);
+			const books = await selectedAccount.contacts.refreshAddressBooks();
 			setAddressBooks(books);
 			const nextBookId = null;
 			setSelectedBookId(nextBookId);
@@ -343,9 +342,10 @@ export default function ContactsPage({accountId, accounts, onSelectAccount}: Con
 		setSyncingAccountId(effectiveAccountId);
 		setSyncStatusText(statusSyncing());
 		try {
-			await ipcClient.syncAccount(effectiveAccountId);
+			const targetAccount = accountDirectoryRef.current.getAccount(effectiveAccountId);
+			await targetAccount.contacts.sync();
 			if (accountId === effectiveAccountId) {
-				const books = await ipcClient.getAddressBooks(effectiveAccountId);
+				const books = await targetAccount.contacts.refreshAddressBooks();
 				setAddressBooks(books);
 				const effectiveBookId =
 					selectedBookId && books.some((book) => book.id === selectedBookId) ? selectedBookId : null;

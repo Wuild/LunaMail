@@ -12,16 +12,9 @@ import type {GlobalErrorEvent} from '@/shared/ipcTypes';
 import type {SendEmailBackgroundStatusEvent, SyncStatusEvent} from '@/preload';
 import {ContextMenu, ContextMenuItem} from './components/ui/ContextMenu';
 import MainWindowRoutes from './app/MainWindowRoutes';
+import {MainWindowIpcBridge} from './app/MainWindowIpcBridge';
 import {useApp} from '@renderer/app/AppContext';
-
-type SystemFailureToast = {
-	id: string;
-	title: string;
-	message: string;
-	key: string;
-	timestampMs: number;
-	accountId?: number;
-};
+import {useRuntimeStore} from '@renderer/store/runtimeStore';
 
 type MainNavContextItemId = 'email' | 'contacts' | 'calendar' | 'cloud' | 'settings' | 'debug' | 'help';
 type MainNavContextMenuState = {
@@ -51,7 +44,11 @@ function MainWindowShell() {
 	const [globalErrors, setGlobalErrors] = useState<GlobalErrorEvent[]>([]);
 	const [restartBusy, setRestartBusy] = useState(false);
 	const [sendStatus, setSendStatus] = useState<SendEmailBackgroundStatusEvent | null>(null);
-	const [systemFailureToasts, setSystemFailureToasts] = useState<SystemFailureToast[]>([]);
+	const systemFailureToasts = useRuntimeStore((state) => state.syncNotices);
+	const applySyncEvent = useRuntimeStore((state) => state.applySyncEvent);
+	const pushSyncNotice = useRuntimeStore((state) => state.pushSyncNotice);
+	const dismissSyncNotice = useRuntimeStore((state) => state.dismissSyncNotice);
+	const clearSyncNotices = useRuntimeStore((state) => state.clearSyncNotices);
 	const [mainNavContextMenu, setMainNavContextMenu] = useState<MainNavContextMenuState | null>(null);
 	const mainNavContextMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -66,42 +63,57 @@ function MainWindowShell() {
 		setGlobalErrors((prev) => prev.filter((item) => item.id !== id));
 	};
 
-	const pushSystemFailureToast = (notice: {title: string; message: string; key: string; accountId?: number}) => {
-		const now = Date.now();
-		setSystemFailureToasts((prev) => {
-			const duplicate = prev.some((item) => item.key === notice.key && now - item.timestampMs < 5000);
-			if (duplicate) return prev;
-			const next: SystemFailureToast = {
-				id: `${now}-${Math.random().toString(36).slice(2, 8)}`,
-				title: notice.title,
-				message: notice.message,
-				key: notice.key,
-				timestampMs: now,
-			};
-			return [next, ...prev].slice(0, 4);
-		});
-	};
-
-	const dismissSystemFailureToast = (id: string) => {
-		setSystemFailureToasts((prev) => prev.filter((item) => item.id !== id));
-	};
-
 	useIpcEvent(ipcClient.onGlobalError, pushGlobalError);
 	useIpcEvent(ipcClient.onSendEmailBackgroundStatus, (payload) => {
 		if (!showSendNotifications) return;
 		setSendStatus(payload);
 	});
 	useIpcEvent(ipcClient.onAccountSyncStatus, (payload: SyncStatusEvent) => {
+		applySyncEvent(payload);
 		if (!showSystemFailureNotifications) return;
+		if (payload.status === 'done' && payload.summary?.partialSuccess) {
+			const accountName =
+				accounts.find((item) => item.id === payload.accountId)?.display_name?.trim() ||
+				accounts.find((item) => item.id === payload.accountId)?.email ||
+				`Account ${payload.accountId}`;
+			const failedModules = payload.summary.failedModules ?? [];
+			const moduleStatus = payload.summary.moduleStatus;
+			const details = failedModules
+				.map((module) => {
+					const reason = moduleStatus?.[module]?.reason?.trim();
+					return reason ? `${module}: ${reason}` : module;
+				})
+				.join('; ');
+			const message = details
+				? `${accountName}: Sync partially completed. ${details}`
+				: `${accountName}: Sync partially completed.`;
+			pushSyncNotice({
+				title: 'Sync partially completed',
+				message,
+				key: `partial:${payload.accountId}:${failedModules.join(',')}:${details}`,
+			});
+			return;
+		}
 		if (payload.status !== 'error') return;
 		const accountName =
 			accounts.find((item) => item.id === payload.accountId)?.display_name?.trim() ||
 			accounts.find((item) => item.id === payload.accountId)?.email ||
 			`Account ${payload.accountId}`;
-		const errorText = String(payload.error || 'Unknown sync error').trim();
-		const isAuthFailure = /(authentication|auth|password|credential|login|invalid credentials)/i.test(errorText);
-		pushSystemFailureToast({
-			title: isAuthFailure ? 'Authentication failed' : 'Sync failed',
+		const errorText = String(payload.syncError?.message || payload.error || 'Unknown sync error').trim();
+		const category = payload.syncError?.category;
+		const isAuthFailure =
+			category === 'auth' ||
+			category === 'renewal' ||
+			/(authentication|auth|password|credential|login|invalid credentials)/i.test(errorText);
+		const title = isAuthFailure
+			? 'Authentication failed'
+			: category === 'rate_limit'
+				? 'Rate limited'
+				: category === 'timeout'
+					? 'Sync timeout'
+					: 'Sync failed';
+		pushSyncNotice({
+			title,
 			message: `${accountName}: ${errorText}`,
 			key: `${isAuthFailure ? 'auth' : 'sync'}:${payload.accountId}:${errorText}`,
 			accountId: isAuthFailure ? payload.accountId : undefined,
@@ -116,9 +128,9 @@ function MainWindowShell() {
 
 	useEffect(() => {
 		if (!showSystemFailureNotifications && systemFailureToasts.length > 0) {
-			setSystemFailureToasts([]);
+			clearSyncNotices();
 		}
-	}, [showSystemFailureNotifications, systemFailureToasts.length]);
+	}, [clearSyncNotices, showSystemFailureNotifications, systemFailureToasts.length]);
 
 	useEffect(() => {
 		if (!mainNavContextMenu) return;
@@ -154,13 +166,13 @@ function MainWindowShell() {
 		if (systemFailureToasts.length === 0) return;
 		const timers = systemFailureToasts.map((item) =>
 			window.setTimeout(() => {
-				dismissSystemFailureToast(item.id);
+				dismissSyncNotice(item.id);
 			}, 6500),
 		);
 		return () => {
 			for (const timer of timers) window.clearTimeout(timer);
 		};
-	}, [systemFailureToasts]);
+	}, [dismissSyncNotice, systemFailureToasts]);
 
 	useEffect(() => {
 		const timers: number[] = [];
@@ -205,7 +217,7 @@ function MainWindowShell() {
 		};
 		window.addEventListener('llamamail:preview-send-notification', onPreview);
 		const onPreviewSyncFailure = () => {
-			pushSystemFailureToast({
+			pushSyncNotice({
 				title: 'Sync failed',
 				message: 'Demo Account: Mailbox sync failed (timeout while fetching folder state).',
 				key: `preview-sync-failure-${Date.now()}`,
@@ -213,7 +225,7 @@ function MainWindowShell() {
 		};
 		const onPreviewAuthFailure = () => {
 			const accountId = accounts[0]?.id ?? 1;
-			pushSystemFailureToast({
+			pushSyncNotice({
 				title: 'Authentication failed',
 				message: 'Demo Account: Invalid credentials. Password or authentication may have changed.',
 				key: `preview-auth-failure-${Date.now()}`,
@@ -228,7 +240,7 @@ function MainWindowShell() {
 			window.removeEventListener('llamamail:preview-auth-failure', onPreviewAuthFailure);
 			for (const timer of timers) window.clearTimeout(timer);
 		};
-	}, [accounts]);
+	}, [accounts, pushSyncNotice]);
 
 	useEffect(() => {
 		const onWindowError = (event: ErrorEvent) => {
@@ -307,6 +319,7 @@ function MainWindowShell() {
 
 	return (
 		<div className="flex h-full min-h-0 flex-col overflow-hidden">
+			<MainWindowIpcBridge />
 			{showUpdateBanner && (
 				<div className="notice-warning shrink-0 border-b px-3 py-2">
 					<div className="mx-auto flex w-full max-w-350 items-center justify-between gap-3">
@@ -441,7 +454,7 @@ function MainWindowShell() {
 										className="menu-item inline-flex h-6 w-6 items-center justify-center rounded"
 										onClick={(event) => {
 											event.stopPropagation();
-											dismissSystemFailureToast(toast.id);
+											dismissSyncNotice(toast.id);
 										}}
 										aria-label="Dismiss sync error notification"
 									>

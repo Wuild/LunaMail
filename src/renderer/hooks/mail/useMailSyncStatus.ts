@@ -1,4 +1,5 @@
-import {useCallback, useState} from 'react';
+import {useMemo} from 'react';
+import {useRuntimeStore} from '@renderer/store/runtimeStore';
 
 type UseMailSyncStatusResult = {
 	syncStatusText: string | null;
@@ -10,42 +11,13 @@ type UseMailSyncStatusResult = {
 };
 
 export function useMailSyncStatus(): UseMailSyncStatusResult {
-	const [syncStatusText, setSyncStatusText] = useState<string | null>(null);
-	const [syncingAccountIds, setSyncingAccountIds] = useState<Set<number>>(new Set());
-
-	const markAccountSyncing = useCallback((accountId: number): void => {
-		setSyncingAccountIds((prev) => {
-			if (prev.has(accountId)) return prev;
-			const next = new Set(prev);
-			next.add(accountId);
-			return next;
-		});
-	}, []);
-
-	const clearAccountSyncing = useCallback((accountId: number): void => {
-		setSyncingAccountIds((prev) => {
-			if (!prev.has(accountId)) return prev;
-			const next = new Set(prev);
-			next.delete(accountId);
-			return next;
-		});
-	}, []);
-
-	const pruneSyncingAccounts = useCallback((validAccountIds: number[]): void => {
-		const valid = new Set(validAccountIds);
-		setSyncingAccountIds((prev) => {
-			let changed = false;
-			const next = new Set<number>();
-			prev.forEach((accountId) => {
-				if (valid.has(accountId)) {
-					next.add(accountId);
-					return;
-				}
-				changed = true;
-			});
-			return changed ? next : prev;
-		});
-	}, []);
+	const syncStatusText = useRuntimeStore((state) => state.mailSyncStatusText);
+	const setSyncStatusText = useRuntimeStore((state) => state.setMailSyncStatusText);
+	const syncingAccountIdList = useRuntimeStore((state) => state.syncingAccountIds);
+	const markAccountSyncing = useRuntimeStore((state) => state.markAccountSyncing);
+	const clearAccountSyncing = useRuntimeStore((state) => state.clearAccountSyncing);
+	const pruneSyncingAccounts = useRuntimeStore((state) => state.pruneSyncingAccounts);
+	const syncingAccountIds = useMemo(() => new Set(syncingAccountIdList), [syncingAccountIdList]);
 
 	return {
 		syncStatusText,

@@ -25,9 +25,20 @@ import ContactsPage from './main/contacts/page';
 import OnboardingPage from './onboarding/page';
 import OnboardingLayout from './onboarding/layout';
 import type {MainWindowRouteContext} from './mainWindowRouteContext';
+import {isAccountCalendarModuleEnabled, isAccountContactsModuleEnabled} from '@/shared/accountModules';
 
 export function buildMainWindowRouteObjects(context: MainWindowRouteContext, showDebugNavItem: boolean): RouteObject[] {
 	const hasAccounts = context.accounts.length > 0;
+	const contactsAccounts = context.accounts.filter((account) => isAccountContactsModuleEnabled(account));
+	const calendarAccounts = context.accounts.filter((account) => isAccountCalendarModuleEnabled(account));
+	const contactsAccountId =
+		context.accountId && contactsAccounts.some((account) => account.id === context.accountId)
+			? context.accountId
+			: (contactsAccounts[0]?.id ?? null);
+	const calendarAccountId =
+		context.accountId && calendarAccounts.some((account) => account.id === context.accountId)
+			? context.accountId
+			: (calendarAccounts[0]?.id ?? null);
 	if (!hasAccounts) {
 		return [
 			{
@@ -74,8 +85,8 @@ export function buildMainWindowRouteObjects(context: MainWindowRouteContext, sho
 					path: '/contacts',
 					element: (
 						<ContactsPage
-							accountId={context.accountId}
-							accounts={context.accounts}
+							accountId={contactsAccountId}
+							accounts={contactsAccounts}
 							onSelectAccount={context.onSelectAccount}
 						/>
 					),
@@ -84,8 +95,8 @@ export function buildMainWindowRouteObjects(context: MainWindowRouteContext, sho
 					path: '/calendar',
 					element: (
 						<CalendarPage
-							accountId={context.accountId}
-							accounts={context.accounts}
+							accountId={calendarAccountId}
+							accounts={calendarAccounts}
 							onSelectAccount={context.onSelectAccount}
 						/>
 					),

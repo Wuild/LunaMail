@@ -1,10 +1,15 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Check, Mail, Sparkles} from 'lucide-react';
-import type {AuthCapabilities, DavDiscoveryResult, DiscoverResult, OAuthSession} from '@/preload';
-import {MAIL_PROVIDER_FLAGS, type MailProviderChoice} from '@/shared/mailProviderConfig';
+import type {
+	AuthCapabilities,
+	DavDiscoveryResult,
+	DiscoverResult,
+	OAuthSession,
+	ProviderDriverCatalogItem,
+} from '@/preload';
 import ServiceSettingsCard, {type ServiceSecurityMode} from '@renderer/components/settings/ServiceSettingsCard';
 import {Button} from '@renderer/components/ui/button';
-import {FormInput} from '@renderer/components/ui/FormControls';
+import {FormCheckbox, FormInput} from '@renderer/components/ui/FormControls';
 import {useAppTheme} from '@renderer/hooks/useAppTheme';
 import {isEditableTarget} from '@renderer/lib/dom';
 import {ipcClient} from '@renderer/lib/ipcClient';
@@ -14,7 +19,7 @@ type Service = {host: string; port: number; security: ServiceSecurityMode};
 type WizardStep = 1 | 2 | 3 | 4;
 type VerifyType = 'imap' | 'smtp';
 type SelectedAuthMethod = 'password' | 'app_password' | 'oauth2';
-type ProviderChoice = MailProviderChoice;
+type ProviderChoice = string;
 
 type VerifyResult = {
 	ok: boolean;
@@ -23,7 +28,7 @@ type VerifyResult = {
 
 const stepMeta: Record<WizardStep, {title: string; subtitle: string}> = {
 	1: {title: 'Provider', subtitle: 'Choose account type'},
-	2: {title: 'Credentials', subtitle: 'Email and automatic authentication'},
+	2: {title: 'Sign In', subtitle: 'Authenticate and load account details'},
 	3: {title: 'Manual Setup', subtitle: 'Server settings'},
 	4: {title: 'Confirm', subtitle: 'Review and add'},
 };
@@ -36,12 +41,13 @@ type SettingsAddAccountProps = {
 };
 
 const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
-	embedded = false,
-	hasAccounts = false,
-	onCompleted,
-	onCancel,
-}) => {
+																   embedded = false,
+																   hasAccounts = false,
+																   onCompleted,
+																   onCancel,
+															   }) => {
 	useAppTheme();
+
 	const [step, setStep] = useState<WizardStep>(1);
 	const [providerChoice, setProviderChoice] = useState<ProviderChoice | null>(null);
 	const [email, setEmail] = useState('');
@@ -57,20 +63,96 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 	const [authCapabilities, setAuthCapabilities] = useState<AuthCapabilities | null>(null);
 	const [oauthSession, setOauthSession] = useState<OAuthSession | null>(null);
 	const [selectedAuthMethod, setSelectedAuthMethod] = useState<SelectedAuthMethod>('password');
+	const [syncEmails, setSyncEmails] = useState(1);
+	const [syncContacts, setSyncContacts] = useState(1);
+	const [syncCalendar, setSyncCalendar] = useState(1);
 	const [davDiscovery, setDavDiscovery] = useState<DavDiscoveryResult | null>(null);
 	const [usedManualSetup, setUsedManualSetup] = useState(false);
-	const isOAuthProvider = providerChoice === 'google' || providerChoice === 'microsoft';
-	const needsOAuthEmailFallback = isOAuthProvider && !!oauthSession && !oauthSession.email?.trim();
-	const isGoogleProviderEnabled = MAIL_PROVIDER_FLAGS.google;
-	const isMicrosoftProviderEnabled = MAIL_PROVIDER_FLAGS.microsoft;
+	const [providerDriverCatalog, setProviderDriverCatalog] = useState<ProviderDriverCatalogItem[]>([]);
+	const oauthAttemptRef = useRef(0);
+
+	const isOAuthProvider = Boolean(providerChoice && providerChoice !== 'custom');
 
 	const canGoProviderNext = useMemo(() => providerChoice !== null, [providerChoice]);
-	const canGoCredentialsNext = useMemo(() => (isOAuthProvider ? true : !!email.trim()), [email, isOAuthProvider]);
+	const canGoCredentialsNext = useMemo(() => {
+		if (isOAuthProvider) return true;
+		return !!email.trim();
+	}, [email, isOAuthProvider]);
 	const canVerifyManual = useMemo(() => !!imap?.host && !!imap.port && !!smtp?.host && !!smtp.port, [imap, smtp]);
+	const providerCatalogByKey = useMemo(
+		() => new Map(providerDriverCatalog.map((item) => [item.key, item] as const)),
+		[providerDriverCatalog],
+	);
+	const enabledProviderDrivers = useMemo(
+		() => providerDriverCatalog.filter((item) => item.enabled),
+		[providerDriverCatalog],
+	);
+	const providerCards = useMemo(() => {
+		const ordered = [...enabledProviderDrivers].sort((left, right) => {
+			if (left.key === 'custom') return -1;
+			if (right.key === 'custom') return 1;
+			return left.label.localeCompare(right.label);
+		});
+		return ordered.map((item) => ({
+			key: item.key,
+			title: item.label,
+			description: describeProviderDriver(item),
+			icon: getProviderIcon(item),
+			driver: item,
+		}));
+	}, [enabledProviderDrivers]);
+	const selectedProviderDriver = useMemo(() => {
+		if (!providerChoice) return null;
+		return providerCatalogByKey.get(providerChoice) ?? null;
+	}, [providerCatalogByKey, providerChoice]);
+	const selectedProviderCapabilities = useMemo(
+		() =>
+			selectedProviderDriver?.capabilities ?? {
+				emails: true,
+				contacts: true,
+				calendar: true,
+				files: false,
+			},
+		[selectedProviderDriver],
+	);
+	const canSaveModules = useMemo(
+		() => syncEmails > 0 || syncContacts > 0 || syncCalendar > 0,
+		[syncCalendar, syncContacts, syncEmails],
+	);
+
+	useEffect(() => {
+		let active = true;
+		void ipcClient
+			.getProviderDriverCatalog()
+			.then((rows) => {
+				if (!active) return;
+				setProviderDriverCatalog(Array.isArray(rows) ? rows : []);
+			})
+			.catch(() => {
+				if (!active) return;
+				setProviderDriverCatalog([]);
+			});
+		return () => {
+			active = false;
+		};
+	}, []);
 
 	function resetMessages() {
 		setError(null);
 		setSuccess(null);
+	}
+
+	function beginOAuthAttempt(): number {
+		oauthAttemptRef.current += 1;
+		return oauthAttemptRef.current;
+	}
+
+	function invalidateOAuthAttempt(): void {
+		oauthAttemptRef.current += 1;
+	}
+
+	function isActiveOAuthAttempt(attemptId: number): boolean {
+		return oauthAttemptRef.current === attemptId;
 	}
 
 	async function verifyService(
@@ -124,77 +206,128 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		}
 	}
 
+
 	async function onCredentialsNext() {
 		if (!canGoCredentialsNext) return;
+
 		if (!providerChoice) {
 			setError('Select a provider to continue.');
 			return;
 		}
-		setLoading(true);
+
 		resetMessages();
 
-		let discovered: DiscoverResult;
-		if (providerChoice === 'google') {
-			if (!isGoogleProviderEnabled) {
-				setError('Google account provider is disabled in this build.');
-				setLoading(false);
-				return;
-			}
-			discovered = buildProviderPresetDiscoverResult('google');
-		} else if (providerChoice === 'microsoft') {
-			if (!isMicrosoftProviderEnabled) {
-				setError('Microsoft account provider is disabled in this build.');
-				setLoading(false);
-				return;
-			}
-			discovered = buildProviderPresetDiscoverResult('microsoft');
-		} else {
+		/* =====================================
+           OAUTH FLOW (Google / Microsoft)
+        ===================================== */
+		if (isOAuthProvider) {
+			const attemptId = beginOAuthAttempt();
+			setLoading(true);
+
 			try {
-				discovered = (await ipcClient.discoverMailSettings(email.trim())) as DiscoverResult;
-			} catch (e: any) {
-				const message = e?.message || String(e);
-				setError(`Could not run autodiscover: ${message}`);
-				setLoading(false);
+				setSuccess('Waiting for browser sign-in...');
+
+				const session = await ipcClient.startMailOAuth({
+					provider: providerChoice,
+					email: email.trim() || null,
+				});
+				if (!isActiveOAuthAttempt(attemptId)) {
+					return;
+				}
+
+				setOauthSession(session);
+				setSelectedAuthMethod('oauth2');
+				setProvider(providerChoice);
+
+				const providerDiscover = buildProviderPresetDiscoverResult(providerChoice);
+				if (!providerDiscover?.imap || !providerDiscover?.smtp) {
+					throw new Error(`Provider '${providerChoice}' OAuth setup is not configured yet.`);
+				}
+
+				const discoveredImap: Service = {
+					host: providerDiscover.imap!.host,
+					port: providerDiscover.imap!.port,
+					security: providerDiscover.imap!.secure ? 'ssl' : 'starttls',
+				};
+
+				const discoveredSmtp: Service = {
+					host: providerDiscover.smtp!.host,
+					port: providerDiscover.smtp!.port,
+					security: providerDiscover.smtp!.secure ? 'ssl' : 'starttls',
+				};
+
+				setImap(discoveredImap);
+				setSmtp(discoveredSmtp);
+				setPop3(null);
+
+				if (session.email?.trim()) {
+					setEmail(session.email.trim());
+				}
+
+				if (session.displayName?.trim()) {
+					setName(session.displayName.trim());
+				}
+
+				setSuccess('Account connected successfully.');
+				setStep(4);
+
+				onCompleted?.();
+
+				if (!embedded) {
+					setTimeout(() => window.close(), 800);
+				}
+
 				return;
+			} catch (e: any) {
+				if (!isActiveOAuthAttempt(attemptId)) {
+					return;
+				}
+				setError(e?.message || String(e));
+				return;
+			} finally {
+				if (!isActiveOAuthAttempt(attemptId)) {
+					return;
+				}
+				setLoading(false);
 			}
+		}
+
+		/* =====================================
+           CUSTOM FLOW
+        ===================================== */
+
+		setLoading(true);
+
+		let discovered: DiscoverResult;
+
+		try {
+			discovered = (await ipcClient.discoverMailSettings(email.trim())) as DiscoverResult;
+		} catch (e: any) {
+			setError(`Could not run autodiscover: ${e?.message || String(e)}`);
+			setLoading(false);
+			return;
 		}
 
 		try {
 			const hasAutoSettings = !!discovered?.imap && !!discovered?.smtp;
-			const nextAuthMethod =
-				providerChoice === 'google' || providerChoice === 'microsoft'
-					? 'oauth2'
-					: resolveAuthMethodFromDiscovery(discovered?.auth ?? null);
-			let accountEmail = email.trim();
+
+			const nextAuthMethod = resolveAuthMethodFromDiscovery(discovered?.auth ?? null);
+
 			setSelectedAuthMethod(nextAuthMethod);
 			setAuthCapabilities(discovered?.auth ?? null);
 			setProvider(discovered?.provider ?? null);
 
-			let activeOAuthSession = oauthSession;
-			if (nextAuthMethod === 'oauth2' && !activeOAuthSession?.accessToken) {
-				const session = await ipcClient.startMailOAuth({
-					email: accountEmail,
-					provider: discovered?.provider ?? null,
-				});
-				setOauthSession(session);
-				activeOAuthSession = session;
-				if (session.email?.trim()) {
-					accountEmail = session.email.trim();
-					setEmail(accountEmail);
-				}
-				if (!name.trim() && session.displayName?.trim()) setName(session.displayName.trim());
-				setSuccess('Provider sign-in completed. Verifying server settings now.');
-			}
+			const accountEmail = email.trim();
 
 			if (!accountEmail) {
-				setError('Provider sign-in did not return an email address. Enter your email to continue.');
+				setError('Enter your email address.');
 				return;
 			}
 
-			if (nextAuthMethod !== 'oauth2' && !password.trim()) {
+			if (!password.trim()) {
 				setError(
 					nextAuthMethod === 'app_password'
-						? 'This provider requires an app-specific password. Generate one in provider security settings and enter it.'
+						? 'This provider requires an app-specific password.'
 						: 'Enter your account password to continue.',
 				);
 				return;
@@ -202,90 +335,70 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 
 			if (!hasAutoSettings) {
 				const [, domain] = accountEmail.split('@');
-				setImap(
-					discovered?.imap
-						? {
-								host: discovered.imap.host,
-								port: discovered.imap.port,
-								security: discovered.imap.secure ? 'ssl' : 'starttls',
-							}
-						: {host: domain ? `imap.${domain}` : '', port: 993, security: 'ssl'},
-				);
-				setPop3(
-					discovered?.pop3
-						? {
-								host: discovered.pop3.host,
-								port: discovered.pop3.port,
-								security: discovered.pop3.secure ? 'ssl' : 'starttls',
-							}
-						: null,
-				);
-				setSmtp(
-					discovered?.smtp
-						? {
-								host: discovered.smtp.host,
-								port: discovered.smtp.port,
-								security: discovered.smtp.secure ? 'ssl' : 'starttls',
-							}
-						: {host: domain ? `smtp.${domain}` : '', port: 465, security: 'ssl'},
-				);
+
+				setImap({
+					host: domain ? `imap.${domain}` : '',
+					port: 993,
+					security: 'ssl',
+				});
+
+				setSmtp({
+					host: domain ? `smtp.${domain}` : '',
+					port: 465,
+					security: 'ssl',
+				});
+
+				setPop3(null);
 				setUsedManualSetup(true);
 				setStep(3);
-				setSuccess('Autodiscover did not return complete settings. Enter server settings manually.');
+				setSuccess('Autodiscover did not return complete settings.');
 				return;
 			}
 
-			setImap({
-				host: discovered.imap!.host,
-				port: discovered.imap!.port,
-				security: discovered.imap!.secure ? 'ssl' : 'starttls',
-			});
-			setPop3(
-				discovered.pop3
-					? {
-							host: discovered.pop3.host,
-							port: discovered.pop3.port,
-							security: discovered.pop3.secure ? 'ssl' : 'starttls',
-						}
-					: null,
-			);
-			setSmtp({
-				host: discovered.smtp!.host,
-				port: discovered.smtp!.port,
-				security: discovered.smtp!.secure ? 'ssl' : 'starttls',
-			});
 			const discoveredImap: Service = {
 				host: discovered.imap!.host,
 				port: discovered.imap!.port,
 				security: discovered.imap!.secure ? 'ssl' : 'starttls',
 			};
+
 			const discoveredSmtp: Service = {
 				host: discovered.smtp!.host,
 				port: discovered.smtp!.port,
 				security: discovered.smtp!.secure ? 'ssl' : 'starttls',
 			};
 
+			setImap(discoveredImap);
+			setSmtp(discoveredSmtp);
+
+			setPop3(
+				discovered.pop3
+					? {
+						host: discovered.pop3.host,
+						port: discovered.pop3.port,
+						security: discovered.pop3.secure ? 'ssl' : 'starttls',
+					}
+					: null,
+			);
+
 			try {
-				await verifyImapAndSmtp(
-					discoveredImap,
-					discoveredSmtp,
-					nextAuthMethod,
-					nextAuthMethod === 'oauth2' ? activeOAuthSession : null,
-					accountEmail,
-				);
-				await discoverDavPreview(discoveredImap, accountEmail);
+				await verifyImapAndSmtp(discoveredImap, discoveredSmtp);
+
+				await discoverDavPreview(discoveredImap);
+
 				setUsedManualSetup(false);
 				setSuccess('Account verified successfully.');
 				setStep(4);
 			} catch (verifyError: any) {
 				const message = verifyError?.message || String(verifyError);
-				if (message === 'Wrong username or password.' || isCredentialErrorMessage(message)) {
+
+				if (isCredentialErrorMessage(message)) {
 					setError(buildAuthFailureMessage(discovered?.auth ?? null, message));
 					return;
 				}
+
 				setUsedManualSetup(true);
 				setStep(3);
-				setSuccess('Autodiscover succeeded. Please review server settings manually.');
+				setSuccess('Autodiscover succeeded. Please review settings manually.');
 			}
 		} finally {
 			setLoading(false);
@@ -298,8 +411,10 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 			setError('Return to step 2 to continue with provider sign-in.');
 			return;
 		}
+
 		setLoading(true);
 		resetMessages();
+
 		try {
 			await verifyImapAndSmtp(imap, smtp);
 			await discoverDavPreview(imap);
@@ -319,8 +434,10 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 
 	async function onSave() {
 		if (!imap || !smtp) return;
+
 		setLoading(true);
 		resetMessages();
+
 		try {
 			await ipcClient.addAccount({
 				email: email.trim(),
@@ -343,9 +460,14 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 				auth_method: selectedAuthMethod,
 				oauth_provider: selectedAuthMethod === 'oauth2' ? oauthSession?.provider ?? null : null,
 				oauth_session: selectedAuthMethod === 'oauth2' ? oauthSession : null,
+				sync_emails: syncEmails,
+				sync_contacts: syncContacts,
+				sync_calendar: syncCalendar,
 			});
+
 			setSuccess('Account added successfully.');
 			onCompleted?.();
+
 			if (!embedded) {
 				window.close();
 			}
@@ -366,14 +488,12 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 	}
 
 	function applyProviderChoice(choice: ProviderChoice) {
-		if (choice === 'google' && !isGoogleProviderEnabled) {
-			setError('Google account provider is disabled in this build.');
+		const driver = providerCatalogByKey.get(choice);
+		if (choice !== 'custom' && (!driver || !driver.enabled)) {
+			setError(`Provider '${choice}' is not enabled in this build.`);
 			return;
 		}
-		if (choice === 'microsoft' && !isMicrosoftProviderEnabled) {
-			setError('Microsoft account provider is disabled in this build.');
-			return;
-		}
+
 		resetMessages();
 		setProviderChoice(choice);
 		setProvider(choice === 'custom' ? null : choice);
@@ -381,9 +501,21 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		setSelectedAuthMethod(choice === 'custom' ? 'password' : 'oauth2');
 		setOauthSession(null);
 		setUsedManualSetup(false);
+		const capabilities = driver?.capabilities ?? {emails: true, contacts: true, calendar: true, files: false};
+		const defaultSyncEmails = capabilities.emails ? 1 : 0;
+		const defaultSyncContacts = capabilities.contacts ? 1 : 0;
+		const defaultSyncCalendar = capabilities.calendar ? 1 : 0;
+		const fallbackSyncEmails =
+			defaultSyncEmails || defaultSyncContacts || defaultSyncCalendar ? defaultSyncEmails : 1;
+		setSyncEmails(fallbackSyncEmails);
+		setSyncContacts(defaultSyncContacts);
+		setSyncCalendar(defaultSyncCalendar);
+
 		if (choice !== 'custom') {
+			setEmail('');
 			setName('');
 		}
+
 		setPassword('');
 		setStep(2);
 	}
@@ -392,26 +524,27 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		loading ||
 		(step === 1 && !canGoProviderNext) ||
 		(step === 2 && !canGoCredentialsNext) ||
-		(step === 3 && !canVerifyManual);
+		(step === 3 && !canVerifyManual) ||
+		(step === 4 && !canSaveModules);
 
-		const primaryActionLabel =
+	const primaryActionLabel =
 		step === 1
 			? 'Continue'
 			: step === 2
-			? isOAuthProvider
-				? loading
-					? 'Authenticating...'
-					: 'Authenticate'
-				: loading
-					? 'Checking account...'
-					: 'Next'
-			: step === 3
-				? loading
-					? 'Verifying...'
-					: 'Verify and Continue'
-				: loading
-					? 'Saving...'
-					: 'Add Account';
+				? isOAuthProvider
+					? loading
+						? 'Waiting for authentication...'
+						: 'Continue with Browser'
+					: loading
+						? 'Checking account...'
+						: 'Next'
+				: step === 3
+					? loading
+						? 'Verifying...'
+						: 'Verify and Continue'
+					: loading
+						? 'Saving...'
+						: 'Add Account';
 
 	async function onPrimaryAction() {
 		if (step === 1) {
@@ -437,6 +570,15 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 
 	function onBack() {
 		resetMessages();
+		const canCancelOAuthWait = loading && step === 2 && isOAuthProvider;
+		if (canCancelOAuthWait) {
+			invalidateOAuthAttempt();
+			setLoading(false);
+			setSuccess(null);
+			setError(null);
+			void ipcClient.cancelMailOAuth().catch(() => undefined);
+			return;
+		}
 		if (step === 2) {
 			setStep(1);
 			return;
@@ -451,7 +593,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 	}
 
 	const canClose = embedded && typeof onCancel === 'function';
-	const authGuidance = authCapabilities ? buildAuthGuidance(authCapabilities) : null;
+	const canCancelOAuthWait = loading && step === 2 && isOAuthProvider;
 	const appPasswordNote = authCapabilities?.methods?.find((method) => method.method === 'app_password')?.note ?? null;
 
 	return (
@@ -559,6 +701,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 								/>
 							</div>
 						</div>
+
 						<main className="min-h-0 flex-1">
 							<div className="h-full overflow-y-auto px-6 py-5 md:px-8 md:py-6">
 								<div className="mx-auto w-full max-w-5xl">
@@ -570,33 +713,25 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 													Select the account type to get the best sign-in flow.
 												</p>
 											</header>
-											<div className="mx-auto flex w-full max-w-xl flex-col gap-3">
-												<ProviderCard
-													title="Custom IMAP/SMTP"
-													description="Use autodiscover and password or app password."
-													icon={<Mail size={20} />}
-													active={providerChoice === 'custom'}
-													onClick={() => applyProviderChoice('custom')}
-												/>
-												{isGoogleProviderEnabled && (
-													<ProviderCard
-														title="Google"
-														description="Sign in with Google OAuth."
-														icon={<GoogleLogo size={20} />}
-														active={providerChoice === 'google'}
-														onClick={() => applyProviderChoice('google')}
-													/>
-												)}
-												{isMicrosoftProviderEnabled && (
-													<ProviderCard
-														title="Microsoft"
-														description="Sign in with Microsoft OAuth."
-														icon={<MicrosoftLogo size={20} />}
-														active={providerChoice === 'microsoft'}
-														onClick={() => applyProviderChoice('microsoft')}
-													/>
-												)}
-											</div>
+
+												<div className="mx-auto flex w-full max-w-xl flex-col gap-3">
+													{providerCards.length > 0 ? (
+														providerCards.map((item) => (
+															<ProviderCard
+																key={item.key}
+																title={item.title}
+																description={item.description}
+																icon={item.icon}
+																active={providerChoice === item.key}
+																onClick={() => applyProviderChoice(item.key)}
+															/>
+														))
+													) : (
+														<p className="ui-text-muted rounded-lg border border-dashed px-4 py-3 text-sm">
+															No enabled providers are available.
+														</p>
+													)}
+												</div>
 										</section>
 									)}
 
@@ -605,51 +740,70 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 											<header>
 												{isOAuthProvider && (
 													<div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5">
-														{providerChoice === 'google' ? <GoogleLogo size={20} /> : <MicrosoftLogo size={20} />}
+														{getProviderIcon(selectedProviderDriver, 20)}
 														<span className="ui-text-secondary text-xs font-semibold uppercase tracking-wide">
-															{providerChoice === 'google' ? 'Google' : 'Microsoft'} sign-in
+															{selectedProviderDriver?.label || providerChoice || 'Provider'} sign-in
 														</span>
 													</div>
 												)}
+
 												<h3 className="ui-text-primary text-2xl font-semibold">
-													Enter your account credentials
+													{isOAuthProvider ? 'Sign in with your provider' : 'Enter your account credentials'}
 												</h3>
+
 												<p className="ui-text-muted mt-1 text-sm">
-													We will autodiscover your server settings and verify authentication.
+													{isOAuthProvider
+														? 'We will open your browser and continue automatically after sign-in.'
+														: 'We will autodiscover your server settings and verify authentication.'}
 												</p>
 											</header>
 
 											<div className="space-y-4">
 												{providerChoice === 'custom' && (
-													<Field
-														label="Name (optional)"
-														value={name}
-														onChange={setName}
-														placeholder="Your display name"
-													/>
+													<>
+														<Field
+															label="Name (optional)"
+															value={name}
+															onChange={setName}
+															placeholder="Your display name"
+														/>
+														<Field
+															label="Email"
+															value={email}
+															onChange={setEmail}
+															placeholder="you@domain.com"
+														/>
+													</>
 												)}
-												{(!isOAuthProvider || needsOAuthEmailFallback) && (
-													<Field
-														label="Email"
-														value={email}
-														onChange={setEmail}
-														placeholder="you@domain.com"
-													/>
-												)}
+
 												{isOAuthProvider && (
-													<p className="ui-text-muted text-xs">
-														For {providerChoice === 'google' ? 'Google' : 'Microsoft'}, email and account name are loaded
-														from provider sign-in automatically.
-													</p>
-												)}
-												{selectedAuthMethod === 'oauth2' ? (
-													<div className="notice-info rounded-xl px-4 py-3 text-sm">
-														<p className="font-semibold">Provider sign-in will open automatically</p>
-														<p className="mt-1 text-xs opacity-90">
-															After clicking Next, we will open your provider login page so you can complete 2FA/passkey.
-														</p>
+													<div className="notice-info rounded-xl px-4 py-4 text-sm">
+														{!loading ? (
+															<>
+																<p className="font-semibold">Secure browser sign-in</p>
+																<p className="mt-1 text-xs opacity-90">
+																	Click Continue with Browser to open your provider login page.
+																	After sign-in, LlamaMail will continue automatically.
+																</p>
+															</>
+														) : (
+															<div className="flex items-start gap-3">
+																<span
+																	className="spinner-info mt-0.5 inline-block h-4 w-4 shrink-0 animate-spin rounded-full"
+																	aria-hidden
+																/>
+																<div>
+																	<p className="font-semibold">Waiting for authentication...</p>
+																	<p className="mt-1 text-xs opacity-90">
+																		Complete sign-in in your browser. This window will continue automatically.
+																	</p>
+																</div>
+															</div>
+														)}
 													</div>
-												) : (
+												)}
+
+												{!isOAuthProvider && selectedAuthMethod !== 'oauth2' && (
 													<Field
 														label={selectedAuthMethod === 'app_password' ? 'App password' : 'Password'}
 														value={password}
@@ -658,12 +812,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 													/>
 												)}
 											</div>
-											{authGuidance && (
-												<div className="notice-info rounded-xl px-4 py-3 text-sm">
-													<p className="font-semibold">{authGuidance.title}</p>
-													<p className="mt-1 text-xs opacity-90">{authGuidance.description}</p>
-												</div>
-											)}
+
 											{oauthSession && selectedAuthMethod === 'oauth2' && (
 												<div className="notice-info rounded-xl px-4 py-3 text-sm">
 													<p className="font-semibold">Provider session connected</p>
@@ -672,6 +821,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 													</p>
 												</div>
 											)}
+
 											{selectedAuthMethod === 'app_password' && (
 												<div className="notice-info rounded-xl px-4 py-3 text-sm">
 													<p className="font-semibold">Using app-specific password</p>
@@ -682,7 +832,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 												</div>
 											)}
 
-											{loading && (
+											{loading && !isOAuthProvider && (
 												<div className="notice-info flex items-start gap-3 rounded-xl px-4 py-3 text-sm">
 													<span
 														className="spinner-info mt-0.5 inline-block h-4 w-4 shrink-0 animate-spin rounded-full"
@@ -691,8 +841,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 													<div>
 														<p className="font-semibold">Running autodiscover</p>
 														<p className="mt-0.5 text-xs opacity-90">
-															Detecting server settings and verifying IMAP/SMTP
-															credentials.
+															Detecting server settings and verifying IMAP/SMTP credentials.
 														</p>
 													</div>
 												</div>
@@ -707,8 +856,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 													Manual server setup
 												</h3>
 												<p className="ui-text-muted mt-1 text-sm">
-													Autodiscover did not return complete settings. Enter IMAP and SMTP
-													manually.
+													Autodiscover did not return complete settings. Enter IMAP and SMTP manually.
 												</p>
 											</header>
 
@@ -740,12 +888,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 													controlSize="lg"
 												/>
 											</div>
-											{authGuidance && (
-												<div className="notice-info rounded-xl px-4 py-3 text-sm">
-													<p className="font-semibold">{authGuidance.title}</p>
-													<p className="mt-1 text-xs opacity-90">{authGuidance.description}</p>
-												</div>
-											)}
+
 										</section>
 									)}
 
@@ -761,21 +904,53 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 											</header>
 
 											<div className="space-y-1">
-												<SummaryRow label="Email" value={email} />
+												<SummaryRow label="Email" value={email || '-'} />
 												<SummaryRow label="Provider" value={provider ?? 'custom'} />
-												<SummaryRow
-													label="IMAP"
-													value={`${imap?.host ?? '-'}:${imap?.port ?? '-'}`}
-												/>
-												<SummaryRow
-													label="SMTP"
-													value={`${smtp?.host ?? '-'}:${smtp?.port ?? '-'}`}
-												/>
+												<SummaryRow label="IMAP" value={`${imap?.host ?? '-'}:${imap?.port ?? '-'}`} />
+												<SummaryRow label="SMTP" value={`${smtp?.host ?? '-'}:${smtp?.port ?? '-'}`} />
 												{davDiscovery?.carddavUrl && (
 													<SummaryRow label="CardDAV" value={davDiscovery.carddavUrl} />
 												)}
 												{davDiscovery?.caldavUrl && (
 													<SummaryRow label="CalDAV" value={davDiscovery.caldavUrl} />
+												)}
+											</div>
+
+											<div className="panel rounded-xl p-4">
+												<p className="ui-text-primary text-sm font-semibold">Include modules</p>
+												<p className="ui-text-muted mt-1 text-xs">
+													Choose what this account should appear in and sync.
+												</p>
+												<div className="mt-3 space-y-2">
+													<label className="ui-text-secondary flex items-center justify-between gap-3 text-sm">
+														<span>Email</span>
+														<FormCheckbox
+															checked={syncEmails > 0}
+															disabled={!selectedProviderCapabilities.emails}
+															onChange={(event) => setSyncEmails(event.target.checked ? 1 : 0)}
+														/>
+													</label>
+													<label className="ui-text-secondary flex items-center justify-between gap-3 text-sm">
+														<span>Contacts</span>
+														<FormCheckbox
+															checked={syncContacts > 0}
+															disabled={!selectedProviderCapabilities.contacts}
+															onChange={(event) => setSyncContacts(event.target.checked ? 1 : 0)}
+														/>
+													</label>
+													<label className="ui-text-secondary flex items-center justify-between gap-3 text-sm">
+														<span>Calendar</span>
+														<FormCheckbox
+															checked={syncCalendar > 0}
+															disabled={!selectedProviderCapabilities.calendar}
+															onChange={(event) => setSyncCalendar(event.target.checked ? 1 : 0)}
+														/>
+													</label>
+												</div>
+												{!canSaveModules && (
+													<p className="text-danger mt-3 text-xs">
+														Select at least one module.
+													</p>
 												)}
 											</div>
 										</section>
@@ -790,10 +965,11 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 								</div>
 							</div>
 						</main>
+
 						<footer className="app-footer flex shrink-0 items-center justify-between px-6 py-4 md:px-8">
 							<Button
 								type="button"
-								disabled={loading || (!canClose && step === 1)}
+								disabled={(loading && !canCancelOAuthWait) || (!canClose && step === 1)}
 								onClick={() => {
 									if (step === 1 && canClose) {
 										onCancel?.();
@@ -805,6 +981,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 							>
 								{step === 1 && canClose ? 'Cancel' : 'Back'}
 							</Button>
+
 							<Button
 								type="submit"
 								disabled={primaryActionDisabled}
@@ -849,13 +1026,7 @@ const ProviderCard: React.FC<{
 	icon: React.ReactNode;
 	active: boolean;
 	onClick: () => void;
-}> = ({
-	title,
-	description,
-	icon,
-	active,
-	onClick,
-}) => (
+}> = ({title, description, icon, active, onClick}) => (
 	<Button
 		type="button"
 		variant={active ? 'default' : 'secondary'}
@@ -866,7 +1037,7 @@ const ProviderCard: React.FC<{
 	>
 		<span
 			className={`mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-				active ? 'bg-white/20 text-on-brand' : 'ui-surface text-brand'
+				active ? 'ui-surface-hover text-on-brand' : 'ui-surface text-brand'
 			}`}
 		>
 			{icon}
@@ -932,25 +1103,6 @@ function buildAuthFailureMessage(auth: AuthCapabilities | null, fallbackMessage:
 	return fallbackMessage;
 }
 
-function buildAuthGuidance(auth: AuthCapabilities): {title: string; description: string} {
-	const preferredTitle =
-		auth.preferredMethod === 'oauth2'
-			? 'Recommended auth: OAuth sign-in'
-			: auth.preferredMethod === 'app_password'
-				? 'Recommended auth: App-specific password'
-				: 'Recommended auth: Account password';
-	const methodNotes = auth.methods
-		.filter((method) => method.supported && method.note)
-		.map((method) => method.note?.trim())
-		.filter((note): note is string => !!note);
-
-	const securityNotes: string[] = [];
-	if (auth.supportsTwoFactorFlow) securityNotes.push('2FA supported via provider sign-in flow.');
-	if (auth.supportsPasskeysViaProvider) securityNotes.push('Passkeys are handled in provider sign-in, not direct IMAP/SMTP.');
-	const description = [...methodNotes.slice(0, 1), ...securityNotes].join(' ') || 'Use the recommended auth method.';
-	return {title: preferredTitle, description};
-}
-
 function resolveAuthMethodFromDiscovery(auth: AuthCapabilities | null): SelectedAuthMethod {
 	if (!auth) return 'password';
 	if (auth.preferredMethod === 'oauth2') return 'oauth2';
@@ -958,7 +1110,7 @@ function resolveAuthMethodFromDiscovery(auth: AuthCapabilities | null): Selected
 	return 'password';
 }
 
-function buildProviderPresetAuth(provider: Exclude<ProviderChoice, 'custom'>): AuthCapabilities {
+function buildProviderPresetAuth(provider: string): AuthCapabilities {
 	if (provider === 'google') {
 		return {
 			preferredMethod: 'oauth2',
@@ -986,6 +1138,35 @@ function buildProviderPresetAuth(provider: Exclude<ProviderChoice, 'custom'>): A
 			],
 		};
 	}
+
+	if (provider === 'microsoft') {
+		return {
+			preferredMethod: 'oauth2',
+			supportsTwoFactorFlow: true,
+			supportsPasskeysViaProvider: true,
+			methods: [
+				{
+					method: 'oauth2',
+					supported: true,
+					recommended: true,
+					note: 'Recommended. Handles MFA and passkeys through Microsoft sign-in.',
+				},
+				{
+					method: 'app_password',
+					supported: true,
+					recommended: false,
+					note: 'Some legacy tenants may require app passwords.',
+				},
+				{
+					method: 'password',
+					supported: false,
+					recommended: false,
+					note: 'Password-only sign-in is often disabled.',
+				},
+			],
+		};
+	}
+
 	return {
 		preferredMethod: 'oauth2',
 		supportsTwoFactorFlow: true,
@@ -995,25 +1176,25 @@ function buildProviderPresetAuth(provider: Exclude<ProviderChoice, 'custom'>): A
 				method: 'oauth2',
 				supported: true,
 				recommended: true,
-				note: 'Recommended. Handles MFA and passkeys through Microsoft sign-in.',
+				note: 'Recommended provider OAuth sign-in.',
 			},
 			{
 				method: 'app_password',
 				supported: true,
 				recommended: false,
-				note: 'Some legacy tenants may require app passwords.',
+				note: 'Fallback when provider policy requires app passwords.',
 			},
 			{
 				method: 'password',
-				supported: false,
+				supported: true,
 				recommended: false,
-				note: 'Password-only sign-in is often disabled.',
+				note: 'May be blocked by provider security policies.',
 			},
 		],
 	};
 }
 
-function buildProviderPresetDiscoverResult(provider: Exclude<ProviderChoice, 'custom'>): DiscoverResult {
+function buildProviderPresetDiscoverResult(provider: string): DiscoverResult | null {
 	if (provider === 'google') {
 		return {
 			provider: 'google',
@@ -1022,10 +1203,29 @@ function buildProviderPresetDiscoverResult(provider: Exclude<ProviderChoice, 'cu
 			auth: buildProviderPresetAuth('google'),
 		};
 	}
-	return {
-		provider: 'microsoft',
-		imap: {host: 'outlook.office365.com', port: 993, secure: true},
-		smtp: {host: 'smtp.office365.com', port: 587, secure: false},
-		auth: buildProviderPresetAuth('microsoft'),
-	};
+
+	if (provider === 'microsoft') {
+		return {
+			provider: 'microsoft',
+			imap: {host: 'outlook.office365.com', port: 993, secure: true},
+			smtp: {host: 'smtp.office365.com', port: 587, secure: false},
+			auth: buildProviderPresetAuth('microsoft'),
+		};
+	}
+
+	return null;
+}
+
+function describeProviderDriver(driver: ProviderDriverCatalogItem): string {
+	if (driver.key === 'custom') return 'Use autodiscover and manual server setup when needed.';
+	if (driver.key === 'google') return 'Connect a Google account.';
+	if (driver.key === 'microsoft') return 'Connect a Microsoft account.';
+	return `Connect ${driver.label}.`;
+}
+
+function getProviderIcon(driver: ProviderDriverCatalogItem | null | undefined, size = 20): React.ReactNode {
+	const logo = driver?.logo ?? (driver?.key === 'google' ? 'google' : driver?.key === 'microsoft' ? 'microsoft' : 'mail');
+	if (logo === 'google') return <GoogleLogo size={size} />;
+	if (logo === 'microsoft') return <MicrosoftLogo size={size} />;
+	return <Mail size={size} />;
 }

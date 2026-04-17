@@ -30,6 +30,7 @@ import {
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
 import {useAppSettings as useIpcAppSettings} from '@renderer/hooks/ipc/useAppSettings';
+import {useSystemLocale} from '@renderer/hooks/ipc/useSystemLocale';
 import {DEFAULT_APP_SETTINGS} from '@/shared/defaults';
 import {buildMessageIframeSrcDoc, formatMessageTagLabel} from '@renderer/app/main/email/mailPageHelpers';
 import {useApp} from '@renderer/app/AppContext';
@@ -37,7 +38,7 @@ import {useApp} from '@renderer/app/AppContext';
 export default function MessageWindowPage() {
 	useAppTheme();
 	const {setTitle} = useApp();
-	const [systemLocale, setSystemLocale] = useState('en-US');
+	const {systemLocale} = useSystemLocale();
 	const [messageId, setMessageId] = useState<number | null>(null);
 	const [message, setMessage] = useState<MessageDetails | null>(null);
 	const [body, setBody] = useState<MessageBodyResult | null>(null);
@@ -55,13 +56,6 @@ export default function MessageWindowPage() {
 	const [hoveredLinkUrl, setHoveredLinkUrl] = useState('');
 	const [isPointerOverMessageFrame, setIsPointerOverMessageFrame] = useState(false);
 	const {appSettings, setAppSettings} = useIpcAppSettings(DEFAULT_APP_SETTINGS);
-
-	useEffect(() => {
-		ipcClient
-			.getSystemLocale()
-			.then((locale) => setSystemLocale(locale || 'en-US'))
-			.catch(() => undefined);
-	}, []);
 
 	useIpcEvent(ipcClient.onLinkHoverUrl, (url) => {
 		setHoveredLinkUrl(url || '');

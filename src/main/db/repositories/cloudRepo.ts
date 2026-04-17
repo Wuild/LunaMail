@@ -2,7 +2,7 @@ import keytar from 'keytar';
 import {eq} from 'drizzle-orm';
 import {getDb, getDrizzle} from '@main/db/drizzle.js';
 import {cloudAccounts, type InsertCloudAccount} from '@main/db/schema.js';
-import {APP_NAME} from '@main/config.js';
+import {APP_NAME} from '@/shared/appConfig.js';
 
 // This repository keeps some parameterized raw SQL where cloud/DAV bridge cleanup is still transitioning to Drizzle.
 // Retain SQL only in this layer and prefer Drizzle for new queries.

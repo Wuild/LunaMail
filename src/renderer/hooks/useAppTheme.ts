@@ -48,6 +48,11 @@ export function useAppTheme(defaultTheme: ThemePreference = 'system'): ThemePref
 		setTheme((settings?.theme as ThemePreference) ?? defaultTheme);
 	});
 
+	useIpcEvent(ipcClient.onNativeThemeUpdated, (payload) => {
+		if (theme !== 'system') return;
+		applyTheme('system', Boolean(payload?.shouldUseDarkColors));
+	});
+
 	useThemePreference(theme);
 	return theme;
 }

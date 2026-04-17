@@ -4,12 +4,15 @@ import os from 'node:os';
 import path from 'node:path';
 import {
 	parseOptionalLimit,
+	parseOptionalBoolean,
+	parseOptionalObject,
 	parseOptionalPositiveInt,
 	parseOptionalText,
 	parsePositiveInt,
 	parseRequiredObject,
 	parseRequiredText,
 } from './validation.js';
+import type {DavSyncOptions} from '@/shared/ipcTypes.js';
 
 type ExportContactsPayload = {
 	format: 'csv' | 'vcf';
@@ -19,7 +22,7 @@ type ExportContactsPayload = {
 type DavIpcDeps = {
 	discoverDav: (accountId: number) => any;
 	discoverDavPreview: (payload: {email: string; user: string; password: string; imapHost: string}) => any;
-	syncDav: (accountId: number) => any;
+	syncDav: (accountId: number, options?: DavSyncOptions | null) => any;
 	getContacts: (accountId: number, query?: string | null, limit?: number, addressBookId?: number | null) => any[];
 	listRecentRecipients: (accountId: number, query?: string | null, limit?: number) => any[];
 	getAddressBooks: (accountId: number) => any[];
@@ -63,9 +66,29 @@ export function registerDavIpc(deps: DavIpcDeps): void {
 		},
 	);
 
-	ipcMain.handle('sync-dav', async (_event, accountId: number) => {
+	ipcMain.handle('sync-dav', async (_event, accountId: number, options?: DavSyncOptions | null) => {
 		const safeAccountId = parsePositiveInt(accountId, 'accountId');
-		return deps.syncDav(safeAccountId);
+		const safeOptions = parseOptionalObject(options, 'options');
+		const safeCalendarRange = parseOptionalObject(safeOptions?.calendarRange, 'options.calendarRange');
+		const safeModules = parseOptionalObject(safeOptions?.modules, 'options.modules');
+		const safeStartIso = parseOptionalText(safeCalendarRange?.startIso, 'options.calendarRange.startIso', 64);
+		const safeEndIso = parseOptionalText(safeCalendarRange?.endIso, 'options.calendarRange.endIso', 64);
+		const safeSyncContacts = parseOptionalBoolean(safeModules?.contacts, 'options.modules.contacts');
+		const safeSyncCalendar = parseOptionalBoolean(safeModules?.calendar, 'options.modules.calendar');
+		return deps.syncDav(safeAccountId, {
+			calendarRange: safeCalendarRange
+				? {
+						startIso: safeStartIso,
+						endIso: safeEndIso,
+					}
+				: null,
+			modules: safeModules
+				? {
+						contacts: safeSyncContacts,
+						calendar: safeSyncCalendar,
+					}
+				: null,
+		});
 	});
 
 	ipcMain.handle(

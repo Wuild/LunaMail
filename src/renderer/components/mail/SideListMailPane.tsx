@@ -200,6 +200,17 @@ export default function SideListMailPane({
 	getTagDotClass,
 	getTagLabel,
 }: SideListMailPaneProps) {
+	const listScrollRef = React.useRef<HTMLDivElement | null>(null);
+
+	React.useEffect(() => {
+		if (!hasMoreMessages || loadingMoreMessages || messages.length === 0) return;
+		const el = listScrollRef.current;
+		if (!el) return;
+		if (el.scrollHeight <= el.clientHeight + 1) {
+			onLoadMoreMessages();
+		}
+	}, [hasMoreMessages, loadingMoreMessages, messages.length, onLoadMoreMessages]);
+
 	return (
 		<>
 			<main
@@ -272,6 +283,7 @@ export default function SideListMailPane({
 					</div>
 				)}
 				<ScrollArea
+					ref={listScrollRef}
 					className="min-h-0 flex-1 overflow-auto"
 					onScroll={(event) => {
 						if (!hasMoreMessages || loadingMoreMessages) return;
@@ -304,6 +316,19 @@ export default function SideListMailPane({
 					))}
 					{loadingMoreMessages && messages.length > 0 && (
 						<div className="mail-list-loading px-5 py-3 text-center text-xs">Loading more messages...</div>
+					)}
+					{hasMoreMessages && !loadingMoreMessages && messages.length > 0 && (
+						<div className="px-5 py-3 text-center">
+							<Button
+								type="button"
+								variant="secondary"
+								size="sm"
+								onClick={onLoadMoreMessages}
+								className="rounded-md px-3"
+							>
+								Load more
+							</Button>
+						</div>
 					)}
 					{!hasMoreMessages && messages.length > 0 && (
 						<div className="mail-list-end px-5 py-3 text-center text-xs">End of list</div>

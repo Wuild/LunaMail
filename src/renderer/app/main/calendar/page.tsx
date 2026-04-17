@@ -1,9 +1,8 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState} from 'react';
 import {
 	CalendarDays,
 	ChevronLeft,
 	ChevronRight,
-	List,
 	Pencil,
 	Plus,
 	RefreshCw,
@@ -12,11 +11,14 @@ import {
 	X,
 } from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
-import type {CalendarEventItem, PublicAccount} from '@/preload';
+import type {CalendarEventItem, PublicAccount, SyncStatusEvent} from '@/preload';
 import {getAccountAvatarColorsForAccount, getAccountMonogram} from '@renderer/lib/accountAvatar';
 import {formatSystemDateTime} from '@renderer/lib/dateTime';
 import {clampToViewport} from '@renderer/lib/format';
 import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
+import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
+import {useAccount, useAccountDirectory} from '@renderer/hooks/ipc/useAccounts';
+import {useSystemLocale} from '@renderer/hooks/ipc/useSystemLocale';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {Button} from '@renderer/components/ui/button';
 import {FormDateTimeInput, FormInput, FormTextarea} from '@renderer/components/ui/FormControls';
@@ -52,8 +54,57 @@ type CalendarPageProps = {
 	onSelectAccount: (accountId: number | null) => void;
 };
 
+type GoogleEventMetadata = {
+	provider: 'google-api';
+	calendarId?: string | null;
+	calendarSummary?: string | null;
+	organizerEmail?: string | null;
+	organizerName?: string | null;
+};
+
+function parseGoogleEventMetadata(event: CalendarEventItem): GoogleEventMetadata | null {
+	if (event.source !== 'google-api') return null;
+	const raw = String(event.raw_ics || '').trim();
+	if (!raw.startsWith('{')) return null;
+	try {
+		const parsed = JSON.parse(raw) as Record<string, unknown>;
+		if (String(parsed.provider || '').trim() !== 'google-api') return null;
+		return {
+			provider: 'google-api',
+			calendarId: String(parsed.calendarId || '').trim() || null,
+			calendarSummary: String(parsed.calendarSummary || '').trim() || null,
+			organizerEmail: String(parsed.organizerEmail || '').trim() || null,
+			organizerName: String(parsed.organizerName || '').trim() || null,
+		};
+	} catch {
+		return null;
+	}
+}
+
+function isGoogleWeekNumbersEvent(event: CalendarEventItem): boolean {
+	if (event.source !== 'google-api') return false;
+	const metadata = parseGoogleEventMetadata(event);
+	const calendarId = String(metadata?.calendarId || '').trim().toLowerCase();
+	const calendarSummary = String(metadata?.calendarSummary || '').trim().toLowerCase();
+	if (calendarId.includes('weeknum')) return true;
+	if (calendarSummary.includes('week number')) return true;
+	if (calendarSummary === 'week numbers') return true;
+	return false;
+}
+
+function hashOwnerKey(value: string): number {
+	let hash = 0;
+	for (let i = 0; i < value.length; i += 1) {
+		hash = (hash << 5) - hash + value.charCodeAt(i);
+		hash |= 0;
+	}
+	return Math.abs(hash);
+}
+
 export default function CalendarPage({accountId, accounts, onSelectAccount}: CalendarPageProps) {
 	const CALENDAR_VIEW_STORAGE_KEY = 'llamamail.calendar.view.mode';
+	const CALENDAR_EVENT_FETCH_LIMIT_WEEK = 1200;
+	const CALENDAR_EVENT_FETCH_LIMIT_MONTH = 2500;
 	const WEEK_HOUR_ROW_HEIGHT = 56;
 	const WEEK_GRID_COLUMNS = 'grid-cols-[88px_repeat(7,minmax(0,1fr))]';
 	const MONTH_GRID_COLUMNS = 'grid-cols-[42px_repeat(7,minmax(0,1fr))]';
@@ -68,8 +119,10 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 	const [syncingAccountId, setSyncingAccountId] = useState<number | null>(null);
 	const [syncStatusText, setSyncStatusText] = useState('Calendar ready');
 	const [events, setEvents] = useState<CalendarEventItem[]>([]);
+	const visibleEvents = useMemo(() => events.filter((event) => !isGoogleWeekNumbersEvent(event)), [events]);
+	const deferredEvents = useDeferredValue(visibleEvents);
 	const [now, setNow] = useState<Date>(() => new Date());
-	const [systemLocale, setSystemLocale] = useState<string>('en-US');
+	const {systemLocale} = useSystemLocale();
 	const [calendarViewMode, setCalendarViewMode] = useState<'month' | 'week'>(() => {
 		try {
 			const raw = window.localStorage.getItem(CALENDAR_VIEW_STORAGE_KEY);
@@ -96,6 +149,7 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 	const calendarBoundsRef = useRef<{gridStart: Date; gridEnd: Date} | null>(null);
 	const calendarBodyScrollRef = useRef<HTMLDivElement | null>(null);
 	const lastWeekAutoScrollKeyRef = useRef<string | null>(null);
+	const inFlightSyncAccountsRef = useRef<Set<number>>(new Set());
 	const [showAddEventModal, setShowAddEventModal] = useState(false);
 	const [calendarError, setCalendarError] = useState<string | null>(null);
 	const [eventTitle, setEventTitle] = useState('');
@@ -119,23 +173,8 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 		endHour: number;
 	} | null>(null);
 	const {sidebarWidth, onResizeStart} = useResizableSidebar();
-	const {sidebarWidth: eventListWidth, onResizeStart: onEventListResizeStart} = useResizableSidebar({
-		defaultWidth: 360,
-		minWidth: 280,
-		maxWidth: 520,
-		storageKey: 'llamamail.calendar.events.width',
-	});
-
-	useEffect(() => {
-		void ipcClient
-			.getSystemLocale()
-			.then((locale) => {
-				setSystemLocale(locale || 'en-US');
-			})
-			.catch(() => {
-				setSystemLocale('en-US');
-			});
-	}, []);
+	const selectedAccount = useAccount(accountId);
+	const accountDirectory = useAccountDirectory();
 
 	const calendarBounds = useMemo(() => {
 		const monthStart = startOfMonth(visibleMonth);
@@ -211,6 +250,72 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 		}
 	}, [calendarViewMode]);
 
+	const getVisibleCalendarRange = useCallback(() => {
+		const bounds = calendarBoundsRef.current ?? {
+			gridStart: calendarBounds.gridStart,
+			gridEnd: calendarBounds.gridEnd,
+		};
+		const start = new Date(bounds.gridStart);
+		start.setHours(0, 0, 0, 0);
+		const end = new Date(bounds.gridEnd);
+		end.setHours(23, 59, 59, 999);
+		return {
+			startIso: start.toISOString(),
+			endIso: end.toISOString(),
+		};
+	}, [calendarBounds.gridEnd, calendarBounds.gridStart]);
+
+	const refreshVisibleEvents = useCallback(
+		async (targetAccount = selectedAccount): Promise<void> => {
+			const range = getVisibleCalendarRange();
+			const rows = await targetAccount.calendar.refresh(
+				range.startIso,
+				range.endIso,
+				calendarViewMode === 'week' ? CALENDAR_EVENT_FETCH_LIMIT_WEEK : CALENDAR_EVENT_FETCH_LIMIT_MONTH,
+			);
+			startTransition(() => {
+				setEvents(rows);
+			});
+		},
+		[
+			CALENDAR_EVENT_FETCH_LIMIT_MONTH,
+			CALENDAR_EVENT_FETCH_LIMIT_WEEK,
+			calendarViewMode,
+			getVisibleCalendarRange,
+			selectedAccount,
+		],
+	);
+
+	function queueBackgroundSync(targetAccountId: number, source: 'auto' | 'manual'): void {
+		if (inFlightSyncAccountsRef.current.has(targetAccountId)) return;
+		inFlightSyncAccountsRef.current.add(targetAccountId);
+		setSyncing(true);
+		setSyncingAccountId(targetAccountId);
+		setSyncStatusText(statusSyncing());
+		setCalendarError(null);
+
+		const targetAccount = accountDirectory.getAccount(targetAccountId);
+		void targetAccount.calendar
+			.sync({
+				calendarRange: getVisibleCalendarRange(),
+			})
+			.then(async () => {
+				if (targetAccountId === accountId) {
+					await refreshVisibleEvents(targetAccount);
+				}
+				setSyncStatusText('Calendar synced');
+			})
+			.catch((error: any) => {
+				setCalendarError(toErrorMessage(error));
+				setSyncStatusText(source === 'auto' ? statusAutoSyncFailed(error) : statusSyncFailed(error));
+			})
+			.finally(() => {
+				inFlightSyncAccountsRef.current.delete(targetAccountId);
+				setSyncing(false);
+				setSyncingAccountId((current) => (current === targetAccountId ? null : current));
+			});
+	}
+
 	useEffect(() => {
 		if (calendarViewMode !== 'week') return;
 		setVisibleMonth(new Date());
@@ -237,13 +342,17 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 			setLoading(true);
 			setCalendarError(null);
 			try {
-				const start = new Date(calendarBounds.gridStart);
-				start.setHours(0, 0, 0, 0);
-				const end = new Date(calendarBounds.gridEnd);
-				end.setHours(23, 59, 59, 999);
-				const rows = await ipcClient.getCalendarEvents(accountId, start.toISOString(), end.toISOString(), 5000);
+				const range = getVisibleCalendarRange();
+				const targetAccount = accountDirectory.getAccount(accountId);
+				const rows = await targetAccount.calendar.refresh(
+					range.startIso,
+					range.endIso,
+					calendarViewMode === 'week' ? CALENDAR_EVENT_FETCH_LIMIT_WEEK : CALENDAR_EVENT_FETCH_LIMIT_MONTH,
+				);
 				if (!active) return;
-				setEvents(rows);
+				startTransition(() => {
+					setEvents(rows);
+				});
 			} catch (error: any) {
 				if (!active) return;
 				setCalendarError(toErrorMessage(error));
@@ -255,47 +364,38 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 		return () => {
 			active = false;
 		};
-	}, [accountId, calendarBounds]);
+	}, [
+		CALENDAR_EVENT_FETCH_LIMIT_MONTH,
+		CALENDAR_EVENT_FETCH_LIMIT_WEEK,
+		accountDirectory,
+		accountId,
+		calendarViewMode,
+		getVisibleCalendarRange,
+	]);
 
-	useEffect(() => {
-		if (!accountId) return;
-		let active = true;
-		setSyncing(true);
-		setSyncingAccountId(accountId);
-		setSyncStatusText(statusSyncing());
-		setCalendarError(null);
-		void ipcClient
-			.syncDav(accountId)
-			.then(async () => {
-				if (!active) return;
-				const bounds = calendarBoundsRef.current;
-				if (!bounds) return;
-				const start = new Date(bounds.gridStart);
-				start.setHours(0, 0, 0, 0);
-				const end = new Date(bounds.gridEnd);
-				end.setHours(23, 59, 59, 999);
-				const rows = await ipcClient.getCalendarEvents(accountId, start.toISOString(), end.toISOString(), 5000);
-				if (!active) return;
-				setEvents(rows);
-				setSyncing(false);
-				setSyncingAccountId(null);
-				setSyncStatusText('Calendar synced');
-			})
-			.catch((error: any) => {
-				if (!active) return;
-				setSyncing(false);
-				setSyncingAccountId(null);
-				setCalendarError(toErrorMessage(error));
-				setSyncStatusText(statusAutoSyncFailed(error));
-			});
-		return () => {
-			active = false;
-		};
-	}, [accountId]);
+	useIpcEvent(ipcClient.onAccountSyncStatus, (evt: SyncStatusEvent) => {
+		if (!accountId || evt.accountId !== accountId) return;
+		if (evt.status === 'syncing') {
+			setSyncing(true);
+			setSyncingAccountId(evt.accountId);
+			setSyncStatusText(statusSyncing());
+			return;
+		}
+		if (evt.status === 'error') {
+			setSyncing(false);
+			setSyncingAccountId(null);
+			setSyncStatusText(statusSyncFailed(evt.syncError?.message ?? evt.error));
+			return;
+		}
+		setSyncing(false);
+		setSyncingAccountId(null);
+		setSyncStatusText('Calendar synced');
+		void refreshVisibleEvents();
+	});
 
 	const eventsByDay = useMemo(() => {
 		const byDay = new Map<string, CalendarEventItem[]>();
-		for (const event of events) {
+		for (const event of deferredEvents) {
 			const startsAt = event.starts_at ? new Date(event.starts_at) : null;
 			if (!startsAt || Number.isNaN(startsAt.getTime())) continue;
 			const key = toDateKey(startsAt);
@@ -307,11 +407,7 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 			bucket.sort((a, b) => (Date.parse(a.starts_at || '') || 0) - (Date.parse(b.starts_at || '') || 0));
 		}
 		return byDay;
-	}, [events]);
-
-	const sortedEvents = useMemo(() => {
-		return [...events].sort((a, b) => (Date.parse(a.starts_at || '') || 0) - (Date.parse(b.starts_at || '') || 0));
-	}, [events]);
+	}, [deferredEvents]);
 
 	const weekEventsByDay = useMemo(() => {
 		const out = new Map<string, Array<{event: CalendarEventItem; topPx: number; heightPx: number}>>();
@@ -323,7 +419,7 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 			dayEnd.setDate(dayEnd.getDate() + 1);
 			const rows: Array<{event: CalendarEventItem; topPx: number; heightPx: number}> = [];
 
-			for (const event of events) {
+			for (const event of deferredEvents) {
 				const startsAt = event.starts_at ? new Date(event.starts_at) : null;
 				const endsAt = event.ends_at ? new Date(event.ends_at) : null;
 				if (!startsAt || Number.isNaN(startsAt.getTime())) continue;
@@ -346,7 +442,7 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 			out.set(dayKey, rows);
 		}
 		return out;
-	}, [events, weekDays, WEEK_HOUR_ROW_HEIGHT]);
+	}, [deferredEvents, weekDays, WEEK_HOUR_ROW_HEIGHT]);
 
 	const weekContainsNow = useMemo(() => {
 		const todayKey = toDateKey(now);
@@ -436,7 +532,7 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 				setCalendarError('Please provide a valid start and end date/time.');
 				return;
 			}
-			const created = await ipcClient.addCalendarEvent(accountId, {
+			const created = await selectedAccount.calendar.add({
 				summary: eventTitle.trim() || null,
 				location: eventLocation.trim() || null,
 				description: eventDescription.trim() || null,
@@ -492,7 +588,7 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 				setCalendarError('Please provide a valid start and end date/time.');
 				return;
 			}
-			const updated = await ipcClient.updateCalendarEvent(editEventId, {
+			const updated = await selectedAccount.calendar.update(editEventId, {
 				summary: editEventTitle.trim() || null,
 				location: editEventLocation.trim() || null,
 				description: editEventDescription.trim() || null,
@@ -520,7 +616,7 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 		setDeletingEvent(true);
 		try {
 			const targetId = eventToDelete.id;
-			await ipcClient.deleteCalendarEvent(targetId);
+			await selectedAccount.calendar.remove(targetId);
 			setEvents((prev) => prev.filter((event) => event.id !== targetId));
 			setSelectedEvent((prev) => (prev && prev.id === targetId ? null : prev));
 			setEventToDelete(null);
@@ -533,34 +629,8 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 
 	async function onManualSync(targetAccountId?: number) {
 		const effectiveAccountId = targetAccountId ?? accountId;
-		if (!effectiveAccountId || syncing) return;
-		setSyncing(true);
-		setSyncingAccountId(effectiveAccountId);
-		setSyncStatusText(statusSyncing());
-		setCalendarError(null);
-		try {
-			await ipcClient.syncDav(effectiveAccountId);
-			if (effectiveAccountId === accountId) {
-				const start = new Date(calendarBounds.gridStart);
-				start.setHours(0, 0, 0, 0);
-				const end = new Date(calendarBounds.gridEnd);
-				end.setHours(23, 59, 59, 999);
-				const rows = await ipcClient.getCalendarEvents(
-					effectiveAccountId,
-					start.toISOString(),
-					end.toISOString(),
-					5000,
-				);
-				setEvents(rows);
-			}
-			setSyncStatusText('Calendar synced');
-		} catch (error: any) {
-			setCalendarError(toErrorMessage(error));
-			setSyncStatusText(statusSyncFailed(error));
-		} finally {
-			setSyncing(false);
-			setSyncingAccountId(null);
-		}
+		if (!effectiveAccountId) return;
+		queueBackgroundSync(effectiveAccountId, 'manual');
 	}
 
 	function openNewEventForDay(dayKey: string) {
@@ -695,6 +765,37 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 		</aside>
 	);
 	const selectedDayEvents = selectedDayForModal ? (eventsByDay.get(selectedDayForModal) ?? []) : [];
+	const selectedAccountEmail = String(selectedAccount.account?.email || '').trim().toLowerCase() || null;
+	const getEventVisuals = useCallback(
+		(event: CalendarEventItem): {ownerLabel: string | null; ownerShortLabel: string | null; pillStyle?: React.CSSProperties} => {
+			const metadata = parseGoogleEventMetadata(event);
+			const organizerEmail = String(metadata?.organizerEmail || '').trim().toLowerCase() || null;
+			const organizerName = String(metadata?.organizerName || '').trim() || null;
+			const ownerLabel =
+				organizerName && organizerEmail
+					? `${organizerName} (${organizerEmail})`
+					: organizerName || organizerEmail || null;
+			const ownerShortLabel = organizerName || (organizerEmail ? organizerEmail.split('@')[0] : null);
+			const isSharedOrganizer =
+				Boolean(organizerEmail) &&
+				(!selectedAccountEmail || organizerEmail !== selectedAccountEmail);
+			if (!isSharedOrganizer || !organizerEmail) {
+				return {ownerLabel, ownerShortLabel, pillStyle: undefined};
+			}
+			const hue = hashOwnerKey(organizerEmail) % 360;
+			return {
+				ownerLabel,
+				ownerShortLabel,
+				pillStyle: {
+					borderLeft: `3px solid hsl(${hue} 68% 50%)`,
+					backgroundColor: `color-mix(in srgb, hsl(${hue} 72% 50%) 15%, var(--panel-surface))`,
+					color: `color-mix(in srgb, hsl(${hue} 70% 34%) 80%, var(--content-text))`,
+				},
+			};
+		},
+		[selectedAccountEmail],
+	);
+
 	const calendarToolbar = (
 		<div className="flex h-10 min-w-0 items-center gap-2">
 			<div className="flex items-center rounded-md border ui-border-default ui-surface-card">
@@ -804,71 +905,10 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 					)}
 					{!accountId && <div className="ui-text-muted p-5 text-sm">{statusNoAccountSelected()}</div>}
 					{accountId && (
-						<div className="min-h-0 flex flex-1 overflow-hidden">
-							{calendarViewMode === 'month' && (
+							<div className="min-h-0 flex flex-1 overflow-hidden">
 								<div
-									className="relative flex min-h-0 shrink-0 flex-col border-r ui-border-default ui-surface-card"
-									style={{width: eventListWidth}}
-								>
-									<div className="ui-text-primary flex items-center gap-2 border-b ui-border-default px-4 py-3 text-sm font-semibold">
-										<List size={14} />
-										Events
-									</div>
-									{sortedEvents.length === 0 ? (
-										<p className="ui-text-muted px-3 py-4 text-sm">No events in this range.</p>
-									) : (
-										<div className="min-h-0 divide-y ui-border-default overflow-y-auto">
-											{sortedEvents.map((event) => (
-												<div key={event.id} className="flex items-center gap-2 px-3 py-2">
-													<Button
-														type="button"
-														className={cn(
-															'min-w-0 flex-1 rounded px-1 py-1 text-left',
-															selectedEvent?.id === event.id && 'ui-surface-active',
-														)}
-														onClick={() => setSelectedEvent(event)}
-													>
-														<p className="ui-text-primary truncate text-sm font-medium">
-															{event.summary || '(No title)'}
-														</p>
-														<p className="ui-text-muted truncate text-xs">
-															{formatSystemDateTime(event.starts_at, systemLocale)}
-														</p>
-													</Button>
-													<Button
-														type="button"
-														variant="ghost"
-														className="ui-surface-hover ui-hover-text-primary rounded p-2 ui-text-muted transition-colors"
-														onClick={() => openEditEventModal(event)}
-														title="Edit event"
-														aria-label="Edit event"
-													>
-														<Pencil size={14} />
-													</Button>
-													<Button
-														type="button"
-														className="notice-button-danger rounded p-2 ui-text-muted transition-colors"
-														onClick={() => setEventToDelete(event)}
-														title="Delete event"
-														aria-label="Delete event"
-													>
-														<Trash2 size={14} />
-													</Button>
-												</div>
-											))}
-										</div>
-									)}
-									<div
-										role="separator"
-										aria-orientation="vertical"
-										className="resize-handle absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize bg-transparent"
-										onMouseDown={onEventListResizeStart}
-									/>
-								</div>
-							)}
-							<div
-								ref={calendarBodyScrollRef}
-								className="ui-surface-content min-h-full min-w-0 flex-1 overflow-auto"
+									ref={calendarBodyScrollRef}
+									className="ui-surface-content min-h-full min-w-0 flex-1 overflow-auto"
 							>
 								{calendarViewMode === 'month' && (
 									<div className="min-h-full ui-surface-card flex flex-col">
@@ -946,18 +986,26 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 																	</span>
 																</div>
 																<div className="max-h-[calc(100%-1.75rem)] space-y-1 overflow-y-auto">
-																	{dayEvents.slice(0, 3).map((event) => (
-																		<Button
-																			key={event.id}
-																			type="button"
-																			className="event-pill block w-full truncate rounded px-2 py-1 text-left text-xs"
-																			onClick={() => setSelectedEvent(event)}
-																			title={event.summary || '(No title)'}
-																		>
-																			{formatEventTime(event.starts_at)}{' '}
-																			{event.summary || '(No title)'}
-																		</Button>
-																	))}
+																	{dayEvents.slice(0, 3).map((event) => {
+																		const visuals = getEventVisuals(event);
+																		return (
+																			<Button
+																				key={event.id}
+																				type="button"
+																				className="event-pill block w-full truncate rounded px-2 py-1 text-left text-xs"
+																				style={visuals.pillStyle}
+																				onClick={() => setSelectedEvent(event)}
+																				title={
+																					visuals.ownerLabel
+																						? `${event.summary || '(No title)'} — ${visuals.ownerLabel}`
+																						: (event.summary || '(No title)')
+																				}
+																			>
+																				{formatEventTime(event.starts_at)} {event.summary || '(No title)'}
+																				{visuals.ownerShortLabel ? ` · ${visuals.ownerShortLabel}` : ''}
+																			</Button>
+																		);
+																	})}
 																	{dayEvents.length > 3 && (
 																		<p className="ui-text-muted px-1 text-xs">
 																			+{dayEvents.length - 3} more
@@ -1109,27 +1157,36 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 																	}}
 																/>
 															))}
-															{dayLayouts.map((layout, idx) => (
-																<Button
-																	key={`${layout.event.id}-${idx}`}
-																	type="button"
-																	className="event-pill absolute left-1 right-1 z-10 overflow-hidden rounded px-2 py-1 text-left text-xs"
-																	style={{
-																		top: layout.topPx + 1,
-																		height: Math.max(18, layout.heightPx - 2),
-																	}}
-																	onClick={() => setSelectedEvent(layout.event)}
-																	title={layout.event.summary || '(No title)'}
-																>
-																	<span className="block truncate font-medium">
-																		{layout.event.summary || '(No title)'}
-																	</span>
-																	<span className="block truncate opacity-80">
-																		{formatEventTime(layout.event.starts_at)} -{' '}
-																		{formatEventTime(layout.event.ends_at)}
-																	</span>
-																</Button>
-															))}
+															{dayLayouts.map((layout, idx) => {
+																const visuals = getEventVisuals(layout.event);
+																return (
+																	<Button
+																		key={`${layout.event.id}-${idx}`}
+																		type="button"
+																		className="event-pill absolute left-1 right-1 z-10 overflow-hidden rounded px-2 py-1 text-left text-xs"
+																		style={{
+																			top: layout.topPx + 1,
+																			height: Math.max(18, layout.heightPx - 2),
+																			...(visuals.pillStyle || {}),
+																		}}
+																		onClick={() => setSelectedEvent(layout.event)}
+																		title={
+																			visuals.ownerLabel
+																				? `${layout.event.summary || '(No title)'} — ${visuals.ownerLabel}`
+																				: (layout.event.summary || '(No title)')
+																		}
+																	>
+																		<span className="block truncate font-medium">
+																			{layout.event.summary || '(No title)'}
+																		</span>
+																		<span className="block truncate opacity-80">
+																			{formatEventTime(layout.event.starts_at)} -{' '}
+																			{formatEventTime(layout.event.ends_at)}
+																			{visuals.ownerShortLabel ? ` · ${visuals.ownerShortLabel}` : ''}
+																		</span>
+																	</Button>
+																);
+															})}
 														</div>
 													);
 												})}
@@ -1180,6 +1237,11 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 						{formatSystemDateTime(selectedEvent.starts_at, systemLocale)} -{' '}
 						{formatSystemDateTime(selectedEvent.ends_at, systemLocale)}
 					</p>
+					{getEventVisuals(selectedEvent).ownerLabel && (
+						<p className="ui-text-secondary mt-2 text-sm">
+							Owner: {getEventVisuals(selectedEvent).ownerLabel}
+						</p>
+					)}
 					{selectedEvent.location && (
 						<p className="ui-text-secondary mt-2 text-sm">{selectedEvent.location}</p>
 					)}
@@ -1243,6 +1305,7 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 										<Button
 											type="button"
 											className="ui-surface-hover w-full rounded border ui-border-default px-3 py-2 text-left"
+											style={getEventVisuals(event).pillStyle}
 											onClick={() => {
 												setSelectedEvent(event);
 												setSelectedDayForModal(null);
@@ -1253,6 +1316,11 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 											</p>
 											{event.location && (
 												<p className="ui-text-muted mt-0.5 text-xs">{event.location}</p>
+											)}
+											{getEventVisuals(event).ownerLabel && (
+												<p className="ui-text-muted mt-0.5 text-xs">
+													Owner: {getEventVisuals(event).ownerLabel}
+												</p>
 											)}
 										</Button>
 									</li>

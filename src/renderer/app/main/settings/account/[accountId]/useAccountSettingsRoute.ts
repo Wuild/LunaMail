@@ -1,9 +1,10 @@
 import {useQuery} from '@tanstack/react-query';
 import {useEffect, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {useAccounts} from '@renderer/hooks/ipc/useAccounts';
+import {useAccount, useAccounts} from '@renderer/hooks/ipc/useAccounts';
 import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
 import {ipcClient} from '@renderer/lib/ipcClient';
+import {useMailFoldersStore} from '@renderer/store/mailFoldersStore';
 import type {UpdateAccountPayload} from '@/preload';
 import type {AccountEditor, AccountPanelSection} from '@renderer/app/main/settings/settingsTypes';
 import {
@@ -45,6 +46,8 @@ export function useAccountSettingsRoute(
 ): UseAccountSettingsRouteResult {
 	const navigate = useNavigate();
 	const {accounts} = useAccounts();
+	const accountHandle = useAccount(accountId);
+	const runtimeAccountFolders = useMailFoldersStore((state) => state.accountFoldersById[accountId] ?? []);
 	const selectedAccount = accounts.find((account) => account.id === accountId) ?? null;
 	const [editor, setEditor] = useState<AccountEditor | null>(null);
 	const [accountSection, setAccountSection] = useState<AccountPanelSection>(section);
@@ -62,18 +65,19 @@ export function useAccountSettingsRoute(
 	});
 
 	const accountFoldersQuery = useQuery({
-		queryKey: ['folders', 'account-settings', selectedAccount?.id ?? null],
-		queryFn: () => ipcClient.getFolders(selectedAccount!.id),
-		enabled: Boolean(selectedAccount),
+		queryKey: ['folders', 'account-settings', accountId],
+		queryFn: () => ipcClient.getFolders(accountId),
+		enabled: Number.isFinite(accountId) && accountId > 0,
 		initialData: [],
 	});
 	const mailFiltersQuery = useQuery({
-		queryKey: ['mail-filters', selectedAccount?.id ?? null],
-		queryFn: () => ipcClient.getMailFilters(selectedAccount!.id),
-		enabled: Boolean(selectedAccount),
+		queryKey: ['mail-filters', accountId],
+		queryFn: () => ipcClient.getMailFilters(accountId),
+		enabled: Number.isFinite(accountId) && accountId > 0,
 		initialData: [],
 	});
-	const accountFolders = accountFoldersQuery.data;
+	const accountFoldersFromQuery = accountFoldersQuery.data;
+	const accountFolders = accountFoldersFromQuery.length > 0 ? accountFoldersFromQuery : runtimeAccountFolders;
 	const mailFilters = mailFiltersQuery.data;
 
 	useEffect(() => {
@@ -106,6 +110,9 @@ export function useAccountSettingsRoute(
 			smtp_host: selectedAccount.smtp_host,
 			smtp_port: selectedAccount.smtp_port,
 			smtp_secure: selectedAccount.smtp_secure,
+			sync_emails: selectedAccount.sync_emails,
+			sync_contacts: selectedAccount.sync_contacts,
+			sync_calendar: selectedAccount.sync_calendar,
 			password: '',
 		});
 	}, [selectedAccount]);
@@ -123,6 +130,11 @@ export function useAccountSettingsRoute(
 
 	async function onSaveAccount() {
 		if (!editor || savingAccount) return;
+		const hasAnyModuleEnabled = !!editor.sync_emails || !!editor.sync_contacts || !!editor.sync_calendar;
+		if (!hasAnyModuleEnabled) {
+			setAccountStatus('Select at least one sync module (email, contacts, or calendar).');
+			return;
+		}
 		setSavingAccount(true);
 		setAccountStatus('Saving account...');
 		try {
@@ -142,6 +154,9 @@ export function useAccountSettingsRoute(
 				smtp_host: editor.smtp_host.trim(),
 				pop3_host: editor.pop3_host?.trim() || null,
 				password: editor.password?.trim() || null,
+				sync_emails: editor.sync_emails ? 1 : 0,
+				sync_contacts: editor.sync_contacts ? 1 : 0,
+				sync_calendar: editor.sync_calendar ? 1 : 0,
 			};
 			await ipcClient.updateAccount(editor.id, normalized);
 			setAccountStatus('Account settings saved.');
@@ -173,17 +188,46 @@ export function useAccountSettingsRoute(
 	}
 
 	function onOpenCreateMailFilter() {
-		setMailFilterModal({
-			mode: 'create',
-			draft: createDefaultMailFilterDraft(mailFilters.length + 1),
-		});
+		void (async () => {
+			if (accountFolders.length === 0 && accountId > 0) {
+				try {
+					await accountHandle.mail.refreshFolders();
+					await accountFoldersQuery.refetch();
+				} catch {
+					// non-fatal: modal can still open and show empty-state option
+				}
+			}
+			const freshFolders = accountFoldersQuery.data?.length
+				? accountFoldersQuery.data
+				: accountHandle.mail.folders.length
+					? accountHandle.mail.folders
+					: runtimeAccountFolders;
+			const defaultFolderPath = freshFolders[0]?.path ?? '';
+			setMailFilterModal({
+				mode: 'create',
+				draft: {
+					...createDefaultMailFilterDraft(mailFilters.length + 1),
+					actions: [{type: 'move_to_folder', value: defaultFolderPath}],
+				},
+			});
+		})();
 	}
 
 	function onOpenEditMailFilter(filter: any) {
-		setMailFilterModal({
-			mode: 'edit',
-			draft: mapMailFilterToDraft(filter),
-		});
+		void (async () => {
+			if (accountFolders.length === 0 && accountId > 0) {
+				try {
+					await accountHandle.mail.refreshFolders();
+					await accountFoldersQuery.refetch();
+				} catch {
+					// non-fatal
+				}
+			}
+			setMailFilterModal({
+				mode: 'edit',
+				draft: mapMailFilterToDraft(filter),
+			});
+		})();
 	}
 
 	function updateMailFilterDraft(updater: (prev: MailFilterDraft) => MailFilterDraft) {
@@ -194,7 +238,12 @@ export function useAccountSettingsRoute(
 	}
 
 	async function onSaveMailFilterModal() {
-		if (!selectedAccount || !mailFilterModal || mailFilterBusy) return;
+		if (!mailFilterModal || mailFilterBusy) return;
+		const targetAccountId = selectedAccount?.id ?? editor?.id ?? accountId;
+		if (!targetAccountId || !Number.isFinite(targetAccountId) || targetAccountId <= 0) {
+			setAccountStatus('No valid account selected for this filter.');
+			return;
+		}
 		const {mode, draft} = mailFilterModal;
 		const name = draft.name.trim();
 		if (!name) {
@@ -220,7 +269,7 @@ export function useAccountSettingsRoute(
 		setMailFilterBusy(true);
 		setAccountStatus(mode === 'create' ? 'Creating filter...' : 'Saving filter...');
 		try {
-			await ipcClient.saveMailFilter(selectedAccount.id, {
+			await ipcClient.saveMailFilter(targetAccountId, {
 				id: draft.id ?? undefined,
 				name,
 				enabled: draft.enabled ? 1 : 0,
@@ -248,11 +297,12 @@ export function useAccountSettingsRoute(
 	}
 
 	async function onDeleteMailFilter(filterId: number) {
-		if (!selectedAccount || mailFilterBusy) return;
+		const targetAccountId = selectedAccount?.id ?? editor?.id ?? accountId;
+		if (!targetAccountId || mailFilterBusy) return;
 		setMailFilterBusy(true);
 		setAccountStatus('Deleting filter...');
 		try {
-			const result = await ipcClient.deleteMailFilter(selectedAccount.id, filterId);
+			const result = await ipcClient.deleteMailFilter(targetAccountId, filterId);
 			if (result.removed) {
 				await mailFiltersQuery.refetch();
 				setAccountStatus('Filter deleted.');
@@ -267,7 +317,8 @@ export function useAccountSettingsRoute(
 	}
 
 	async function onRunMailFilter(filterId?: number) {
-		if (!selectedAccount) return;
+		const targetAccountId = selectedAccount?.id ?? editor?.id ?? accountId;
+		if (!targetAccountId) return;
 		if (mailFilterModal) {
 			setAccountStatus('Save the open filter first before running filters.');
 			return;
@@ -279,7 +330,7 @@ export function useAccountSettingsRoute(
 		setRunningFilterId(filterId ?? -1);
 		setAccountStatus('Running filter...');
 		try {
-			const result = await ipcClient.runMailFilters(selectedAccount.id, {filterId});
+			const result = await ipcClient.runMailFilters(targetAccountId, {filterId});
 			setAccountStatus(
 				`Run complete. Processed ${result.processed}, matched ${result.matched}, actions ${result.actionsApplied}, errors ${result.errors}.`,
 			);

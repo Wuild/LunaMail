@@ -214,6 +214,7 @@ export default function TopTableMailPane({
 	isTableHeadMenuOpen,
 }: TopTableMailPaneProps) {
 	const [draggingColumn, setDraggingColumn] = React.useState<MailTableColumnKey | null>(null);
+	const tableScrollRef = React.useRef<HTMLDivElement | null>(null);
 	const headerSensors = useSensors(useSensor(PointerSensor, {activationConstraint: {distance: 4}}));
 	const headerLabelByKey = React.useMemo(
 		() =>
@@ -243,6 +244,15 @@ export default function TopTableMailPane({
 		},
 		[onReorderVisibleTableColumns, visibleTableColumns],
 	);
+
+	React.useEffect(() => {
+		if (!hasMoreMessages || loadingMoreMessages || messages.length === 0) return;
+		const el = tableScrollRef.current;
+		if (!el) return;
+		if (el.scrollHeight <= el.clientHeight + 1) {
+			onLoadMoreMessages();
+		}
+	}, [hasMoreMessages, loadingMoreMessages, messages.length, onLoadMoreMessages]);
 
 	return (
 		<section className="workspace-content flex min-w-0 flex-1 flex-col">
@@ -315,6 +325,7 @@ export default function TopTableMailPane({
 					</div>
 				)}
 				<ScrollArea
+					ref={tableScrollRef}
 					className="min-h-0 flex-1"
 					onScroll={(event) => {
 						if (!hasMoreMessages || loadingMoreMessages) return;
@@ -417,6 +428,19 @@ export default function TopTableMailPane({
 					)}
 					{loadingMoreMessages && messages.length > 0 && (
 						<div className="ui-text-muted px-5 py-3 text-center text-xs">Loading more messages...</div>
+					)}
+					{hasMoreMessages && !loadingMoreMessages && messages.length > 0 && (
+						<div className="px-5 py-3 text-center">
+							<Button
+								type="button"
+								variant="secondary"
+								size="sm"
+								onClick={onLoadMoreMessages}
+								className="rounded-md px-3"
+							>
+								Load more
+							</Button>
+						</div>
 					)}
 				</ScrollArea>
 				{!isCompactTopTable && (

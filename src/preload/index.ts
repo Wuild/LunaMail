@@ -2,10 +2,14 @@ import {contextBridge, ipcRenderer, webUtils} from 'electron';
 import type {
 	AppSettings,
 	AppSettingsPatch,
+	AccountSyncModuleStatusMap,
 	AuthCapabilities,
 	AuthMethod,
 	AuthMethodSupport,
 	AutoUpdateState,
+	CalendarSyncRange,
+	DavSyncOptions,
+	DavSyncModules,
 	DiscoverCandidate,
 	DiscoverResult,
 	GlobalErrorEvent,
@@ -13,8 +17,12 @@ import type {
 	MailFilterRunSummary,
 	OAuthProvider,
 	OAuthSession,
+	ProviderCapabilities,
+	ProviderDriverCatalogItem,
+	ProviderSyncError,
 	ServiceProtocolType,
 	ServiceSettings,
+	SyncModuleKey,
 	UpsertMailFilterPayload,
 } from '@/shared/ipcTypes';
 
@@ -22,12 +30,14 @@ export type {
 	AppLanguage,
 	AppSettings,
 	AppSettingsPatch,
+	AccountSyncModuleStatusMap,
 	AuthCapabilities,
 	AuthMethod,
 	AuthMethodSupport,
 	AppTheme,
 	AutoUpdatePhase,
 	AutoUpdateState,
+	CalendarSyncRange,
 	DiscoverCandidate,
 	DiscoverResult,
 	GlobalErrorEvent,
@@ -41,10 +51,16 @@ export type {
 	MailFilterOperator,
 	MailFilterRunSummary,
 	MailView,
+	DavSyncOptions,
+	DavSyncModules,
 	OAuthProvider,
 	OAuthSession,
+	ProviderCapabilities,
+	ProviderDriverCatalogItem,
+	ProviderSyncError,
 	ServiceProtocolType,
 	ServiceSettings,
+	SyncModuleKey,
 	UpsertMailFilterPayload,
 } from '@/shared/ipcTypes';
 
@@ -69,6 +85,9 @@ export interface AddAccountPayload {
 	smtp_host: string;
 	smtp_port: number;
 	smtp_secure?: number; // 1=SSL/TLS, 0=STARTTLS
+	sync_emails?: number;
+	sync_contacts?: number;
+	sync_calendar?: number;
 	user: string;
 	password?: string;
 	oauth_session?: OAuthSession | null;
@@ -95,6 +114,9 @@ export interface UpdateAccountPayload {
 	smtp_host: string;
 	smtp_port: number;
 	smtp_secure?: number;
+	sync_emails?: number;
+	sync_contacts?: number;
+	sync_calendar?: number;
 	user: string;
 	password?: string | null;
 }
@@ -121,6 +143,9 @@ export interface PublicAccount {
 	smtp_host: string;
 	smtp_port: number;
 	smtp_secure: number;
+	sync_emails: number;
+	sync_contacts: number;
+	sync_calendar: number;
 	user: string;
 	created_at: string;
 }
@@ -259,7 +284,9 @@ export type MessageDetails = MessageItem;
 export interface SyncStatusEvent {
 	accountId: number;
 	status: 'syncing' | 'done' | 'error';
+	source?: string;
 	error?: string;
+	syncError?: ProviderSyncError;
 	summary?: AccountSyncSummary;
 }
 
@@ -311,6 +338,9 @@ export interface AccountSyncSummary {
 	messages: number;
 	newMessages?: number;
 	dav?: DavSyncSummary;
+	moduleStatus?: AccountSyncModuleStatusMap;
+	partialSuccess?: boolean;
+	failedModules?: SyncModuleKey[];
 }
 
 export interface ContactItem {
@@ -566,6 +596,9 @@ export interface DevShowNotificationResult {
 
 const api = {
 	getAccounts: (): Promise<PublicAccount[]> => ipcRenderer.invoke('get-accounts'),
+	getProviderDriverCatalog: (): Promise<ProviderDriverCatalogItem[]> => ipcRenderer.invoke('get-provider-driver-catalog'),
+	getAccountProviderCapabilities: (accountId: number): Promise<ProviderCapabilities> =>
+		ipcRenderer.invoke('get-account-provider-capabilities', accountId),
 	addAccount: (account: AddAccountPayload): Promise<{id: number; email: string}> =>
 		ipcRenderer.invoke('add-account', account),
 	updateAccount: (accountId: number, payload: UpdateAccountPayload): Promise<PublicAccount> =>
@@ -620,6 +653,7 @@ const api = {
 		ipcRenderer.invoke('verify-credentials', payload),
 	startMailOAuth: (payload: StartMailOAuthPayload): Promise<OAuthSession> =>
 		ipcRenderer.invoke('start-mail-oauth', payload),
+	cancelMailOAuth: (): Promise<{ok: true; cancelled: number}> => ipcRenderer.invoke('cancel-mail-oauth'),
 	syncAccount: (accountId: number): Promise<AccountSyncSummary> => ipcRenderer.invoke('sync-account', accountId),
 	getFolders: (accountId: number): Promise<FolderItem[]> => ipcRenderer.invoke('get-folders', accountId),
 	createFolder: (accountId: number, folderPath: string): Promise<CreateFolderResult> =>
@@ -636,7 +670,8 @@ const api = {
 	discoverDav: (accountId: number): Promise<DavDiscoveryResult> => ipcRenderer.invoke('discover-dav', accountId),
 	discoverDavPreview: (payload: DavDiscoveryPreviewPayload): Promise<DavDiscoveryResult> =>
 		ipcRenderer.invoke('discover-dav-preview', payload),
-	syncDav: (accountId: number): Promise<DavSyncSummary> => ipcRenderer.invoke('sync-dav', accountId),
+	syncDav: (accountId: number, options?: DavSyncOptions | null): Promise<DavSyncSummary> =>
+		ipcRenderer.invoke('sync-dav', accountId, options ?? null),
 	getContacts: (
 		accountId: number,
 		query?: string | null,
@@ -859,6 +894,12 @@ const api = {
 		const listener = (_event: Electron.IpcRendererEvent, payload: AppSettings) => callback(payload);
 		ipcRenderer.on('app-settings-updated', listener);
 		return () => ipcRenderer.removeListener('app-settings-updated', listener);
+	},
+	onNativeThemeUpdated: (callback: (payload: {shouldUseDarkColors: boolean}) => void): (() => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, payload: {shouldUseDarkColors: boolean}) =>
+			callback(payload);
+		ipcRenderer.on('native-theme-updated', listener);
+		return () => ipcRenderer.removeListener('native-theme-updated', listener);
 	},
 	onOpenMessageTarget: (callback: (payload: OpenMessageTargetEvent) => void): (() => void) => {
 		const listener = (_event: Electron.IpcRendererEvent, payload: OpenMessageTargetEvent) => callback(payload);

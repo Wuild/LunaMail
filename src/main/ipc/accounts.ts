@@ -4,8 +4,8 @@ import {createAppLogger, createMailDebugLogger} from '@main/debug/debugLog.js';
 import {
 	addAccount,
 	deleteAccount,
-	getAccounts,
 	getAccountSyncCredentials,
+	getAccounts,
 	updateAccount,
 } from '@main/db/repositories/accountsRepo.js';
 import {
@@ -42,7 +42,7 @@ import {saveDraftEmail, sendEmail} from '@main/mail/send.js';
 import {downloadMessageAttachment, syncMessageBody, syncMessageSource, type SyncSummary} from '@main/mail/sync.js';
 import {getDb, getSqlitePath} from '@main/db/drizzle.js';
 import {verifyConnection} from '@main/mail/verify.js';
-import {startMailOAuth} from '@main/mail/oauth.js';
+import {cancelPendingMailOAuth, startMailOAuth} from '@main/mail/oauth.js';
 import {resolveImapAuth} from '@main/mail/auth.js';
 import {
 	addAddressBook,
@@ -59,13 +59,18 @@ import {
 	removeAddressBook,
 	removeCalendarEvent,
 	removeContact,
-	syncDav,
 } from '@main/dav/sync.js';
 import {registerAccountCoreIpc} from './registerAccountCoreIpc.js';
 import {registerComposeIpc} from './registerComposeIpc.js';
 import {registerDavIpc} from './registerDavIpc.js';
 import {registerMailIpc} from './registerMailIpc.js';
 import {normalizeSyncIntervalMinutes} from '@/shared/settingsRules.js';
+import type {AccountSyncModuleStatusMap, DavSyncOptions, SyncModuleKey} from '@/shared/ipcTypes.js';
+import {
+	isAccountCalendarModuleEnabled,
+	isAccountContactsModuleEnabled,
+	isAccountEmailModuleEnabled,
+} from '@/shared/accountModules.js';
 import {getAppSettingsSync} from '@main/settings/store.js';
 import {
 	broadcastAccountSyncStatus,
@@ -74,6 +79,10 @@ import {
 	broadcastUnreadCountUpdated,
 } from './broadcast.js';
 import {isDemoProvider} from '@main/demo/demoMode.js';
+import {ProviderManagerError, providerManager} from '@main/mail/providers/providerManager.js';
+import {normalizeProviderSyncError} from '@main/mail/providers/errors.js';
+import {revokeMailOAuthSession} from '@main/auth/authServerClient.js';
+import type {ProviderAncillarySyncResult} from '@main/mail/providers/contracts.js';
 
 const bodyRequests = new Map<string, {cancel: () => void}>();
 const SYNC_DEBOUNCE_MS = 350;
@@ -109,6 +118,9 @@ type AccountSyncState = {
 
 export type AccountSyncSummary = SyncSummary & {
 	dav?: DavSyncSummary;
+	moduleStatus?: AccountSyncModuleStatusMap;
+	partialSuccess?: boolean;
+	failedModules?: SyncModuleKey[];
 };
 
 const accountSyncState = new Map<number, AccountSyncState>();
@@ -142,8 +154,10 @@ function filterAccountsForCurrentMode<T extends {provider: string | null | undef
 	return accounts.filter((account) => isDemoProvider(account.provider));
 }
 
-function getVisibleUnreadCount(accounts: Array<{id: number; provider: string | null | undefined}>): number {
-	const visibleAccounts = filterAccountsForCurrentMode(accounts);
+function getVisibleUnreadCount(
+	accounts: Array<{id: number; provider: string | null | undefined; sync_emails?: number | null}>,
+): number {
+	const visibleAccounts = filterAccountsForCurrentMode(accounts).filter((account) => isAccountEmailModuleEnabled(account));
 	return visibleAccounts.reduce((sum, account) => {
 		const folders = listFoldersByAccount(account.id);
 		const accountUnread = folders.reduce((acc, folder) => acc + Math.max(0, Number(folder.unread_count) || 0), 0);
@@ -218,10 +232,30 @@ export function registerAccountIpc(): void {
 	registerAccountCoreIpc({
 		appLogger,
 		getAccounts: async () => filterAccountsForCurrentMode(await getAccounts()),
+		getProviderDriverCatalog: () => providerManager.getProviderDriverCatalog(),
+		getProviderCapabilities: async (accountId: number) => await providerManager.getCapabilities(accountId),
 		getTotalUnreadCount: () => getVisibleUnreadCount(getAccountsSyncSnapshot()),
 		addAccount,
 		updateAccount,
 		deleteAccount,
+		revokeAccountOAuthTokens: async (accountId: number) => {
+			try {
+				const credentials = await getAccountSyncCredentials(accountId);
+				if (credentials.auth_method !== 'oauth2' || !credentials.oauth_session) return;
+				await revokeMailOAuthSession(credentials.oauth_session);
+				appLogger.info(
+					'OAuth tokens revoked accountId=%d provider=%s',
+					accountId,
+					credentials.oauth_provider ?? credentials.oauth_session.provider,
+				);
+			} catch (error) {
+				appLogger.warn(
+					'OAuth token revoke skipped accountId=%d error=%s',
+					accountId,
+					(error as any)?.message || String(error),
+				);
+			}
+		},
 		blockedSyncAccounts,
 		broadcastAccountAdded: (payload) => broadcastToAllWindows('account-added', payload),
 		broadcastAccountUpdated: (payload) => broadcastToAllWindows('account-updated', payload),
@@ -236,6 +270,7 @@ export function registerAccountIpc(): void {
 		autodiscoverBasic,
 		verifyConnection,
 		startMailOAuth,
+		cancelPendingMailOAuth,
 	});
 
 	registerComposeIpc({
@@ -284,7 +319,13 @@ export function registerAccountIpc(): void {
 	registerDavIpc({
 		discoverDav,
 		discoverDavPreview,
-		syncDav,
+		syncDav: async (accountId, options?: DavSyncOptions | null) => {
+			const result = await syncAccountAncillaryInWorker(accountId, options ?? null);
+			if (result.dav) return result.dav;
+			const contactsReason = result.moduleStatus?.contacts?.reason || 'Contacts sync was not executed.';
+			const calendarReason = result.moduleStatus?.calendar?.reason || 'Calendar sync was not executed.';
+			throw new Error(`${contactsReason} ${calendarReason}`.trim());
+		},
 		getContacts,
 		listRecentRecipients,
 		getAddressBooks,
@@ -302,12 +343,13 @@ export function registerAccountIpc(): void {
 	});
 }
 
-function getAccountsSyncSnapshot(): Array<{id: number; provider: string | null | undefined}> {
+function getAccountsSyncSnapshot(): Array<{id: number; provider: string | null | undefined; sync_emails: number}> {
 	try {
 		const db = getDb();
-		const rows = db.prepare('SELECT id, provider FROM accounts ORDER BY created_at ASC').all() as Array<{
+		const rows = db.prepare('SELECT id, provider, sync_emails FROM accounts ORDER BY created_at ASC').all() as Array<{
 			id: number;
 			provider: string | null | undefined;
+			sync_emails: number;
 		}>;
 		return rows;
 	} catch {
@@ -389,7 +431,7 @@ async function runAutoSyncCycle(source: 'startup' | 'interval'): Promise<void> {
 	try {
 		const accounts = await getAccounts();
 		const syncableAccounts = accounts.filter(
-			(account) => !isDemoProvider(account.provider) && !isDemoModeEnabled(),
+			(account) => !isDemoProvider(account.provider) && !isDemoModeEnabled() && isAccountEmailModuleEnabled(account),
 		);
 		void ensureIdleWatchersForAccounts(syncableAccounts.map((account) => account.id));
 		for (const account of accounts) {
@@ -437,7 +479,7 @@ async function runSyncAndBroadcast(accountId: number, source: string): Promise<A
 	const blockedReason = blockedSyncAccounts.get(accountId);
 	if (blockedReason) {
 		const error = `Sync paused for this account: ${blockedReason}. Update account settings or restart app.`;
-		broadcastSync({accountId, status: 'error', error, source});
+		broadcastSync({accountId, status: 'error', error, source, syncError: normalizeProviderSyncError(error)});
 		throw new Error(error);
 	}
 
@@ -474,17 +516,23 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 		state.queued = false;
 		const source = state.latestSource;
 		let cancelled = false;
-		let activeWorker: Worker | null = null;
+		let activeMailWorker: Worker | null = null;
+		let activeAncillaryWorker: Worker | null = null;
 
 		state.cancelCurrent = () => {
 			cancelled = true;
 			try {
-				activeWorker?.postMessage({type: 'cancel'});
+				activeMailWorker?.postMessage({type: 'cancel'});
 			} catch {
 				// ignore post errors
 			}
 			try {
-				activeWorker?.terminate();
+				activeMailWorker?.terminate();
+			} catch {
+				// ignore termination errors
+			}
+			try {
+				activeAncillaryWorker?.terminate();
 			} catch {
 				// ignore termination errors
 			}
@@ -494,12 +542,48 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 		appLogger.info('Sync started accountId=%d source=%s', accountId, source);
 
 		try {
-			const mailSummary = await syncAccountMailboxInWorker(accountId, (worker) => {
-				activeWorker = worker;
-			});
+			const account = (await getAccounts()).find((item) => item.id === accountId) ?? null;
+			const emailsEnabled = isAccountEmailModuleEnabled(account);
+			const contactsEnabled = isAccountContactsModuleEnabled(account);
+			const calendarEnabled = isAccountCalendarModuleEnabled(account);
+			let mailSummary: SyncSummary = {
+				accountId,
+				folders: 0,
+				messages: 0,
+				newMessages: 0,
+				newMessageIds: [],
+				newestMessageTarget: null,
+			};
+			const moduleStatus: AccountSyncModuleStatusMap = {
+				emails: emailsEnabled
+					? {state: 'success'}
+					: {
+							state: 'skipped',
+							reason: 'Email sync is disabled for this account.',
+						},
+				contacts: contactsEnabled
+					? {state: 'skipped', reason: 'Contacts sync was not executed.'}
+					: {
+							state: 'skipped',
+							reason: 'Contacts sync is disabled for this account.',
+						},
+				calendar: calendarEnabled
+					? {state: 'skipped', reason: 'Calendar sync was not executed.'}
+					: {
+							state: 'skipped',
+							reason: 'Calendar sync is disabled for this account.',
+						},
+				files: {state: 'skipped', reason: 'Files sync is not implemented.'},
+			};
+			if (emailsEnabled) {
+				const emailSyncService = await providerManager.resolveEmailSyncServiceForAccount(accountId);
+				mailSummary = await emailSyncService.syncMailbox(accountId, (worker) => {
+					activeMailWorker = worker;
+				});
+			}
 			if (cancelled && state.queued) continue;
 
-			if (source !== 'manual' && mailSummary.newMessageIds.length > 0) {
+			if (emailsEnabled && source !== 'manual' && mailSummary.newMessageIds.length > 0) {
 				try {
 					await runMailFiltersForMessages(accountId, mailSummary.newMessageIds, 'incoming');
 				} catch (filterError) {
@@ -510,27 +594,48 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 				}
 			}
 
-			let davSummary: DavSyncSummary | undefined;
-			try {
-				davSummary = await syncDav(accountId);
-			} catch (davError: any) {
-				createMailDebugLogger('carddav', `sync:${accountId}`).error(
-					'DAV sync skipped: %s',
-					davError?.message || String(davError),
-				);
-				createMailDebugLogger('caldav', `sync:${accountId}`).error(
-					'DAV sync skipped: %s',
-					davError?.message || String(davError),
-				);
-				console.warn(`DAV sync skipped for account ${accountId}:`, davError?.message || String(davError));
+			const ancillarySummary = await syncAccountAncillaryInWorker(
+				accountId,
+				{
+					modules: {
+						contacts: contactsEnabled,
+						calendar: calendarEnabled,
+					},
+				},
+				(worker) => {
+					activeAncillaryWorker = worker;
+				},
+			);
+			const davSummary: DavSyncSummary | undefined = ancillarySummary.dav;
+			if (contactsEnabled) {
+				moduleStatus.contacts = ancillarySummary.moduleStatus?.contacts ?? {
+					state: 'skipped',
+					reason: 'Contacts sync was not executed.',
+				};
 			}
+			if (calendarEnabled) {
+				moduleStatus.calendar = ancillarySummary.moduleStatus?.calendar ?? {
+					state: 'skipped',
+					reason: 'Calendar sync was not executed.',
+				};
+			}
+			moduleStatus.files = ancillarySummary.moduleStatus?.files ?? moduleStatus.files;
+			const failedModules = (Object.entries(moduleStatus) as Array<[SyncModuleKey, AccountSyncModuleStatusMap[SyncModuleKey]]>)
+				.filter(([, status]) => status.state === 'failed')
+				.map(([module]) => module);
+			const successModules = (Object.values(moduleStatus) as AccountSyncModuleStatusMap[SyncModuleKey][])
+				.filter((status) => status.state === 'success')
+				.length;
 			const summary: AccountSyncSummary = {
 				...mailSummary,
 				...(davSummary ? {dav: davSummary} : {}),
+				moduleStatus,
+				partialSuccess: failedModules.length > 0 && successModules > 0,
+				failedModules,
 			};
 
 			notifyUnreadCountChanged();
-			if (mailSummary.newMessages > 0 && newMailListener) {
+			if (emailsEnabled && mailSummary.newMessages > 0 && newMailListener) {
 				newMailListener({
 					accountId,
 					newMessages: mailSummary.newMessages,
@@ -550,13 +655,28 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 			state.pending = null;
 			return;
 		} catch (error: any) {
-			const message = error?.message || String(error);
-			const isCancelled = cancelled || /cancel/i.test(message);
+			const normalizedError = normalizeProviderSyncError(error);
+			const message = normalizedError.message;
+			const isCancelled = cancelled || normalizedError.category === 'cancelled';
 			if (isCancelled && state.queued) {
 				continue;
 			}
 			if (!isCancelled) {
-				if (isCredentialFailure(message)) {
+				if (error instanceof ProviderManagerError) {
+					const providerError = `Sync unavailable: ${message}`;
+					broadcastSync({
+						accountId,
+						status: 'error',
+						error: providerError,
+						source,
+						syncError: {
+							...normalizedError,
+							category: 'provider_api',
+							message: providerError,
+						},
+					});
+					appLogger.warn('Sync unavailable accountId=%d source=%s error=%s', accountId, source, message);
+				} else if (normalizedError.category === 'auth' || normalizedError.category === 'renewal' || isCredentialFailure(message)) {
 					blockedSyncAccounts.set(accountId, message);
 					stopIdleWatcher(accountId);
 					broadcastSync({
@@ -564,10 +684,11 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 						status: 'error',
 						error: `Sync paused: ${message}. Password or authentication may have changed. Update account settings or restart app.`,
 						source,
+						syncError: normalizedError,
 					});
 					appLogger.warn('Sync paused accountId=%d source=%s error=%s', accountId, source, message);
 				} else {
-					broadcastSync({accountId, status: 'error', error: message, source});
+					broadcastSync({accountId, status: 'error', error: message, source, syncError: normalizedError});
 					appLogger.warn('Sync error accountId=%d source=%s error=%s', accountId, source, message);
 				}
 			}
@@ -581,20 +702,52 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 	}
 }
 
-async function syncAccountMailboxInWorker(
+async function syncAccountAncillaryInWorker(
 	accountId: number,
+	options?: DavSyncOptions | null,
 	onWorkerReady?: (worker: Worker) => void,
-): Promise<SyncSummary> {
-	const credentials = await getAccountSyncCredentials(accountId);
-	const worker = new Worker(new URL('../workers/mailSyncWorker.mjs', import.meta.url), {
+): Promise<ProviderAncillarySyncResult> {
+	const account = (await getAccounts()).find((item) => item.id === accountId) ?? null;
+	const accountContactsEnabled = isAccountContactsModuleEnabled(account);
+	const accountCalendarEnabled = isAccountCalendarModuleEnabled(account);
+	const requestedContactsEnabled = options?.modules?.contacts ?? true;
+	const requestedCalendarEnabled = options?.modules?.calendar ?? true;
+	const effectiveContactsEnabled = accountContactsEnabled && requestedContactsEnabled;
+	const effectiveCalendarEnabled = accountCalendarEnabled && requestedCalendarEnabled;
+	if (!effectiveContactsEnabled && !effectiveCalendarEnabled) {
+		return {
+			moduleStatus: {
+				contacts: {
+					state: 'skipped',
+					reason: accountContactsEnabled
+						? 'Contacts sync was not requested.'
+						: 'Contacts sync is disabled for this account.',
+				},
+				calendar: {
+					state: 'skipped',
+					reason: accountCalendarEnabled
+						? 'Calendar sync was not requested.'
+						: 'Calendar sync is disabled for this account.',
+				},
+			},
+		};
+	}
+	const worker = new Worker(new URL('../workers/ancillarySyncWorker.mjs', import.meta.url), {
 		workerData: {
 			dbPath: getSqlitePath(),
-			credentials,
+			accountId,
+			options: {
+				...(options ?? {}),
+				modules: {
+					contacts: effectiveContactsEnabled,
+					calendar: effectiveCalendarEnabled,
+				},
+			},
 		},
 	});
 	onWorkerReady?.(worker);
 
-	return await new Promise<SyncSummary>((resolve, reject) => {
+	return await new Promise<ProviderAncillarySyncResult>((resolve, reject) => {
 		let settled = false;
 		const finish = (fn: () => void) => {
 			if (settled) return;
@@ -605,13 +758,13 @@ async function syncAccountMailboxInWorker(
 
 		worker.on('message', (payload: unknown) => {
 			if (!payload || typeof payload !== 'object') return;
-			const data = payload as {type?: string; summary?: SyncSummary; error?: string};
+			const data = payload as {type?: string; summary?: ProviderAncillarySyncResult; error?: string};
 			if (data.type === 'result' && data.summary) {
-				finish(() => resolve(data.summary as SyncSummary));
+				finish(() => resolve(data.summary as ProviderAncillarySyncResult));
 				return;
 			}
 			if (data.type === 'error') {
-				finish(() => reject(new Error(data.error || 'Mailbox sync worker failed')));
+				finish(() => reject(new Error(data.error || 'Ancillary sync worker failed')));
 			}
 		});
 
@@ -622,10 +775,10 @@ async function syncAccountMailboxInWorker(
 		worker.on('exit', (code) => {
 			if (settled) return;
 			if (code === 0) {
-				finish(() => reject(new Error('Mailbox sync worker exited without result')));
+				finish(() => reject(new Error('Ancillary sync worker exited without result')));
 				return;
 			}
-			finish(() => reject(new Error(`Mailbox sync worker exited with code ${code}`)));
+			finish(() => reject(new Error(`Ancillary sync worker exited with code ${code}`)));
 		});
 	});
 }
@@ -713,7 +866,9 @@ async function ensureIdleWatchersForAllAccounts(): Promise<void> {
 	const accounts = await getAccounts();
 	ensureIdleWatchersForAccounts(
 		accounts
-			.filter((account) => !isDemoProvider(account.provider) && !isDemoModeEnabled())
+			.filter(
+				(account) => !isDemoProvider(account.provider) && !isDemoModeEnabled() && isAccountEmailModuleEnabled(account),
+			)
 			.map((account) => account.id),
 	);
 }
@@ -731,6 +886,11 @@ function ensureIdleWatchersForAccounts(accountIds: number[]): void {
 }
 
 function ensureIdleWatcher(accountId: number): void {
+	const accountSnapshot = getAccountsSyncSnapshot().find((row) => row.id === accountId);
+	if (accountSnapshot && !isAccountEmailModuleEnabled(accountSnapshot)) {
+		stopIdleWatcher(accountId);
+		return;
+	}
 	const existing = idleWatchers.get(accountId);
 	if (existing && !existing.stopped) return;
 
@@ -746,7 +906,11 @@ function ensureIdleWatcher(accountId: number): void {
 async function connectIdleWatcher(state: IdleWatcherState): Promise<void> {
 	if (state.stopped) return;
 	try {
-		const account = await getAccountSyncCredentials(state.accountId);
+		const driver = await providerManager.resolveDriverForAccount(state.accountId);
+		if (!driver.supportsPushNotifications()) {
+			return;
+		}
+		const account = await driver.resolveSyncCredentials(state.accountId);
 		if (state.stopped) return;
 
 		const probeClient = new ImapFlow({
@@ -819,7 +983,11 @@ async function connectFolderIdleWatcher(state: IdleWatcherState, folder: FolderI
 	if (state.stopped || folder.connecting || folder.client) return;
 	folder.connecting = true;
 	try {
-		const account = await getAccountSyncCredentials(state.accountId);
+		const driver = await providerManager.resolveDriverForAccount(state.accountId);
+		if (!driver.supportsPushNotifications()) {
+			return;
+		}
+		const account = await driver.resolveSyncCredentials(state.accountId);
 		if (state.stopped) return;
 		const client = new ImapFlow({
 			host: account.imap_host,

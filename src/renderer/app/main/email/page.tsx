@@ -1,5 +1,5 @@
 import {ContextMenu, ContextMenuItem} from '@renderer/components/ui/ContextMenu';
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState, type SetStateAction} from 'react';
 import {ArrowLeft, FileText, Forward, Reply, ReplyAll, Trash2} from 'lucide-react';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import MainLayout from '@renderer/layouts/MainLayout';
@@ -34,50 +34,175 @@ import {
 	statusSyncedMessages,
 	statusSyncFailed,
 	statusSyncingMailbox,
-	statusSyncStarted,
 	toErrorMessage,
 } from '@renderer/lib/statusText';
 import {useThemePreference} from '@renderer/hooks/useAppTheme';
+import {useAppSettings} from '@renderer/hooks/ipc/useAppSettings';
+import {useAccount, useAccountDirectory} from '@renderer/hooks/ipc/useAccounts';
 import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
+import {useSystemLocale} from '@renderer/hooks/ipc/useSystemLocale';
 import {useMailSelection} from '@renderer/hooks/mail/useMailSelection';
 import {useMessageBodyLoader} from '@renderer/hooks/mail/useMessageBodyLoader';
 import {useMailSyncStatus} from '@renderer/hooks/mail/useMailSyncStatus';
 import {useOptimisticReadState} from '@renderer/hooks/mail/useOptimisticReadState';
 import {useMailActionMutations} from '@renderer/hooks/mail/useMailActionMutations';
+import {useAccountsRuntimeStore} from '@renderer/store/accountsRuntimeStore';
+import {useMailFoldersStore} from '@renderer/store/mailFoldersStore';
+import {useMailMessagesStore} from '@renderer/store/mailMessagesStore';
 import {buildMessageIframeSrcDoc, formatMessageTagLabel, parseRouteNumber} from './mailPageHelpers';
 import {
-	hasAccountOrderChanged,
 	normalizeAccountOrder,
 	readPersistedAccountOrder,
-	sortAccountsByOrder,
 	writePersistedAccountOrder,
 } from './mailAccountOrder';
 import {ipcClient} from '@renderer/lib/ipcClient';
-import {createDefaultAppSettings} from '@/shared/defaults';
-import type {FolderItem, MessageItem, OpenMessageTargetEvent, PublicAccount, SyncStatusEvent} from '@/preload';
+import {DEFAULT_APP_SETTINGS} from '@/shared/defaults';
+import type {FolderItem, MessageItem, OpenMessageTargetEvent, PublicAccount} from '@/preload';
+import {isAccountEmailModuleEnabled} from '@/shared/accountModules';
 
 const MESSAGE_PAGE_SIZE = 100;
 const SEARCH_FALLBACK_MESSAGES_PER_FOLDER = 1000;
 const SIDE_LIST_SPLIT_BREAKPOINT_PX = 1320;
 const TOP_TABLE_COMPACT_BREAKPOINT_PX = 860;
 
+function hasMoreFolderMessages(loadedCount: number, requestedLimit: number, folderTotalCount: number): boolean {
+	if (loadedCount >= requestedLimit) return true;
+	return folderTotalCount > loadedCount;
+}
+
 function MailPage() {
 	const params = useParams<{accountId?: string; folderId?: string; emailId?: string}>();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const [accounts, setAccounts] = useState<PublicAccount[]>([]);
+	const allAccounts = useAccountsRuntimeStore((state) => state.accounts);
+	const accounts = useMemo(
+		() => allAccounts.filter((account) => isAccountEmailModuleEnabled(account)),
+		[allAccounts],
+	);
+	const setAccountsStore = useAccountsRuntimeStore((state) => state.setAccounts);
+	const selectedAccountId = useAccountsRuntimeStore((state) => state.selectedAccountId);
+	const setSelectedAccountId = useAccountsRuntimeStore((state) => state.setSelectedAccountId);
 	const [accountOrder, setAccountOrder] = useState<number[]>(() => readPersistedAccountOrder());
-	const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
-	const [folders, setFolders] = useState<FolderItem[]>([]);
-	const [accountFoldersById, setAccountFoldersById] = useState<Record<number, FolderItem[]>>({});
-	const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
-	const [searchQuery, setSearchQuery] = useState('');
-	const [searchResults, setSearchResults] = useState<MessageItem[]>([]);
-	const [searchLoading, setSearchLoading] = useState(false);
-	const [messages, setMessages] = useState<MessageItem[]>([]);
-	const [messageFetchLimit, setMessageFetchLimit] = useState<number>(MESSAGE_PAGE_SIZE);
-	const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
-	const [hasMoreMessages, setHasMoreMessages] = useState(false);
+	const accountFoldersById = useMailFoldersStore((state) => state.accountFoldersById);
+	const setAccountFoldersByIdStore = useMailFoldersStore((state) => state.setAccountFoldersById);
+	const selectedFolderPath = useMailFoldersStore((state) => state.selectedFolderPath);
+	const setSelectedFolderPath = useMailFoldersStore((state) => state.setSelectedFolderPath);
+	const folders = useMemo(
+		() => (selectedAccountId ? (accountFoldersById[selectedAccountId] ?? []) : []),
+		[accountFoldersById, selectedAccountId],
+	);
+	const searchQuery = useMailMessagesStore((state) => state.searchQuery);
+	const messages = useMailMessagesStore((state) => state.messages);
+	const searchResults = useMailMessagesStore((state) => state.searchResults);
+	const searchLoading = useMailMessagesStore((state) => state.searchLoading);
+	const messageFetchLimit = useMailMessagesStore((state) => state.messageFetchLimit);
+	const loadingMoreMessages = useMailMessagesStore((state) => state.loadingMoreMessages);
+	const hasMoreMessages = useMailMessagesStore((state) => state.hasMoreMessages);
+	const setMessagesStore = useMailMessagesStore((state) => state.setMessages);
+	const setSearchQueryStore = useMailMessagesStore((state) => state.setSearchQuery);
+	const setSearchResultsStore = useMailMessagesStore((state) => state.setSearchResults);
+	const setSearchLoadingStore = useMailMessagesStore((state) => state.setSearchLoading);
+	const setMessageFetchLimitStore = useMailMessagesStore((state) => state.setMessageFetchLimit);
+	const setLoadingMoreMessagesStore = useMailMessagesStore((state) => state.setLoadingMoreMessages);
+	const setHasMoreMessagesStore = useMailMessagesStore((state) => state.setHasMoreMessages);
+	const resetMessageListState = useMailMessagesStore((state) => state.resetMessageListState);
+	const setAccountFoldersById = useCallback(
+		(value: SetStateAction<Record<number, FolderItem[]>>) => {
+			setAccountFoldersByIdStore((prev) =>
+				typeof value === 'function'
+					? (value as (current: Record<number, FolderItem[]>) => Record<number, FolderItem[]>)(prev)
+					: value,
+			);
+		},
+		[setAccountFoldersByIdStore],
+	);
+	const setFolders = useCallback(
+		(value: SetStateAction<FolderItem[]>) => {
+			if (!selectedAccountId) return;
+			setAccountFoldersByIdStore((prev) => {
+				const current = prev[selectedAccountId] ?? [];
+				const next =
+					typeof value === 'function'
+						? (value as (current: FolderItem[]) => FolderItem[])(current)
+						: value;
+				return {
+					...prev,
+					[selectedAccountId]: next,
+				};
+			});
+		},
+		[selectedAccountId, setAccountFoldersByIdStore],
+	);
+	const setMessages = useCallback(
+		(value: SetStateAction<MessageItem[]>) => {
+			setMessagesStore((prev) =>
+				typeof value === 'function'
+					? (value as (current: MessageItem[]) => MessageItem[])(prev)
+					: value,
+			);
+		},
+		[setMessagesStore],
+	);
+	const setSearchQuery = useCallback(
+		(value: SetStateAction<string>) => {
+			setSearchQueryStore((prev) =>
+				typeof value === 'function' ? (value as (current: string) => string)(prev) : value,
+			);
+		},
+		[setSearchQueryStore],
+	);
+	const setSearchResults = useCallback(
+		(value: SetStateAction<MessageItem[]>) => {
+			setSearchResultsStore((prev) =>
+				typeof value === 'function'
+					? (value as (current: MessageItem[]) => MessageItem[])(prev)
+					: value,
+			);
+		},
+		[setSearchResultsStore],
+	);
+	const setSearchLoading = useCallback(
+		(value: SetStateAction<boolean>) => {
+			setSearchLoadingStore((prev) =>
+				typeof value === 'function' ? (value as (current: boolean) => boolean)(prev) : value,
+			);
+		},
+		[setSearchLoadingStore],
+	);
+	const setMessageFetchLimit = useCallback(
+		(value: SetStateAction<number>) => {
+			setMessageFetchLimitStore((prev) =>
+				typeof value === 'function' ? (value as (current: number) => number)(prev) : value,
+			);
+		},
+		[setMessageFetchLimitStore],
+	);
+	const setLoadingMoreMessages = useCallback(
+		(value: SetStateAction<boolean>) => {
+			setLoadingMoreMessagesStore((prev) =>
+				typeof value === 'function' ? (value as (current: boolean) => boolean)(prev) : value,
+			);
+		},
+		[setLoadingMoreMessagesStore],
+	);
+	const setHasMoreMessages = useCallback(
+		(value: SetStateAction<boolean>) => {
+			setHasMoreMessagesStore((prev) =>
+				typeof value === 'function' ? (value as (current: boolean) => boolean)(prev) : value,
+			);
+		},
+		[setHasMoreMessagesStore],
+	);
+	const setAccounts = useCallback(
+		(value: SetStateAction<PublicAccount[]>) => {
+			setAccountsStore((prev) =>
+				typeof value === 'function'
+					? (value as (current: PublicAccount[]) => PublicAccount[])(prev)
+					: value,
+			);
+		},
+		[setAccountsStore],
+	);
 	const [showMessageDetails, setShowMessageDetails] = useState(false);
 	const [senderAvatarSrc, setSenderAvatarSrc] = useState<string | null>(null);
 	const [showSourceModal, setShowSourceModal] = useState(false);
@@ -88,16 +213,20 @@ function MailPage() {
 	const [sessionRemoteAllowedMessageIds, setSessionRemoteAllowedMessageIds] = useState<number[]>([]);
 	const [hoveredLinkUrl, setHoveredLinkUrl] = useState('');
 	const [isPointerOverMessageFrame, setIsPointerOverMessageFrame] = useState(false);
-	const [appSettings, setAppSettings] = useState(() => createDefaultAppSettings());
+	const {appSettings, setAppSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
 	const selectedFolderPathRef = useRef<string | null>(null);
 	const selectedMessageIdRef = useRef<number | null>(null);
 	const pendingDeleteMessageIdsRef = useRef<Set<number>>(new Set());
+	const reconcileReloadTimerRef = useRef<number | null>(null);
 	const pendingOpenMessageTargetRef = useRef<OpenMessageTargetEvent | null>(null);
+	const messageListRequestSeqRef = useRef(0);
+	const emptyFolderHydrationAttemptedRef = useRef<Set<number>>(new Set());
+	const backgroundFolderSyncsRef = useRef<Set<string>>(new Set());
 	const sourceRequestSeqRef = useRef(0);
 	const senderAvatarRequestSeqRef = useRef(0);
 	const accountOrderRef = useRef<number[]>(accountOrder);
 	const lastOpenedDraftInMailViewRef = useRef<number | null>(null);
-	const [systemLocale, setSystemLocale] = useState<string>('en-US');
+	const {systemLocale} = useSystemLocale();
 	const [windowViewport, setWindowViewport] = useState<{width: number; height: number}>({
 		width: window.innerWidth,
 		height: window.innerHeight,
@@ -106,8 +235,6 @@ function MailPage() {
 		syncStatusText,
 		setSyncStatusText,
 		syncingAccountIds,
-		markAccountSyncing,
-		clearAccountSyncing,
 		pruneSyncingAccounts,
 	} = useMailSyncStatus();
 	const {
@@ -134,15 +261,12 @@ function MailPage() {
 	const {bodyLoading, selectedMessageBody} = useMessageBodyLoader(selectedMessageId);
 	const {
 		clearPendingReadState,
-		hasPendingReadForAccount,
-		hasRecentLocalReadMutation,
 		getPendingRead,
 		applyPendingReadOverrides,
 		applyReadOptimistic,
 		syncReadState,
 	} = useOptimisticReadState({
 		setMessages,
-		setFolders,
 		setAccountFoldersById,
 		setSyncStatusText,
 	});
@@ -161,6 +285,8 @@ function MailPage() {
 		const idx = window.history.state?.idx;
 		return typeof idx === 'number' ? idx : 0;
 	});
+	const {getAccount} = useAccountDirectory();
+	const selectedAccount = useAccount(selectedAccountId);
 
 	const selectedMessage = useMemo(
 		() => messages.find((m) => m.id === selectedMessageId) ?? null,
@@ -177,6 +303,7 @@ function MailPage() {
 		if (folderType === 'drafts' || folderPath.includes('draft')) return true;
 		return /^<draft\./i.test(String(selectedMessage.message_id || ''));
 	}, [selectedFolder, selectedFolderPath, selectedMessage]);
+	const selectedFolderTotalCount = Math.max(0, Number(selectedFolder?.total_count) || 0);
 	const canReplyAll = useMemo(
 		() => countRecipients(selectedMessage?.to_address || '') > 1,
 		[selectedMessage?.to_address],
@@ -256,102 +383,13 @@ function MailPage() {
 		syncReadState,
 	]);
 
-	const refreshAccountsAndFolders = useCallback(async (isActive: () => boolean = () => true): Promise<void> => {
-		const list = await ipcClient.getAccounts();
-		if (!isActive()) return;
-		const sortedAccounts = sortAccountsByOrder(list, accountOrderRef.current);
-		const normalizedOrder = normalizeAccountOrder(accountOrderRef.current, sortedAccounts);
-		if (hasAccountOrderChanged(accountOrderRef.current, normalizedOrder)) {
-			accountOrderRef.current = normalizedOrder;
-			setAccountOrder(normalizedOrder);
-		}
-		setAccounts(sortedAccounts);
-		void Promise.all(sortedAccounts.map((account) => ipcClient.getFolders(account.id)))
-			.then((folderLists) => {
-				if (!isActive()) return;
-				const next: Record<number, FolderItem[]> = {};
-				sortedAccounts.forEach((account, idx) => {
-					next[account.id] = folderLists[idx] ?? [];
-				});
-				setAccountFoldersById(next);
-			})
-			.catch(() => {
-				// ignore background preload errors
-			});
-		setSelectedAccountId((prev) => {
-			if (prev && sortedAccounts.some((a) => a.id === prev)) return prev;
-			return sortedAccounts.length > 0 ? sortedAccounts[0].id : null;
-		});
-	}, []);
-
 	useEffect(() => {
-		let mounted = true;
-
-		const loadAppSettings = async () => {
-			const settings = await ipcClient.getAppSettings();
-			if (!mounted) return;
-			setAppSettings(settings);
-		};
-		const loadSystemLocale = async () => {
-			const locale = await ipcClient.getSystemLocale();
-			if (!mounted) return;
-			setSystemLocale(locale || 'en-US');
-		};
-
-		void refreshAccountsAndFolders(() => mounted);
-		void loadAppSettings();
-		void loadSystemLocale();
-
-		return () => {
-			mounted = false;
-		};
-	}, [refreshAccountsAndFolders]);
-
-	useIpcEvent(ipcClient.onAccountAdded, (created: {id: number; email: string}) => {
-		void refreshAccountsAndFolders();
-		setSelectedAccountId(created.id);
-		setSyncStatusText(statusSyncStarted(created.email));
-	});
-
-	useIpcEvent(ipcClient.onAccountUpdated, (updated: PublicAccount) => {
-		setAccounts((prev) => prev.map((account) => (account.id === updated.id ? updated : account)));
-	});
-
-	useIpcEvent(ipcClient.onAccountDeleted, (deleted) => {
-		setAccounts((prev) => prev.filter((account) => account.id !== deleted.id));
-		setAccountOrder((prev) => prev.filter((id) => id !== deleted.id));
-		setAccountFoldersById((prev) => {
-			const next = {...prev};
-			delete next[deleted.id];
-			return next;
+		setAccountOrder((prev) => {
+			const normalized = normalizeAccountOrder(prev, accounts);
+			accountOrderRef.current = normalized;
+			return normalized;
 		});
-		setSelectedAccountId((prev) => (prev === deleted.id ? null : prev));
-	});
-
-	useIpcEvent(ipcClient.onAccountSyncStatus, (evt: SyncStatusEvent) => {
-		if (evt.status === 'syncing') {
-			markAccountSyncing(evt.accountId);
-			if (evt.accountId === selectedAccountId || selectedAccountId === null) {
-				setSyncStatusText(statusSyncingMailbox());
-			}
-			return;
-		}
-		if (evt.status === 'done') {
-			clearAccountSyncing(evt.accountId);
-			if (evt.accountId === selectedAccountId || selectedAccountId === null) {
-				setSyncStatusText(statusSyncedMessages(evt.summary?.messages ?? 0));
-			}
-			if (evt.accountId === selectedAccountId) {
-				if (hasPendingReadForAccount(evt.accountId) || hasRecentLocalReadMutation(evt.accountId)) return;
-				void loadFoldersAndMessages(evt.accountId);
-			}
-			return;
-		}
-		clearAccountSyncing(evt.accountId);
-		if (evt.accountId === selectedAccountId || selectedAccountId === null) {
-			setSyncStatusText(statusSyncFailed(evt.error));
-		}
-	});
+	}, [accounts]);
 
 	const reorderAccounts = useCallback((orderedAccountIds: number[]) => {
 		setAccounts((prev) => {
@@ -382,13 +420,6 @@ function MailPage() {
 			// Keep optimistic folder counters stable; server totals can lag behind read mutation events.
 			return;
 		}
-		setFolders((prev) =>
-			prev.map((folder) =>
-				folder.id === evt.folderId
-					? {...folder, unread_count: evt.unreadCount, total_count: evt.totalCount}
-					: folder,
-			),
-		);
 		setAccountFoldersById((prev) => {
 			const accountFolders = prev[evt.accountId] ?? [];
 			return {
@@ -400,10 +431,6 @@ function MailPage() {
 				),
 			};
 		});
-	});
-
-	useIpcEvent(ipcClient.onAppSettingsUpdated, (settings) => {
-		setAppSettings(settings);
 	});
 
 	useIpcEvent(ipcClient.onOpenMessageTarget, (target) => {
@@ -427,8 +454,7 @@ function MailPage() {
 
 	useEffect(() => {
 		if (!selectedAccountId) {
-			setFolders([]);
-			setMessages([]);
+			resetMessageListState();
 			setSelectedFolderPath(null);
 			setSelectedMessageId(null);
 			setSelectedMessageIds([]);
@@ -449,6 +475,7 @@ function MailPage() {
 			setMessages([]);
 			setHasMoreMessages(false);
 			setLoadingMoreMessages(false);
+			setMessageFetchLimit(MESSAGE_PAGE_SIZE);
 			setSelectedMessageIds([]);
 			selectionAnchorIndexRef.current = null;
 			setPendingAutoReadMessageId(null);
@@ -456,21 +483,30 @@ function MailPage() {
 		}
 
 		const loadMessages = async () => {
+			const requestSeq = ++messageListRequestSeqRef.current;
+			setMessageFetchLimit(MESSAGE_PAGE_SIZE);
 			setLoadingMoreMessages(true);
 			try {
-				const rowsRaw = await ipcClient.getFolderMessages(
-					selectedAccountId,
-					selectedFolderPath,
-					messageFetchLimit,
-				);
-				setHasMoreMessages(rowsRaw.length >= messageFetchLimit);
+				const rowsRaw = await selectedAccount.email.messages(selectedFolderPath, MESSAGE_PAGE_SIZE);
+				if (requestSeq !== messageListRequestSeqRef.current) return;
+				const hasMore = hasMoreFolderMessages(rowsRaw.length, MESSAGE_PAGE_SIZE, selectedFolderTotalCount);
+				setHasMoreMessages(hasMore);
+				if (hasMore && rowsRaw.length < MESSAGE_PAGE_SIZE) {
+					triggerBackgroundFolderSync(
+						selectedAccountId,
+						selectedFolderPath,
+						'Syncing older messages in background...',
+					);
+				}
 				setMessages(applyPendingReadOverrides(filterOutPendingDeletes(rowsRaw)));
 			} finally {
-				setLoadingMoreMessages(false);
+				if (requestSeq === messageListRequestSeqRef.current) {
+					setLoadingMoreMessages(false);
+				}
 			}
 		};
 		void loadMessages();
-	}, [selectedAccountId, selectedFolderPath, messageFetchLimit]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [selectedAccountId, selectedFolderPath, selectedFolderTotalCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	useEffect(() => {
 		const query = searchQuery.trim();
@@ -505,9 +541,7 @@ function MailPage() {
 			try {
 				const perAccountLimit = 120;
 				const rowsByAccount = await Promise.allSettled(
-					candidateAccountIds.map((accountId) =>
-						ipcClient.searchMessages(accountId, query, null, perAccountLimit),
-					),
+					candidateAccountIds.map((accountId) => getAccount(accountId).email.search(query, null, perAccountLimit)),
 				);
 				if (!active) return;
 				const fulfilled = rowsByAccount
@@ -528,7 +562,7 @@ function MailPage() {
 					candidateAccountIds.map(async (accountId) => {
 						const cachedFolders = accountFoldersById[accountId] ?? [];
 						if (cachedFolders.length > 0) return {accountId, folders: cachedFolders};
-						const folders = await ipcClient.getFolders(accountId);
+						const folders = await getAccount(accountId).email.refreshFolders();
 						return {accountId, folders};
 					}),
 				);
@@ -543,7 +577,7 @@ function MailPage() {
 				);
 				const scannedRows = await Promise.allSettled(
 					folderPairs.map(({accountId, folderPath}) =>
-						ipcClient.getFolderMessages(accountId, folderPath, SEARCH_FALLBACK_MESSAGES_PER_FOLDER),
+						getAccount(accountId).email.messages(folderPath, SEARCH_FALLBACK_MESSAGES_PER_FOLDER),
 					),
 				);
 				if (!active) return;
@@ -570,12 +604,66 @@ function MailPage() {
 		return () => {
 			active = false;
 		};
-	}, [searchQuery, accounts, accountFoldersById, selectedAccountId]);
+	}, [searchQuery, accounts, accountFoldersById, selectedAccountId, getAccount]);
+
+	const loadMoreMessages = useCallback(async () => {
+		if (!selectedAccountId || !selectedFolderPath || loadingMoreMessages || !hasMoreMessages) return;
+		const requestSeq = ++messageListRequestSeqRef.current;
+		const nextLimit = messageFetchLimit + MESSAGE_PAGE_SIZE;
+		setLoadingMoreMessages(true);
+		try {
+			const rowsRaw = await selectedAccount.email.messages(selectedFolderPath, nextLimit);
+			if (requestSeq !== messageListRequestSeqRef.current) return;
+			setMessageFetchLimit(nextLimit);
+			const hasMore = hasMoreFolderMessages(rowsRaw.length, nextLimit, selectedFolderTotalCount);
+			setHasMoreMessages(hasMore);
+			if (hasMore && rowsRaw.length < nextLimit) {
+				triggerBackgroundFolderSync(selectedAccountId, selectedFolderPath, 'Syncing older messages...');
+			}
+			setMessages(applyPendingReadOverrides(filterOutPendingDeletes(rowsRaw)));
+		} finally {
+			if (requestSeq === messageListRequestSeqRef.current) {
+				setLoadingMoreMessages(false);
+			}
+		}
+	}, [
+		hasMoreMessages,
+		loadingMoreMessages,
+		messageFetchLimit,
+		selectedAccount,
+		selectedAccountId,
+		selectedFolderTotalCount,
+		selectedFolderPath,
+		setHasMoreMessages,
+		setLoadingMoreMessages,
+		setMessageFetchLimit,
+		setMessages,
+	]);
 
 	useEffect(() => {
-		setMessageFetchLimit(MESSAGE_PAGE_SIZE);
-		setHasMoreMessages(false);
-	}, [selectedAccountId, selectedFolderPath]);
+		if (!selectedAccountId) return;
+		const selectedFolders = accountFoldersById[selectedAccountId] ?? [];
+		if (selectedFolders.length > 0) {
+			emptyFolderHydrationAttemptedRef.current.delete(selectedAccountId);
+			return;
+		}
+		if (emptyFolderHydrationAttemptedRef.current.has(selectedAccountId)) return;
+		emptyFolderHydrationAttemptedRef.current.add(selectedAccountId);
+		let active = true;
+		void (async () => {
+			try {
+				const target = getAccount(selectedAccountId);
+				const folders = await target.email.refreshFolders();
+				if (!active || folders.length > 0) return;
+				void target.email.sync().catch(() => undefined);
+			} catch {
+				// no-op: standard sync/status events will continue reconciliation attempts
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [accountFoldersById, selectedAccountId, getAccount]);
 
 	useEffect(() => {
 		setShowMessageDetails(false);
@@ -654,6 +742,15 @@ function MailPage() {
 			setSelectedMessageIds,
 		],
 	);
+
+	useEffect(() => {
+		if (accounts.length === 0) {
+			if (selectedAccountId !== null) setSelectedAccountId(null);
+			return;
+		}
+		if (selectedAccountId && accounts.some((account) => account.id === selectedAccountId)) return;
+		setSelectedAccountId(accounts[0].id);
+	}, [accounts, selectedAccountId, setSelectedAccountId]);
 
 	useEffect(() => {
 		if (!routeAccountId) return;
@@ -750,6 +847,16 @@ function MailPage() {
 		};
 	}, [attachmentMenu]);
 
+	useEffect(
+		() => () => {
+			if (reconcileReloadTimerRef.current !== null) {
+				window.clearTimeout(reconcileReloadTimerRef.current);
+				reconcileReloadTimerRef.current = null;
+			}
+		},
+		[],
+	);
+
 	useIpcEvent(ipcClient.onLinkHoverUrl, (url) => {
 		setHoveredLinkUrl(url || '');
 	});
@@ -764,6 +871,19 @@ function MailPage() {
 		return rows.filter((m) => !pending.has(m.id));
 	}
 
+	function triggerBackgroundFolderSync(accountId: number, folderPath: string, reason: string): void {
+		const key = `${accountId}:${folderPath}`;
+		if (backgroundFolderSyncsRef.current.has(key)) return;
+		backgroundFolderSyncsRef.current.add(key);
+		setSyncStatusText(reason);
+		void getAccount(accountId)
+			.email.sync()
+			.catch(() => undefined)
+			.finally(() => {
+				backgroundFolderSyncsRef.current.delete(key);
+			});
+	}
+
 	async function loadFoldersAndMessages(
 		accountId: number,
 		preferredFolderId?: number | null,
@@ -776,7 +896,7 @@ function MailPage() {
 		if (!selectedAccountId) return;
 		setSyncStatusText(statusSyncingMailbox());
 		try {
-			const summary = await ipcClient.syncAccount(selectedAccountId);
+			const summary = await selectedAccount.email.sync();
 			if (summary.dav) {
 				const contacts = summary.dav.contacts.upserted;
 				const events = summary.dav.events.upserted;
@@ -797,7 +917,8 @@ function MailPage() {
 		preferredMessageId: number | null,
 		preferredFolderId?: number | null,
 	) {
-		const folderRows = await ipcClient.getFolders(accountId);
+		const targetAccount = getAccount(accountId);
+		const folderRows = await targetAccount.email.refreshFolders();
 		setFolders(folderRows);
 		setAccountFoldersById((prev) => ({
 			...prev,
@@ -822,9 +943,18 @@ function MailPage() {
 			return;
 		}
 
-		const msgRowsRaw = await ipcClient.getFolderMessages(accountId, chosenFolder, messageFetchLimit);
+		const msgRowsRaw = await targetAccount.email.messages(chosenFolder, messageFetchLimit);
 		const msgRows = applyPendingReadOverrides(filterOutPendingDeletes(msgRowsRaw));
-		setHasMoreMessages(msgRowsRaw.length >= messageFetchLimit);
+		const chosenFolderTotalCount =
+			Math.max(
+				0,
+				Number(folderRows.find((folder) => folder.path === chosenFolder)?.total_count) || 0,
+			) || msgRowsRaw.length;
+		const hasMore = hasMoreFolderMessages(msgRowsRaw.length, messageFetchLimit, chosenFolderTotalCount);
+		setHasMoreMessages(hasMore);
+		if (hasMore && msgRowsRaw.length < messageFetchLimit) {
+			triggerBackgroundFolderSync(accountId, chosenFolder, 'Syncing older messages in background...');
+		}
 		setMessages(msgRows);
 		if (preferredMessageId) {
 			const preferredMessage = msgRows.find((message) => message.id === preferredMessageId) ?? null;
@@ -846,22 +976,17 @@ function MailPage() {
 		}
 	}
 
-	async function runServerAction(
-		fn: () => Promise<any>,
+	function queueReconcileReload(
 		accountId: number | null,
-		preferredFolder: string | null,
-		preferredMessage: number | null,
-	) {
+		preferredFolderPath: string | null,
+		preferredMessageId: number | null,
+	): void {
 		if (!accountId) return;
-		setSyncStatusText('Syncing changes to server...');
-		try {
-			await fn();
-			await reloadAccountData(accountId, preferredFolder, preferredMessage);
-			setSyncStatusText('Changes synced');
-		} catch (e: any) {
-			setSyncStatusText(`Action failed: ${e?.message || String(e)}`);
-			await reloadAccountData(accountId, preferredFolder, preferredMessage);
-		}
+		if (reconcileReloadTimerRef.current !== null) return;
+		reconcileReloadTimerRef.current = window.setTimeout(() => {
+			reconcileReloadTimerRef.current = null;
+			void reloadAccountData(accountId, preferredFolderPath, preferredMessageId);
+		}, 350);
 	}
 
 	function applyFlagOptimistic(messageId: number, nextFlag: number) {
@@ -1028,6 +1153,7 @@ function MailPage() {
 				.mutateAsync({messageId: message.id})
 				.catch((error: unknown) => {
 					setSyncStatusText(`Delete sync failed: ${toErrorMessage(error)}`);
+					queueReconcileReload(selectedAccountId, selectedFolderPath, selectedMessageIdRef.current);
 				})
 				.finally(() => {
 					pendingDeleteMessageIdsRef.current.delete(message.id);
@@ -1297,8 +1423,7 @@ function MailPage() {
 			searchResults={searchResults}
 			searchLoading={searchLoading}
 			onLoadMoreMessages={() => {
-				if (loadingMoreMessages || !hasMoreMessages) return;
-				setMessageFetchLimit((prev) => prev + MESSAGE_PAGE_SIZE);
+				void loadMoreMessages();
 			}}
 			hasMoreMessages={hasMoreMessages}
 			loadingMoreMessages={loadingMoreMessages}
@@ -1322,9 +1447,10 @@ function MailPage() {
 				if (!normalizedPath) throw new Error('Folder path is required');
 				setSyncStatusText('Creating folder...');
 				try {
-					await ipcClient.createFolder(targetAccountId, normalizedPath);
+					const targetAccount = getAccount(targetAccountId);
+					await targetAccount.email.createFolder(normalizedPath);
 					if ((type && type.trim()) || (color && color.trim())) {
-						await ipcClient.updateFolderSettings(targetAccountId, normalizedPath, {
+						await targetAccount.email.updateFolder(normalizedPath, {
 							customName: null,
 							type: type && type.trim().length ? type.trim() : null,
 							color: color && color.trim().length ? color.trim() : null,
@@ -1365,7 +1491,7 @@ function MailPage() {
 				}
 
 				try {
-					const updated = await ipcClient.reorderCustomFolders(accountId, mergedPaths);
+					const updated = await getAccount(accountId).email.reorderFolders(mergedPaths);
 					setAccountFoldersById((prev) => ({
 						...prev,
 						[accountId]: updated,
@@ -1412,7 +1538,7 @@ function MailPage() {
 					}
 
 					try {
-						await ipcClient.deleteFolder(selectedAccountId, folder.path);
+						await selectedAccount.email.deleteFolder(folder.path);
 						await reloadAccountData(selectedAccountId, null, null);
 						setSyncStatusText(`Deleted folder: ${folder.custom_name || folder.name}`);
 					} catch (e: any) {
@@ -1466,15 +1592,20 @@ function MailPage() {
 			}}
 			onMessageFlagToggle={(message) =>
 				void (() => {
+					if (!selectedAccountId) return;
 					const nextFlag = message.is_flagged ? 0 : 1;
+					const previousFlag = message.is_flagged;
 					applyFlagOptimistic(message.id, nextFlag);
-					const keepSelected = selectedMessageId === message.id ? message.id : null;
-					return runServerAction(
-						() => setMessageFlagMutation.mutateAsync({messageId: message.id, isFlagged: nextFlag}),
-						selectedAccountId,
-						selectedFolderPath,
-						keepSelected,
-					);
+					setSyncStatusText('Flag updated locally. Syncing server in background...');
+					void setMessageFlagMutation
+						.mutateAsync({messageId: message.id, isFlagged: nextFlag})
+						.then(() => {
+							setSyncStatusText('Flag synced');
+						})
+						.catch((error: unknown) => {
+							applyFlagOptimistic(message.id, previousFlag);
+							setSyncStatusText(`Flag sync failed: ${toErrorMessage(error)}`);
+						});
 				})()
 			}
 			onMessageTagChange={(message, tag) =>
@@ -1504,38 +1635,38 @@ function MailPage() {
 				})()
 			}
 			onMessageArchive={(message) =>
-				void (async () => {
+				void (() => {
 					if (!selectedAccountId) return;
-					setSyncStatusText('Archiving message...');
-					try {
-						const res = await archiveMessageMutation.mutateAsync({messageId: message.id});
-						setMessages((prev) => prev.filter((row) => row.id !== message.id));
-						setSelectedMessageIds((prev) => prev.filter((id) => id !== message.id));
-						setSelectedMessageId((prev) => (prev === message.id ? null : prev));
-						setFolders((prev) =>
-							prev.map((folder) => {
-								if (folder.id === res.sourceFolderId) {
-									return {
-										...folder,
-										unread_count: res.sourceUnreadCount,
-										total_count: res.sourceTotalCount,
-									};
-								}
-								if (folder.id === res.targetFolderId) {
-									return {
-										...folder,
-										unread_count: res.targetUnreadCount,
-										total_count: res.targetTotalCount,
-									};
-								}
-								return folder;
-							}),
-						);
-						setSyncStatusText('Message archived');
-					} catch (e: any) {
-						setSyncStatusText(`Archive failed: ${e?.message || String(e)}`);
-						await reloadAccountData(selectedAccountId, selectedFolderPath, null);
-					}
+					applyRemoveOptimistic(message, selectedFolderPath);
+					setSyncStatusText('Archived locally. Syncing server in background...');
+					void archiveMessageMutation
+						.mutateAsync({messageId: message.id})
+						.then((res) => {
+							setFolders((prev) =>
+								prev.map((folder) => {
+									if (folder.id === res.sourceFolderId) {
+										return {
+											...folder,
+											unread_count: res.sourceUnreadCount,
+											total_count: res.sourceTotalCount,
+										};
+									}
+									if (folder.id === res.targetFolderId) {
+										return {
+											...folder,
+											unread_count: res.targetUnreadCount,
+											total_count: res.targetTotalCount,
+										};
+									}
+									return folder;
+								}),
+							);
+							setSyncStatusText('Archive synced');
+						})
+						.catch((error: unknown) => {
+							setSyncStatusText(`Archive sync failed: ${toErrorMessage(error)}`);
+							queueReconcileReload(selectedAccountId, selectedFolderPath, null);
+						});
 				})()
 			}
 			onMessageMove={(message, targetFolderPath) =>
@@ -1571,7 +1702,7 @@ function MailPage() {
 							setSyncStatusText('Move synced');
 						} catch (e: any) {
 							setSyncStatusText(`Move failed: ${e?.message || String(e)}`);
-							await reloadAccountData(selectedAccountId, selectedFolderPath, message.id);
+							queueReconcileReload(selectedAccountId, selectedFolderPath, message.id);
 						}
 					})();
 				})()
@@ -1611,6 +1742,7 @@ function MailPage() {
 							})
 							.catch((error: unknown) => {
 								setSyncStatusText(`Move sync failed: ${toErrorMessage(error)}`);
+								queueReconcileReload(selectedAccountId, selectedFolderPath, selectedMessageIdRef.current);
 							});
 					}
 				})()
@@ -1657,7 +1789,7 @@ function MailPage() {
 				});
 
 				try {
-					const updated = await ipcClient.updateFolderSettings(selectedAccountId, folder.path, {
+					const updated = await selectedAccount.email.updateFolder(folder.path, {
 						customName: normalizedName,
 						color: normalizedColor,
 						type: normalizedType,

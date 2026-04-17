@@ -6,6 +6,7 @@ import type {OAuthSession} from '@/shared/ipcTypes.js';
 import {resolveImapSecurity} from './security.js';
 import {resolveImapAuth} from './auth.js';
 import {
+	getFolderPositiveUidBounds,
 	getMessageBody,
 	getMessageContext,
 	getMessageIdByFolderAndUid,
@@ -21,6 +22,10 @@ import {
 	upsertThread,
 } from '@main/db/repositories/mailRepo.js';
 import {buildThreadId, stringifyReferences} from './threading.js';
+import {providerManager} from './providers/providerManager.js';
+
+const IMAP_RECENT_SYNC_WINDOW = 250;
+const IMAP_BACKFILL_BATCH_SIZE = 250;
 
 export interface SyncSummary {
 	accountId: number;
@@ -66,7 +71,11 @@ export interface MessageAttachmentFile {
 }
 
 export async function syncAccountMailbox(accountId: number, options?: AccountSyncOptions): Promise<SyncSummary> {
-	const account = await getAccountSyncCredentials(accountId);
+	const driver = await providerManager.resolveDriverForAccount(accountId);
+	if (!driver.supports('emails') || !driver.canRunIncrementalSync()) {
+		throw new Error(`Provider ${driver.key()} does not support email sync for account ${accountId}`);
+	}
+	const account = await driver.resolveSyncCredentials(accountId);
 	return syncAccountMailboxWithCredentials(account, options);
 }
 
@@ -84,6 +93,7 @@ export async function syncAccountMailboxWithCredentials(
 	options?: AccountSyncOptions,
 ): Promise<SyncSummary> {
 	const accountId = account.id;
+	const folderLogger = createMailDebugLogger('imap', `sync:account:${accountId}:folders`);
 	const client = new ImapFlow({
 		host: account.imap_host,
 		port: account.imap_port,
@@ -105,6 +115,11 @@ export async function syncAccountMailboxWithCredentials(
 
 		for (const box of mailboxes) {
 			if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
+			const mailboxFlags = box.flags instanceof Set ? box.flags : new Set<string>();
+			if (mailboxFlags.has('\\Noselect')) {
+				folderLogger.debug('Skipping non-selectable mailbox path=%s', box.path);
+				continue;
+			}
 			const rawSpecialUse = String(box.specialUse || '').toLowerCase();
 			const inferredType = box.specialUse ?? inferFolderType(box.path);
 			const isInboxFolder =
@@ -122,92 +137,112 @@ export async function syncAccountMailboxWithCredentials(
 				type: box.specialUse ?? inferFolderType(box.path),
 			});
 
-			const lock = await client.getMailboxLock(box.path);
 			try {
-				if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
-				const status = await client.status(box.path, {messages: true, unseen: true});
-				const total = status.messages ?? 0;
-				const unseen = status.unseen ?? 0;
-				updateFolderCounts(accountId, box.path, unseen, total);
-
-				if (isDraftFolder) {
-					const draftUids = await client.search({}, {uid: true});
-					reconcileFolderMessageUids(folderId, Array.isArray(draftUids) ? draftUids : []);
-				}
-
-				if (total === 0) continue;
-				const start = Math.max(1, total - 49);
-				const range = `${start}:*`;
-
-				for await (const msg of client.fetch(range, {
-					uid: true,
-					envelope: true,
-					flags: true,
-					size: true,
-					internalDate: true,
-				})) {
+				const lock = await client.getMailboxLock(box.path);
+				try {
 					if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
-					totalMessages += 1;
-					const existed = hasMessageByFolderAndUid(folderId, msg.uid);
-					const isRead = msg.flags?.has('\\Seen') ? 1 : 0;
-					const messageDate = msg.internalDate ? new Date(msg.internalDate).toISOString() : null;
-					const envelopeWithRefs = msg.envelope as
-						| (typeof msg.envelope & {
-								references?: unknown;
-						  })
-						| undefined;
-					const referencesText = stringifyReferences(envelopeWithRefs?.references);
-					const threadId = buildThreadId({
-						messageId: msg.envelope?.messageId ?? null,
-						inReplyTo: msg.envelope?.inReplyTo ?? null,
-						references: envelopeWithRefs?.references,
-						subject: msg.envelope?.subject ?? null,
-						fromAddress: msg.envelope?.from?.[0]?.address ?? null,
-						toAddress:
-							msg.envelope?.to
-								?.map((a) => a.address)
-								.filter(Boolean)
-								.join(', ') ?? null,
-					});
-					upsertThread(threadId, msg.envelope?.subject ?? null, messageDate ?? new Date().toISOString());
-					upsertMessage({
-						accountId,
-						folderId,
-						uid: msg.uid,
-						seq: (msg.seq as number) ?? 0,
-						threadId,
-						messageId: msg.envelope?.messageId ?? null,
-						inReplyTo: msg.envelope?.inReplyTo ?? null,
-						referencesText,
-						subject: msg.envelope?.subject ?? null,
-						fromName: msg.envelope?.from?.[0]?.name ?? null,
-						fromAddress: msg.envelope?.from?.[0]?.address ?? null,
-						toAddress:
-							msg.envelope?.to
-								?.map((a) => a.address)
-								.filter(Boolean)
-								.join(', ') ?? null,
-						date: messageDate,
-						isRead,
-						isFlagged: msg.flags?.has('\\Flagged') ? 1 : 0,
-						size: msg.size ?? null,
-					});
-					if (!existed && isInboxFolder && !isRead) {
-						const messageId = getMessageIdByFolderAndUid(folderId, msg.uid);
-						if (!messageId) continue;
-						newMessages += 1;
-						newMessageIds.push(messageId);
-						if (!newestMessageTarget) {
-							newestMessageTarget = {
+					const status = await client.status(box.path, {messages: true, unseen: true});
+					const total = status.messages ?? 0;
+					const unseen = status.unseen ?? 0;
+					updateFolderCounts(accountId, box.path, unseen, total);
+
+					if (isDraftFolder) {
+						const draftUids = await client.search({}, {uid: true});
+						reconcileFolderMessageUids(folderId, Array.isArray(draftUids) ? draftUids : []);
+					}
+
+					if (total === 0) continue;
+					const fetchedUids = new Set<number>();
+					const upsertRange = async (range: string): Promise<void> => {
+						for await (const msg of client.fetch(range, {
+							uid: true,
+							envelope: true,
+							flags: true,
+							size: true,
+							internalDate: true,
+						})) {
+							if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
+							if (fetchedUids.has(msg.uid)) continue;
+							fetchedUids.add(msg.uid);
+							totalMessages += 1;
+							const existed = hasMessageByFolderAndUid(folderId, msg.uid);
+							const isRead = msg.flags?.has('\\Seen') ? 1 : 0;
+							const messageDate = msg.internalDate ? new Date(msg.internalDate).toISOString() : null;
+							const envelopeWithRefs = msg.envelope as
+								| (typeof msg.envelope & {
+										references?: unknown;
+								  })
+								| undefined;
+							const referencesText = stringifyReferences(envelopeWithRefs?.references);
+							const threadId = buildThreadId({
+								messageId: msg.envelope?.messageId ?? null,
+								inReplyTo: msg.envelope?.inReplyTo ?? null,
+								references: envelopeWithRefs?.references,
+								subject: msg.envelope?.subject ?? null,
+								fromAddress: msg.envelope?.from?.[0]?.address ?? null,
+								toAddress:
+									msg.envelope?.to
+										?.map((a) => a.address)
+										.filter(Boolean)
+										.join(', ') ?? null,
+							});
+							upsertThread(threadId, msg.envelope?.subject ?? null, messageDate ?? new Date().toISOString());
+							upsertMessage({
 								accountId,
-								folderPath: box.path,
-								messageId,
-							};
+								folderId,
+								uid: msg.uid,
+								seq: (msg.seq as number) ?? 0,
+								threadId,
+								messageId: msg.envelope?.messageId ?? null,
+								inReplyTo: msg.envelope?.inReplyTo ?? null,
+								referencesText,
+								subject: msg.envelope?.subject ?? null,
+								fromName: msg.envelope?.from?.[0]?.name ?? null,
+								fromAddress: msg.envelope?.from?.[0]?.address ?? null,
+								toAddress:
+									msg.envelope?.to
+										?.map((a) => a.address)
+										.filter(Boolean)
+										.join(', ') ?? null,
+								date: messageDate,
+								isRead,
+								isFlagged: msg.flags?.has('\\Flagged') ? 1 : 0,
+								size: msg.size ?? null,
+							});
+							if (!existed && isInboxFolder && !isRead) {
+								const messageId = getMessageIdByFolderAndUid(folderId, msg.uid);
+								if (!messageId) continue;
+								newMessages += 1;
+								newMessageIds.push(messageId);
+								if (!newestMessageTarget) {
+									newestMessageTarget = {
+										accountId,
+										folderPath: box.path,
+										messageId,
+									};
+								}
+							}
+						}
+					};
+
+					const recentStart = Math.max(1, total - IMAP_RECENT_SYNC_WINDOW + 1);
+					await upsertRange(`${recentStart}:*`);
+
+					const uidBounds = getFolderPositiveUidBounds(folderId);
+					if (uidBounds.minUid && uidBounds.minUid > 1) {
+						const backfillEnd = uidBounds.minUid - 1;
+						const backfillStart = Math.max(1, backfillEnd - IMAP_BACKFILL_BATCH_SIZE + 1);
+						if (backfillStart <= backfillEnd) {
+							await upsertRange(`${backfillStart}:${backfillEnd}`);
 						}
 					}
+				} finally {
+					lock.release();
 				}
-			} finally {
-				lock.release();
+			} catch (folderError) {
+				const message = (folderError as any)?.message || String(folderError);
+				folderLogger.warn('Skipping mailbox path=%s reason=%s', box.path, message);
+				continue;
 			}
 		}
 	} finally {

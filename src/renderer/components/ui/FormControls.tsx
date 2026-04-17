@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {createPortal} from 'react-dom';
 import {cn} from '@renderer/lib/utils';
 import {
 	composeLocalDateTimeValue,
@@ -233,6 +234,8 @@ export const FormDateTimeInput = React.forwardRef<HTMLInputElement, FormDateTime
 		const [visibleMonth, setVisibleMonth] = useState<Date>(() => parsedDateTime || new Date());
 		const rootRef = useRef<HTMLDivElement | null>(null);
 		const triggerRef = useRef<HTMLInputElement | null>(null);
+		const popoverRef = useRef<HTMLDivElement | null>(null);
+		const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
 		const displayValue = formatLocalDateTimeValueForLocale(rawValue, locale);
 
 		useEffect(() => {
@@ -244,8 +247,10 @@ export const FormDateTimeInput = React.forwardRef<HTMLInputElement, FormDateTime
 			if (!open) return;
 			const handlePointerDown = (event: MouseEvent) => {
 				const node = rootRef.current;
+				const popoverNode = popoverRef.current;
+				const target = event.target as Node;
 				if (!node) return;
-				if (!node.contains(event.target as Node)) {
+				if (!node.contains(target) && !popoverNode?.contains(target)) {
 					setOpen(false);
 				}
 			};
@@ -259,6 +264,45 @@ export const FormDateTimeInput = React.forwardRef<HTMLInputElement, FormDateTime
 			return () => {
 				document.removeEventListener('mousedown', handlePointerDown);
 				document.removeEventListener('keydown', handleEscape);
+			};
+		}, [open]);
+
+		useEffect(() => {
+			if (!open) return;
+			const updatePopoverPosition = () => {
+				const triggerNode = triggerRef.current;
+				if (!triggerNode) return;
+				const rect = triggerNode.getBoundingClientRect();
+				const margin = 8;
+				const gap = 6;
+				const availableWidth = Math.max(260, window.innerWidth - margin * 2);
+				const width = Math.min(Math.max(rect.width, 352), availableWidth);
+				const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+				const left = Math.min(Math.max(rect.left, margin), maxLeft);
+				const spaceBelow = window.innerHeight - rect.bottom - margin;
+				const spaceAbove = rect.top - margin;
+				const preferBelow = spaceBelow >= 320 || spaceBelow >= spaceAbove;
+				const top = preferBelow
+					? Math.min(rect.bottom + gap, window.innerHeight - margin)
+					: Math.max(margin, rect.top - gap);
+				const maxHeight = Math.max(220, (preferBelow ? spaceBelow : spaceAbove) - gap);
+				setPopoverStyle({
+					position: 'fixed',
+					left,
+					top,
+					width,
+					maxHeight,
+					overflowY: 'auto',
+					zIndex: 1300,
+					transform: preferBelow ? undefined : 'translateY(-100%)',
+				});
+			};
+			updatePopoverPosition();
+			window.addEventListener('resize', updatePopoverPosition);
+			window.addEventListener('scroll', updatePopoverPosition, true);
+			return () => {
+				window.removeEventListener('resize', updatePopoverPosition);
+				window.removeEventListener('scroll', updatePopoverPosition, true);
 			};
 		}, [open]);
 
@@ -342,120 +386,127 @@ export const FormDateTimeInput = React.forwardRef<HTMLInputElement, FormDateTime
 						}
 					}}
 				/>
-				{open ? (
-					<div className="menu date-time-picker-popover absolute left-0 top-[calc(100%+0.35rem)] z-[1100] w-[22rem] rounded-lg border p-3 shadow-lg">
-						<div className="date-time-picker-calendar">
-							<div className="date-time-picker-header mb-2 flex items-center justify-between">
-								<span className="date-time-picker-month text-base font-semibold">{monthTitle}</span>
-								<div className="flex items-center gap-1">
+				{open
+					? createPortal(
+							<div
+								ref={popoverRef}
+								className="menu date-time-picker-popover rounded-lg border p-3 shadow-lg"
+								style={popoverStyle}
+							>
+								<div className="date-time-picker-calendar">
+									<div className="date-time-picker-header mb-2 flex items-center justify-between">
+										<span className="date-time-picker-month text-base font-semibold">{monthTitle}</span>
+										<div className="flex items-center gap-1">
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												className="date-time-picker-nav-button h-8 w-8 rounded-md"
+												onClick={() =>
+													setVisibleMonth(
+														new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1),
+													)
+												}
+												aria-label="Previous month"
+											>
+												<ChevronLeft size={14} />
+											</Button>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												className="date-time-picker-nav-button h-8 w-8 rounded-md"
+												onClick={() =>
+													setVisibleMonth(
+														new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1),
+													)
+												}
+												aria-label="Next month"
+											>
+												<ChevronRight size={14} />
+											</Button>
+										</div>
+									</div>
+									<div className="date-time-picker-weekdays mb-1 grid grid-cols-7 gap-1">
+										{weekdayLabels.map((weekday) => (
+											<span
+												key={weekday}
+												className="date-time-picker-weekday text-center text-[11px] font-medium"
+											>
+												{weekday}
+											</span>
+										))}
+									</div>
+									<div className="date-time-picker-days grid grid-cols-7 gap-1">
+										{calendarCells.map((cellDate) => {
+											const isOutsideMonth = cellDate.getMonth() !== visibleMonthIndex;
+											const isToday = isSameCalendarDay(cellDate, today);
+											const isSelected = selectedDate ? isSameCalendarDay(cellDate, selectedDate) : false;
+											return (
+												<Button
+													key={toIsoDate(cellDate)}
+													type="button"
+													variant="ghost"
+													size="none"
+													className={cn(
+														'date-time-picker-day h-8 rounded-md px-0 text-sm',
+														isOutsideMonth && 'date-time-picker-day-outside',
+														isToday && !isSelected && 'date-time-picker-day-today',
+														isSelected && 'date-time-picker-day-selected',
+													)}
+													onClick={() => emitChange(toIsoDate(cellDate), time || '09:00')}
+												>
+													{cellDate.getDate()}
+												</Button>
+											);
+										})}
+									</div>
+								</div>
+								<div className="date-time-picker-footer mt-2 flex items-center gap-2 border-t pt-2">
+									<FormSelect
+										value={time || ''}
+										size="sm"
+										className="flex-1"
+										options={[{value: '', label: 'Select time'}, ...timeOptions]}
+										onChange={(event) => {
+											const nextTime = event.target.value;
+											if (!nextTime) return;
+											const baseDate =
+												date ||
+												(() => {
+													const today = new Date();
+													const yyyy = `${today.getFullYear()}`.padStart(4, '0');
+													const mm = `${today.getMonth() + 1}`.padStart(2, '0');
+													const dd = `${today.getDate()}`.padStart(2, '0');
+													return `${yyyy}-${mm}-${dd}`;
+												})();
+											emitChange(baseDate, nextTime);
+										}}
+									/>
 									<Button
 										type="button"
-										variant="ghost"
-										size="icon"
-										className="date-time-picker-nav-button h-8 w-8 rounded-md"
-										onClick={() =>
-											setVisibleMonth(
-												new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1),
-											)
-										}
-										aria-label="Previous month"
+										variant="outline"
+										size="sm"
+										onClick={() => {
+											const now = new Date();
+											const yyyy = `${now.getFullYear()}`.padStart(4, '0');
+											const mm = `${now.getMonth() + 1}`.padStart(2, '0');
+											const dd = `${now.getDate()}`.padStart(2, '0');
+											const hh = `${now.getHours()}`.padStart(2, '0');
+											const min = `${now.getMinutes()}`.padStart(2, '0');
+											emitChange(`${yyyy}-${mm}-${dd}`, `${hh}:${min}`);
+										}}
 									>
-										<ChevronLeft size={14} />
+										Now
 									</Button>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon"
-										className="date-time-picker-nav-button h-8 w-8 rounded-md"
-										onClick={() =>
-											setVisibleMonth(
-												new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1),
-											)
-										}
-										aria-label="Next month"
-									>
-										<ChevronRight size={14} />
+									<Button type="button" variant="default" size="sm" onClick={() => setOpen(false)}>
+										Done
 									</Button>
 								</div>
-							</div>
-							<div className="date-time-picker-weekdays mb-1 grid grid-cols-7 gap-1">
-								{weekdayLabels.map((weekday) => (
-									<span
-										key={weekday}
-										className="date-time-picker-weekday text-center text-[11px] font-medium"
-									>
-										{weekday}
-									</span>
-								))}
-							</div>
-							<div className="date-time-picker-days grid grid-cols-7 gap-1">
-								{calendarCells.map((cellDate) => {
-									const isOutsideMonth = cellDate.getMonth() !== visibleMonthIndex;
-									const isToday = isSameCalendarDay(cellDate, today);
-									const isSelected = selectedDate ? isSameCalendarDay(cellDate, selectedDate) : false;
-									return (
-										<Button
-											key={toIsoDate(cellDate)}
-											type="button"
-											variant="ghost"
-											size="none"
-											className={cn(
-												'date-time-picker-day h-8 rounded-md px-0 text-sm',
-												isOutsideMonth && 'date-time-picker-day-outside',
-												isToday && !isSelected && 'date-time-picker-day-today',
-												isSelected && 'date-time-picker-day-selected',
-											)}
-											onClick={() => emitChange(toIsoDate(cellDate), time || '09:00')}
-										>
-											{cellDate.getDate()}
-										</Button>
-									);
-								})}
-							</div>
-						</div>
-						<div className="date-time-picker-footer mt-2 flex items-center gap-2 border-t pt-2">
-							<FormSelect
-								value={time || ''}
-								size="sm"
-								className="flex-1"
-								options={[{value: '', label: 'Select time'}, ...timeOptions]}
-								onChange={(event) => {
-									const nextTime = event.target.value;
-									if (!nextTime) return;
-									const baseDate =
-										date ||
-										(() => {
-											const today = new Date();
-											const yyyy = `${today.getFullYear()}`.padStart(4, '0');
-											const mm = `${today.getMonth() + 1}`.padStart(2, '0');
-											const dd = `${today.getDate()}`.padStart(2, '0');
-											return `${yyyy}-${mm}-${dd}`;
-										})();
-									emitChange(baseDate, nextTime);
-								}}
-							/>
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								onClick={() => {
-									const now = new Date();
-									const yyyy = `${now.getFullYear()}`.padStart(4, '0');
-									const mm = `${now.getMonth() + 1}`.padStart(2, '0');
-									const dd = `${now.getDate()}`.padStart(2, '0');
-									const hh = `${now.getHours()}`.padStart(2, '0');
-									const min = `${now.getMinutes()}`.padStart(2, '0');
-									emitChange(`${yyyy}-${mm}-${dd}`, `${hh}:${min}`);
-								}}
-							>
-								Now
-							</Button>
-							<Button type="button" variant="default" size="sm" onClick={() => setOpen(false)}>
-								Done
-							</Button>
-						</div>
-					</div>
-				) : null}
+							</div>,
+							document.body,
+						)
+					: null}
 			</div>
 		);
 	},
@@ -524,6 +575,8 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
 		const rootRef = useRef<HTMLDivElement | null>(null);
 		const triggerRef = useRef<HTMLButtonElement | null>(null);
 		const hiddenSelectRef = useRef<HTMLSelectElement | null>(null);
+		const dropdownRef = useRef<HTMLDivElement | null>(null);
+		const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
 		useEffect(() => {
 			if (isControlled) return;
@@ -541,14 +594,53 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
 		useEffect(() => {
 			const handlePointerDown = (event: MouseEvent) => {
 				const node = rootRef.current;
+				const dropdownNode = dropdownRef.current;
+				const target = event.target as Node;
 				if (!node) return;
-				if (!node.contains(event.target as Node)) {
+				if (!node.contains(target) && !dropdownNode?.contains(target)) {
 					setOpen(false);
 				}
 			};
 			document.addEventListener('mousedown', handlePointerDown);
 			return () => document.removeEventListener('mousedown', handlePointerDown);
 		}, []);
+
+		useEffect(() => {
+			if (!open) return;
+			const updateDropdownPosition = () => {
+				const triggerNode = triggerRef.current;
+				if (!triggerNode) return;
+				const rect = triggerNode.getBoundingClientRect();
+				const margin = 8;
+				const gap = 6;
+				const width = Math.max(160, rect.width);
+				const spaceBelow = window.innerHeight - rect.bottom - margin;
+				const spaceAbove = rect.top - margin;
+				const preferBelow = spaceBelow >= 200 || spaceBelow >= spaceAbove;
+				const top = preferBelow
+					? Math.min(rect.bottom + gap, window.innerHeight - margin)
+					: Math.max(margin, rect.top - gap);
+				const maxHeight = Math.max(120, (preferBelow ? spaceBelow : spaceAbove) - gap);
+				const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+				const left = Math.min(Math.max(rect.left, margin), maxLeft);
+				setDropdownStyle({
+					position: 'fixed',
+					left,
+					top,
+					width,
+					maxHeight,
+					zIndex: 1400,
+					transform: preferBelow ? undefined : 'translateY(-100%)',
+				});
+			};
+			updateDropdownPosition();
+			window.addEventListener('resize', updateDropdownPosition);
+			window.addEventListener('scroll', updateDropdownPosition, true);
+			return () => {
+				window.removeEventListener('resize', updateDropdownPosition);
+				window.removeEventListener('scroll', updateDropdownPosition, true);
+			};
+		}, [open]);
 
 		const selectedOption = optionItems[selectedIndex >= 0 ? selectedIndex : 0] ?? null;
 		const displayLabel = selectedOption?.label ?? '';
@@ -700,66 +792,71 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
 						{rightIcon ?? <span aria-hidden>{open ? '▴' : '▾'}</span>}
 					</span>
 				</button>
-				{open ? (
-					<div
-						role="listbox"
-						className={cn(
-							'field absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-lg border p-1 shadow-lg',
-							variantStyles[variant],
-							dropdownClassName,
-						)}
-					>
-						{optionItems.map((item, index) => {
-							const isActive = index === activeIndex;
-							const isSelected = item.value === selectedValue;
-							return (
-								<button
-									key={`${item.value}:${index}`}
-									type="button"
-									role="option"
-									aria-selected={isSelected}
-									disabled={item.disabled}
-									className={cn(
-										'block w-full rounded-md text-left transition-colors',
-										optionSizeStyles[size],
-										item.disabled
-											? 'cursor-not-allowed ui-text-muted opacity-60'
-											: isActive
-												? 'ui-surface-active ui-text-primary'
-												: 'ui-surface-hover ui-text-primary',
-										isSelected && !item.disabled && 'font-semibold',
-									)}
-									onMouseEnter={() => {
-										if (!item.disabled) setActiveIndex(index);
-									}}
-									onMouseDown={(event) => {
-										event.preventDefault();
-										if (item.disabled) return;
-										selectByIndex(index);
-										setOpen(false);
-										triggerRef.current?.focus();
-									}}
-								>
-									{renderOption ? (
-										renderOption(item, {active: isActive, selected: isSelected})
-									) : (
-										<div className="flex min-w-0 items-center gap-2">
-											{item.icon ? <span className="shrink-0">{item.icon}</span> : null}
-											<span className="min-w-0 flex-1">
-												<span className="block truncate">{item.label}</span>
-												{item.description ? (
-													<span className="ui-text-muted block truncate text-[11px]">
-														{item.description}
+				{open
+					? createPortal(
+							<div
+								ref={dropdownRef}
+								role="listbox"
+								style={dropdownStyle}
+								className={cn(
+									'field mt-1 overflow-auto rounded-lg border p-1 shadow-lg',
+									variantStyles[variant],
+									dropdownClassName,
+								)}
+							>
+								{optionItems.map((item, index) => {
+									const isActive = index === activeIndex;
+									const isSelected = item.value === selectedValue;
+									return (
+										<button
+											key={`${item.value}:${index}`}
+											type="button"
+											role="option"
+											aria-selected={isSelected}
+											disabled={item.disabled}
+											className={cn(
+												'block w-full rounded-md text-left transition-colors',
+												optionSizeStyles[size],
+												item.disabled
+													? 'cursor-not-allowed ui-text-muted opacity-60'
+													: isActive
+														? 'ui-surface-active ui-text-primary'
+														: 'ui-surface-hover ui-text-primary',
+												isSelected && !item.disabled && 'font-semibold',
+											)}
+											onMouseEnter={() => {
+												if (!item.disabled) setActiveIndex(index);
+											}}
+											onMouseDown={(event) => {
+												event.preventDefault();
+												if (item.disabled) return;
+												selectByIndex(index);
+												setOpen(false);
+												triggerRef.current?.focus();
+											}}
+										>
+											{renderOption ? (
+												renderOption(item, {active: isActive, selected: isSelected})
+											) : (
+												<div className="flex min-w-0 items-center gap-2">
+													{item.icon ? <span className="shrink-0">{item.icon}</span> : null}
+													<span className="min-w-0 flex-1">
+														<span className="block truncate">{item.label}</span>
+														{item.description ? (
+															<span className="ui-text-muted block truncate text-[11px]">
+																{item.description}
+															</span>
+														) : null}
 													</span>
-												) : null}
-											</span>
-										</div>
-									)}
-								</button>
-							);
-						})}
-					</div>
-				) : null}
+												</div>
+											)}
+										</button>
+									);
+								})}
+							</div>,
+							document.body,
+						)
+					: null}
 			</div>
 		);
 	},

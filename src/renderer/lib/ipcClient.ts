@@ -16,6 +16,7 @@ import type {
 	ComposeDraftPayload,
 	ContactItem,
 	DavDiscoveryResult,
+	DavSyncOptions,
 	DavSyncSummary,
 	DebugLogEntry,
 	DiscoverResult,
@@ -31,6 +32,8 @@ import type {
 	PublicAccount,
 	PublicCloudAccount,
 	RecentRecipientItem,
+	ProviderCapabilities,
+	ProviderDriverCatalogItem,
 	SaveDraftPayload,
 	SaveDraftResult,
 	SendEmailBackgroundResult,
@@ -74,6 +77,9 @@ type UpdateContactPayload = {
 
 export const ipcClient = {
 	getAccounts: (): Promise<PublicAccount[]> => window.electronAPI.getAccounts(),
+	getProviderDriverCatalog: (): Promise<ProviderDriverCatalogItem[]> => window.electronAPI.getProviderDriverCatalog(),
+	getAccountProviderCapabilities: (accountId: number): Promise<ProviderCapabilities> =>
+		window.electronAPI.getAccountProviderCapabilities(accountId),
 	getUnreadCount: (): Promise<number> => window.electronAPI.getUnreadCount(),
 	onAccountAdded: (cb: (payload: {id: number; email: string}) => void): (() => void) =>
 		window.electronAPI.onAccountAdded?.(cb) ?? noopUnsubscribe,
@@ -93,6 +99,8 @@ export const ipcClient = {
 	getAppSettings: (): Promise<AppSettings> => window.electronAPI.getAppSettings(),
 	onAppSettingsUpdated: (cb: (settings: AppSettings) => void): (() => void) =>
 		window.electronAPI.onAppSettingsUpdated?.(cb) ?? noopUnsubscribe,
+	onNativeThemeUpdated: (cb: (payload: {shouldUseDarkColors: boolean}) => void): (() => void) =>
+		window.electronAPI.onNativeThemeUpdated?.(cb) ?? noopUnsubscribe,
 
 	getAutoUpdateState: (): Promise<AutoUpdateState> => window.electronAPI.getAutoUpdateState(),
 	checkForUpdates: (): Promise<AutoUpdateState> => window.electronAPI.checkForUpdates(),
@@ -132,6 +140,7 @@ export const ipcClient = {
 	discoverMailSettings: (email: string): Promise<DiscoverResult> => window.electronAPI.discoverMailSettings(email),
 	verifyCredentials: (payload: VerifyPayload): Promise<VerifyResult> => window.electronAPI.verifyCredentials(payload),
 	startMailOAuth: (payload: StartMailOAuthPayload): Promise<OAuthSession> => window.electronAPI.startMailOAuth(payload),
+	cancelMailOAuth: (): Promise<{ok: true; cancelled: number}> => window.electronAPI.cancelMailOAuth(),
 	discoverDavPreview: (payload: {
 		email: string;
 		user: string;
@@ -237,7 +246,8 @@ export const ipcClient = {
 		accountId: number,
 		payload?: {filterId?: number; folderPath?: string | null; limit?: number},
 	): Promise<MailFilterRunSummary> => window.electronAPI.runMailFilters(accountId, payload),
-	syncDav: (accountId: number): Promise<DavSyncSummary> => window.electronAPI.syncDav(accountId),
+	syncDav: (accountId: number, options?: DavSyncOptions | null): Promise<DavSyncSummary> =>
+		window.electronAPI.syncDav(accountId, options ?? null),
 	getContacts: (
 		accountId: number,
 		query?: string | null,

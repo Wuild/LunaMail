@@ -587,9 +587,11 @@ export default function AccountFolderSidebar({
 															{isExpanded && (
 																<div className="tree-guide relative mt-1 space-y-1 pl-7 before:absolute before:bottom-2 before:left-3.5 before:top-1 before:w-px before:content-['']">
 																	{accountFolders.length === 0 ? (
-																		<div className="ui-text-muted rounded-md px-2 py-1.5 text-xs">
-																			No folders yet
-																		</div>
+																		isSyncingAccount ? (
+																			<div className="ui-text-muted rounded-md px-2 py-1.5 text-xs">
+																				Synchronizing folders...
+																			</div>
+																		) : null
 																	) : (
 																		<>
 																			{accountProtectedFolders.map((folder) => (

@@ -1,3 +1,5 @@
+import type {SyncModuleKey} from '@/shared/ipcTypes';
+
 export function toErrorMessage(error: unknown, fallback = 'unknown error'): string {
 	if (error && typeof error === 'object' && 'message' in error) {
 		const message = String((error as {message?: unknown}).message || '').trim();
@@ -45,4 +47,21 @@ export function statusSyncCompleteMessages(count: number): string {
 
 export function statusSyncCompleteDav(contacts: number, events: number): string {
 	return `Sync complete: ${Math.max(0, Number(contacts) || 0)} contacts, ${Math.max(0, Number(events) || 0)} events`;
+}
+
+function toModuleLabel(module: SyncModuleKey): string {
+	if (module === 'emails') return 'mailbox';
+	if (module === 'contacts') return 'contacts';
+	if (module === 'calendar') return 'calendar';
+	return 'files';
+}
+
+export function statusSyncPartial(count: number, failedModules: SyncModuleKey[] | undefined): string {
+	const normalizedCount = Math.max(0, Number(count) || 0);
+	const modules = Array.isArray(failedModules) ? failedModules : [];
+	if (modules.length === 0) {
+		return `Synced ${normalizedCount} messages (partial)`;
+	}
+	const failed = modules.map(toModuleLabel).join(', ');
+	return `Synced ${normalizedCount} messages (partial: ${failed} failed)`;
 }

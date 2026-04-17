@@ -4,10 +4,13 @@ import {parseOptionalText, parsePositiveInt, parseRequiredObject, parseRequiredT
 type AccountCoreIpcDeps = {
 	appLogger: {debug: (...args: any[]) => void; info: (...args: any[]) => void; warn: (...args: any[]) => void};
 	getAccounts: () => Promise<any>;
+	getProviderDriverCatalog: () => Promise<any[]>;
+	getProviderCapabilities: (accountId: number) => Promise<any>;
 	getTotalUnreadCount: () => number;
 	addAccount: (account: any) => Promise<any>;
 	updateAccount: (accountId: number, payload: any) => Promise<any>;
 	deleteAccount: (accountId: number) => Promise<any>;
+	revokeAccountOAuthTokens: (accountId: number) => Promise<void>;
 	blockedSyncAccounts: Map<number, string>;
 	broadcastAccountAdded: (payload: any) => void;
 	broadcastAccountUpdated: (payload: any) => void;
@@ -22,6 +25,7 @@ type AccountCoreIpcDeps = {
 	autodiscoverBasic: (email: string) => Promise<any>;
 	verifyConnection: (payload: any) => Promise<any>;
 	startMailOAuth: (payload: any) => Promise<any>;
+	cancelPendingMailOAuth: (reason?: string) => number;
 };
 
 export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
@@ -35,6 +39,17 @@ export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
 		return deps.getTotalUnreadCount();
 	});
 
+	ipcMain.handle('get-provider-driver-catalog', async () => {
+		deps.appLogger.debug('IPC get-provider-driver-catalog');
+		return deps.getProviderDriverCatalog();
+	});
+
+	ipcMain.handle('get-account-provider-capabilities', async (_event, accountId: number) => {
+		const safeAccountId = parsePositiveInt(accountId, 'accountId');
+		deps.appLogger.debug('IPC get-account-provider-capabilities accountId=%d', safeAccountId);
+		return await deps.getProviderCapabilities(safeAccountId);
+	});
+
 	ipcMain.handle('add-account', async (_event, account: any) => {
 		const rawAccount = parseRequiredObject(account, 'account');
 		const payload = {
@@ -42,6 +57,11 @@ export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
 			email: parseRequiredText(rawAccount.email, 'account.email', 320),
 			name: parseOptionalText(rawAccount.name, 'account.name', 200),
 			user: parseOptionalText(rawAccount.user, 'account.user', 320),
+			sync_emails: rawAccount.sync_emails === undefined ? undefined : Number(rawAccount.sync_emails) > 0 ? 1 : 0,
+			sync_contacts:
+				rawAccount.sync_contacts === undefined ? undefined : Number(rawAccount.sync_contacts) > 0 ? 1 : 0,
+			sync_calendar:
+				rawAccount.sync_calendar === undefined ? undefined : Number(rawAccount.sync_calendar) > 0 ? 1 : 0,
 		};
 		deps.appLogger.info('IPC add-account email=%s', payload.email);
 		const created = await deps.addAccount(payload);
@@ -58,8 +78,16 @@ export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
 	ipcMain.handle('update-account', async (_event, accountId: number, payload: any) => {
 		const safeAccountId = parsePositiveInt(accountId, 'accountId');
 		const rawPayload = parseRequiredObject(payload, 'payload');
+		const normalizedPayload = {
+			...rawPayload,
+			sync_emails: rawPayload.sync_emails === undefined ? undefined : Number(rawPayload.sync_emails) > 0 ? 1 : 0,
+			sync_contacts:
+				rawPayload.sync_contacts === undefined ? undefined : Number(rawPayload.sync_contacts) > 0 ? 1 : 0,
+			sync_calendar:
+				rawPayload.sync_calendar === undefined ? undefined : Number(rawPayload.sync_calendar) > 0 ? 1 : 0,
+		};
 		deps.appLogger.info('IPC update-account accountId=%d', safeAccountId);
-		const updated = await deps.updateAccount(safeAccountId, rawPayload);
+		const updated = await deps.updateAccount(safeAccountId, normalizedPayload);
 		deps.blockedSyncAccounts.delete(safeAccountId);
 		deps.broadcastAccountUpdated(updated);
 		deps.restartIdleWatcher(safeAccountId);
@@ -69,6 +97,15 @@ export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
 	ipcMain.handle('delete-account', async (_event, accountId: number) => {
 		const safeAccountId = parsePositiveInt(accountId, 'accountId');
 		deps.appLogger.warn('IPC delete-account accountId=%d', safeAccountId);
+		try {
+			await deps.revokeAccountOAuthTokens(safeAccountId);
+		} catch (error) {
+			deps.appLogger.warn(
+				'OAuth token revoke failed accountId=%d error=%s',
+				safeAccountId,
+				(error as any)?.message || String(error),
+			);
+		}
 		const deleted = await deps.deleteAccount(safeAccountId);
 		deps.blockedSyncAccounts.delete(safeAccountId);
 		deps.broadcastAccountDeleted(deleted);
@@ -95,12 +132,50 @@ export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
 
 	ipcMain.handle('start-mail-oauth', async (_event, payload: any) => {
 		const safePayload = parseRequiredObject(payload, 'payload');
-		return await deps.startMailOAuth({
+		const session = await deps.startMailOAuth({
 			email: parseOptionalText(safePayload.email, 'payload.email', 320),
 			provider: parseOptionalText(safePayload.provider, 'payload.provider', 80),
 			clientId: parseOptionalText(safePayload.clientId, 'payload.clientId', 256),
 			tenantId: parseOptionalText(safePayload.tenantId, 'payload.tenantId', 128),
 		});
+		try {
+			const normalizedEmail = String(session?.email || '').trim().toLowerCase();
+			const normalizedProvider = String(session?.provider || '').trim().toLowerCase();
+			const accounts = await deps.getAccounts();
+			const created = [...accounts]
+				.filter((account) => {
+					const email = String(account?.email || '').trim().toLowerCase();
+					const provider = String(account?.provider || '').trim().toLowerCase();
+					const oauthProvider = String(account?.oauth_provider || '').trim().toLowerCase();
+					const matchesEmail = normalizedEmail && email === normalizedEmail;
+					const matchesProvider =
+						normalizedProvider && (provider === normalizedProvider || oauthProvider === normalizedProvider);
+					return matchesEmail && matchesProvider;
+				})
+				.sort((left, right) => {
+					const leftCreated = Date.parse(String(left?.created_at || '')) || 0;
+					const rightCreated = Date.parse(String(right?.created_at || '')) || 0;
+					return rightCreated - leftCreated;
+				})[0];
+			if (created?.id) {
+				deps.blockedSyncAccounts.delete(created.id);
+				deps.broadcastAccountAdded(created);
+				deps.notifyAccountCountChanged();
+				void deps.runSyncAndBroadcast(created.id, 'new-account').catch((error) => {
+					console.warn('Initial sync after OAuth account add failed:', (error as any)?.message || String(error));
+				});
+				void deps.ensureIdleWatcher(created.id);
+			}
+		} catch (error) {
+			console.warn('Post-OAuth account bootstrap failed:', (error as any)?.message || String(error));
+		}
+		return session;
+	});
+
+	ipcMain.handle('cancel-mail-oauth', async (_event) => {
+		deps.appLogger.info('IPC cancel-mail-oauth');
+		const cancelled = deps.cancelPendingMailOAuth('OAuth login cancelled by user');
+		return {ok: true as const, cancelled};
 	});
 
 	ipcMain.handle('sync-account', async (_event, accountId: number) => {

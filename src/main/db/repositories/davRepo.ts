@@ -247,9 +247,11 @@ export function upsertCalendarEvents(
 		rawIcs?: string | null;
 	}>,
 	source: string = 'caldav',
+	options?: {removeMissing?: boolean},
 ): {upserted: number; removed: number} {
 	const db = getDb();
 	const seenAt = new Date().toISOString();
+	const removeMissing = options?.removeMissing !== false;
 	const tx = db.transaction(() => {
 		const upsert = db.prepare(
 			`
@@ -284,6 +286,9 @@ export function upsertCalendarEvents(
 				row.rawIcs ?? null,
 				seenAt,
 			);
+		}
+		if (!removeMissing) {
+			return {upserted: rows.length, removed: 0};
 		}
 		const cleanup = db
 			.prepare(

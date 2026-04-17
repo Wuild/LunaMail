@@ -58,6 +58,22 @@ Build main, preload, and renderer:
 npm run build
 ```
 
+## Environment Overrides
+
+You can create a local `.env` file in the project root to override runtime settings.
+
+Example:
+
+```bash
+cp .env.example .env
+```
+
+OAuth/Auth server defaults to `https://llama.voracious.se` and can be overridden with:
+
+```bash
+LUNAMAIL_AUTH_SERVER_BASE_URL=https://your-auth-host.example
+```
+
 ## Package
 
 Linux:

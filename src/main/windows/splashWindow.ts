@@ -3,7 +3,7 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import {loadWindowContent} from './loadWindowContent.js';
 import {attachWindowShortcuts, buildSecureWebPreferences, createAppWindow} from './windowFactory.js';
-import {APP_NAME} from '@main/config.js';
+import {APP_NAME} from '@/shared/appConfig.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);

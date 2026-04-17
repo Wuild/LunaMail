@@ -2,7 +2,7 @@ import {app, BrowserWindow, ipcMain, Notification, shell} from 'electron';
 import {getAccounts} from '@main/db/repositories/accountsRepo.js';
 import {listFoldersByAccount, listMessagesByFolder} from '@main/db/repositories/mailRepo.js';
 import {createAppLogger} from '@main/debug/debugLog.js';
-import {APP_NAME} from '@main/config.js';
+import {APP_NAME} from '@/shared/appConfig.js';
 import {type AppSettingsPatch, getAppSettings, updateAppSettings} from '@main/settings/store.js';
 import {openSplashWindow} from '@main/windows/splashWindow.js';
 import {resolveNotificationIconPath} from '@main/notifications/icon.js';

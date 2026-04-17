@@ -22,6 +22,9 @@ export const accounts = sqliteTable('accounts', {
 	smtpHost: text('smtp_host').notNull(),
 	smtpPort: integer('smtp_port').notNull(),
 	smtpSecure: integer('smtp_secure').default(1).notNull(),
+	syncEmails: integer('sync_emails').default(1).notNull(),
+	syncContacts: integer('sync_contacts').default(1).notNull(),
+	syncCalendar: integer('sync_calendar').default(1).notNull(),
 	user: text('user').notNull(),
 	createdAt: text('created_at').default('CURRENT_TIMESTAMP').notNull(),
 });

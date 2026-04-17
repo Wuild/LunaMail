@@ -4,7 +4,12 @@ import path from 'node:path';
 import {eq} from 'drizzle-orm';
 import {getDb, getDrizzle, getSqlitePath} from '@main/db/drizzle.js';
 import {accounts, type InsertAccount} from '@main/db/schema.js';
-import {APP_NAME} from '@main/config.js';
+import {APP_NAME} from '@/shared/appConfig.js';
+import {
+	hasAnyEnabledAccountModule,
+	normalizeAccountModuleSelection,
+	type AccountModuleSelection,
+} from '@/shared/accountModules.js';
 import type {AuthMethod, OAuthProvider, OAuthSession} from '@/shared/ipcTypes.js';
 import {ensureFreshMailOAuthSession} from '@main/mail/oauth.js';
 
@@ -35,6 +40,9 @@ export interface PublicAccount {
 	smtp_host: string;
 	smtp_port: number;
 	smtp_secure: number;
+	sync_emails: number;
+	sync_contacts: number;
+	sync_calendar: number;
 	created_at: string;
 	user: string;
 }
@@ -66,6 +74,9 @@ export async function getAccounts(): Promise<PublicAccount[]> {
 			smtp_host: r.smtpHost!,
 			smtp_port: r.smtpPort!,
 			smtp_secure: r.smtpSecure ?? 1,
+			sync_emails: r.syncEmails ?? 1,
+			sync_contacts: r.syncContacts ?? 1,
+			sync_calendar: r.syncCalendar ?? 1,
 			user: r.user!,
 			created_at: r.createdAt!,
 		}),
@@ -93,6 +104,9 @@ export interface AddAccountPayload {
 	smtp_host: string;
 	smtp_port: number;
 	smtp_secure?: number; // 1=SSL/TLS, 0=STARTTLS
+	sync_emails?: number;
+	sync_contacts?: number;
+	sync_calendar?: number;
 	user: string;
 	password?: string;
 	oauth_session?: OAuthSession | null;
@@ -119,6 +133,9 @@ export interface UpdateAccountPayload {
 	smtp_host: string;
 	smtp_port: number;
 	smtp_secure?: number;
+	sync_emails?: number;
+	sync_contacts?: number;
+	sync_calendar?: number;
 	user: string;
 	password?: string | null;
 	oauth_session?: OAuthSession | null;
@@ -145,6 +162,9 @@ export async function addAccount(payload: AddAccountPayload): Promise<{id: numbe
 		smtp_host,
 		smtp_port,
 		smtp_secure = 1,
+		sync_emails = 1,
+		sync_contacts = 1,
+		sync_calendar = 1,
 		user,
 		password = '',
 		auth_method = payload.oauth_session ? 'oauth2' : 'password',
@@ -154,19 +174,22 @@ export async function addAccount(payload: AddAccountPayload): Promise<{id: numbe
 	const normalizedAuthMethod = normalizeAuthMethod(auth_method);
 	const normalizedOAuthProvider = normalizeOAuthProvider(oauth_provider);
 
-	if (
-		!email ||
-		!imap_host ||
-		!imap_port ||
-		!smtp_host ||
-		!smtp_port ||
-		!user ||
-		(normalizedAuthMethod !== 'oauth2' && !String(password || '').trim())
-	) {
+	if (!email || !user || (normalizedAuthMethod !== 'oauth2' && !String(password || '').trim())) {
 		throw new Error('Missing required account fields');
 	}
 	if (normalizedAuthMethod === 'oauth2' && !oauth_session?.accessToken?.trim()) {
 		throw new Error('OAuth session is required for OAuth accounts.');
+	}
+	const moduleSelection = normalizeAccountModuleSelection({
+		sync_emails,
+		sync_contacts,
+		sync_calendar,
+	});
+	if (!hasAnyEnabledAccountModule(moduleSelection)) {
+		throw new Error('Select at least one sync module (email, contacts, or calendar).');
+	}
+	if (moduleSelection.sync_emails > 0 && (!imap_host || !imap_port || !smtp_host || !smtp_port)) {
+		throw new Error('Missing required email server fields');
 	}
 
 	const toInsert: InsertAccount = {
@@ -190,6 +213,9 @@ export async function addAccount(payload: AddAccountPayload): Promise<{id: numbe
 		smtpHost: smtp_host,
 		smtpPort: smtp_port,
 		smtpSecure: smtp_secure,
+		syncEmails: moduleSelection.sync_emails,
+		syncContacts: moduleSelection.sync_contacts,
+		syncCalendar: moduleSelection.sync_calendar,
 		user,
 	} as InsertAccount;
 
@@ -338,8 +364,27 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 	const user = payload.user?.trim();
 	const authMethod = normalizeAuthMethod(payload.auth_method ?? existing.authMethod ?? 'password');
 	const oauthProvider = normalizeOAuthProvider(payload.oauth_provider ?? existing.oauthProvider ?? null);
-	if (!email || !imapHost || !payload.imap_port || !smtpHost || !payload.smtp_port || !user) {
+	if (!email || !user) {
 		throw new Error('Missing required account fields');
+	}
+	const moduleFallback: AccountModuleSelection = {
+		sync_emails: existing.syncEmails ?? 1,
+		sync_contacts: existing.syncContacts ?? 1,
+		sync_calendar: existing.syncCalendar ?? 1,
+	};
+	const moduleSelection = normalizeAccountModuleSelection(
+		{
+			sync_emails: payload.sync_emails,
+			sync_contacts: payload.sync_contacts,
+			sync_calendar: payload.sync_calendar,
+		},
+		moduleFallback,
+	);
+	if (!hasAnyEnabledAccountModule(moduleSelection)) {
+		throw new Error('Select at least one sync module (email, contacts, or calendar).');
+	}
+	if (moduleSelection.sync_emails > 0 && (!imapHost || !payload.imap_port || !smtpHost || !payload.smtp_port)) {
+		throw new Error('Missing required email server fields');
 	}
 
 	await db
@@ -365,6 +410,9 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 			smtpHost,
 			smtpPort: payload.smtp_port,
 			smtpSecure: payload.smtp_secure ?? 1,
+			syncEmails: moduleSelection.sync_emails,
+			syncContacts: moduleSelection.sync_contacts,
+			syncCalendar: moduleSelection.sync_calendar,
 			user,
 		})
 		.where(eq(accounts.id, accountId))
@@ -424,6 +472,9 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 		smtp_host: updated.smtpHost,
 		smtp_port: updated.smtpPort,
 		smtp_secure: updated.smtpSecure ?? 1,
+		sync_emails: updated.syncEmails ?? 1,
+		sync_contacts: updated.syncContacts ?? 1,
+		sync_calendar: updated.syncCalendar ?? 1,
 		user: updated.user,
 		created_at: updated.createdAt,
 	};

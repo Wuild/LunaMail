@@ -1,10 +1,11 @@
-import {useCallback, useRef, useState} from 'react';
+import {useCallback, useRef} from 'react';
 import type {MessageItem} from '@/preload';
 import {
 	computeSelectionOnClick,
 	computeSelectionOnNavigate,
 	computeSelectionOnSelectAll,
 } from '@renderer/lib/mailSelection';
+import {useMailSelectionStore} from '@renderer/store/mailSelectionStore';
 
 type MailSelectionModifiers = {
 	shiftKey?: boolean;
@@ -20,9 +21,12 @@ type UseMailSelectionParams = {
 };
 
 export function useMailSelection({messages, navigate, locationPathname, onSelectMail}: UseMailSelectionParams) {
-	const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
-	const [selectedMessageIds, setSelectedMessageIds] = useState<number[]>([]);
-	const [pendingAutoReadMessageId, setPendingAutoReadMessageId] = useState<number | null>(null);
+	const selectedMessageId = useMailSelectionStore((state) => state.selectedMessageId);
+	const selectedMessageIds = useMailSelectionStore((state) => state.selectedMessageIds);
+	const pendingAutoReadMessageId = useMailSelectionStore((state) => state.pendingAutoReadMessageId);
+	const setSelectedMessageId = useMailSelectionStore((state) => state.setSelectedMessageId);
+	const setSelectedMessageIds = useMailSelectionStore((state) => state.setSelectedMessageIds);
+	const setPendingAutoReadMessageId = useMailSelectionStore((state) => state.setPendingAutoReadMessageId);
 	const selectionAnchorIndexRef = useRef<number | null>(null);
 
 	const openMessageInCurrentRoute = useCallback(

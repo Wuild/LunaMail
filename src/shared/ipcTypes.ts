@@ -141,6 +141,66 @@ export interface ServiceSettings {
 
 export type AuthMethod = 'oauth2' | 'app_password' | 'password';
 export type OAuthProvider = 'google' | 'microsoft';
+export interface ProviderCapabilities {
+	emails: boolean;
+	contacts: boolean;
+	calendar: boolean;
+	files: boolean;
+}
+
+export interface ProviderDriverSyncMetadata {
+	canRunInitialSync: boolean;
+	canRunIncrementalSync: boolean;
+	supportsRealtimeEvents: boolean;
+	supportsPushNotifications: boolean;
+}
+
+export interface ProviderDriverCatalogItem {
+	key: string;
+	label: string;
+	logo: ProviderLogoKey;
+	enabled: boolean;
+	capabilities: ProviderCapabilities;
+	sync: ProviderDriverSyncMetadata;
+	recommendedAuthMethod: AuthMethod;
+	supportedAuthMethods: AuthMethod[];
+}
+
+export type ProviderLogoKey = 'mail' | 'google' | 'microsoft';
+
+export type SyncModuleState = 'success' | 'failed' | 'skipped';
+
+export interface AccountSyncModuleStatus {
+	state: SyncModuleState;
+	reason?: string;
+}
+
+export interface AccountSyncModuleStatusMap {
+	emails: AccountSyncModuleStatus;
+	contacts: AccountSyncModuleStatus;
+	calendar: AccountSyncModuleStatus;
+	files: AccountSyncModuleStatus;
+}
+
+export type SyncModuleKey = keyof AccountSyncModuleStatusMap;
+
+export type ProviderErrorCategory =
+	| 'auth'
+	| 'renewal'
+	| 'timeout'
+	| 'rate_limit'
+	| 'provider_api'
+	| 'partial_sync'
+	| 'validation'
+	| 'cancelled'
+	| 'unknown';
+
+export interface ProviderSyncError {
+	category: ProviderErrorCategory;
+	message: string;
+	retryable: boolean;
+	code?: string | null;
+}
 
 export interface AuthMethodSupport {
 	method: AuthMethod;
@@ -167,6 +227,21 @@ export interface OAuthSession {
 	displayName: string | null;
 	clientId: string | null;
 	tenantId: string | null;
+}
+
+export interface CalendarSyncRange {
+	startIso?: string | null;
+	endIso?: string | null;
+}
+
+export interface DavSyncModules {
+	contacts?: boolean | null;
+	calendar?: boolean | null;
+}
+
+export interface DavSyncOptions {
+	calendarRange?: CalendarSyncRange | null;
+	modules?: DavSyncModules | null;
 }
 
 export interface DiscoverCandidate {

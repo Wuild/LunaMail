@@ -63,7 +63,7 @@ import {
 	createFramelessAppWindow,
 	resolveWindowIconPath,
 } from './windows/windowFactory.js';
-import {APP_NAME, APP_PROTOCOL} from './config.js';
+import {APP_NAME, APP_PROTOCOL} from '@/shared/appConfig.js';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -848,6 +848,19 @@ function applyRuntimeSettings(): void {
 	ensureTray();
 }
 
+function notifyNativeThemeUpdated(): void {
+	const settings = getAppSettingsSync();
+	if (settings.theme !== 'system') return;
+	const payload = {shouldUseDarkColors: nativeTheme.shouldUseDarkColors};
+	for (const win of BrowserWindow.getAllWindows()) {
+		try {
+			win.webContents.send('native-theme-updated', payload);
+		} catch {
+			// ignore renderer messaging failures
+		}
+	}
+}
+
 function registerProtocolHandlers(): void {
 	app.on('open-url', (event, url) => {
 		event.preventDefault();
@@ -1389,8 +1402,11 @@ function configureLinuxDesktopEntryName(): void {
 	}
 }
 
-const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+
+const gotSingleInstanceLock = isDev ? true : app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
+	console.warn('[main] Another app instance is already running; exiting current process.');
 	logger.warn('Single instance lock unavailable, quitting');
 	app.quit();
 } else {
@@ -1401,11 +1417,56 @@ if (!gotSingleInstanceLock) {
 
 	app.whenReady().then(async () => {
 		logger.info('App ready start');
-		// Initialize database and IPC handlers
-		initDb();
-		logger.info('Database initialized');
+		console.log('[main-startup] app.whenReady entered');
+		let devStartupWatchdog: ReturnType<typeof setTimeout> | null = null;
+		let dbReady = true;
+		if (isDev) {
+			devStartupWatchdog = setTimeout(() => {
+				console.warn('[main] Dev startup watchdog triggered; forcing main window show.');
+				logger.warn('Dev startup watchdog triggered; forcing main window show');
+				try {
+					closeSplashWindow();
+				} catch {
+					// ignore splash close failures
+				}
+				showMainWindow();
+			}, 7000);
+		}
+		// Register IPC handlers first so renderer never sees "No handler registered"
+		// even if a later startup step fails.
+		registerAccountIpc();
+		registerCloudIpc();
+		registerSettingsIpc((settings) => {
+			applyRuntimeSettings();
+			void applyDemoMode(settings);
+		});
+		registerUpdaterIpc();
+		registerWindowIpc({onOpenAddAccountRoute: openAddAccountRouteInMainWindow});
+		logger.info('IPC handlers registered');
+		console.log('[main-startup] IPC handlers registered');
+		console.log('[main-startup] initDb start');
+		try {
+			initDb();
+			logger.info('Database initialized');
+			console.log('[main-startup] initDb done');
+		} catch (error) {
+			dbReady = false;
+			const detail = toErrorDetail(error);
+			console.error('[main-startup] Database initialization failed:', error);
+			logger.error('Database initialization failed: %s', detail || toErrorMessage(error));
+			emitGlobalError({
+				source: 'main-process',
+				message: `Database initialization failed: ${toErrorMessage(error)}`,
+				detail,
+				fatal: true,
+			});
+		}
 		const settings = await getAppSettings();
-		await applyDemoMode(settings);
+		console.log('[main-startup] settings loaded');
+		if (dbReady) {
+			await applyDemoMode(settings);
+		}
+		console.log('[main-startup] demo mode applied');
 		applyRuntimeSettings();
 		setUnreadCountListener((count) => {
 			updateUnreadIndicators(count);
@@ -1447,22 +1508,15 @@ if (!gotSingleInstanceLock) {
 				}
 			})();
 		});
-		registerAccountIpc();
-		registerCloudIpc();
-		registerSettingsIpc((settings) => {
-			applyRuntimeSettings();
-			void applyDemoMode(settings);
-		});
-		registerUpdaterIpc();
-		registerWindowIpc({onOpenAddAccountRoute: openAddAccountRouteInMainWindow});
-		logger.info('IPC handlers registered');
 		registerMailtoProtocolClient();
 		registerAppProtocolClient();
 		configurePlatformQuickActions();
+		nativeTheme.on('updated', notifyNativeThemeUpdated);
 		initAutoUpdater((state) => {
 			broadcastAutoUpdateState(state);
 		});
 		logger.info('Auto updater initialized');
+		console.log('[main-startup] auto updater initialized');
 		stopDebugForwarding = onDebugLog((entry) => {
 			for (const win of BrowserWindow.getAllWindows()) {
 				win.webContents.send('debug-log', entry);
@@ -1470,16 +1524,20 @@ if (!gotSingleInstanceLock) {
 		});
 		logger.info('Debug forwarding active');
 
-		openSplashWindow();
-		const startupUpdateResult = await runStartupUpdateFlow();
-		logger.info('Startup update flow result=%s', startupUpdateResult);
-		if (startupUpdateResult === 'installing') {
-			return;
+		if (!isDev) {
+			openSplashWindow();
+			const startupUpdateResult = await runStartupUpdateFlow();
+			logger.info('Startup update flow result=%s', startupUpdateResult);
+			console.log(`[main-startup] startup update flow result=${startupUpdateResult}`);
+			if (startupUpdateResult === 'installing') {
+				return;
+			}
+			closeSplashWindow();
 		}
-		closeSplashWindow();
 
-		const accounts = await getAccounts();
+		const accounts = dbReady ? await getAccounts().catch(() => []) : [];
 		logger.info('Loaded accounts count=%d', accounts.length);
+		console.log(`[main-startup] accounts loaded count=${accounts.length}`);
 		setMainWindowActionsEnabled(accounts.length > 0);
 		pendingStartupRoute = findRouteArg(process.argv);
 		pendingStartupCompose = findActionArg(process.argv) === 'compose';
@@ -1510,8 +1568,14 @@ if (!gotSingleInstanceLock) {
 		}
 		flushPendingMailtoUrls();
 		updateUnreadIndicators(getCurrentUnreadCount());
-		startAccountAutoSync();
-		logger.info('Auto sync started');
+		if (dbReady) {
+			startAccountAutoSync();
+			logger.info('Auto sync started');
+		}
+		if (devStartupWatchdog) {
+			clearTimeout(devStartupWatchdog);
+			devStartupWatchdog = null;
+		}
 
 		app.on('activate', () => {
 			if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1528,11 +1592,21 @@ if (!gotSingleInstanceLock) {
 				showMainWindow();
 			});
 		});
+	}).catch((error) => {
+		console.error('[main-startup] Fatal startup failure:', error);
+		logger.error('Fatal startup failure: %s', toErrorDetail(error) || toErrorMessage(error));
+		emitGlobalError({
+			source: 'main-process',
+			message: `Fatal startup failure: ${toErrorMessage(error)}`,
+			detail: toErrorDetail(error),
+			fatal: true,
+		});
 	});
 
 	app.on('before-quit', () => {
 		logger.info('App before-quit');
 		isQuitting = true;
+		nativeTheme.removeListener('updated', notifyNativeThemeUpdated);
 		if (initialBackgroundUpdateCheckTimer) {
 			clearTimeout(initialBackgroundUpdateCheckTimer);
 			initialBackgroundUpdateCheckTimer = null;

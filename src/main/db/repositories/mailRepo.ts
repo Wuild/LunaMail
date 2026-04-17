@@ -354,6 +354,22 @@ export function getMessageIdByFolderAndUid(folderId: number, uid: number): numbe
 	return row?.id ?? null;
 }
 
+export function getFolderPositiveUidBounds(folderId: number): {minUid: number | null; maxUid: number | null} {
+	const db = getDb();
+	const row = db
+		.prepare('SELECT MIN(uid) as minUid, MAX(uid) as maxUid FROM messages WHERE folder_id = ? AND uid > 0')
+		.get(folderId) as
+		| {
+				minUid?: number | null;
+				maxUid?: number | null;
+		  }
+		| undefined;
+	return {
+		minUid: typeof row?.minUid === 'number' ? row.minUid : null,
+		maxUid: typeof row?.maxUid === 'number' ? row.maxUid : null,
+	};
+}
+
 export function listFoldersByAccount(accountId: number): FolderRow[] {
 	const db = getDrizzle();
 	return db

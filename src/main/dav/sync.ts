@@ -27,6 +27,7 @@ import {
 } from '@main/db/repositories/davRepo.js';
 import {randomUUID} from 'node:crypto';
 import {createMailDebugLogger} from '@main/debug/debugLog.js';
+import type {DavSyncOptions} from '@/shared/ipcTypes.js';
 
 const CONTACT_META_PREFIX = '[LUNAMAIL_CONTACT_META_V1]';
 
@@ -118,27 +119,29 @@ export async function discoverDavPreview(payload: DavDiscoveryPreviewPayload): P
 	};
 }
 
-export async function syncDav(accountId: number): Promise<DavSyncSummary> {
+export async function syncDav(accountId: number, options?: DavSyncOptions | null): Promise<DavSyncSummary> {
 	const carddavLogger = createMailDebugLogger('carddav', `sync:${accountId}`);
 	const caldavLogger = createMailDebugLogger('caldav', `sync:${accountId}`);
+	const syncContacts = options?.modules?.contacts !== false;
+	const syncCalendar = options?.modules?.calendar !== false;
 	carddavLogger.info('Starting CardDAV sync');
 	caldavLogger.info('Starting CalDAV sync');
-	const accountCreds = await getAccountSyncCredentials(accountId);
-	if (accountCreds.auth_method === 'oauth2') {
-		carddavLogger.warn(
-			'Skipping DAV sync for OAuth account provider=%s: DAV password/app-password auth is required in current implementation.',
-			accountCreds.oauth_provider ?? 'unknown',
-		);
-		caldavLogger.warn(
-			'Skipping DAV sync for OAuth account provider=%s: DAV password/app-password auth is required in current implementation.',
-			accountCreds.oauth_provider ?? 'unknown',
-		);
+	if (!syncContacts && !syncCalendar) {
+		const saved = getDavSettings(accountId);
 		return {
 			accountId,
-			discovered: {accountId, carddavUrl: null, caldavUrl: null},
+			discovered: {
+				accountId,
+				carddavUrl: saved?.carddav_url ?? null,
+				caldavUrl: saved?.caldav_url ?? null,
+			},
 			contacts: {upserted: 0, removed: 0, books: 0},
 			events: {upserted: 0, removed: 0, calendars: 0},
 		};
+	}
+	const accountCreds = await getAccountSyncCredentials(accountId);
+	if (accountCreds.auth_method === 'oauth2') {
+		throw new Error('DAV sync does not support OAuth accounts. Use provider ancillary sync service instead.');
 	}
 	const saved = getDavSettings(accountId);
 	const discovered =
@@ -174,7 +177,9 @@ export async function syncDav(accountId: number): Promise<DavSyncSummary> {
 	);
 
 	let contactsResult = {upserted: 0, removed: 0, books: 0};
-	if (discovered.carddavUrl) {
+	if (!syncContacts) {
+		carddavLogger.debug('Skipping CardDAV contacts sync because contacts module is disabled');
+	} else if (discovered.carddavUrl) {
 		const books = await listAddressBookCollections(creds, discovered.carddavUrl, carddavLogger);
 		const sourceBooks = books.length > 0 ? books.map((book) => book.url) : [discovered.carddavUrl];
 		carddavLogger.debug('Using %d CardDAV address books', sourceBooks.length);
@@ -205,7 +210,9 @@ export async function syncDav(accountId: number): Promise<DavSyncSummary> {
 	}
 
 	let eventsResult = {upserted: 0, removed: 0, calendars: 0};
-	if (discovered.caldavUrl) {
+	if (!syncCalendar) {
+		caldavLogger.debug('Skipping CalDAV sync because calendar module is disabled');
+	} else if (discovered.caldavUrl) {
 		const calendars = await listCollections(creds, discovered.caldavUrl, 'calendar', caldavLogger);
 		const sourceCalendars = calendars.length > 0 ? calendars : [discovered.caldavUrl];
 		caldavLogger.debug('Using %d CalDAV calendars', sourceCalendars.length);

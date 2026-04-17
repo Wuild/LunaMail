@@ -13,6 +13,7 @@ function getElectronVersion() {
 }
 
 const electronVersion = getElectronVersion();
+const npmCliPath = process.env.npm_execpath;
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const args = [
 	'rebuild',
@@ -22,9 +23,9 @@ const args = [
 	'--dist-url=https://electronjs.org/headers',
 ];
 
-const result = spawnSync(npmCommand, args, {
-	stdio: 'inherit',
-});
+const result = npmCliPath
+	? spawnSync(process.execPath, [npmCliPath, ...args], {stdio: 'inherit'})
+	: spawnSync(npmCommand, args, {stdio: 'inherit', shell: true});
 
 if (result.error) {
 	console.error(result.error.message);

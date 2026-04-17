@@ -1,7 +1,6 @@
 import {randomBytes} from 'node:crypto';
 import type {OAuthProvider, OAuthSession} from '@/shared/ipcTypes.js';
 import {createMailDebugLogger} from '@main/debug/debugLog.js';
-import {addAccount} from '../db/repositories/accountsRepo.js';
 import {
 	AuthServerClientError,
 	buildMailOAuthStartUrl,
@@ -29,14 +28,6 @@ type PendingOAuthRequest = {
 
 const pendingOAuthRequests = new Map<string, PendingOAuthRequest>();
 
-function getImapHost(provider: 'google' | 'microsoft'): string {
-	return provider === 'google' ? 'imap.gmail.com' : 'outlook.office365.com';
-}
-
-function getSmtpHost(provider: 'google' | 'microsoft'): string {
-	return provider === 'google' ? 'smtp.gmail.com' : 'smtp.office365.com';
-}
-
 async function getElectronShell(): Promise<{openExternal: (url: string) => Promise<void>}> {
 	const electron = (await import('electron')) as {
 		shell?: {openExternal: (url: string) => Promise<void>};
@@ -47,28 +38,6 @@ async function getElectronShell(): Promise<{openExternal: (url: string) => Promi
 	}
 
 	return electron.shell;
-}
-
-async function saveOAuthAccount(session: OAuthSession) {
-	const normalizedEmail = String(session.email || '').trim();
-	await addAccount({
-		display_name: session.displayName || '',
-		email: normalizedEmail,
-		provider: session.provider,
-		auth_method: 'oauth2',
-		oauth_provider: session.provider,
-		user: normalizedEmail,
-
-		imap_host: getImapHost(session.provider),
-		imap_port: 993,
-		imap_secure: 1,
-
-		smtp_host: getSmtpHost(session.provider),
-		smtp_port: 587,
-		smtp_secure: 0,
-
-		oauth_session: session,
-	});
 }
 
 async function exchangeBrokerCode(code: string): Promise<OAuthSession> {
@@ -119,7 +88,6 @@ async function resolveOAuthCallback(rawUrl: string) {
 		if (!resolvedSession.email) {
 			throw new Error('OAuth account email is missing in callback response.');
 		}
-		await saveOAuthAccount(resolvedSession);
 
 		clearTimeout(pending.timeout);
 		pendingOAuthRequests.delete(requestId);

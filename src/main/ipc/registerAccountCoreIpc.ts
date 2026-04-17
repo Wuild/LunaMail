@@ -153,57 +153,12 @@ export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
 
 	ipcMain.handle('start-mail-oauth', async (_event, payload: any) => {
 		const safePayload = parseRequiredObject(payload, 'payload');
-		const session = await deps.startMailOAuth({
+		return await deps.startMailOAuth({
 			email: parseOptionalText(safePayload.email, 'payload.email', 320),
 			provider: parseOptionalText(safePayload.provider, 'payload.provider', 80),
 			clientId: parseOptionalText(safePayload.clientId, 'payload.clientId', 256),
 			tenantId: parseOptionalText(safePayload.tenantId, 'payload.tenantId', 128),
 		});
-		try {
-			const normalizedEmail = String(session?.email || '')
-				.trim()
-				.toLowerCase();
-			const normalizedProvider = String(session?.provider || '')
-				.trim()
-				.toLowerCase();
-			const accounts = await deps.getAccounts();
-			const created = [...accounts]
-				.filter((account) => {
-					const email = String(account?.email || '')
-						.trim()
-						.toLowerCase();
-					const provider = String(account?.provider || '')
-						.trim()
-						.toLowerCase();
-					const oauthProvider = String(account?.oauth_provider || '')
-						.trim()
-						.toLowerCase();
-					const matchesEmail = normalizedEmail && email === normalizedEmail;
-					const matchesProvider =
-						normalizedProvider && (provider === normalizedProvider || oauthProvider === normalizedProvider);
-					return matchesEmail && matchesProvider;
-				})
-				.sort((left, right) => {
-					const leftCreated = Date.parse(String(left?.created_at || '')) || 0;
-					const rightCreated = Date.parse(String(right?.created_at || '')) || 0;
-					return rightCreated - leftCreated;
-				})[0];
-			if (created?.id) {
-				deps.blockedSyncAccounts.delete(created.id);
-				deps.broadcastAccountAdded(created);
-				deps.notifyAccountCountChanged();
-				void deps.runSyncAndBroadcast(created.id, 'new-account').catch((error) => {
-					console.warn(
-						'Initial sync after OAuth account add failed:',
-						(error as any)?.message || String(error),
-					);
-				});
-				void deps.ensureIdleWatcher(created.id);
-			}
-		} catch (error) {
-			console.warn('Post-OAuth account bootstrap failed:', (error as any)?.message || String(error));
-		}
-		return session;
 	});
 
 	ipcMain.handle('cancel-mail-oauth', async (_event) => {

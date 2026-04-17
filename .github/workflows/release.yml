@@ -22,20 +22,22 @@ jobs:
                 include:
                     - name: Linux
                       os: ubuntu-latest
-                      target_args: --linux AppImage deb rpm --x64
+                      target_args: --linux AppImage deb rpm zip --x64 --arm64
                       artifact_name: dist-linux
                       artifact_glob: |
                           dist/*.AppImage
                           dist/*.deb
                           dist/*.rpm
+                          dist/*.zip
                           dist/*.yml
                           dist/*.blockmap
                     - name: Windows
                       os: windows-latest
-                      target_args: --win nsis
+                      target_args: --win nsis zip --x64 --arm64
                       artifact_name: dist-windows
                       artifact_glob: |
                           dist/*.exe
+                          dist/*.zip
                           dist/*.exe.blockmap
                           dist/*.nsis.7z
                           dist/*.nsis.7z.blockmap

@@ -135,12 +135,24 @@ function buildTrayTooltip(appName: string, unreadCount: number): string {
 }
 
 export function resolveLinuxTrayIconPath(appIconPath: string | null): string | null {
+	const resourceRoot = process.resourcesPath || '';
 	const candidatePaths = [
 		path.join(app.getAppPath(), 'build/lunatray.png'),
+		path.join(app.getAppPath(), 'build/llamatray.png'),
+		resourceRoot ? path.join(resourceRoot, 'build/lunatray.png') : '',
+		resourceRoot ? path.join(resourceRoot, 'build/llamatray.png') : '',
+		resourceRoot ? path.join(resourceRoot, 'app.asar.unpacked/build/lunatray.png') : '',
+		resourceRoot ? path.join(resourceRoot, 'app.asar.unpacked/build/llamatray.png') : '',
 		path.join(app.getAppPath(), 'build/icons/lunatray.png'),
 		path.join(app.getAppPath(), 'build/icons/256x256.png'),
 		path.join(app.getAppPath(), 'build/icons/128x128.png'),
 		path.join(app.getAppPath(), 'build/icons/64x64.png'),
+		path.join(app.getAppPath(), 'build/icon.png'),
+		path.join(process.cwd(), 'build/lunatray.png'),
+		path.join(process.cwd(), 'build/llamatray.png'),
+		path.join(process.cwd(), 'build/icon.png'),
+		path.join(process.cwd(), 'src/resources/lunatray.png'),
+		path.join(process.cwd(), 'src/resources/llamatray.png'),
 		appIconPath,
 	];
 	for (const candidate of candidatePaths) {

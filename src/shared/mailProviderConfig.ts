@@ -2,6 +2,7 @@ export const MAIL_PROVIDER_FLAGS = {
 	custom: true,
 	google: true,
 	microsoft: true,
+	icloud: false,
 } as const;
 
 export type MailProviderChoice = keyof typeof MAIL_PROVIDER_FLAGS | (string & {});

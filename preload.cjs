@@ -13,6 +13,7 @@ const api = {
     unlinkAccountCloudDrive: (accountId) => ipcRenderer.invoke('unlink-account-cloud-drive', accountId),
     linkAccountCloudDrive: (accountId) => ipcRenderer.invoke('link-account-cloud-drive', accountId),
     linkCloudOAuth: (provider, payload) => ipcRenderer.invoke('link-cloud-oauth', provider, payload),
+    relinkCloudOAuth: (accountId, payload) => ipcRenderer.invoke('relink-cloud-oauth', accountId, payload),
     listCloudItems: (accountId, pathOrToken) => ipcRenderer.invoke('list-cloud-items', accountId, pathOrToken ?? null),
     getCloudStorageUsage: (accountId) => ipcRenderer.invoke('get-cloud-storage-usage', accountId),
     createCloudFolder: (accountId, parentPathOrToken, folderName) => ipcRenderer.invoke('create-cloud-folder', accountId, parentPathOrToken ?? null, folderName),

@@ -21,6 +21,9 @@ export function createTrayController(deps: TrayControllerDeps): {
 } {
 	let tray: Tray | null = null;
 	const appName = deps.appName || APP_NAME;
+	const runAsync = (fn: () => void) => {
+		setTimeout(fn, 0);
+	};
 
 	function ensureTray(unreadCount: number): void {
 		if (tray) return;
@@ -28,7 +31,11 @@ export function createTrayController(deps: TrayControllerDeps): {
 		tray.setToolTip(buildTrayTooltip(appName, unreadCount));
 		refreshMenu();
 		tray.on('double-click', () => {
-			deps.onShowApp();
+			runAsync(() => deps.onShowApp());
+		});
+		tray.on('click', () => {
+			if (process.platform !== 'linux') return;
+			runAsync(() => deps.onShowApp());
 		});
 	}
 
@@ -50,48 +57,48 @@ export function createTrayController(deps: TrayControllerDeps): {
 		const contextMenu = Menu.buildFromTemplate([
 			{
 				label: `Show ${appName}`,
-				click: () => deps.onShowApp(),
+				click: () => runAsync(() => deps.onShowApp()),
 			},
 			{
 				label: 'Compose Email',
 				enabled: canUseMainWindowActions,
-				click: () => deps.onCompose(),
+				click: () => runAsync(() => deps.onCompose()),
 			},
 			{type: 'separator'},
 			{
 				label: 'Mail',
 				enabled: canUseMainWindowActions,
-				click: () => deps.onNavigate('/email'),
+				click: () => runAsync(() => deps.onNavigate('/email')),
 			},
 			{
 				label: 'Contacts',
 				enabled: canUseMainWindowActions,
-				click: () => deps.onNavigate('/contacts'),
+				click: () => runAsync(() => deps.onNavigate('/contacts')),
 			},
 			{
 				label: 'Calendar',
 				enabled: canUseMainWindowActions,
-				click: () => deps.onNavigate('/calendar'),
+				click: () => runAsync(() => deps.onNavigate('/calendar')),
 			},
 			{
 				label: 'Cloud',
 				enabled: canUseMainWindowActions,
-				click: () => deps.onNavigate('/cloud'),
+				click: () => runAsync(() => deps.onNavigate('/cloud')),
 			},
 			{type: 'separator'},
 			{
 				label: 'Settings',
 				enabled: canUseMainWindowActions,
-				click: () => deps.onNavigate('/settings/application'),
+				click: () => runAsync(() => deps.onNavigate('/settings/application')),
 			},
 			{
 				label: 'About',
 				enabled: canUseMainWindowActions,
-				click: () => deps.onNavigate('/about'),
+				click: () => runAsync(() => deps.onNavigate('/about')),
 			},
 			{
 				label: 'Quit',
-				click: () => deps.onQuit(),
+				click: () => runAsync(() => deps.onQuit()),
 			},
 		]);
 		tray.setContextMenu(contextMenu);
@@ -123,7 +130,10 @@ function buildTrayIcon(appIconPath: string | null) {
 	const trayBaseImage = trayPath ? nativeImage.createFromPath(trayPath) : null;
 	if (trayBaseImage && !trayBaseImage.isEmpty()) {
 		if (process.platform === 'win32') return trayBaseImage.resize({width: 16, height: 16});
-		if (process.platform === 'linux') return trayBaseImage.resize({width: 22, height: 22});
+		if (process.platform === 'linux') {
+			const linuxIcon = trayBaseImage.resize({width: 24, height: 24});
+			return nativeImage.createFromBuffer(linuxIcon.toPNG());
+		}
 		return trayBaseImage;
 	}
 

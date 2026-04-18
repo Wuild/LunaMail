@@ -92,6 +92,9 @@ interface MainLayoutProps {
 	onMessageFlagToggle: (message: MessageItem) => void;
 	onMessageTagChange: (message: MessageItem, tag: string | null) => void;
 	onMessageArchive: (message: MessageItem) => void;
+	onMessageMarkJunk: (message: MessageItem) => void;
+	onMessageMarkNotJunk: (message: MessageItem) => void;
+	isMessageInJunkFolder: (message: MessageItem) => boolean;
 	onMessageDelete: (message: MessageItem) => void;
 	onMessageMove: (message: MessageItem, targetFolderPath: string) => void;
 	onBulkMove: (messageIds: number[], targetFolderPath: string) => void;
@@ -237,6 +240,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 	onMessageFlagToggle,
 	onMessageTagChange,
 	onMessageArchive,
+	onMessageMarkJunk,
+	onMessageMarkNotJunk,
+	isMessageInJunkFolder,
 	onMessageDelete,
 	onMessageMove,
 	onBulkMove,
@@ -1421,6 +1427,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				onMessageFlagToggle={onMessageFlagToggle}
 				onMessageTagChange={onMessageTagChange}
 				onMessageArchive={onMessageArchive}
+				onMessageMarkJunk={onMessageMarkJunk}
+				onMessageMarkNotJunk={onMessageMarkNotJunk}
+				isMessageInJunkFolder={isMessageInJunkFolder}
 				onMessageMove={onMessageMove}
 				onMessageDelete={onMessageDelete}
 				onSelectAccount={onSelectAccount}

@@ -25,6 +25,7 @@ export type AddCloudAccountDraft = {
 export const providerLabels: Record<CloudProvider, string> = {
 	nextcloud: 'Nextcloud',
 	webdav: 'WebDAV',
+	'icloud-drive': 'iCloud Drive',
 	'google-drive': 'Google Drive',
 	onedrive: 'OneDrive',
 };

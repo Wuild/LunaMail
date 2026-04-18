@@ -1,6 +1,6 @@
 import {ContextMenu, ContextMenuItem} from '@renderer/components/ui/ContextMenu';
 import React, {useCallback, useEffect, useMemo, useRef, useState, type SetStateAction} from 'react';
-import {ArrowLeft, FileText, Forward, Reply, ReplyAll, Trash2} from 'lucide-react';
+import {ArrowLeft, FileText, Forward, Reply, ReplyAll, ShieldAlert, ShieldCheck, Trash2} from 'lucide-react';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import MainLayout from '@renderer/layouts/MainLayout';
 import {
@@ -60,10 +60,25 @@ const MESSAGE_PAGE_SIZE = 100;
 const SEARCH_FALLBACK_MESSAGES_PER_FOLDER = 1000;
 const SIDE_LIST_SPLIT_BREAKPOINT_PX = 1320;
 const TOP_TABLE_COMPACT_BREAKPOINT_PX = 860;
+const LEGACY_JUNK_SENDER_RULE_PREFIX = '[LunaMail] sender-rule:';
 
 function hasMoreFolderMessages(loadedCount: number, requestedLimit: number, folderTotalCount: number): boolean {
 	if (loadedCount >= requestedLimit) return true;
 	return folderTotalCount > loadedCount;
+}
+
+function isJunkFolder(folder: FolderItem | null | undefined): boolean {
+	if (!folder) return false;
+	const type = String(folder.type || '').toLowerCase();
+	const path = String(folder.path || '').toLowerCase();
+	return type === 'junk' || path.includes('spam') || path.includes('junk');
+}
+
+function isInboxFolder(folder: FolderItem | null | undefined): boolean {
+	if (!folder) return false;
+	const type = String(folder.type || '').toLowerCase();
+	const path = String(folder.path || '').toLowerCase();
+	return type === 'inbox' || path === 'inbox' || path.endsWith('/inbox');
 }
 
 function MailPage() {
@@ -205,6 +220,7 @@ function MailPage() {
 	const selectedFolderPathRef = useRef<string | null>(null);
 	const selectedMessageIdRef = useRef<number | null>(null);
 	const pendingDeleteMessageIdsRef = useRef<Set<number>>(new Set());
+	const pendingMoveMessageIdsRef = useRef<Set<number>>(new Set());
 	const reconcileReloadTimerRef = useRef<number | null>(null);
 	const pendingOpenMessageTargetRef = useRef<OpenMessageTargetEvent | null>(null);
 	const messageListRequestSeqRef = useRef(0);
@@ -274,6 +290,12 @@ function MailPage() {
 		() => (selectedFolderPath ? (folders.find((folder) => folder.path === selectedFolderPath) ?? null) : null),
 		[folders, selectedFolderPath],
 	);
+	const isSelectedMessageInJunk = useMemo(() => {
+		if (!selectedMessage) return false;
+		const accountFolders = accountFoldersById[selectedMessage.account_id] ?? [];
+		const messageFolder = accountFolders.find((folder) => folder.id === selectedMessage.folder_id) ?? null;
+		return isJunkFolder(messageFolder);
+	}, [accountFoldersById, selectedMessage]);
 	const isDraftMessageSelected = useMemo(() => {
 		if (!selectedMessage) return false;
 		const folderType = String(selectedFolder?.type || '').toLowerCase();
@@ -324,6 +346,31 @@ function MailPage() {
 	}, [allowRemoteForSelectedMessage, selectedMessageBody, renderedBodyHtml, warnOnExternalLinksForSelectedMessage]);
 
 	useThemePreference(appSettings.theme);
+
+	useEffect(() => {
+		if (!selectedAccountId) return;
+		let cancelled = false;
+		void ipcClient
+			.getMailFilters(selectedAccountId)
+			.then(async (filters) => {
+				if (cancelled) return;
+				const legacyRuleIds = filters
+					.filter((filter) =>
+						String(filter.name || '')
+							.trim()
+							.startsWith(LEGACY_JUNK_SENDER_RULE_PREFIX),
+					)
+					.map((filter) => filter.id);
+				for (const filterId of legacyRuleIds) {
+					if (cancelled) return;
+					await ipcClient.deleteMailFilter(selectedAccountId, filterId);
+				}
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, [selectedAccountId]);
 
 	useEffect(() => {
 		const onResize = () => {
@@ -495,7 +542,7 @@ function MailPage() {
 						'Syncing older messages in background...',
 					);
 				}
-				setMessages(applyPendingReadOverrides(filterOutPendingDeletes(rowsRaw)));
+				setMessages(applyPendingReadOverrides(filterOutPendingRemovals(rowsRaw)));
 			} finally {
 				if (requestSeq === messageListRequestSeqRef.current) {
 					setLoadingMoreMessages(false);
@@ -619,7 +666,7 @@ function MailPage() {
 			if (hasMore && rowsRaw.length < nextLimit) {
 				triggerBackgroundFolderSync(selectedAccountId, selectedFolderPath, 'Syncing older messages...');
 			}
-			setMessages(applyPendingReadOverrides(filterOutPendingDeletes(rowsRaw)));
+			setMessages(applyPendingReadOverrides(filterOutPendingRemovals(rowsRaw)));
 		} finally {
 			if (requestSeq === messageListRequestSeqRef.current) {
 				setLoadingMoreMessages(false);
@@ -783,9 +830,14 @@ function MailPage() {
 				openDraftInComposerFromMailView(routedMessage);
 				return;
 			}
-			if (selectedMessageId !== routeEmailId) {
+			if (routedMessage && selectedMessageId !== routeEmailId) {
 				setSelectedMessageId(routeEmailId);
 				setSelectedMessageIds((prev) => (prev.includes(routeEmailId) ? prev : [routeEmailId]));
+			}
+			if (!routedMessage && selectedMessageId === routeEmailId) {
+				setSelectedMessageId(null);
+				setSelectedMessageIds((prev) => prev.filter((id) => id !== routeEmailId));
+				selectionAnchorIndexRef.current = null;
 			}
 		} else if (selectedMessageId !== null) {
 			setSelectedMessageId(null);
@@ -866,10 +918,11 @@ function MailPage() {
 		pruneSyncingAccounts(accounts.map((account) => account.id));
 	}, [accounts, pruneSyncingAccounts]);
 
-	function filterOutPendingDeletes<T extends MessageItem>(rows: T[]): T[] {
-		const pending = pendingDeleteMessageIdsRef.current;
-		if (pending.size === 0) return rows;
-		return rows.filter((m) => !pending.has(m.id));
+	function filterOutPendingRemovals<T extends MessageItem>(rows: T[]): T[] {
+		const pendingDeletes = pendingDeleteMessageIdsRef.current;
+		const pendingMoves = pendingMoveMessageIdsRef.current;
+		if (pendingDeletes.size === 0 && pendingMoves.size === 0) return rows;
+		return rows.filter((m) => !pendingDeletes.has(m.id) && !pendingMoves.has(m.id));
 	}
 
 	async function loadFoldersAndMessages(
@@ -932,7 +985,7 @@ function MailPage() {
 		}
 
 		const msgRowsRaw = await targetAccount.email.messages(chosenFolder, messageFetchLimit);
-		const msgRows = applyPendingReadOverrides(filterOutPendingDeletes(msgRowsRaw));
+		const msgRows = applyPendingReadOverrides(filterOutPendingRemovals(msgRowsRaw));
 		const chosenFolderTotalCount =
 			Math.max(0, Number(folderRows.find((folder) => folder.path === chosenFolder)?.total_count) || 0) ||
 			msgRowsRaw.length;
@@ -983,10 +1036,52 @@ function MailPage() {
 		setMessages((prev) => prev.map((m) => (m.id === messageId ? {...m, tag: nextTag} : m)));
 	}
 
+	function resolveNextMessageIdAfterRemoval(messageId: number): number | null {
+		const idx = messages.findIndex((message) => message.id === messageId);
+		if (idx < 0) return null;
+		for (let next = idx + 1; next < messages.length; next += 1) {
+			const candidate = messages[next];
+			if (candidate?.id && candidate.id !== messageId) return candidate.id;
+		}
+		for (let prev = idx - 1; prev >= 0; prev -= 1) {
+			const candidate = messages[prev];
+			if (candidate?.id && candidate.id !== messageId) return candidate.id;
+		}
+		return null;
+	}
+
+	function updateRouteSelectionAfterOptimisticRemoval(nextSelectedId: number | null): void {
+		if (!selectedAccountId) return;
+		const folderId = selectedFolder?.id ?? routeFolderId ?? null;
+		if (!folderId) return;
+		if (nextSelectedId) {
+			const target = `/email/${selectedAccountId}/${folderId}/${nextSelectedId}`;
+			if (location.pathname !== target) {
+				navigate(target, {replace: true});
+			}
+			return;
+		}
+		const target = `/email/${selectedAccountId}/${folderId}`;
+		if (location.pathname !== target) {
+			navigate(target, {replace: true});
+		}
+	}
+
 	function applyRemoveOptimistic(message: MessageItem, folderPath: string | null) {
+		const wasActiveSelection = selectedMessageId === message.id;
+		const nextSelectedId = (wasActiveSelection ? resolveNextMessageIdAfterRemoval(message.id) : null) ?? null;
 		setMessages((prev) => prev.filter((m) => m.id !== message.id));
-		setSelectedMessageIds((prev) => prev.filter((id) => id !== message.id));
-		setSelectedMessageId((prev) => (prev === message.id ? null : prev));
+		setSelectedMessageIds((prev) => {
+			const filtered = prev.filter((id) => id !== message.id);
+			if (wasActiveSelection) {
+				return nextSelectedId ? [nextSelectedId] : filtered;
+			}
+			return filtered;
+		});
+		setSelectedMessageId((prev) => (prev === message.id ? nextSelectedId : prev));
+		if (wasActiveSelection) {
+			updateRouteSelectionAfterOptimisticRemoval(nextSelectedId);
+		}
 
 		if (!folderPath) return;
 		setFolders((prev) =>
@@ -1002,9 +1097,20 @@ function MailPage() {
 	}
 
 	function applyMoveOptimistic(message: MessageItem, sourceFolderPath: string | null, targetFolderPath: string) {
+		const wasActiveSelection = selectedMessageId === message.id;
+		const nextSelectedId = (wasActiveSelection ? resolveNextMessageIdAfterRemoval(message.id) : null) ?? null;
 		setMessages((prev) => prev.filter((m) => m.id !== message.id));
-		setSelectedMessageIds((prev) => prev.filter((id) => id !== message.id));
-		setSelectedMessageId((prev) => (prev === message.id ? null : prev));
+		setSelectedMessageIds((prev) => {
+			const filtered = prev.filter((id) => id !== message.id);
+			if (wasActiveSelection) {
+				return nextSelectedId ? [nextSelectedId] : filtered;
+			}
+			return filtered;
+		});
+		setSelectedMessageId((prev) => (prev === message.id ? nextSelectedId : prev));
+		if (wasActiveSelection) {
+			updateRouteSelectionAfterOptimisticRemoval(nextSelectedId);
+		}
 
 		if (!sourceFolderPath) return;
 		setFolders((prev) =>
@@ -1026,6 +1132,106 @@ function MailPage() {
 				return f;
 			}),
 		);
+	}
+
+	function syncMoveWithOptimistic(
+		message: MessageItem,
+		targetFolderPath: string,
+		options?: {
+			sourceFolderPath?: string | null;
+			pendingStatus?: string;
+			successStatus?: string;
+			failurePrefix?: string;
+		},
+	): void {
+		const sourceFolderPath = options?.sourceFolderPath ?? selectedFolderPathRef.current;
+		pendingMoveMessageIdsRef.current.add(message.id);
+		applyMoveOptimistic(message, sourceFolderPath, targetFolderPath);
+		setSyncStatusText(options?.pendingStatus || 'Syncing move to server...');
+		void moveMessageMutation
+			.mutateAsync({
+				messageId: message.id,
+				targetFolderPath,
+			})
+			.then((moveResult) => {
+				setFolders((prev) =>
+					prev.map((folder) => {
+						if (folder.id === moveResult.sourceFolderId) {
+							return {
+								...folder,
+								unread_count: moveResult.sourceUnreadCount,
+								total_count: moveResult.sourceTotalCount,
+							};
+						}
+						if (folder.id === moveResult.targetFolderId) {
+							return {
+								...folder,
+								unread_count: moveResult.targetUnreadCount,
+								total_count: moveResult.targetTotalCount,
+							};
+						}
+						return folder;
+					}),
+				);
+				setSyncStatusText(options?.successStatus || 'Move synced');
+			})
+				.catch((error: unknown) => {
+					setSyncStatusText(`${options?.failurePrefix || 'Move failed'}: ${toErrorMessage(error)}`);
+					queueReconcileReload(message.account_id, selectedFolderPathRef.current, selectedMessageIdRef.current);
+				})
+				.finally(() => {
+					pendingMoveMessageIdsRef.current.delete(message.id);
+				});
+	}
+
+	function resolveMessageFolder(accountId: number, folderId: number): FolderItem | null {
+		const accountFolders = accountFoldersById[accountId] ?? [];
+		return accountFolders.find((folder) => folder.id === folderId) ?? null;
+	}
+
+	function resolveJunkFolderPath(accountId: number): string | null {
+		const accountFolders = accountFoldersById[accountId] ?? [];
+		return accountFolders.find((folder) => isJunkFolder(folder))?.path ?? null;
+	}
+
+	function resolveInboxFolderPath(accountId: number): string | null {
+		const accountFolders = accountFoldersById[accountId] ?? [];
+		return accountFolders.find((folder) => isInboxFolder(folder))?.path ?? null;
+	}
+
+	function setMessageJunkPreference(message: MessageItem, preference: 'junk' | 'not-junk'): void {
+		const sourceFolder = resolveMessageFolder(message.account_id, message.folder_id);
+		const sourceFolderPath = sourceFolder?.path ?? selectedFolderPath ?? selectedFolderPathRef.current;
+		const sourceIsJunk = Boolean(
+			isJunkFolder(sourceFolder) || (sourceFolderPath && /(spam|junk)/i.test(sourceFolderPath)),
+		);
+		const junkFolderPath = resolveJunkFolderPath(message.account_id);
+		if (!junkFolderPath) {
+			setSyncStatusText('No Junk folder found for this account.');
+			return;
+		}
+		const inboxFolderPath = resolveInboxFolderPath(message.account_id);
+		const targetFolderPath =
+			preference === 'junk' ? junkFolderPath : sourceIsJunk ? inboxFolderPath : null;
+		if (preference === 'not-junk' && sourceIsJunk && !targetFolderPath) {
+			setSyncStatusText('No Inbox folder found for this account.');
+			return;
+		}
+		if (!targetFolderPath) {
+			setSyncStatusText(preference === 'junk' ? 'Message is already in Junk.' : 'Message is not in Junk.');
+			return;
+		}
+		if (sourceFolderPath && sourceFolderPath === targetFolderPath) {
+			setSyncStatusText(preference === 'junk' ? 'Message is already in Junk.' : 'Message is not in Junk.');
+			return;
+		}
+		const actionLabel = preference === 'junk' ? 'Junk' : 'Not junk';
+		syncMoveWithOptimistic(message, targetFolderPath, {
+			sourceFolderPath,
+			pendingStatus: `${actionLabel} updated locally. Syncing server in background...`,
+			successStatus: `${actionLabel} synced`,
+			failurePrefix: `${actionLabel} sync failed`,
+		});
 	}
 
 	function composeWithDraft(draft: {
@@ -1652,45 +1858,33 @@ function MailPage() {
 						.catch((error: unknown) => {
 							setSyncStatusText(`Archive sync failed: ${toErrorMessage(error)}`);
 							queueReconcileReload(selectedAccountId, selectedFolderPath, null);
-						});
+					});
 				})()
 			}
+			onMessageMarkJunk={(message) =>
+				void (() => {
+					void setMessageJunkPreference(message, 'junk');
+				})()
+			}
+			onMessageMarkNotJunk={(message) =>
+				void (() => {
+					void setMessageJunkPreference(message, 'not-junk');
+				})()
+			}
+			isMessageInJunkFolder={(message) => {
+				const messageFolder =
+					(accountFoldersById[message.account_id] ?? []).find((folder) => folder.id === message.folder_id) ??
+					null;
+				return isJunkFolder(messageFolder);
+			}}
 			onMessageMove={(message, targetFolderPath) =>
 				void (() => {
-					applyMoveOptimistic(message, selectedFolderPath, targetFolderPath);
-					return (async () => {
-						if (!selectedAccountId) return;
-						setSyncStatusText('Syncing move to server...');
-						try {
-							const res = await moveMessageMutation.mutateAsync({
-								messageId: message.id,
-								targetFolderPath,
-							});
-							setFolders((prev) =>
-								prev.map((f) => {
-									if (f.id === res.sourceFolderId) {
-										return {
-											...f,
-											unread_count: res.sourceUnreadCount,
-											total_count: res.sourceTotalCount,
-										};
-									}
-									if (f.id === res.targetFolderId) {
-										return {
-											...f,
-											unread_count: res.targetUnreadCount,
-											total_count: res.targetTotalCount,
-										};
-									}
-									return f;
-								}),
-							);
-							setSyncStatusText('Move synced');
-						} catch (e: any) {
-							setSyncStatusText(`Move failed: ${e?.message || String(e)}`);
-							queueReconcileReload(selectedAccountId, selectedFolderPath, message.id);
-						}
-					})();
+					syncMoveWithOptimistic(message, targetFolderPath, {
+						sourceFolderPath: selectedFolderPath,
+						pendingStatus: 'Syncing move to server...',
+						successStatus: 'Move synced',
+						failurePrefix: 'Move failed',
+					});
 				})()
 			}
 			onBulkMove={(messageIds, targetFolderPath) =>
@@ -1831,6 +2025,17 @@ function MailPage() {
 								</>
 							)}
 							<ToolboxButton label="View source" icon={<FileText size={14} />} onClick={onViewSource} />
+							<ToolboxButton
+								label={isSelectedMessageInJunk ? 'Not junk' : 'Junk'}
+								icon={isSelectedMessageInJunk ? <ShieldCheck size={14} /> : <ShieldAlert size={14} />}
+								onClick={() => {
+									if (!selectedMessage) return;
+									void setMessageJunkPreference(
+										selectedMessage,
+										isSelectedMessageInJunk ? 'not-junk' : 'junk',
+									);
+								}}
+							/>
 							<ToolboxButton
 								label="Delete"
 								icon={<Trash2 size={14} />}

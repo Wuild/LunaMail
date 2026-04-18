@@ -61,6 +61,9 @@ type MessageFolderContextMenuProps = {
 	onMessageFlagToggle: (message: MessageItem) => void;
 	onMessageTagChange: (message: MessageItem, tag: string | null) => void;
 	onMessageArchive: (message: MessageItem) => void;
+	onMessageMarkJunk: (message: MessageItem) => void;
+	onMessageMarkNotJunk: (message: MessageItem) => void;
+	isMessageInJunkFolder: (message: MessageItem) => boolean;
 	onMessageMove: (message: MessageItem, targetFolderPath: string) => void;
 	onMessageDelete: (message: MessageItem) => void;
 	onSelectAccount: (accountId: number) => void;
@@ -93,6 +96,9 @@ export default function MessageFolderContextMenu({
 	onMessageFlagToggle,
 	onMessageTagChange,
 	onMessageArchive,
+	onMessageMarkJunk,
+	onMessageMarkNotJunk,
+	isMessageInJunkFolder,
 	onMessageMove,
 	onMessageDelete,
 	onSelectAccount,
@@ -202,6 +208,18 @@ export default function MessageFolderContextMenu({
 						icon={<Archive size={14} />}
 						onClick={() => {
 							onMessageArchive(menu.message);
+							onClose();
+						}}
+					/>
+					<ContextItem
+						label={isMessageInJunkFolder(menu.message) ? 'Mark as not junk' : 'Mark as junk'}
+						icon={<Mail size={14} />}
+						onClick={() => {
+							if (isMessageInJunkFolder(menu.message)) {
+								onMessageMarkNotJunk(menu.message);
+							} else {
+								onMessageMarkJunk(menu.message);
+							}
 							onClose();
 						}}
 					/>

@@ -70,15 +70,6 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 	const [usedManualSetup, setUsedManualSetup] = useState(false);
 	const [providerDriverCatalog, setProviderDriverCatalog] = useState<ProviderDriverCatalogItem[]>([]);
 	const oauthAttemptRef = useRef(0);
-
-	const isOAuthProvider = Boolean(providerChoice && providerChoice !== 'custom');
-
-	const canGoProviderNext = useMemo(() => providerChoice !== null, [providerChoice]);
-	const canGoCredentialsNext = useMemo(() => {
-		if (isOAuthProvider) return true;
-		return !!email.trim();
-	}, [email, isOAuthProvider]);
-	const canVerifyManual = useMemo(() => !!imap?.host && !!imap.port && !!smtp?.host && !!smtp.port, [imap, smtp]);
 	const providerCatalogByKey = useMemo(
 		() => new Map(providerDriverCatalog.map((item) => [item.key, item] as const)),
 		[providerDriverCatalog],
@@ -105,6 +96,17 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		if (!providerChoice) return null;
 		return providerCatalogByKey.get(providerChoice) ?? null;
 	}, [providerCatalogByKey, providerChoice]);
+	const isOAuthProvider = useMemo(() => {
+		if (!providerChoice || providerChoice === 'custom') return false;
+		if (!selectedProviderDriver) return false;
+		return selectedProviderDriver.supportedAuthMethods.includes('oauth2');
+	}, [providerChoice, selectedProviderDriver]);
+	const canGoProviderNext = useMemo(() => providerChoice !== null, [providerChoice]);
+	const canGoCredentialsNext = useMemo(() => {
+		if (isOAuthProvider) return true;
+		return !!email.trim();
+	}, [email, isOAuthProvider]);
+	const canVerifyManual = useMemo(() => !!imap?.host && !!imap.port && !!smtp?.host && !!smtp.port, [imap, smtp]);
 	const selectedProviderCapabilities = useMemo(
 		() =>
 			selectedProviderDriver?.capabilities ?? {
@@ -162,13 +164,14 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		session: OAuthSession | null = oauthSession,
 		userEmail: string = email.trim(),
 	): Promise<VerifyResult> {
+		const normalizedPassword = normalizeAuthPassword(password, authMethod, providerChoice, provider, userEmail);
 		return ipcClient.verifyCredentials({
 			type,
 			host: svc.host,
 			port: Number(svc.port),
 			secure: svc.security === 'ssl',
 			user: userEmail,
-			password: authMethod === 'oauth2' ? undefined : password || undefined,
+			password: authMethod === 'oauth2' ? undefined : normalizedPassword || undefined,
 			auth_method: authMethod,
 			oauth_session: authMethod === 'oauth2' ? session : null,
 		});
@@ -194,10 +197,17 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 
 	async function discoverDavPreview(imapService: Service, accountEmail: string = email.trim()): Promise<void> {
 		try {
+			const normalizedPassword = normalizeAuthPassword(
+				password,
+				selectedAuthMethod,
+				providerChoice,
+				provider,
+				accountEmail,
+			);
 			const discovered = await ipcClient.discoverDavPreview({
 				email: accountEmail,
 				user: accountEmail,
-				password,
+				password: normalizedPassword,
 				imapHost: imapService.host,
 			});
 			setDavDiscovery(discovered);
@@ -288,6 +298,71 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
            CUSTOM FLOW
         ===================================== */
 
+		if (providerChoice !== 'custom') {
+			const accountEmail = email.trim();
+			const normalizedPassword = normalizeAuthPassword(
+				password,
+				selectedAuthMethod,
+				providerChoice,
+				provider,
+				accountEmail,
+			);
+			if (!accountEmail) {
+				setError('Enter your email address.');
+				return;
+			}
+
+			if (!normalizedPassword.trim()) {
+				setError(
+					selectedAuthMethod === 'app_password'
+						? 'Enter your app-specific password to continue.'
+						: 'Enter your account password to continue.',
+				);
+				return;
+			}
+
+			setLoading(true);
+			try {
+				const providerDiscover = buildProviderPresetDiscoverResult(providerChoice);
+				if (!providerDiscover?.imap || !providerDiscover?.smtp) {
+					throw new Error(`Provider '${providerChoice}' manual login is not configured yet.`);
+				}
+
+				const discoveredImap: Service = {
+					host: providerDiscover.imap.host,
+					port: providerDiscover.imap.port,
+					security: providerDiscover.imap.secure ? 'ssl' : 'starttls',
+				};
+				const discoveredSmtp: Service = {
+					host: providerDiscover.smtp.host,
+					port: providerDiscover.smtp.port,
+					security: providerDiscover.smtp.secure ? 'ssl' : 'starttls',
+				};
+
+				setProvider(providerDiscover.provider ?? providerChoice);
+				setAuthCapabilities(providerDiscover.auth ?? buildProviderPresetAuth(providerChoice));
+				setImap(discoveredImap);
+				setSmtp(discoveredSmtp);
+				setPop3(null);
+
+				await verifyImapAndSmtp(discoveredImap, discoveredSmtp, selectedAuthMethod, null, accountEmail);
+				await discoverDavPreview(discoveredImap, accountEmail);
+				setUsedManualSetup(false);
+				setSuccess('Account verified successfully.');
+				setStep(4);
+			} catch (e: any) {
+				const message = e?.message || String(e);
+				if (isCredentialErrorMessage(message)) {
+					setError(buildAuthFailureMessage(buildProviderPresetAuth(providerChoice), message, selectedAuthMethod));
+					return;
+				}
+				setError(`Could not verify settings: ${message}`);
+			} finally {
+				setLoading(false);
+			}
+			return;
+		}
+
 		setLoading(true);
 
 		let discovered: DiscoverResult;
@@ -310,13 +385,20 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 			setProvider(discovered?.provider ?? null);
 
 			const accountEmail = email.trim();
+			const normalizedPassword = normalizeAuthPassword(
+				password,
+				nextAuthMethod,
+				providerChoice,
+				provider,
+				accountEmail,
+			);
 
 			if (!accountEmail) {
 				setError('Enter your email address.');
 				return;
 			}
 
-			if (!password.trim()) {
+			if (!normalizedPassword.trim()) {
 				setError(
 					nextAuthMethod === 'app_password'
 						? 'This provider requires an app-specific password.'
@@ -384,7 +466,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 				const message = verifyError?.message || String(verifyError);
 
 				if (isCredentialErrorMessage(message)) {
-					setError(buildAuthFailureMessage(discovered?.auth ?? null, message));
+					setError(buildAuthFailureMessage(discovered?.auth ?? null, message, nextAuthMethod));
 					return;
 				}
 
@@ -415,7 +497,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		} catch (e: any) {
 			const message = e?.message || String(e);
 			if (message === 'Wrong username or password.' || isCredentialErrorMessage(message)) {
-				setError(buildAuthFailureMessage(authCapabilities, message));
+				setError(buildAuthFailureMessage(authCapabilities, message, selectedAuthMethod));
 				return;
 			}
 			setError(`Could not verify settings: ${message}`);
@@ -431,6 +513,13 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		resetMessages();
 
 		try {
+			const normalizedPassword = normalizeAuthPassword(
+				password,
+				selectedAuthMethod,
+				providerChoice,
+				provider,
+				email.trim(),
+			);
 			await ipcClient.addAccount({
 				email: email.trim(),
 				display_name:
@@ -448,7 +537,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 				smtp_port: Number(smtp.port),
 				smtp_secure: smtp.security === 'ssl' ? 1 : 0,
 				user: email.trim(),
-				password: selectedAuthMethod === 'oauth2' ? undefined : password,
+				password: selectedAuthMethod === 'oauth2' ? undefined : normalizedPassword,
 				auth_method: selectedAuthMethod,
 				oauth_provider: selectedAuthMethod === 'oauth2' ? (oauthSession?.provider ?? null) : null,
 				oauth_session: selectedAuthMethod === 'oauth2' ? oauthSession : null,
@@ -489,7 +578,16 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		setProviderChoice(choice);
 		setProvider(choice === 'custom' ? null : choice);
 		setAuthCapabilities(choice === 'custom' ? null : buildProviderPresetAuth(choice));
-		setSelectedAuthMethod(choice === 'custom' ? 'password' : 'oauth2');
+		const preferredMethod = driver?.recommendedAuthMethod;
+		setSelectedAuthMethod(
+			choice === 'custom'
+				? 'password'
+				: preferredMethod === 'app_password'
+					? 'app_password'
+					: preferredMethod === 'oauth2'
+						? 'oauth2'
+						: 'password',
+		);
 		setOauthSession(null);
 		setUsedManualSetup(false);
 		const capabilities = driver?.capabilities ?? {emails: true, contacts: true, calendar: true, files: false};
@@ -757,7 +855,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 											</header>
 
 											<div className="space-y-4">
-												{providerChoice === 'custom' && (
+												{!isOAuthProvider && (
 													<>
 														<Field
 															label="Name (optional)"
@@ -1113,12 +1211,19 @@ function isCredentialErrorMessage(message: string): boolean {
 	return /(auth|credential|password|login|not authenticated|invalid)/i.test(message);
 }
 
-function buildAuthFailureMessage(auth: AuthCapabilities | null, fallbackMessage: string): string {
+function buildAuthFailureMessage(
+	auth: AuthCapabilities | null,
+	fallbackMessage: string,
+	selectedMethod?: SelectedAuthMethod,
+): string {
 	if (!auth) return fallbackMessage;
 	if (auth.preferredMethod === 'oauth2') {
 		return 'This provider usually requires OAuth sign-in (2FA/passkeys supported) or an app password. Direct password login may be blocked.';
 	}
 	if (auth.preferredMethod === 'app_password') {
+		if (selectedMethod === 'app_password') {
+			return 'App-specific password authentication failed. Check your account email/username and regenerate the app password, then retry.';
+		}
 		return 'This provider usually requires an app-specific password for IMAP/SMTP. Generate one in provider security settings and retry.';
 	}
 	return fallbackMessage;
@@ -1129,6 +1234,32 @@ function resolveAuthMethodFromDiscovery(auth: AuthCapabilities | null): Selected
 	if (auth.preferredMethod === 'oauth2') return 'oauth2';
 	if (auth.preferredMethod === 'app_password') return 'app_password';
 	return 'password';
+}
+
+function normalizeAuthPassword(
+	rawPassword: string,
+	authMethod: SelectedAuthMethod,
+	providerChoice: string | null,
+	provider: string | null,
+	accountEmail: string,
+): string {
+	const value = String(rawPassword || '');
+	if (authMethod !== 'app_password') return value;
+	const choice = String(providerChoice || '').trim().toLowerCase();
+	const resolvedProvider = String(provider || '').trim().toLowerCase();
+	const emailDomain = String(accountEmail || '')
+		.trim()
+		.toLowerCase()
+		.split('@')[1];
+	const isIcloud =
+		choice === 'icloud' ||
+		resolvedProvider === 'icloud' ||
+		emailDomain === 'icloud.com' ||
+		emailDomain === 'me.com' ||
+		emailDomain === 'mac.com';
+	if (!isIcloud) return value;
+	// Apple app-specific passwords are often shown with whitespace grouping.
+	return value.replace(/\s+/g, '');
 }
 
 function buildProviderPresetAuth(provider: string): AuthCapabilities {
@@ -1188,6 +1319,28 @@ function buildProviderPresetAuth(provider: string): AuthCapabilities {
 		};
 	}
 
+	if (provider === 'icloud') {
+		return {
+			preferredMethod: 'app_password',
+			supportsTwoFactorFlow: true,
+			supportsPasskeysViaProvider: true,
+			methods: [
+				{
+					method: 'app_password',
+					supported: true,
+					recommended: true,
+					note: 'Generate one at appleid.apple.com > Sign-In and Security > App-Specific Passwords, then use that password here.',
+				},
+				{
+					method: 'password',
+					supported: false,
+					recommended: false,
+					note: 'Apple ID account passwords are blocked for IMAP/SMTP.',
+				},
+			],
+		};
+	}
+
 	return {
 		preferredMethod: 'oauth2',
 		supportsTwoFactorFlow: true,
@@ -1234,6 +1387,15 @@ function buildProviderPresetDiscoverResult(provider: string): DiscoverResult | n
 		};
 	}
 
+	if (provider === 'icloud') {
+		return {
+			provider: 'icloud',
+			imap: {host: 'imap.mail.me.com', port: 993, secure: true},
+			smtp: {host: 'smtp.mail.me.com', port: 587, secure: false},
+			auth: buildProviderPresetAuth('icloud'),
+		};
+	}
+
 	return null;
 }
 
@@ -1241,6 +1403,7 @@ function describeProviderDriver(driver: ProviderDriverCatalogItem): string {
 	if (driver.key === 'custom') return 'Use autodiscover and manual server setup when needed.';
 	if (driver.key === 'google') return 'Connect a Google account.';
 	if (driver.key === 'microsoft') return 'Connect a Microsoft account.';
+	if (driver.key === 'icloud') return 'Use your Apple ID email and an app-specific password.';
 	return `Connect ${driver.label}.`;
 }
 

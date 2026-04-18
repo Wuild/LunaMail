@@ -9,10 +9,13 @@ import {createMailDebugLogger} from '@main/debug/debugLog.js';
 import {
 	addCloudAccount,
 	type AddCloudAccountPayload,
+	assertCloudProviderEnabled,
 	deleteCloudAccount,
 	getCloudAccountCredentials,
 	getCloudAccounts,
 	listCloudRecipientContacts,
+	type CloudProvider,
+	type PublicCloudAccount,
 	updateCloudAccount,
 	type UpdateCloudAccountPayload,
 } from '@main/db/repositories/cloudRepo.js';
@@ -66,6 +69,7 @@ export function registerCloudIpc(): void {
 
 	ipcMain.handle('add-cloud-account', async (_event, payload: AddCloudAccountPayload) => {
 		logger.info('IPC add-cloud-account provider=%s name=%s', payload?.provider ?? '', payload?.name ?? '');
+		assertCloudProviderEnabled(String(payload?.provider || '').trim() as CloudProvider);
 		const created = await addCloudAccount(payload);
 		broadcastCloudAccountsChanged();
 		return created;
@@ -90,17 +94,7 @@ export function registerCloudIpc(): void {
 			provider === 'google-drive'
 				? await linkGoogleDriveViaAuthService()
 				: await linkOneDriveOAuth(clientId, tenantId);
-
-		const secretPayload = JSON.stringify({
-			accessToken: linked.accessToken,
-			refreshToken: linked.refreshToken || null,
-			expiresAt: linked.expiresAt,
-			tokenType: linked.tokenType || null,
-			scope: linked.scope || null,
-			provider,
-			clientId: provider === 'onedrive' ? clientId : null,
-			tenantId: provider === 'onedrive' ? tenantId : null,
-		});
+		const secretPayload = buildCloudOAuthSecretPayload(linked, provider, {clientId, tenantId});
 		const linkedEmail = String(linked.email || '').trim();
 		const accountName = linkedEmail
 			? linkedEmail
@@ -119,6 +113,37 @@ export function registerCloudIpc(): void {
 		broadcastCloudAccountsChanged();
 		return created;
 	});
+
+	ipcMain.handle(
+		'relink-cloud-oauth',
+		async (_event, accountId: number, payload: LinkCloudOAuthPayload): Promise<PublicCloudAccount> => {
+			logger.info('IPC relink-cloud-oauth accountId=%d', accountId);
+			const credentials = await getCloudAccountCredentials(accountId);
+			if (credentials.provider !== 'google-drive' && credentials.provider !== 'onedrive') {
+				throw new Error('OAuth relinking is only supported for Google Drive and OneDrive accounts.');
+			}
+			const provider: OAuthProvider = credentials.provider;
+			const persisted = parseCloudOAuthSecret(credentials.secret);
+			const rawClientId = String(payload?.clientId || '').trim();
+			const rawTenantId = String(payload?.tenantId || '').trim();
+			const clientId =
+				provider === 'onedrive'
+					? rawClientId || String(persisted?.clientId || '').trim() || ONEDRIVE_APP_ID
+					: rawClientId;
+			const tenantId = rawTenantId || String(persisted?.tenantId || '').trim() || 'common';
+			const linked =
+				provider === 'google-drive'
+					? await linkGoogleDriveViaAuthService()
+					: await linkOneDriveOAuth(clientId, tenantId);
+			const nextSecret = buildCloudOAuthSecretPayload(linked, provider, {clientId, tenantId});
+			const updated = await updateCloudAccount(accountId, {
+				user: linked.email || credentials.user || null,
+				secret: nextSecret,
+			});
+			broadcastCloudAccountsChanged();
+			return updated;
+		},
+	);
 
 	ipcMain.handle('delete-cloud-account', async (_event, accountId: number) => {
 		logger.warn('IPC delete-cloud-account accountId=%d', accountId);
@@ -287,6 +312,40 @@ type LinkedOAuthAccount = {
 	displayName: string | null;
 	email: string | null;
 };
+
+type ParsedCloudOAuthSecret = {
+	clientId?: string | null;
+	tenantId?: string | null;
+};
+
+function parseCloudOAuthSecret(value: string | null | undefined): ParsedCloudOAuthSecret | null {
+	const raw = String(value || '').trim();
+	if (!raw.startsWith('{')) return null;
+	try {
+		return JSON.parse(raw) as ParsedCloudOAuthSecret;
+	} catch {
+		return null;
+	}
+}
+
+function buildCloudOAuthSecretPayload(
+	linked: LinkedOAuthAccount,
+	provider: OAuthProvider,
+	options: {clientId?: string | null; tenantId?: string | null} = {},
+): string {
+	const clientId = String(options.clientId || '').trim() || null;
+	const tenantId = String(options.tenantId || '').trim() || null;
+	return JSON.stringify({
+		accessToken: linked.accessToken,
+		refreshToken: linked.refreshToken || null,
+		expiresAt: linked.expiresAt,
+		tokenType: linked.tokenType || null,
+		scope: linked.scope || null,
+		provider,
+		clientId: provider === 'onedrive' ? clientId : null,
+		tenantId: provider === 'onedrive' ? tenantId : null,
+	});
+}
 
 async function linkGoogleDriveViaAuthService(): Promise<LinkedOAuthAccount> {
 	const session = await startMailOAuth({

@@ -169,6 +169,19 @@ export async function refreshMailOAuthSessionWithOptions(
 	const requestedScopes = options.replaceExistingScopes
 		? normalizeScopeList(options.additionalScopes ?? [])
 		: normalizeScopeList([session.scope, ...(options.additionalScopes ?? [])]);
+	const refreshBody: Record<string, unknown> = {
+		provider: session.provider,
+		refreshToken: session.refreshToken,
+		refresh_token: session.refreshToken,
+		accessToken: session.accessToken,
+		expiresAt: session.expiresAt,
+		tokenType: session.tokenType,
+	};
+	if (session.provider === 'microsoft') {
+		// Microsoft refresh supports explicit scope selection. Google refresh is safer without scope overrides.
+		refreshBody.scope = requestedScopes.join(' ') || session.scope;
+		refreshBody.scopes = requestedScopes;
+	}
 	const payload = await requestJson(
 		'/api/auth/refresh',
 		{
@@ -176,16 +189,7 @@ export async function refreshMailOAuthSessionWithOptions(
 			headers: {
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify({
-				provider: session.provider,
-				refreshToken: session.refreshToken,
-				refresh_token: session.refreshToken,
-				accessToken: session.accessToken,
-				expiresAt: session.expiresAt,
-				tokenType: session.tokenType,
-				scope: requestedScopes.join(' ') || session.scope,
-				scopes: requestedScopes,
-			}),
+			body: JSON.stringify(refreshBody),
 		},
 		'refresh',
 	);

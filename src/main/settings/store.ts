@@ -1,7 +1,4 @@
-import {app} from 'electron';
-import fsSync from 'fs';
-import fs from 'fs/promises';
-import path from 'path';
+import Store from 'electron-store';
 import type {AppLanguage, AppSettings, AppSettingsPatch, AppTheme, MailView} from '@/shared/ipcTypes.js';
 import {createDefaultAppSettings, DEFAULT_APP_SETTINGS} from '@/shared/defaults.js';
 import {
@@ -16,9 +13,16 @@ export type {AppLanguage, AppSettings, AppSettingsPatch, AppTheme, MailView} fro
 
 let settingsCache: AppSettings = createDefaultAppSettings();
 let hasLoaded = false;
+let settingsStore: Store<AppSettings> | null = null;
 
-function getSettingsPath(): string {
-	return path.join(app.getPath('userData'), 'settings.json');
+function getSettingsStore(): Store<AppSettings> {
+	if (settingsStore) return settingsStore;
+	settingsStore = new Store<AppSettings>({
+		name: 'settings',
+		defaults: createDefaultAppSettings(),
+		accessPropertiesByDotNotation: false,
+	});
+	return settingsStore;
 }
 
 function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSettings {
@@ -145,22 +149,15 @@ function applyPendingRestartSettings(settings: AppSettings): {settings: AppSetti
 	return {settings: next, changed};
 }
 
-async function writeSettings(settings: AppSettings): Promise<void> {
-	const filePath = getSettingsPath();
-	await fs.mkdir(path.dirname(filePath), {recursive: true});
-	await fs.writeFile(filePath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
-}
-
 export async function getAppSettings(): Promise<AppSettings> {
 	if (hasLoaded) return settingsCache;
 	hasLoaded = true;
 	try {
-		const raw = await fs.readFile(getSettingsPath(), 'utf8');
-		const parsed = JSON.parse(raw) as Partial<AppSettings>;
+		const parsed = getSettingsStore().store as Partial<AppSettings>;
 		settingsCache = sanitizeSettings(parsed);
 	} catch {
 		settingsCache = createDefaultAppSettings();
-		await writeSettings(settingsCache).catch(() => undefined);
+		getSettingsStore().store = settingsCache;
 	}
 	return settingsCache;
 }
@@ -171,15 +168,12 @@ export function getAppSettingsSync(): AppSettings {
 
 export function getAppSettingsBootSnapshotSync(): AppSettings {
 	try {
-		const raw = fsSync.readFileSync(getSettingsPath(), 'utf8');
-		const parsed = JSON.parse(raw) as Partial<AppSettings>;
+		const parsed = getSettingsStore().store as Partial<AppSettings>;
 		const sanitized = sanitizeSettings(parsed);
 		const {settings, changed} = applyPendingRestartSettings(sanitized);
 		settingsCache = settings;
 		if (changed) {
-			const filePath = getSettingsPath();
-			fsSync.mkdirSync(path.dirname(filePath), {recursive: true});
-			fsSync.writeFileSync(filePath, `${JSON.stringify(settingsCache, null, 2)}\n`, 'utf8');
+			getSettingsStore().store = settingsCache;
 		}
 		hasLoaded = true;
 		return settingsCache;
@@ -194,7 +188,7 @@ export async function updateAppSettings(patch: AppSettingsPatch): Promise<AppSet
 		...current,
 		...patch,
 	});
-	await writeSettings(settingsCache);
+	getSettingsStore().store = settingsCache;
 	return settingsCache;
 }
 

@@ -150,7 +150,7 @@ export interface PublicAccount {
 	created_at: string;
 }
 
-export type CloudProvider = 'nextcloud' | 'webdav' | 'google-drive' | 'onedrive';
+export type CloudProvider = 'nextcloud' | 'webdav' | 'icloud-drive' | 'google-drive' | 'onedrive';
 
 export interface PublicCloudAccount {
 	id: number;
@@ -632,6 +632,8 @@ const api = {
 		provider: 'google-drive' | 'onedrive',
 		payload: LinkCloudOAuthPayload,
 	): Promise<PublicCloudAccount> => ipcRenderer.invoke('link-cloud-oauth', provider, payload),
+	relinkCloudOAuth: (accountId: number, payload: LinkCloudOAuthPayload): Promise<PublicCloudAccount> =>
+		ipcRenderer.invoke('relink-cloud-oauth', accountId, payload),
 	listCloudItems: (accountId: number, pathOrToken?: string | null): Promise<{path: string; items: CloudItem[]}> =>
 		ipcRenderer.invoke('list-cloud-items', accountId, pathOrToken ?? null),
 	getCloudStorageUsage: (accountId: number): Promise<CloudStorageUsage> =>

@@ -1,5 +1,7 @@
 import {type CloudAccountCredentials, setCloudAccountSecret} from '@main/db/repositories/cloudRepo.js';
 import {createMailDebugLogger} from '@main/debug/debugLog.js';
+import {refreshMailOAuthSession} from '@main/auth/authServerClient.js';
+import type {OAuthSession} from '@/shared/ipcTypes.js';
 
 export interface CloudItem {
 	id: string;
@@ -208,20 +210,18 @@ export async function createCloudShareLink(
 	itemPathOrToken: string,
 ): Promise<CloudShareLinkResult> {
 	if (account.provider === 'nextcloud' || account.provider === 'webdav') {
-		const baseUrlRaw = String(account.base_url || '').trim();
-		if (!baseUrlRaw) throw new Error('Missing WebDAV base URL.');
+		const baseUrlRaw = resolveCloudWebDavBaseUrl(account);
 		const itemPath = normalizeWebDavPath(itemPathOrToken);
 		return {url: resolveWebDavUrl(baseUrlRaw, itemPath)};
 	}
 	if (account.provider === 'google-drive') {
-		const bearerToken = await resolveCloudBearerToken(account);
 		const itemId = String(itemPathOrToken || '').trim();
 		if (!itemId || itemId === 'root') {
 			throw new Error('Share link is unavailable for this item.');
 		}
-		const response = await fetch(
+		const response = await googleDriveFetch(
+			account,
 			`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(itemId)}?fields=id,webViewLink,webContentLink&supportsAllDrives=true`,
-			{headers: {Authorization: `Bearer ${bearerToken}`}},
 		);
 		if (!response.ok) {
 			throw new Error(`Share link request failed (${response.status})`);
@@ -254,8 +254,7 @@ async function listWebDavItems(
 	account: CloudAccountCredentials,
 	pathOrToken?: string | null,
 ): Promise<{path: string; items: CloudItem[]}> {
-	const baseUrlRaw = String(account.base_url || '').trim();
-	if (!baseUrlRaw) throw new Error('Missing WebDAV base URL.');
+	const baseUrlRaw = resolveCloudWebDavBaseUrl(account);
 	const currentPath = normalizeWebDavPath(pathOrToken);
 	const targetUrl = resolveWebDavUrl(baseUrlRaw, currentPath);
 	const auth = Buffer.from(`${account.user || ''}:${account.secret}`).toString('base64');
@@ -297,15 +296,10 @@ async function listGoogleDriveItems(
 	account: CloudAccountCredentials,
 	pathOrToken?: string | null,
 ): Promise<{path: string; items: CloudItem[]}> {
-	const bearerToken = await resolveCloudBearerToken(account);
 	const parentId = String(pathOrToken || 'root').trim() || 'root';
 	const query = encodeURIComponent(`'${parentId}' in parents and trashed = false`);
 	const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,mimeType,size,createdTime,modifiedTime)&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true`;
-	const response = await fetch(url, {
-		headers: {
-			Authorization: `Bearer ${bearerToken}`,
-		},
-	});
+	const response = await googleDriveFetch(account, url);
 	if (!response.ok) {
 		throw new Error(`Google Drive request failed (${response.status})`);
 	}
@@ -714,8 +708,7 @@ function mergeCloudItemsByPath(...lists: CloudItem[][]): CloudItem[] {
 }
 
 async function getWebDavStorageUsage(account: CloudAccountCredentials): Promise<CloudStorageUsage> {
-	const baseUrlRaw = String(account.base_url || '').trim();
-	if (!baseUrlRaw) throw new Error('Missing WebDAV base URL.');
+	const baseUrlRaw = resolveCloudWebDavBaseUrl(account);
 	const targetUrl = resolveWebDavUrl(baseUrlRaw, '/');
 	const auth = Buffer.from(`${account.user || ''}:${account.secret}`).toString('base64');
 	const response = await fetch(targetUrl, {
@@ -750,8 +743,7 @@ async function getWebDavItemStatus(
 	account: CloudAccountCredentials,
 	itemPathOrToken: string,
 ): Promise<CloudItemStatus> {
-	const baseUrlRaw = String(account.base_url || '').trim();
-	if (!baseUrlRaw) throw new Error('Missing WebDAV base URL.');
+	const baseUrlRaw = resolveCloudWebDavBaseUrl(account);
 	const itemPath = normalizeWebDavPath(itemPathOrToken);
 	const targetUrl = resolveWebDavUrl(baseUrlRaw, itemPath);
 	const auth = Buffer.from(`${account.user || ''}:${account.secret}`).toString('base64');
@@ -786,10 +778,7 @@ async function getWebDavItemStatus(
 }
 
 async function getGoogleDriveStorageUsage(account: CloudAccountCredentials): Promise<CloudStorageUsage> {
-	const bearerToken = await resolveCloudBearerToken(account);
-	const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=storageQuota', {
-		headers: {Authorization: `Bearer ${bearerToken}`},
-	});
+	const response = await googleDriveFetch(account, 'https://www.googleapis.com/drive/v3/about?fields=storageQuota');
 	if (!response.ok) {
 		throw new Error(`Google Drive quota request failed (${response.status})`);
 	}
@@ -811,17 +800,14 @@ async function getGoogleDriveItemStatus(
 	account: CloudAccountCredentials,
 	itemPathOrToken: string,
 ): Promise<CloudItemStatus> {
-	const bearerToken = await resolveCloudBearerToken(account);
 	const itemId = String(itemPathOrToken || '').trim();
 	if (!itemId || itemId === 'root') {
 		return {exists: true, item: null, checkedAt: new Date().toISOString()};
 	}
 	const checkedAt = new Date().toISOString();
-	const response = await fetch(
+	const response = await googleDriveFetch(
+		account,
 		`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(itemId)}?fields=id,name,mimeType,size,createdTime,modifiedTime,trashed&supportsAllDrives=true`,
-		{
-			headers: {Authorization: `Bearer ${bearerToken}`},
-		},
 	);
 	if (response.status === 404) {
 		return {exists: false, item: null, checkedAt};
@@ -1027,6 +1013,12 @@ function resolveWebDavUrl(baseUrlRaw: string, pathValue: string): string {
 	return new URL(relative, base).toString();
 }
 
+function resolveCloudWebDavBaseUrl(account: CloudAccountCredentials): string {
+	const configured = String(account.base_url || '').trim();
+	if (configured) return configured;
+	throw new Error('Missing WebDAV base URL.');
+}
+
 function joinWebDavChildPath(parentPath: string, childName: string): string {
 	const normalizedParent = normalizeWebDavPath(parentPath);
 	const cleanedName = childName.replace(/[\\/]+/g, '-').trim();
@@ -1040,8 +1032,7 @@ async function createWebDavFolder(
 	parentPathOrToken: string | null | undefined,
 	folderName: string,
 ): Promise<CloudUploadedItem> {
-	const baseUrlRaw = String(account.base_url || '').trim();
-	if (!baseUrlRaw) throw new Error('Missing WebDAV base URL.');
+	const baseUrlRaw = resolveCloudWebDavBaseUrl(account);
 	const parentPath = normalizeWebDavPath(parentPathOrToken);
 	const nextPath = joinWebDavChildPath(parentPath, folderName);
 	const targetUrl = resolveWebDavUrl(baseUrlRaw, nextPath);
@@ -1067,8 +1058,7 @@ async function uploadWebDavFile(
 	content: Buffer,
 	contentType?: string | null,
 ): Promise<CloudUploadedItem> {
-	const baseUrlRaw = String(account.base_url || '').trim();
-	if (!baseUrlRaw) throw new Error('Missing WebDAV base URL.');
+	const baseUrlRaw = resolveCloudWebDavBaseUrl(account);
 	const parentPath = normalizeWebDavPath(parentPathOrToken);
 	const nextPath = joinWebDavChildPath(parentPath, fileName);
 	const targetUrl = resolveWebDavUrl(baseUrlRaw, nextPath);
@@ -1092,8 +1082,7 @@ async function uploadWebDavFile(
 }
 
 async function deleteWebDavItem(account: CloudAccountCredentials, itemPathOrToken: string): Promise<{removed: true}> {
-	const baseUrlRaw = String(account.base_url || '').trim();
-	if (!baseUrlRaw) throw new Error('Missing WebDAV base URL.');
+	const baseUrlRaw = resolveCloudWebDavBaseUrl(account);
 	const itemPath = normalizeWebDavPath(itemPathOrToken);
 	if (itemPath === '/') throw new Error('Cannot delete root folder.');
 	const targetUrl = resolveWebDavUrl(baseUrlRaw, itemPath);
@@ -1112,8 +1101,7 @@ async function downloadWebDavItem(
 	account: CloudAccountCredentials,
 	itemPathOrToken: string,
 ): Promise<DownloadedCloudItem> {
-	const baseUrlRaw = String(account.base_url || '').trim();
-	if (!baseUrlRaw) throw new Error('Missing WebDAV base URL.');
+	const baseUrlRaw = resolveCloudWebDavBaseUrl(account);
 	const itemPath = normalizeWebDavPath(itemPathOrToken);
 	const targetUrl = resolveWebDavUrl(baseUrlRaw, itemPath);
 	const auth = Buffer.from(`${account.user || ''}:${account.secret}`).toString('base64');
@@ -1138,14 +1126,13 @@ async function createGoogleDriveFolder(
 	parentPathOrToken: string | null | undefined,
 	folderName: string,
 ): Promise<CloudUploadedItem> {
-	const bearerToken = await resolveCloudBearerToken(account);
 	const parentId = String(parentPathOrToken || 'root').trim() || 'root';
-	const response = await fetch(
+	const response = await googleDriveFetch(
+		account,
 		'https://www.googleapis.com/drive/v3/files?fields=id,name,mimeType&supportsAllDrives=true',
 		{
 			method: 'POST',
 			headers: {
-				Authorization: `Bearer ${bearerToken}`,
 				'Content-Type': 'application/json',
 			},
 			body: JSON.stringify({
@@ -1174,7 +1161,6 @@ async function uploadGoogleDriveFile(
 	content: Buffer,
 	contentType?: string | null,
 ): Promise<CloudUploadedItem> {
-	const bearerToken = await resolveCloudBearerToken(account);
 	const parentId = String(parentPathOrToken || 'root').trim() || 'root';
 	const boundary = `llamamail-${Date.now().toString(16)}`;
 	const metadata = JSON.stringify({
@@ -1189,12 +1175,12 @@ async function uploadGoogleDriveFile(
 	);
 	const footer = Buffer.from(`\r\n--${boundary}--`, 'utf8');
 	const body = Buffer.concat([header, content, footer]);
-	const response = await fetch(
+	const response = await googleDriveFetch(
+		account,
 		'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType&supportsAllDrives=true',
 		{
 			method: 'POST',
 			headers: {
-				Authorization: `Bearer ${bearerToken}`,
 				'Content-Type': `multipart/related; boundary=${boundary}`,
 			},
 			body: new Uint8Array(body),
@@ -1216,16 +1202,13 @@ async function deleteGoogleDriveItem(
 	account: CloudAccountCredentials,
 	itemPathOrToken: string,
 ): Promise<{removed: true}> {
-	const bearerToken = await resolveCloudBearerToken(account);
 	const itemId = String(itemPathOrToken || '').trim();
 	if (!itemId || itemId === 'root') throw new Error('Cannot delete root folder.');
-	const response = await fetch(
+	const response = await googleDriveFetch(
+		account,
 		`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(itemId)}?supportsAllDrives=true`,
 		{
 			method: 'DELETE',
-			headers: {
-				Authorization: `Bearer ${bearerToken}`,
-			},
 		},
 	);
 	if (!response.ok) {
@@ -1238,14 +1221,11 @@ async function downloadGoogleDriveItem(
 	account: CloudAccountCredentials,
 	itemPathOrToken: string,
 ): Promise<DownloadedCloudItem> {
-	const bearerToken = await resolveCloudBearerToken(account);
 	const itemId = String(itemPathOrToken || '').trim();
 	if (!itemId) throw new Error('Missing file token.');
-	const metadataRes = await fetch(
+	const metadataRes = await googleDriveFetch(
+		account,
 		`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(itemId)}?fields=id,name,mimeType,exportLinks`,
-		{
-			headers: {Authorization: `Bearer ${bearerToken}`},
-		},
 	);
 	if (!metadataRes.ok) {
 		throw new Error(`Open file failed (${metadataRes.status})`);
@@ -1264,9 +1244,7 @@ async function downloadGoogleDriveItem(
 		if (!exportTarget) {
 			throw new Error(`Google file type is not exportable yet (${mimeType}).`);
 		}
-		const exportRes = await fetch(exportTarget.url, {
-			headers: {Authorization: `Bearer ${bearerToken}`},
-		});
+		const exportRes = await googleDriveFetch(account, exportTarget.url);
 		if (!exportRes.ok) {
 			throw new Error(`Open file failed (${exportRes.status})`);
 		}
@@ -1277,11 +1255,9 @@ async function downloadGoogleDriveItem(
 			content: Buffer.from(arrayBuffer),
 		};
 	}
-	const contentRes = await fetch(
+	const contentRes = await googleDriveFetch(
+		account,
 		`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(itemId)}?alt=media`,
-		{
-			headers: {Authorization: `Bearer ${bearerToken}`},
-		},
 	);
 	if (!contentRes.ok) {
 		throw new Error(`Open file failed (${contentRes.status})`);
@@ -1600,6 +1576,15 @@ async function oneDriveFetch(account: CloudAccountCredentials, input: string, in
 	return fetch(input, withBearerToken(init, refreshedToken));
 }
 
+async function googleDriveFetch(account: CloudAccountCredentials, input: string, init?: RequestInit): Promise<Response> {
+	const token = await resolveCloudBearerToken(account);
+	const response = await fetch(input, withBearerToken(init, token));
+	if (response.status !== 401) return response;
+	if (!canRefreshGoogleOAuthToken(account)) return response;
+	const refreshedToken = await resolveCloudBearerToken(account, {forceRefresh: true});
+	return fetch(input, withBearerToken(init, refreshedToken));
+}
+
 async function resolveCloudBearerToken(
 	account: CloudAccountCredentials,
 	options: {forceRefresh?: boolean} = {},
@@ -1609,6 +1594,16 @@ async function resolveCloudBearerToken(
 	const parsed = parseOAuthSecretPayload(raw);
 	if (!parsed) return raw;
 	const currentToken = String(parsed.accessToken || '').trim();
+	if (account.provider === 'google-drive') {
+		const shouldRefresh = Boolean(options.forceRefresh) || !currentToken || isOAuthTokenExpired(parsed.expiresAt);
+		if (!shouldRefresh) return currentToken;
+		if (!canRefreshGoogleOAuthToken(account, parsed)) {
+			if (currentToken) return currentToken;
+			throw new Error('Google Drive access token is missing. Please sign in again.');
+		}
+		return refreshGoogleDriveAccessToken(account, parsed);
+	}
+
 	if (account.provider !== 'onedrive') {
 		if (currentToken) return currentToken;
 		return raw;
@@ -1645,6 +1640,14 @@ function canRefreshOneDriveOAuthToken(account: CloudAccountCredentials, payload?
 	const refreshToken = String(parsed.refreshToken || '').trim();
 	const clientId = String(parsed.clientId || '').trim();
 	return Boolean(refreshToken && clientId);
+}
+
+function canRefreshGoogleOAuthToken(account: CloudAccountCredentials, payload?: OAuthSecretPayload | null): boolean {
+	if (account.provider !== 'google-drive') return false;
+	const parsed = payload ?? parseOAuthSecretPayload(String(account.secret || '').trim());
+	if (!parsed) return false;
+	const refreshToken = String(parsed.refreshToken || '').trim();
+	return Boolean(refreshToken);
 }
 
 function withBearerToken(init: RequestInit | undefined, token: string): RequestInit {
@@ -1715,6 +1718,50 @@ async function refreshOneDriveAccessToken(
 		provider: 'onedrive',
 		clientId,
 		tenantId,
+	};
+	const nextSecret = JSON.stringify(nextPayload);
+	await setCloudAccountSecret(account.id, nextSecret);
+	account.secret = nextSecret;
+	return nextAccessToken;
+}
+
+async function refreshGoogleDriveAccessToken(
+	account: CloudAccountCredentials,
+	payload: OAuthSecretPayload,
+): Promise<string> {
+	const refreshToken = String(payload.refreshToken || '').trim();
+	if (!refreshToken) {
+		throw new Error('Google Drive token refresh is unavailable. Please sign in again.');
+	}
+	const session: OAuthSession = {
+		provider: 'google',
+		accessToken: String(payload.accessToken || '').trim(),
+		refreshToken,
+		expiresAt: Number.isFinite(Number(payload.expiresAt)) ? Number(payload.expiresAt) : null,
+		tokenType: String(payload.tokenType || '').trim() || null,
+		scope: String(payload.scope || '').trim() || null,
+		email: String(account.user || '').trim() || null,
+		displayName: String(account.name || '').trim() || null,
+		clientId: String(payload.clientId || '').trim() || null,
+		tenantId: null,
+	};
+	const refreshed = await refreshMailOAuthSession(session);
+	const nextAccessToken = String(refreshed.accessToken || '').trim();
+	if (!nextAccessToken) {
+		throw new Error('Google Drive token refresh response did not include an access token.');
+	}
+	const nextRefreshToken = String(refreshed.refreshToken || '').trim() || refreshToken;
+	const nextExpiresAt = Number.isFinite(Number(refreshed.expiresInSeconds))
+		? Date.now() + Number(refreshed.expiresInSeconds) * 1000
+		: null;
+	const nextPayload: OAuthSecretPayload = {
+		...payload,
+		accessToken: nextAccessToken,
+		refreshToken: nextRefreshToken,
+		expiresAt: nextExpiresAt,
+		tokenType: String(refreshed.tokenType || payload.tokenType || '').trim() || null,
+		scope: String(refreshed.scope || payload.scope || '').trim() || null,
+		provider: 'google-drive',
 	};
 	const nextSecret = JSON.stringify(nextPayload);
 	await setCloudAccountSecret(account.id, nextSecret);

@@ -9,7 +9,13 @@ import {APP_NAME} from '@/shared/appConfig.js';
 const SERVICE_NAME = APP_NAME;
 export const CLOUD_DAV_ACCOUNT_ID_OFFSET = 1_000_000;
 
-export type CloudProvider = 'nextcloud' | 'webdav' | 'google-drive' | 'onedrive';
+export type CloudProvider = 'nextcloud' | 'webdav' | 'icloud-drive' | 'google-drive' | 'onedrive';
+
+export function assertCloudProviderEnabled(provider: CloudProvider): void {
+	if (provider === 'icloud-drive') {
+		throw new Error('iCloud cloud provider is temporarily disabled.');
+	}
+}
 
 export interface PublicCloudAccount {
 	id: number;
@@ -70,11 +76,11 @@ export async function addCloudAccount(payload: AddCloudAccountPayload): Promise<
 	if (!provider || !name || !secret) {
 		throw new Error('Missing required cloud account fields.');
 	}
+	assertCloudProviderEnabled(provider);
 
 	if ((provider === 'nextcloud' || provider === 'webdav') && (!baseUrl || !user)) {
 		throw new Error('WebDAV/Nextcloud requires server URL and username.');
 	}
-
 	const db = getDrizzle();
 	const insertPayload: InsertCloudAccount = {
 		provider,
@@ -110,8 +116,9 @@ export async function updateCloudAccount(
 
 	const nextName =
 		payload.name === undefined ? String(existing.name || '').trim() : String(payload.name || '').trim();
-	const nextBaseUrl =
-		payload.base_url === undefined ? (existing.baseUrl ?? null) : String(payload.base_url || '').trim() || null;
+	const nextBaseUrl = (
+		payload.base_url === undefined ? (existing.baseUrl ?? null) : String(payload.base_url || '').trim() || null
+	);
 	const nextUser = payload.user === undefined ? (existing.user ?? null) : String(payload.user || '').trim() || null;
 	const nextSecret = payload.secret === undefined ? null : String(payload.secret || '').trim() || null;
 
@@ -120,6 +127,7 @@ export async function updateCloudAccount(
 	}
 
 	const provider = existing.provider as CloudProvider;
+	assertCloudProviderEnabled(provider);
 	if ((provider === 'nextcloud' || provider === 'webdav') && (!nextBaseUrl || !nextUser)) {
 		throw new Error('WebDAV/Nextcloud requires server URL and username.');
 	}
@@ -149,6 +157,7 @@ export async function getCloudAccountCredentials(accountId: number): Promise<Clo
 	const db = getDrizzle();
 	const row = await db.select().from(cloudAccounts).where(eq(cloudAccounts.id, accountId)).get();
 	if (!row?.id) throw new Error(`Cloud account ${accountId} not found.`);
+	assertCloudProviderEnabled(row.provider as CloudProvider);
 	const secret = await keytar.getPassword(SERVICE_NAME, `cloud:${row.id}`);
 	if (!secret) throw new Error('Cloud account secret not found in keychain.');
 	return {

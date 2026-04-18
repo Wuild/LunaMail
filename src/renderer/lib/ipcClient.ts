@@ -171,6 +171,10 @@ export const ipcClient = {
 		provider: 'google-drive' | 'onedrive',
 		payload: {clientId?: string | null; tenantId?: string | null},
 	): Promise<PublicCloudAccount> => window.electronAPI.linkCloudOAuth(provider, payload),
+	relinkCloudOAuth: (
+		accountId: number,
+		payload: {clientId?: string | null; tenantId?: string | null},
+	): Promise<PublicCloudAccount> => window.electronAPI.relinkCloudOAuth(accountId, payload),
 	listCloudItems: (accountId: number, pathOrToken?: string | null): Promise<{path: string; items: CloudItem[]}> =>
 		window.electronAPI.listCloudItems(accountId, pathOrToken ?? null),
 	getCloudStorageUsage: (accountId: number): Promise<CloudStorageUsage> =>

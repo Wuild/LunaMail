@@ -73,6 +73,30 @@ import CloudSortableHeaderCell from './CloudSortableHeaderCell';
 
 type CloudTableSortDirection = 'asc' | 'desc';
 
+function isOAuthCloudProvider(provider: CloudProvider): provider is 'google-drive' | 'onedrive' {
+	return provider === 'google-drive' || provider === 'onedrive';
+}
+
+function isCloudAuthErrorMessage(message: string): boolean {
+	const normalized = String(message || '').toLowerCase();
+	return (
+		normalized.includes('(401)') ||
+		normalized.includes('invalid_grant') ||
+		normalized.includes('access token is missing') ||
+		normalized.includes('sign in again')
+	);
+}
+
+function normalizeCloudSecret(secret: string): string {
+	return String(secret || '');
+}
+
+function resolveCloudBaseUrlForSave(baseUrl: string): string | null {
+	const configured = String(baseUrl || '').trim();
+	if (configured) return configured;
+	return null;
+}
+
 export default function CloudFilesPage() {
 	const {sidebarWidth, onResizeStart} = useResizableSidebar({
 		defaultWidth: 300,
@@ -91,6 +115,7 @@ export default function CloudFilesPage() {
 	const [savingEdit, setSavingEdit] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [mutating, setMutating] = useState(false);
+	const [relinkingAccountId, setRelinkingAccountId] = useState<number | null>(null);
 	const [reloadKey, setReloadKey] = useState(0);
 	const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
 	const [newFolderName, setNewFolderName] = useState('');
@@ -493,7 +518,12 @@ export default function CloudFilesPage() {
 			.catch((error: any) => {
 				if (!active) return;
 				if (!persistedCached) setItems([]);
-				setStatus(`Load failed: ${error?.message || String(error)}`);
+				const message = String(error?.message || error || 'Unknown error');
+				if (selectedAccount && isOAuthCloudProvider(selectedAccount.provider) && isCloudAuthErrorMessage(message)) {
+					setStatus(`Load failed: ${message}. Reconnect this account from the account menu.`);
+				} else {
+					setStatus(`Load failed: ${message}`);
+				}
 				setPendingFolderToken(null);
 			})
 			.finally(() => {
@@ -822,9 +852,9 @@ export default function CloudFilesPage() {
 			const payload: AddCloudAccountPayload = {
 				provider: draft.provider,
 				name: draft.name.trim(),
-				base_url: (draft.base_url || '').trim() || null,
+				base_url: resolveCloudBaseUrlForSave(draft.base_url || ''),
 				user: (draft.user || '').trim() || null,
-				secret: draft.secret,
+				secret: normalizeCloudSecret(draft.secret),
 			};
 			await ipcClient.addCloudAccount(payload);
 			setShowAddModal(false);
@@ -886,6 +916,25 @@ export default function CloudFilesPage() {
 		navigateToAccount(account, true);
 	}
 
+	async function onRelinkAccount(account: PublicCloudAccount): Promise<void> {
+		if (!isOAuthCloudProvider(account.provider) || relinkingAccountId !== null) return;
+		setRelinkingAccountId(account.id);
+		setAccountMenu(null);
+		const providerLabel = providerLabels[account.provider];
+		setStatus(`Opening ${providerLabel} sign-in...`);
+		try {
+			await ipcClient.relinkCloudOAuth(account.id, {});
+			setStatus(`${providerLabel} account reconnected.`);
+			if (selectedAccount?.id === account.id) {
+				navigateToAccount(account, true);
+			}
+		} catch (error: any) {
+			setStatus(`Reconnect failed: ${error?.message || String(error)}`);
+		} finally {
+			setRelinkingAccountId(null);
+		}
+	}
+
 	function onOpenAccountSettings(account: PublicCloudAccount): void {
 		setAccountMenu(null);
 		setEditDraft({
@@ -906,10 +955,10 @@ export default function CloudFilesPage() {
 		try {
 			const payload: UpdateCloudAccountPayload = {
 				name: editDraft.name.trim(),
-				base_url: (editDraft.base_url || '').trim() || null,
+				base_url: resolveCloudBaseUrlForSave(editDraft.base_url || ''),
 				user: (editDraft.user || '').trim() || null,
 			};
-			const nextSecret = (editDraft.secret || '').trim();
+			const nextSecret = normalizeCloudSecret(editDraft.secret).trim();
 			if (nextSecret) {
 				payload.secret = nextSecret;
 			}
@@ -933,9 +982,11 @@ export default function CloudFilesPage() {
 		setAccountMenu(null);
 	}
 
-	const requiresWebDavFields = draft.provider === 'nextcloud' || draft.provider === 'webdav';
+	const requiresWebDavBaseUrlFields = draft.provider === 'nextcloud' || draft.provider === 'webdav';
+	const requiresWebDavAuthFields = draft.provider === 'nextcloud' || draft.provider === 'webdav';
 	const isOAuthProviderDraft = draft.provider === 'google-drive' || draft.provider === 'onedrive';
-	const editRequiresWebDavFields = editDraft?.provider === 'nextcloud' || editDraft?.provider === 'webdav';
+	const editRequiresWebDavBaseUrlFields = editDraft?.provider === 'nextcloud' || editDraft?.provider === 'webdav';
+	const editRequiresWebDavAuthFields = editDraft?.provider === 'nextcloud' || editDraft?.provider === 'webdav';
 	const secretLabel = 'Password / app token';
 	const canSubmitAddDraft = isOAuthProviderDraft
 		? true
@@ -1393,7 +1444,7 @@ export default function CloudFilesPage() {
 														return (
 															<td
 																key={`${item.id}-${column.key}`}
-																className="px-3 py-2 min-w-0 overflow-hidden whitespace-nowrap"
+																className="px-3 py-2 min-w-0"
 																style={{width: columnWidths.name}}
 															>
 																{item.isFolder ? (
@@ -1405,18 +1456,20 @@ export default function CloudFilesPage() {
 																			setStatus(`Opening ${item.name}...`);
 																			setLoading(true);
 																		}}
-																		className="flex min-w-0 items-center gap-2 ui-text-primary hover:underline"
+																		className="flex w-full min-w-0 items-center gap-2 ui-text-primary hover:underline"
 																	>
 																		<FolderOpen
 																			size={15}
 																			className="icon-info shrink-0"
 																		/>
-																		<span className="truncate">{item.name}</span>
+																		<span className="min-w-0 flex-1 truncate">
+																			{item.name}
+																		</span>
 																	</Link>
 																) : (
 																	<Button
 																		type="button"
-																		className="flex min-w-0 items-center gap-2 text-left ui-text-primary hover:underline"
+																		className="flex w-full min-w-0 items-center gap-2 text-left ui-text-primary hover:underline"
 																		onClick={() => void onViewItem(item)}
 																	>
 																		{activeFileActionId === item.id ? (
@@ -1427,7 +1480,9 @@ export default function CloudFilesPage() {
 																		) : (
 																			renderCloudFileTypeIcon(item)
 																		)}
-																		<span className="truncate">{item.name}</span>
+																		<span className="min-w-0 flex-1 truncate">
+																			{item.name}
+																		</span>
 																	</Button>
 																)}
 															</td>
@@ -1609,15 +1664,29 @@ export default function CloudFilesPage() {
 					>
 						Open
 					</ContextMenuItem>
-					<ContextMenuItem type="button" onClick={() => onOpenAccountInNewWindow(accountMenu.account)}>
-						Open in new window
-					</ContextMenuItem>
-					<ContextMenuItem type="button" onClick={() => void onRefreshAccount(accountMenu.account)}>
-						Refresh
-					</ContextMenuItem>
-					<ContextMenuItem type="button" onClick={() => onOpenAccountSettings(accountMenu.account)}>
-						Edit account
-					</ContextMenuItem>
+						<ContextMenuItem type="button" onClick={() => onOpenAccountInNewWindow(accountMenu.account)}>
+							Open in new window
+						</ContextMenuItem>
+						<ContextMenuItem type="button" onClick={() => void onRefreshAccount(accountMenu.account)}>
+							Refresh
+						</ContextMenuItem>
+						{isOAuthCloudProvider(accountMenu.account.provider) && (
+							<ContextMenuItem
+								type="button"
+								onClick={() => void onRelinkAccount(accountMenu.account)}
+								disabled={relinkingAccountId === accountMenu.account.id}
+							>
+								{relinkingAccountId === accountMenu.account.id ? (
+									<Loader2 size={14} className="animate-spin" />
+								) : (
+									<Cloud size={14} />
+								)}
+								{relinkingAccountId === accountMenu.account.id ? 'Reconnecting...' : 'Reconnect account'}
+							</ContextMenuItem>
+						)}
+						<ContextMenuItem type="button" onClick={() => onOpenAccountSettings(accountMenu.account)}>
+							Edit account
+						</ContextMenuItem>
 					<ContextMenuItem type="button" danger onClick={() => void onDeleteAccount(accountMenu.account)}>
 						Delete account
 					</ContextMenuItem>
@@ -1661,7 +1730,7 @@ export default function CloudFilesPage() {
 								placeholder="Personal Drive"
 							/>
 						)}
-						{requiresWebDavFields && (
+						{requiresWebDavBaseUrlFields && (
 							<>
 								<Field
 									label="WebDAV URL"
@@ -1669,15 +1738,17 @@ export default function CloudFilesPage() {
 									onChange={(next) => setDraft((prev) => ({...prev, base_url: next}))}
 									placeholder="https://cloud.example.com/remote.php/dav/files/username/"
 								/>
-								<Field
-									label="Username"
-									value={draft.user || ''}
-									onChange={(next) => setDraft((prev) => ({...prev, user: next}))}
-									placeholder="username"
-								/>
 							</>
 						)}
-						{requiresWebDavFields && (
+						{requiresWebDavAuthFields && (
+							<Field
+								label="Username"
+								value={draft.user || ''}
+								onChange={(next) => setDraft((prev) => ({...prev, user: next}))}
+								placeholder="username"
+							/>
+						)}
+						{requiresWebDavAuthFields && (
 							<Field
 								label={secretLabel}
 								value={draft.secret}
@@ -1754,8 +1825,7 @@ export default function CloudFilesPage() {
 							onChange={(next) => setEditDraft((prev) => (prev ? {...prev, name: next} : prev))}
 							placeholder="Personal Drive"
 						/>
-						{editRequiresWebDavFields && (
-							<>
+							{editRequiresWebDavBaseUrlFields && (
 								<Field
 									label="WebDAV URL"
 									value={editDraft.base_url}
@@ -1771,6 +1841,8 @@ export default function CloudFilesPage() {
 									}
 									placeholder="https://cloud.example.com/remote.php/dav/files/username/"
 								/>
+							)}
+							{editRequiresWebDavAuthFields && (
 								<Field
 									label="Username"
 									value={editDraft.user}
@@ -1786,8 +1858,7 @@ export default function CloudFilesPage() {
 									}
 									placeholder="username"
 								/>
-							</>
-						)}
+							)}
 						<Field
 							label="Secret (optional)"
 							value={editDraft.secret}

@@ -1322,7 +1322,7 @@ function CloudAttachmentPickerModal({
 			onClose={onClose}
 			ariaLabel="Add file from cloud"
 			backdropClassName="z-50 px-4"
-			contentClassName="overlay flex w-full max-w-3xl flex-col overflow-hidden rounded-xl p-0"
+			contentClassName="overlay flex h-[90vh] w-[95vw] min-h-[80vh] min-w-[80vw] max-w-none flex-col overflow-hidden rounded-xl p-0"
 		>
 			<div className="flex items-center justify-between border-b ui-border-default px-4 py-3">
 				<h2 className="ui-text-primary text-sm font-semibold">Add file from cloud</h2>
@@ -1397,7 +1397,7 @@ function CloudAttachmentPickerModal({
 				</Button>
 			</div>
 
-			<div className="min-h-64 max-h-96 overflow-y-auto">
+			<div className="min-h-0 flex-1 overflow-y-auto">
 				{loading && cloudItems.length === 0 ? (
 					<div className="ui-text-muted flex min-h-64 items-center justify-center gap-2 px-2 py-3 text-sm">
 						<Loader2 size={16} className="animate-spin" />
@@ -1432,17 +1432,17 @@ function CloudAttachmentPickerModal({
 						<tbody>
 							{cloudItems.map((item) => (
 								<tr key={item.id || item.path} className="border-b ui-border-default ui-surface-hover">
-									<td className="px-3 py-2">
+									<td className="px-3 py-2 min-w-0">
 										<Button
 											type="button"
-											className="ui-text-primary flex min-w-0 items-center gap-2 text-left hover:underline"
+											className="ui-text-primary flex w-full min-w-0 items-center gap-2 text-left hover:underline"
 											onClick={() =>
 												item.isFolder ? onNavigate(item.path || item.id) : onAttach(item)
 											}
 											disabled={busy}
 										>
 											<span className="ui-text-muted shrink-0">{renderCloudItemIcon(item)}</span>
-											<span className="truncate">{item.name}</span>
+											<span className="min-w-0 flex-1 truncate">{item.name}</span>
 										</Button>
 									</td>
 									<td className="ui-text-muted px-3 py-2 text-xs">

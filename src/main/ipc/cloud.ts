@@ -16,6 +16,7 @@ import {
 	updateCloudAccount,
 	type UpdateCloudAccountPayload,
 } from '@main/db/repositories/cloudRepo.js';
+import {getAccountSyncCredentials, getAccounts as getMailAccounts} from '@main/db/repositories/accountsRepo.js';
 import {
 	createCloudFolder,
 	createCloudShareLink,
@@ -101,11 +102,14 @@ export function registerCloudIpc(): void {
 			clientId,
 			tenantId: provider === 'onedrive' ? tenantId : null,
 		});
-		const accountName = linked.displayName
-			? `${linked.displayName} (${provider === 'google-drive' ? 'Google Drive' : 'OneDrive'})`
-			: provider === 'google-drive'
-				? 'Google Drive'
-				: 'OneDrive';
+		const linkedEmail = String(linked.email || '').trim();
+		const accountName = linkedEmail
+			? linkedEmail
+			: linked.displayName
+				? `${linked.displayName} (${provider === 'google-drive' ? 'Google Drive' : 'OneDrive'})`
+				: provider === 'google-drive'
+					? 'Google Drive'
+					: 'OneDrive';
 		const created = await addCloudAccount({
 			provider,
 			name: accountName,
@@ -119,9 +123,111 @@ export function registerCloudIpc(): void {
 
 	ipcMain.handle('delete-cloud-account', async (_event, accountId: number) => {
 		logger.warn('IPC delete-cloud-account accountId=%d', accountId);
+		const accounts = await getCloudAccounts();
+		const target = accounts.find((account) => account.id === Number(accountId)) ?? null;
+		if (target && (target.provider === 'google-drive' || target.provider === 'onedrive')) {
+			throw new Error('OAuth cloud accounts are managed from Account Settings and cannot be deleted here.');
+		}
 		const result = await deleteCloudAccount(accountId);
 		broadcastCloudAccountsChanged();
 		return result;
+	});
+
+	ipcMain.handle('unlink-account-cloud-drive', async (_event, accountId: number) => {
+		const safeAccountId = Number(accountId);
+		if (!Number.isFinite(safeAccountId) || safeAccountId <= 0) {
+			throw new Error('Invalid accountId.');
+		}
+		logger.info('IPC unlink-account-cloud-drive accountId=%d', safeAccountId);
+		const mailAccounts = await getMailAccounts();
+		const mailAccount = mailAccounts.find((account) => account.id === safeAccountId) ?? null;
+		if (!mailAccount) {
+			throw new Error(`Account ${safeAccountId} not found.`);
+		}
+		const cloudProvider = resolveOAuthCloudProvider(mailAccount.provider ?? null, mailAccount.oauth_provider ?? null);
+		if (!cloudProvider) {
+			return {removed: false as const, reason: 'provider-not-supported' as const, cloudAccountId: null};
+		}
+		const linkedEmail = String(mailAccount.email || '')
+			.trim()
+			.toLowerCase();
+		const cloudAccounts = await getCloudAccounts();
+		const providerAccounts = cloudAccounts.filter((account) => account.provider === cloudProvider);
+		if (providerAccounts.length === 0) {
+			return {removed: false as const, reason: 'not-linked' as const, cloudAccountId: null};
+		}
+		const target =
+			providerAccounts.find((account) => {
+				const user = String(account.user || '')
+					.trim()
+					.toLowerCase();
+				return Boolean(linkedEmail) && user === linkedEmail;
+			}) ?? providerAccounts[0];
+		await deleteCloudAccount(target.id);
+		broadcastCloudAccountsChanged();
+		return {removed: true as const, reason: null, cloudAccountId: target.id};
+	});
+
+	ipcMain.handle('link-account-cloud-drive', async (_event, accountId: number) => {
+		const safeAccountId = Number(accountId);
+		if (!Number.isFinite(safeAccountId) || safeAccountId <= 0) {
+			throw new Error('Invalid accountId.');
+		}
+		logger.info('IPC link-account-cloud-drive accountId=%d', safeAccountId);
+		const mailAccounts = await getMailAccounts();
+		const mailAccount = mailAccounts.find((account) => account.id === safeAccountId) ?? null;
+		if (!mailAccount) {
+			throw new Error(`Account ${safeAccountId} not found.`);
+		}
+		const cloudProvider = resolveOAuthCloudProvider(mailAccount.provider ?? null, mailAccount.oauth_provider ?? null);
+		if (!cloudProvider) {
+			return {linked: false as const, reason: 'provider-not-supported' as const, cloudAccount: null};
+		}
+		const linkedEmail = String(mailAccount.email || '')
+			.trim()
+			.toLowerCase();
+		const existingCloudAccounts = await getCloudAccounts();
+		const alreadyLinked =
+			existingCloudAccounts.find((account) => {
+				if (account.provider !== cloudProvider) return false;
+				const user = String(account.user || '')
+					.trim()
+					.toLowerCase();
+				return Boolean(linkedEmail) && user === linkedEmail;
+			}) ?? null;
+		if (alreadyLinked) {
+			return {linked: false as const, reason: 'already-linked' as const, cloudAccount: alreadyLinked};
+		}
+
+		const credentials = await getAccountSyncCredentials(safeAccountId);
+		if (credentials.auth_method !== 'oauth2' || !credentials.oauth_session?.accessToken?.trim()) {
+			throw new Error('This account does not have an active OAuth session for cloud linking.');
+		}
+		const oauthSession = credentials.oauth_session;
+		const providerClientId =
+			cloudProvider === 'onedrive' ? String(oauthSession.clientId || '').trim() || ONEDRIVE_APP_ID : String(oauthSession.clientId || '').trim() || null;
+		const providerTenantId =
+			cloudProvider === 'onedrive' ? String(oauthSession.tenantId || '').trim() || ONEDRIVE_TENANT_ID : null;
+		const secretPayload = JSON.stringify({
+			accessToken: oauthSession.accessToken,
+			refreshToken: oauthSession.refreshToken || null,
+			expiresAt: oauthSession.expiresAt,
+			tokenType: oauthSession.tokenType || null,
+			scope: oauthSession.scope || null,
+			provider: cloudProvider,
+			clientId: providerClientId,
+			tenantId: providerTenantId,
+		});
+		const accountName = String(mailAccount.email || '').trim() || String(mailAccount.display_name || '').trim() || (cloudProvider === 'google-drive' ? 'Google Drive' : 'OneDrive');
+		const created = await addCloudAccount({
+			provider: cloudProvider,
+			name: accountName,
+			user: mailAccount.email || null,
+			base_url: null,
+			secret: secretPayload,
+		});
+		broadcastCloudAccountsChanged();
+		return {linked: true as const, reason: null, cloudAccount: created};
 	});
 
 	ipcMain.handle('list-cloud-items', async (_event, accountId: number, pathOrToken?: string | null) => {
@@ -273,6 +379,21 @@ function sanitizeCloudFilename(value: string): string {
 		.replace(/[\\/:"*?<>|]+/g, '_');
 	if (!cleaned) return 'cloud-item';
 	return cleaned.slice(0, 180);
+}
+
+function resolveOAuthCloudProvider(
+	provider: string | null | undefined,
+	oauthProvider: string | null | undefined,
+): OAuthProvider | null {
+	const normalizedProvider = String(provider || '')
+		.trim()
+		.toLowerCase();
+	const normalizedOauthProvider = String(oauthProvider || '')
+		.trim()
+		.toLowerCase();
+	if (normalizedProvider === 'google' || normalizedOauthProvider === 'google') return 'google-drive';
+	if (normalizedProvider === 'microsoft' || normalizedOauthProvider === 'microsoft') return 'onedrive';
+	return null;
 }
 
 type LinkedOAuthAccount = {

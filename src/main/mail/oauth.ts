@@ -5,12 +5,14 @@ import {
 	AuthServerClientError,
 	buildMailOAuthStartUrl,
 	exchangeMailOAuthCode,
-	refreshMailOAuthSession,
+	refreshMailOAuthSessionWithOptions,
 } from '@main/auth/authServerClient.js';
 
 const logger = createMailDebugLogger('app', 'mail:oauth');
 const OAUTH_LOGIN_TIMEOUT_MS = 2 * 60 * 1000;
 const TOKEN_REFRESH_BUFFER_MS = 60_000;
+const GOOGLE_DEFAULT_CLOUD_SCOPES = ['https://www.googleapis.com/auth/drive'];
+const MICROSOFT_DEFAULT_CLOUD_SCOPES = ['Files.ReadWrite', 'Files.ReadWrite.All', 'Sites.ReadWrite.All'];
 
 type StartMailOAuthPayload = {
 	email?: string | null;
@@ -113,7 +115,9 @@ export async function startMailOAuth(payload: StartMailOAuthPayload): Promise<OA
 
 	const requestId = randomBytes(16).toString('hex');
 	const redirectTo = `llamamail://oauth/callback?request_id=${encodeURIComponent(requestId)}`;
-	const authUrl = buildMailOAuthStartUrl(provider, redirectTo);
+	const authUrl = buildMailOAuthStartUrl(provider, redirectTo, {
+		additionalScopes: getDefaultMailOAuthAdditionalScopes(provider),
+	});
 
 	logger.info('Opening broker auth provider=%s', provider);
 
@@ -156,13 +160,21 @@ export function cancelPendingMailOAuth(reason = 'OAuth login cancelled'): number
 	return entries.length;
 }
 
-export async function ensureFreshMailOAuthSession(session: OAuthSession): Promise<OAuthSession> {
-	if (!session.expiresAt) return session;
-	if (Date.now() < session.expiresAt - TOKEN_REFRESH_BUFFER_MS) return session;
+export async function ensureFreshMailOAuthSession(
+	session: OAuthSession,
+	options: {forceRefresh?: boolean; additionalScopes?: string[]} = {},
+): Promise<OAuthSession> {
+	const forceRefresh = Boolean(options.forceRefresh);
+	if (!forceRefresh) {
+		if (!session.expiresAt) return session;
+		if (Date.now() < session.expiresAt - TOKEN_REFRESH_BUFFER_MS) return session;
+	}
 	if (!session.refreshToken) return session;
 
 	try {
-		const refreshed = await refreshMailOAuthSession(session);
+		const refreshed = await refreshMailOAuthSessionWithOptions(session, {
+			additionalScopes: options.additionalScopes,
+		});
 		return {
 			...session,
 			provider: refreshed.provider ?? session.provider,
@@ -185,4 +197,8 @@ export async function ensureFreshMailOAuthSession(session: OAuthSession): Promis
 		}
 		throw error;
 	}
+}
+
+export function getDefaultMailOAuthAdditionalScopes(provider: OAuthProvider): string[] {
+	return provider === 'microsoft' ? [...MICROSOFT_DEFAULT_CLOUD_SCOPES] : [...GOOGLE_DEFAULT_CLOUD_SCOPES];
 }

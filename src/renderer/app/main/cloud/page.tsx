@@ -30,6 +30,7 @@ import type {
 	AddCloudAccountPayload,
 	CloudItem,
 	CloudProvider,
+	PublicAccount,
 	CloudStorageUsage,
 	PublicCloudAccount,
 	UpdateCloudAccountPayload,
@@ -88,6 +89,7 @@ export default function CloudFilesPage() {
 	});
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [accounts, setAccounts] = useState<PublicCloudAccount[]>([]);
+	const [mailAccounts, setMailAccounts] = useState<PublicAccount[]>([]);
 	const [items, setItems] = useState<CloudItem[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [status, setStatus] = useState<string | null>(null);
@@ -181,6 +183,31 @@ export default function CloudFilesPage() {
 		return () => {
 			active = false;
 			if (typeof off === 'function') off();
+		};
+	}, []);
+
+	useEffect(() => {
+		let active = true;
+		const load = async () => {
+			const rows = await ipcClient.getAccounts();
+			if (!active) return;
+			setMailAccounts(rows);
+		};
+		void load();
+		const offAdded = ipcClient.onAccountAdded(() => {
+			void load();
+		});
+		const offUpdated = ipcClient.onAccountUpdated(() => {
+			void load();
+		});
+		const offDeleted = ipcClient.onAccountDeleted(() => {
+			void load();
+		});
+		return () => {
+			active = false;
+			if (typeof offAdded === 'function') offAdded();
+			if (typeof offUpdated === 'function') offUpdated();
+			if (typeof offDeleted === 'function') offDeleted();
 		};
 	}, []);
 
@@ -860,6 +887,10 @@ export default function CloudFilesPage() {
 
 	async function onDeleteAccount(account: PublicCloudAccount): Promise<void> {
 		if (deleting) return;
+		if (isOAuthManagedCloudAccount(account)) {
+			setStatus('OAuth cloud accounts are managed from Account Settings and cannot be deleted here.');
+			return;
+		}
 		if (!window.confirm(`Delete cloud account "${account.name}"?`)) return;
 		setDeleting(true);
 		setAccountMenu(null);
@@ -932,6 +963,16 @@ export default function CloudFilesPage() {
 		const url = `${window.location.origin}${window.location.pathname}#${buildCloudLink(account.id, buildRootTrail(account.provider))}`;
 		window.open(url, '_blank', 'noopener,noreferrer');
 		setAccountMenu(null);
+	}
+
+	function onOpenLinkedAccountSettings(account: PublicCloudAccount): void {
+		const linkedAccountId = resolveLinkedMailAccountId(account, mailAccounts);
+		setAccountMenu(null);
+		if (!linkedAccountId) {
+			setStatus('No linked mail account found for this OAuth cloud account.');
+			return;
+		}
+		window.location.hash = `#/settings/account/${linkedAccountId}`;
 	}
 
 	const requiresWebDavFields = draft.provider === 'nextcloud' || draft.provider === 'webdav';
@@ -1612,12 +1653,25 @@ export default function CloudFilesPage() {
 					<ContextMenuItem type="button" onClick={() => void onRefreshAccount(accountMenu.account)}>
 						Refresh
 					</ContextMenuItem>
-					<ContextMenuItem type="button" onClick={() => onOpenAccountSettings(accountMenu.account)}>
-						Edit account
-					</ContextMenuItem>
-					<ContextMenuItem type="button" danger onClick={() => void onDeleteAccount(accountMenu.account)}>
-						Delete account
-					</ContextMenuItem>
+					{isOAuthManagedCloudAccount(accountMenu.account) ? (
+						<>
+							<ContextMenuItem type="button" onClick={() => onOpenLinkedAccountSettings(accountMenu.account)}>
+								Open linked account settings
+							</ContextMenuItem>
+							<ContextMenuItem type="button" disabled>
+								Managed by account settings
+							</ContextMenuItem>
+						</>
+					) : (
+						<>
+							<ContextMenuItem type="button" onClick={() => onOpenAccountSettings(accountMenu.account)}>
+								Edit account
+							</ContextMenuItem>
+							<ContextMenuItem type="button" danger onClick={() => void onDeleteAccount(accountMenu.account)}>
+								Delete account
+							</ContextMenuItem>
+						</>
+					)}
 				</ContextMenu>
 			)}
 
@@ -1895,4 +1949,36 @@ export default function CloudFilesPage() {
 			)}
 		</div>
 	);
+}
+
+function isOAuthManagedCloudAccount(account: PublicCloudAccount): boolean {
+	return account.provider === 'google-drive' || account.provider === 'onedrive';
+}
+
+function resolveLinkedMailAccountId(account: PublicCloudAccount, mailAccounts: PublicAccount[]): number | null {
+	const cloudUser = String(account.user || '')
+		.trim()
+		.toLowerCase();
+	const targetProvider = account.provider === 'google-drive' ? 'google' : account.provider === 'onedrive' ? 'microsoft' : '';
+	if (!targetProvider) return null;
+
+	const byProvider = mailAccounts.filter((mailAccount) => {
+		const provider = String(mailAccount.provider || '')
+			.trim()
+			.toLowerCase();
+		const oauthProvider = String(mailAccount.oauth_provider || '')
+			.trim()
+			.toLowerCase();
+		return provider === targetProvider || oauthProvider === targetProvider;
+	});
+	if (byProvider.length === 0) return null;
+	if (!cloudUser) return byProvider[0]?.id ?? null;
+
+	const exact = byProvider.find((mailAccount) => {
+		const email = String(mailAccount.email || '')
+			.trim()
+			.toLowerCase();
+		return email === cloudUser;
+	});
+	return exact?.id ?? byProvider[0]?.id ?? null;
 }

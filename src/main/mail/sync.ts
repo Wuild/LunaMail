@@ -26,6 +26,7 @@ import {providerManager} from './providers/providerManager.js';
 
 const IMAP_RECENT_SYNC_WINDOW = 250;
 const IMAP_BACKFILL_BATCH_SIZE = 250;
+const EXCHANGE_IMAP_PLACEHOLDER_SUBJECT_PREFIX = 'retrieval using the imap4 protocol failed for the following message:';
 
 export interface SyncSummary {
 	accountId: number;
@@ -164,6 +165,14 @@ export async function syncAccountMailboxWithCredentials(
 							if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
 							if (fetchedUids.has(msg.uid)) continue;
 							fetchedUids.add(msg.uid);
+							if (isExchangeImapPlaceholderEnvelope(msg.envelope)) {
+								folderLogger.debug(
+									'Skipping Exchange placeholder message path=%s uid=%s',
+									box.path,
+									String(msg.uid),
+								);
+								continue;
+							}
 							totalMessages += 1;
 							const existed = hasMessageByFolderAndUid(folderId, msg.uid);
 							const isRead = msg.flags?.has('\\Seen') ? 1 : 0;
@@ -270,6 +279,22 @@ function inferFolderType(path: string): string | null {
 	if (p.includes('archive')) return 'archive';
 	if (p.includes('spam') || p.includes('junk')) return 'junk';
 	return null;
+}
+
+function isExchangeImapPlaceholderEnvelope(envelope: unknown): boolean {
+	if (!envelope || typeof envelope !== 'object') return false;
+	const unsafeEnvelope = envelope as any;
+	const subject = String(unsafeEnvelope?.subject ?? '')
+		.trim()
+		.toLowerCase();
+	const fromList = Array.isArray(unsafeEnvelope?.from) ? unsafeEnvelope.from : [];
+	const hasMissingHostMarker = fromList.some((entry: any) => {
+		if (!entry || typeof entry !== 'object') return false;
+		const host = String(entry.host ?? '').trim().toLowerCase();
+		const address = String(entry.address ?? '').trim().toLowerCase();
+		return host === '.missing-host-name.' || address.includes('.missing-host-name.');
+	});
+	return subject.startsWith(EXCHANGE_IMAP_PLACEHOLDER_SUBJECT_PREFIX) || hasMissingHostMarker;
 }
 
 export async function syncMessageBody(messageId: number, options?: MessageBodySyncOptions): Promise<MessageBodyResult> {

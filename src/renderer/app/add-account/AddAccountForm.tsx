@@ -466,7 +466,8 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 			const cloudMessages: string[] = [];
 			if (linkCloudStorage && autoCloudProvider && selectedAuthMethod === 'oauth2') {
 				try {
-					const preferredEmail = String(oauthSession?.email || email || '')
+					const preferredEmailRaw = String(oauthSession?.email || email || '').trim();
+					const preferredEmail = preferredEmailRaw
 						.trim()
 						.toLowerCase();
 					const existingCloudAccounts = await ipcClient.getCloudAccounts();
@@ -480,25 +481,39 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 							)
 						: false;
 					if (!hasMatchingAccount) {
-						const cloudPayload =
-							autoCloudProvider === 'google-drive'
-								? (() => {
-										const clientId = String(oauthSession?.clientId || '').trim();
-										if (!clientId) {
-											throw new Error(
-												'Google Drive linking requires a provider OAuth client ID. You can link it later from Cloud.',
-											);
-										}
-										return {clientId, tenantId: null as string | null};
-									})()
-								: {
-										clientId: String(oauthSession?.clientId || '').trim(),
-										tenantId: String(oauthSession?.tenantId || '').trim() || null,
-									};
-						await ipcClient.linkCloudOAuth(autoCloudProvider, cloudPayload);
-						cloudMessages.push(
-							autoCloudProvider === 'google-drive' ? 'Google Drive connected.' : 'OneDrive connected.',
-						);
+						if (autoCloudProvider === 'google-drive') {
+							const accessToken = String(oauthSession?.accessToken || '').trim();
+							if (!accessToken) {
+								throw new Error('Missing Google OAuth access token.');
+							}
+							const secretPayload = JSON.stringify({
+								accessToken,
+								refreshToken: String(oauthSession?.refreshToken || '').trim() || null,
+								expiresAt: Number.isFinite(Number(oauthSession?.expiresAt))
+									? Number(oauthSession?.expiresAt)
+									: null,
+								tokenType: String(oauthSession?.tokenType || '').trim() || null,
+								scope: String(oauthSession?.scope || '').trim() || null,
+								provider: 'google-drive',
+								clientId: String(oauthSession?.clientId || '').trim() || null,
+								tenantId: null,
+							});
+							const displayName = String(oauthSession?.displayName || '').trim();
+							await ipcClient.addCloudAccount({
+								provider: 'google-drive',
+								name: preferredEmailRaw || (displayName ? `${displayName} (Google Drive)` : 'Google Drive'),
+								user: preferredEmail || null,
+								base_url: null,
+								secret: secretPayload,
+							});
+							cloudMessages.push('Google Drive connected.');
+						} else {
+							await ipcClient.linkCloudOAuth('onedrive', {
+								clientId: String(oauthSession?.clientId || '').trim(),
+								tenantId: String(oauthSession?.tenantId || '').trim() || null,
+							});
+							cloudMessages.push('OneDrive connected.');
+						}
 					} else {
 						cloudMessages.push(
 							autoCloudProvider === 'google-drive'

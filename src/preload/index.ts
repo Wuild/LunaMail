@@ -207,6 +207,18 @@ export interface LinkCloudOAuthPayload {
 	tenantId?: string | null;
 }
 
+export interface UnlinkAccountCloudDriveResult {
+	removed: boolean;
+	reason?: 'provider-not-supported' | 'not-linked' | null;
+	cloudAccountId?: number | null;
+}
+
+export interface LinkAccountCloudDriveResult {
+	linked: boolean;
+	reason?: 'provider-not-supported' | 'already-linked' | null;
+	cloudAccount?: PublicCloudAccount | null;
+}
+
 export interface CloudUploadResult {
 	uploaded: number;
 }
@@ -612,6 +624,10 @@ const api = {
 		ipcRenderer.invoke('update-cloud-account', accountId, payload),
 	deleteCloudAccount: (accountId: number): Promise<{removed: boolean}> =>
 		ipcRenderer.invoke('delete-cloud-account', accountId),
+	unlinkAccountCloudDrive: (accountId: number): Promise<UnlinkAccountCloudDriveResult> =>
+		ipcRenderer.invoke('unlink-account-cloud-drive', accountId),
+	linkAccountCloudDrive: (accountId: number): Promise<LinkAccountCloudDriveResult> =>
+		ipcRenderer.invoke('link-account-cloud-drive', accountId),
 	linkCloudOAuth: (
 		provider: 'google-drive' | 'onedrive',
 		payload: LinkCloudOAuthPayload,

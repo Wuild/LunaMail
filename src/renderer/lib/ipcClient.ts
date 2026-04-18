@@ -34,6 +34,8 @@ import type {
 	RecentRecipientItem,
 	ProviderCapabilities,
 	ProviderDriverCatalogItem,
+	LinkAccountCloudDriveResult,
+	UnlinkAccountCloudDriveResult,
 	SaveDraftPayload,
 	SaveDraftResult,
 	SendEmailBackgroundResult,
@@ -161,6 +163,10 @@ export const ipcClient = {
 		window.electronAPI.updateCloudAccount(accountId, payload),
 	deleteCloudAccount: (accountId: number): Promise<{removed: boolean}> =>
 		window.electronAPI.deleteCloudAccount(accountId),
+	unlinkAccountCloudDrive: (accountId: number): Promise<UnlinkAccountCloudDriveResult> =>
+		window.electronAPI.unlinkAccountCloudDrive(accountId),
+	linkAccountCloudDrive: (accountId: number): Promise<LinkAccountCloudDriveResult> =>
+		window.electronAPI.linkAccountCloudDrive(accountId),
 	linkCloudOAuth: (
 		provider: 'google-drive' | 'onedrive',
 		payload: {clientId: string; tenantId?: string | null},

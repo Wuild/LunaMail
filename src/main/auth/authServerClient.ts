@@ -100,9 +100,31 @@ async function requestJson(path: string, init: RequestInit, label: string): Prom
 	throw new AuthServerClientError(`AuthServer ${label} request failed`);
 }
 
-export function buildMailOAuthStartUrl(provider: OAuthProvider, redirectTo: string): string {
+type MailOAuthStartOptions = {
+	additionalScopes?: string[];
+};
+
+export function buildMailOAuthStartUrl(
+	provider: OAuthProvider,
+	redirectTo: string,
+	options: MailOAuthStartOptions = {},
+): string {
 	const url = new URL(buildAuthServerUrl(`/api/auth/${provider}/start`));
 	url.searchParams.set('redirect_to', redirectTo);
+	const normalizedAdditionalScopes = Array.from(
+		new Set(
+			(options.additionalScopes ?? [])
+				.map((value) => String(value || '').trim())
+				.filter(Boolean),
+		),
+	);
+	if (normalizedAdditionalScopes.length > 0) {
+		url.searchParams.set('scopes', normalizedAdditionalScopes.join(' '));
+		for (const scope of normalizedAdditionalScopes) {
+			url.searchParams.append('scope', scope);
+		}
+		url.searchParams.set('include_cloud_scopes', '1');
+	}
 	return url.toString();
 }
 
@@ -122,6 +144,32 @@ export async function exchangeMailOAuthCode(code: string): Promise<AuthServerOAu
 }
 
 export async function refreshMailOAuthSession(session: OAuthSession): Promise<AuthServerOAuthTokenDto> {
+	return refreshMailOAuthSessionWithOptions(session, {});
+}
+
+type RefreshMailOAuthSessionOptions = {
+	additionalScopes?: string[];
+};
+
+function normalizeScopeList(scopes: Array<string | null | undefined>): string[] {
+	const values: string[] = [];
+	for (const scopeEntry of scopes) {
+		const raw = String(scopeEntry || '').trim();
+		if (!raw) continue;
+		const splitValues = raw
+			.split(/\s+/)
+			.map((value) => value.trim())
+			.filter(Boolean);
+		for (const value of splitValues) values.push(value);
+	}
+	return Array.from(new Set(values));
+}
+
+export async function refreshMailOAuthSessionWithOptions(
+	session: OAuthSession,
+	options: RefreshMailOAuthSessionOptions = {},
+): Promise<AuthServerOAuthTokenDto> {
+	const requestedScopes = normalizeScopeList([session.scope, ...(options.additionalScopes ?? [])]);
 	const payload = await requestJson(
 		'/api/auth/refresh',
 		{
@@ -136,7 +184,8 @@ export async function refreshMailOAuthSession(session: OAuthSession): Promise<Au
 				accessToken: session.accessToken,
 				expiresAt: session.expiresAt,
 				tokenType: session.tokenType,
-				scope: session.scope,
+				scope: requestedScopes.join(' ') || session.scope,
+				scopes: requestedScopes,
 			}),
 		},
 		'refresh',

@@ -36,7 +36,13 @@ import {resolveNotificationIconPath} from './notifications/icon.js';
 import {resolveSenderNotificationIconPath} from './notifications/senderIcon.js';
 import {getMessageById} from './db/repositories/mailRepo.js';
 import {reconcileDemoData} from './demo/demoMode.js';
-import {checkForUpdates, initAutoUpdater, runStartupUpdateFlow, setAutoUpdateEnabled} from './updater/autoUpdate.js';
+import {
+	checkForUpdates,
+	getAutoUpdateState,
+	initAutoUpdater,
+	runStartupUpdateFlow,
+	setAutoUpdateEnabled,
+} from './updater/autoUpdate.js';
 import type {GlobalErrorEvent, GlobalErrorSource} from '@/shared/ipcTypes.js';
 import type {ComposeDraftPayload} from './windows/composeWindow.js';
 import {openComposeWindow} from './windows/composeWindow.js';
@@ -48,7 +54,7 @@ import {
 	createFramelessAppWindow,
 	resolveWindowIconPath,
 } from './windows/windowFactory.js';
-import {createTrayController, resolveLinuxTrayIconPath, resolveWindowsTrayIconPath} from './windows/tray.js';
+import {createTrayController} from './windows/tray.js';
 import {APP_NAME, APP_PROTOCOL} from '@/shared/appConfig.js';
 
 const isDev = !app.isPackaged;
@@ -58,6 +64,7 @@ let currentUnreadCount = 0;
 let mainWindowActionsEnabled = false;
 let mainWindowLoaded = false;
 let startupFlowComplete = false;
+let trayReadyAfterSplash = false;
 let pendingMainWindowNavigation: {route: string; replaceHistory: boolean} | null = null;
 let pendingStartupRoute: string | null = null;
 let pendingStartupCompose = false;
@@ -68,8 +75,6 @@ let notificationOpenCooldownTimer: ReturnType<typeof setTimeout> | null = null;
 let notificationOpenInFlight = false;
 const pendingGlobalErrors: GlobalErrorEvent[] = [];
 const appIconPath = resolveWindowIconPath();
-const linuxTrayIconPath = resolveLinuxTrayIconPath(appIconPath);
-const windowsTrayIconPath = resolveWindowsTrayIconPath(appIconPath);
 const notificationIconPath = resolveNotificationIconPath();
 const MAIN_WINDOW_MIN_WIDTH = 900;
 const MAIN_WINDOW_MIN_HEIGHT = 600;
@@ -94,6 +99,7 @@ const mainWindowManager = createMainWindowManager({
 	onWindowClosed: () => {
 		mainWindow = null;
 		mainWindowLoaded = false;
+		trayReadyAfterSplash = false;
 		pendingMainWindowNavigation = null;
 	},
 	onWindowReadyToFlushGlobalErrors: flushPendingGlobalErrors,
@@ -116,8 +122,6 @@ const mainWindowManager = createMainWindowManager({
 const trayController = createTrayController({
 	appName: APP_NAME,
 	appIconPath,
-	linuxTrayIconPath,
-	windowsTrayIconPath,
 	isActionsEnabled: () => mainWindowActionsEnabled,
 	onShowApp: () => openMainWindowEntryPoint(),
 	onCompose: () => openComposeQuickAction(),
@@ -200,21 +204,29 @@ function toErrorDetail(error: unknown): string | null {
 }
 
 async function runStartupUpdateFlowWithTimeout(timeoutMs: number): Promise<'proceed' | 'installing'> {
-	let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-	try {
-		return await Promise.race<'proceed' | 'installing'>([
-			runStartupUpdateFlow(),
-			new Promise<'proceed'>((resolve) => {
-				timeoutHandle = setTimeout(() => {
-					logger.warn('Startup update flow timeout after %dms, continuing startup', timeoutMs);
-					resolve('proceed');
-				}, timeoutMs);
+	const startupPromise = runStartupUpdateFlow();
+	while (true) {
+		const raceResult = await Promise.race<
+			{type: 'done'; result: 'proceed' | 'installing'} | {type: 'timeout'}
+		>([
+			startupPromise.then((result) => ({type: 'done' as const, result})),
+			new Promise<{type: 'timeout'}>((resolve) => {
+				setTimeout(() => resolve({type: 'timeout'}), timeoutMs);
 			}),
 		]);
-	} finally {
-		if (timeoutHandle) {
-			clearTimeout(timeoutHandle);
+		if (raceResult.type === 'done') {
+			return raceResult.result;
 		}
+		const phase = getAutoUpdateState().phase;
+		if (phase === 'error' || phase === 'disabled') {
+			logger.warn(
+				'Startup update flow timeout after %dms in terminal phase=%s, continuing startup',
+				timeoutMs,
+				phase,
+			);
+			return 'proceed';
+		}
+		logger.warn('Startup update flow timeout after %dms while phase=%s, continuing to wait', timeoutMs, phase);
 	}
 }
 
@@ -341,7 +353,7 @@ async function applyDemoMode(settings = getAppSettingsSync()): Promise<void> {
 }
 
 function ensureTray(): void {
-	if (!startupFlowComplete || !mainWindowLoaded) return;
+	if (!startupFlowComplete || !mainWindowLoaded || !trayReadyAfterSplash) return;
 	trayController.ensureTray(currentUnreadCount);
 }
 
@@ -352,6 +364,10 @@ function applyTrayContextMenu(): void {
 function openMainWindowEntryPoint(): void {
 	showMainWindow();
 	if (!startupFlowComplete) return;
+	if (!trayReadyAfterSplash) {
+		trayReadyAfterSplash = true;
+		ensureTray();
+	}
 	if (mainWindowActionsEnabled) return;
 	void getAccounts()
 		.then((rows) => {
@@ -1138,6 +1154,7 @@ if (!gotSingleInstanceLock) {
 			});
 			setAccountCountChangedListener((count) => {
 				setMainWindowActionsEnabled(count > 0);
+				trayController.reloadTray(currentUnreadCount);
 				if (count > 0) return;
 				openMainWindowEntryPoint();
 			});
@@ -1226,6 +1243,10 @@ if (!gotSingleInstanceLock) {
 					pendingStartupCompose = false;
 				}
 			}
+			trayReadyAfterSplash = true;
+			ensureTray();
+			trayController.reloadTray(currentUnreadCount);
+			applyTrayContextMenu();
 			protocolHandler.handleInitialLaunchArgs(process.argv);
 			protocolHandler.flushPendingMailtoUrls();
 			updateUnreadIndicators(getCurrentUnreadCount());

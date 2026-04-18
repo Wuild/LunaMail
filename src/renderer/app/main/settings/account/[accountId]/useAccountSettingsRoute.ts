@@ -1,11 +1,11 @@
 import {useQuery} from '@tanstack/react-query';
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useAccount, useAccounts} from '@renderer/hooks/ipc/useAccounts';
 import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {useMailFoldersStore} from '@renderer/store/mailFoldersStore';
-import type {UpdateAccountPayload} from '@/preload';
+import type {PublicCloudAccount, UpdateAccountPayload} from '@/preload';
 import type {AccountEditor, AccountPanelSection} from '@renderer/app/main/settings/settingsTypes';
 import {
 	createDefaultMailFilterDraft,
@@ -28,6 +28,11 @@ export type UseAccountSettingsRouteResult = {
 	savingAccount: boolean;
 	onDeleteAccount: () => Promise<void>;
 	onSaveAccount: () => Promise<void>;
+	linkedCloudDrive: PublicCloudAccount | null;
+	canLinkCloudDrive: boolean;
+	cloudDriveBusy: boolean;
+	onLinkCloudDrive: () => Promise<void>;
+	onUnlinkCloudDrive: () => Promise<void>;
 	mailFilters: any[];
 	mailFilterBusy: boolean;
 	runningFilterId: number | null;
@@ -57,6 +62,8 @@ export function useAccountSettingsRoute(
 	const [deletingAccount, setDeletingAccount] = useState(false);
 	const [accountStatus, setAccountStatus] = useState<string | null>(null);
 	const [mailFilterBusy, setMailFilterBusy] = useState(false);
+	const [cloudDriveBusy, setCloudDriveBusy] = useState(false);
+	const [cloudAccounts, setCloudAccounts] = useState<PublicCloudAccount[]>([]);
 	const [runningFilterId, setRunningFilterId] = useState<number | null>(null);
 	const [mailFilterModal, setMailFilterModal] = useState<MailFilterModalState>(null);
 	const {sidebarWidth: accountSectionSidebarWidth, onResizeStart: onAccountSectionResizeStart} = useResizableSidebar({
@@ -125,6 +132,30 @@ export function useAccountSettingsRoute(
 		}
 	}, [selectedAccount]);
 
+	useEffect(() => {
+		let active = true;
+		const load = async () => {
+			const rows = await ipcClient.getCloudAccounts();
+			if (!active) return;
+			setCloudAccounts(rows);
+		};
+		void load().catch(() => undefined);
+		const offCloudAccountsUpdated = ipcClient.onCloudAccountsUpdated((rows) => {
+			if (!active) return;
+			setCloudAccounts(rows);
+		});
+		return () => {
+			active = false;
+			if (typeof offCloudAccountsUpdated === 'function') offCloudAccountsUpdated();
+		};
+	}, []);
+
+	const linkedCloudDrive = useMemo(() => resolveLinkedCloudDrive(selectedAccount, cloudAccounts), [cloudAccounts, selectedAccount]);
+	const canLinkCloudDrive = useMemo(
+		() => canAccountManageCloudDrive(selectedAccount) && !linkedCloudDrive,
+		[linkedCloudDrive, selectedAccount],
+	);
+
 	const onAccountSectionNavigate = (nextSection: AccountPanelSection): void => {
 		setAccountSection(nextSection);
 		navigate(`/settings/account/${accountId}/${nextSection}`);
@@ -186,6 +217,66 @@ export function useAccountSettingsRoute(
 			setAccountStatus(`Delete failed: ${e?.message || String(e)}`);
 		} finally {
 			setDeletingAccount(false);
+		}
+	}
+
+	async function onUnlinkCloudDrive() {
+		if (!editor || cloudDriveBusy) return;
+		if (!linkedCloudDrive) {
+			setAccountStatus('No linked cloud drive found for this account.');
+			return;
+		}
+		const confirmed = window.confirm(
+			`Disconnect cloud drive "${linkedCloudDrive.name}" from account "${editor.email}"?`,
+		);
+		if (!confirmed) return;
+		setCloudDriveBusy(true);
+		setAccountStatus('Disconnecting cloud drive...');
+		try {
+			const result = await ipcClient.unlinkAccountCloudDrive(editor.id);
+			if (!result.removed) {
+				setAccountStatus('No linked cloud drive to disconnect.');
+				return;
+			}
+			setAccountStatus('Cloud drive disconnected for this account.');
+		} catch (e: any) {
+			setAccountStatus(`Cloud drive disconnect failed: ${e?.message || String(e)}`);
+		} finally {
+			setCloudDriveBusy(false);
+		}
+	}
+
+	async function onLinkCloudDrive() {
+		if (!editor || cloudDriveBusy) return;
+		if (!canAccountManageCloudDrive(selectedAccount)) {
+			setAccountStatus('Cloud drive linking is supported for OAuth Google/Microsoft accounts only.');
+			return;
+		}
+		if (linkedCloudDrive) {
+			setAccountStatus('Cloud drive is already linked for this account.');
+			return;
+		}
+		setCloudDriveBusy(true);
+		setAccountStatus('Connecting cloud drive...');
+		try {
+			const result = await ipcClient.linkAccountCloudDrive(editor.id);
+			if (result.linked) {
+				setAccountStatus('Cloud drive linked for this account.');
+				return;
+			}
+			if (result.reason === 'already-linked') {
+				setAccountStatus('Cloud drive is already linked for this account.');
+				return;
+			}
+			if (result.reason === 'provider-not-supported') {
+				setAccountStatus('Cloud drive linking is not supported for this provider.');
+				return;
+			}
+			setAccountStatus('Cloud drive linking did not complete.');
+		} catch (e: any) {
+			setAccountStatus(`Cloud drive link failed: ${e?.message || String(e)}`);
+		} finally {
+			setCloudDriveBusy(false);
 		}
 	}
 
@@ -355,6 +446,11 @@ export function useAccountSettingsRoute(
 		savingAccount,
 		onDeleteAccount,
 		onSaveAccount,
+		linkedCloudDrive,
+		canLinkCloudDrive,
+		cloudDriveBusy,
+		onLinkCloudDrive,
+		onUnlinkCloudDrive,
 		mailFilters,
 		mailFilterBusy,
 		runningFilterId,
@@ -368,4 +464,62 @@ export function useAccountSettingsRoute(
 		onDeleteMailFilter,
 		accountFolders,
 	};
+}
+
+function resolveLinkedCloudDrive(
+	account:
+		| {
+				email: string;
+				provider?: string | null;
+				oauth_provider?: string | null;
+				auth_method?: string | null;
+		  }
+		| null,
+	cloudAccounts: PublicCloudAccount[],
+): PublicCloudAccount | null {
+	if (!account) return null;
+	const cloudProvider = resolveCloudProvider(account.provider, account.oauth_provider);
+	if (!cloudProvider) return null;
+	const linkedEmail = String(account.email || '')
+		.trim()
+		.toLowerCase();
+	const providerAccounts = cloudAccounts.filter((cloudAccount) => cloudAccount.provider === cloudProvider);
+	if (providerAccounts.length === 0) return null;
+	return (
+		providerAccounts.find((cloudAccount) => {
+			const user = String(cloudAccount.user || '')
+				.trim()
+				.toLowerCase();
+			return Boolean(linkedEmail) && user === linkedEmail;
+		}) ?? providerAccounts[0]
+	);
+}
+
+function canAccountManageCloudDrive(
+	account:
+		| {
+				provider?: string | null;
+				oauth_provider?: string | null;
+				auth_method?: string | null;
+		  }
+		| null,
+): boolean {
+	if (!account) return false;
+	if (String(account.auth_method || '').trim().toLowerCase() !== 'oauth2') return false;
+	return resolveCloudProvider(account.provider, account.oauth_provider) !== null;
+}
+
+function resolveCloudProvider(
+	provider: string | null | undefined,
+	oauthProvider: string | null | undefined,
+): 'google-drive' | 'onedrive' | null {
+	const normalizedProvider = String(provider || '')
+		.trim()
+		.toLowerCase();
+	const normalizedOauthProvider = String(oauthProvider || '')
+		.trim()
+		.toLowerCase();
+	if (normalizedProvider === 'google' || normalizedOauthProvider === 'google') return 'google-drive';
+	if (normalizedProvider === 'microsoft' || normalizedOauthProvider === 'microsoft') return 'onedrive';
+	return null;
 }

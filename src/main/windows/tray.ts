@@ -5,8 +5,6 @@ import {APP_NAME} from '@/shared/appConfig.js';
 type TrayControllerDeps = {
 	appName?: string;
 	appIconPath: string | null;
-	linuxTrayIconPath: string | null;
-	windowsTrayIconPath: string | null;
 	isActionsEnabled: () => boolean;
 	onShowApp: () => void;
 	onCompose: () => void;
@@ -17,6 +15,7 @@ type TrayControllerDeps = {
 export function createTrayController(deps: TrayControllerDeps): {
 	ensureTray: (unreadCount: number) => void;
 	hideTray: () => void;
+	reloadTray: (unreadCount: number) => void;
 	updateTooltip: (unreadCount: number) => void;
 	refreshMenu: () => void;
 } {
@@ -25,7 +24,7 @@ export function createTrayController(deps: TrayControllerDeps): {
 
 	function ensureTray(unreadCount: number): void {
 		if (tray) return;
-		tray = new Tray(buildTrayIcon(deps.appIconPath, deps.linuxTrayIconPath, deps.windowsTrayIconPath));
+		tray = new Tray(buildTrayIcon(deps.appIconPath));
 		tray.setToolTip(buildTrayTooltip(appName, unreadCount));
 		refreshMenu();
 		tray.on('double-click', () => {
@@ -37,6 +36,12 @@ export function createTrayController(deps: TrayControllerDeps): {
 		if (!tray) return;
 		tray.destroy();
 		tray = null;
+	}
+
+	function reloadTray(unreadCount: number): void {
+		if (!tray) return;
+		hideTray();
+		ensureTray(unreadCount);
 	}
 
 	function refreshMenu(): void {
@@ -100,16 +105,15 @@ export function createTrayController(deps: TrayControllerDeps): {
 	return {
 		ensureTray,
 		hideTray,
+		reloadTray,
 		updateTooltip,
 		refreshMenu,
 	};
 }
 
-function buildTrayIcon(
-	appIconPath: string | null,
-	linuxTrayIconPath: string | null,
-	windowsTrayIconPath: string | null,
-) {
+function buildTrayIcon(appIconPath: string | null) {
+	const windowsTrayIconPath = resolveWindowsTrayIconPath(appIconPath);
+	const linuxTrayIconPath = resolveLinuxTrayIconPath(appIconPath);
 	const trayPath =
 		process.platform === 'win32'
 			? windowsTrayIconPath || appIconPath

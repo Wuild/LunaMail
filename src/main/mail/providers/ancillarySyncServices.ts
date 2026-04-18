@@ -104,6 +104,11 @@ export class OAuthApiAncillarySyncService implements ProviderAncillarySyncServic
 					},
 				};
 			}
+			if (this.#provider === 'microsoft' && !looksLikeJwt(accessToken)) {
+				throw new Error(
+					'Microsoft OAuth token is invalid for Graph API. Reconnect the Microsoft account to refresh cloud/contacts/calendar scopes.',
+				);
+			}
 			const dav = await syncOauthProviderDav({
 				accountId,
 				oauthProvider: this.#provider,
@@ -135,4 +140,10 @@ export class OAuthApiAncillarySyncService implements ProviderAncillarySyncServic
 			};
 		}
 	}
+}
+
+function looksLikeJwt(token: string): boolean {
+	return String(token || '')
+		.trim()
+		.split('.').length === 3;
 }

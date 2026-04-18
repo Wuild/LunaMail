@@ -11,7 +11,8 @@ import {
 	type AccountModuleSelection,
 } from '@/shared/accountModules.js';
 import type {AuthMethod, OAuthProvider, OAuthSession} from '@/shared/ipcTypes.js';
-import {ensureFreshMailOAuthSession} from '@main/mail/oauth.js';
+import {ensureFreshMailOAuthSession, getDefaultMailOAuthAdditionalScopes} from '@main/mail/oauth.js';
+import {deleteCloudAccount, getCloudAccounts, type CloudProvider} from '@main/db/repositories/cloudRepo.js';
 
 // This repository still contains parameterized raw SQL for a few multi-step cleanup paths while Drizzle migration is
 // completed incrementally. Keep new data access Drizzle-first unless there is a documented exception.
@@ -287,11 +288,27 @@ export async function getAccountSyncCredentials(accountId: number): Promise<Acco
 	const password = await keytar.getPassword(SERVICE_NAME, getAccountPasswordKey(row.id, row.email));
 	let oauthSession = authMethod === 'oauth2' ? await getAccountOAuthSession(row.id, row.email) : null;
 	if (oauthSession) {
-		const refreshed = await ensureFreshMailOAuthSession(oauthSession);
+		const refreshed = await ensureFreshMailOAuthSession(oauthSession, {
+			additionalScopes: oauthProvider ? getDefaultMailOAuthAdditionalScopes(oauthProvider) : [],
+		});
 		if (hasOAuthSessionChanged(oauthSession, refreshed)) {
 			await setAccountOAuthSession(row.id, row.email, refreshed);
 		}
 		oauthSession = refreshed;
+		if (
+			oauthProvider === 'microsoft' &&
+			!looksLikeJwtToken(oauthSession.accessToken) &&
+			String(oauthSession.refreshToken || '').trim()
+		) {
+			const forcedRefresh = await ensureFreshMailOAuthSession(oauthSession, {
+				forceRefresh: true,
+				additionalScopes: getDefaultMailOAuthAdditionalScopes('microsoft'),
+			});
+			if (hasOAuthSessionChanged(oauthSession, forcedRefresh)) {
+				await setAccountOAuthSession(row.id, row.email, forcedRefresh);
+			}
+			oauthSession = forcedRefresh;
+		}
 	}
 	if (authMethod !== 'oauth2' && !password) throw new Error('Account password not found in keychain');
 	if (authMethod === 'oauth2' && !oauthSession?.accessToken?.trim()) {
@@ -322,11 +339,27 @@ export async function getAccountSendCredentials(accountId: number): Promise<Acco
 	const password = await keytar.getPassword(SERVICE_NAME, getAccountPasswordKey(row.id, row.email));
 	let oauthSession = authMethod === 'oauth2' ? await getAccountOAuthSession(row.id, row.email) : null;
 	if (oauthSession) {
-		const refreshed = await ensureFreshMailOAuthSession(oauthSession);
+		const refreshed = await ensureFreshMailOAuthSession(oauthSession, {
+			additionalScopes: oauthProvider ? getDefaultMailOAuthAdditionalScopes(oauthProvider) : [],
+		});
 		if (hasOAuthSessionChanged(oauthSession, refreshed)) {
 			await setAccountOAuthSession(row.id, row.email, refreshed);
 		}
 		oauthSession = refreshed;
+		if (
+			oauthProvider === 'microsoft' &&
+			!looksLikeJwtToken(oauthSession.accessToken) &&
+			String(oauthSession.refreshToken || '').trim()
+		) {
+			const forcedRefresh = await ensureFreshMailOAuthSession(oauthSession, {
+				forceRefresh: true,
+				additionalScopes: getDefaultMailOAuthAdditionalScopes('microsoft'),
+			});
+			if (hasOAuthSessionChanged(oauthSession, forcedRefresh)) {
+				await setAccountOAuthSession(row.id, row.email, forcedRefresh);
+			}
+			oauthSession = forcedRefresh;
+		}
 	}
 	if (authMethod !== 'oauth2' && !password) throw new Error('Account password not found in keychain');
 	if (authMethod === 'oauth2' && !oauthSession?.accessToken?.trim()) {
@@ -507,6 +540,13 @@ export async function deleteAccount(accountId: number): Promise<{id: number; ema
 	const rawDb = getDb();
 	const existing = await db.select().from(accounts).where(eq(accounts.id, accountId)).get();
 	if (!existing?.id) throw new Error(`Account ${accountId} not found`);
+	const linkedCloudAccountIds = await resolveLinkedCloudAccountIds(existing.email, {
+		provider: existing.provider ?? null,
+		oauthProvider: normalizeOAuthProvider(existing.oauthProvider ?? null),
+	});
+	for (const linkedCloudAccountId of linkedCloudAccountIds) {
+		await deleteCloudAccount(linkedCloudAccountId);
+	}
 
 	const tx = rawDb.transaction((id: number) => {
 		rawDb
@@ -541,6 +581,51 @@ export async function deleteAccount(accountId: number): Promise<{id: number; ema
 	await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, existing.email));
 	await removeLocalAccountVCard(accountId, existing.email);
 	return {id: accountId, email: existing.email};
+}
+
+async function resolveLinkedCloudAccountIds(
+	email: string,
+	input: {provider: string | null; oauthProvider: OAuthProvider | null},
+): Promise<number[]> {
+	const cloudProvider = resolveAccountCloudProvider(input.provider, input.oauthProvider);
+	if (!cloudProvider) return [];
+	const normalizedEmail = String(email || '')
+		.trim()
+		.toLowerCase();
+	if (!normalizedEmail) return [];
+	const cloudAccounts = await getCloudAccounts();
+	return cloudAccounts
+		.filter((cloudAccount) => {
+			if (cloudAccount.provider !== cloudProvider) return false;
+			const cloudUser = String(cloudAccount.user || '')
+				.trim()
+				.toLowerCase();
+			return cloudUser === normalizedEmail;
+		})
+		.map((cloudAccount) => cloudAccount.id);
+}
+
+function resolveAccountCloudProvider(
+	provider: string | null,
+	oauthProvider: OAuthProvider | null,
+): Extract<CloudProvider, 'google-drive' | 'onedrive'> | null {
+	if (oauthProvider === 'google') return 'google-drive';
+	if (oauthProvider === 'microsoft') return 'onedrive';
+	const normalizedProvider = String(provider || '')
+		.trim()
+		.toLowerCase();
+	if (normalizedProvider === 'google' || normalizedProvider === 'gmail') return 'google-drive';
+	if (
+		normalizedProvider === 'microsoft' ||
+		normalizedProvider === 'outlook' ||
+		normalizedProvider === 'hotmail' ||
+		normalizedProvider === 'office365' ||
+		normalizedProvider === 'm365' ||
+		normalizedProvider === 'exchange'
+	) {
+		return 'onedrive';
+	}
+	return null;
 }
 
 function normalizeAuthMethod(value: string): AuthMethod {
@@ -672,6 +757,12 @@ function hasOAuthSessionChanged(before: OAuthSession, after: OAuthSession): bool
 		before.tokenType !== after.tokenType ||
 		before.scope !== after.scope
 	);
+}
+
+function looksLikeJwtToken(token: string | null | undefined): boolean {
+	const value = String(token || '').trim();
+	if (!value) return false;
+	return value.split('.').length === 3;
 }
 
 export function getLocalAccountVCardPath(accountId: number, email: string): string {

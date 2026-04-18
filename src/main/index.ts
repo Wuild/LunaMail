@@ -369,15 +369,11 @@ function openMainWindowEntryPoint(): void {
 	if (mainWindowActionsEnabled) return;
 	void getAccounts()
 		.then((rows) => {
-			if (rows.length > 0) {
-				setMainWindowActionsEnabled(true);
-				navigateMainWindowToRouteDirect('/email', {replaceHistory: true});
-				return;
-			}
-			navigateMainWindowToRouteDirect('/onboarding', {replaceHistory: true});
+			setMainWindowActionsEnabled(true);
+			navigateMainWindowToRouteDirect('/', {replaceHistory: true});
 		})
 		.catch(() => {
-			navigateMainWindowToRouteDirect('/onboarding', {replaceHistory: true});
+			navigateMainWindowToRouteDirect('/', {replaceHistory: true});
 		});
 }
 
@@ -461,9 +457,9 @@ function configurePlatformQuickActions(): void {
 						{type: 'separator'},
 						{label: 'Settings', click: () => navigateMainWindowToRoute('/settings/application')},
 						{label: 'Debug', click: () => navigateMainWindowToRoute('/debug')},
-						{label: 'Help', click: () => navigateMainWindowToRoute('/help')},
+						{label: 'About', click: () => navigateMainWindowToRoute('/about')},
 					]
-				: [{label: 'Open Onboarding', click: () => showMainWindow()}],
+				: [{label: 'Open App', click: () => showMainWindow()}],
 		);
 		app.dock.setMenu(dockMenu);
 	}
@@ -1082,12 +1078,18 @@ function configureLinuxDesktopEntryName(): void {
 	}
 }
 
-const gotSingleInstanceLock = isDev ? true : app.requestSingleInstanceLock();
+const allowMultipleInstances = String(
+	process.env.LLAMA_ALLOW_MULTI_INSTANCE || process.env.LUNAMAIL_ALLOW_MULTI_INSTANCE || '',
+).trim() === '1';
+const gotSingleInstanceLock = allowMultipleInstances ? true : app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
 	console.warn('[main] Another app instance is already running; exiting current process.');
 	logger.warn('Single instance lock unavailable, quitting');
 	app.quit();
 } else {
+	if (allowMultipleInstances) {
+		logger.warn('Single instance lock bypassed via LLAMA_ALLOW_MULTI_INSTANCE=1');
+	}
 	configureLinuxDesktopEntryName();
 	registerGlobalErrorHandlers();
 	protocolHandler.registerEventHandlers();
@@ -1150,11 +1152,9 @@ if (!gotSingleInstanceLock) {
 			setUnreadCountListener((count) => {
 				updateUnreadIndicators(count);
 			});
-			setAccountCountChangedListener((count) => {
-				setMainWindowActionsEnabled(count > 0);
+			setAccountCountChangedListener((_count) => {
+				setMainWindowActionsEnabled(true);
 				trayController.reloadTray(currentUnreadCount);
-				if (count > 0) return;
-				openMainWindowEntryPoint();
 			});
 			setNewMailListener(({newMessages, source, target}) => {
 				if (newMessages <= 0) return;
@@ -1223,23 +1223,19 @@ if (!gotSingleInstanceLock) {
 			logger.info('Loaded accounts count=%d', accounts.length);
 			console.log(`[main-startup] accounts loaded count=${accounts.length}`);
 			startupFlowComplete = true;
-			setMainWindowActionsEnabled(accounts.length > 0);
+			setMainWindowActionsEnabled(true);
 			const startupIntent = protocolHandler.resolveLaunchIntent(process.argv);
 			pendingStartupRoute = startupIntent.route;
 			pendingStartupCompose = startupIntent.action === 'compose';
-			if (accounts.length === 0) {
-				navigateMainWindowToRouteDirect('/onboarding', {replaceHistory: true});
+			if (pendingStartupRoute) {
+				navigateMainWindowToRouteDirect(pendingStartupRoute, {replaceHistory: true});
+				pendingStartupRoute = null;
 			} else {
-				if (pendingStartupRoute) {
-					navigateMainWindowToRouteDirect(pendingStartupRoute, {replaceHistory: true});
-					pendingStartupRoute = null;
-				} else {
-					navigateMainWindowToRouteDirect('/email', {replaceHistory: true});
-				}
-				if (pendingStartupCompose) {
-					openComposeQuickAction();
-					pendingStartupCompose = false;
-				}
+				navigateMainWindowToRouteDirect('/', {replaceHistory: true});
+			}
+			if (pendingStartupCompose) {
+				openComposeQuickAction();
+				pendingStartupCompose = false;
 			}
 			trayReadyAfterSplash = true;
 			ensureTray();
@@ -1264,7 +1260,7 @@ if (!gotSingleInstanceLock) {
 				}
 				void getAccounts().then((rows) => {
 					if (rows.length === 0) {
-						setMainWindowActionsEnabled(false);
+						setMainWindowActionsEnabled(true);
 						createWindow();
 						openMainWindowEntryPoint();
 						return;

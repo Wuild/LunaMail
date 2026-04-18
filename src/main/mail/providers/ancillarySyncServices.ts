@@ -1,6 +1,8 @@
 import {createMailDebugLogger} from '@main/debug/debugLog.js';
 import {syncDav} from '@main/dav/sync.js';
 import {syncOauthProviderDav} from '@main/dav/oauthSync.js';
+import {refreshMailOAuthSessionWithOptions} from '@main/auth/authServerClient.js';
+import {getMicrosoftGraphOAuthScopes} from '@main/mail/oauth.js';
 import type {MailProviderDriver, ProviderAncillarySyncResult, ProviderAncillarySyncService} from './contracts.js';
 import type {DavSyncOptions, OAuthProvider} from '@/shared/ipcTypes.js';
 
@@ -14,7 +16,11 @@ export class DavAncillarySyncService implements ProviderAncillarySyncService {
 	async sync(accountId: number, _options?: DavSyncOptions | null): Promise<ProviderAncillarySyncResult> {
 		const syncContacts = _options?.modules?.contacts !== false;
 		const syncCalendar = _options?.modules?.calendar !== false;
-		if (!this.#driver.supports('contacts') && !this.#driver.supports('calendar')) {
+		const supportsContacts = this.#driver.supports('contacts');
+		const supportsCalendar = this.#driver.supports('calendar');
+		const shouldSyncContacts = supportsContacts && syncContacts;
+		const shouldSyncCalendar = supportsCalendar && syncCalendar;
+		if (!supportsContacts && !supportsCalendar) {
 			return {
 				moduleStatus: {
 					contacts: {state: 'skipped', reason: 'Provider does not support contacts sync.'},
@@ -22,11 +28,11 @@ export class DavAncillarySyncService implements ProviderAncillarySyncService {
 				},
 			};
 		}
-		if (!syncContacts && !syncCalendar) {
+		if (!shouldSyncContacts && !shouldSyncCalendar) {
 			return {
 				moduleStatus: {
-					contacts: {state: 'skipped', reason: 'Contacts sync is disabled for this account.'},
-					calendar: {state: 'skipped', reason: 'Calendar sync is disabled for this account.'},
+					contacts: {state: 'skipped', reason: resolveSkippedReason('contacts', supportsContacts, syncContacts)},
+					calendar: {state: 'skipped', reason: resolveSkippedReason('calendar', supportsCalendar, syncCalendar)},
 				},
 			};
 		}
@@ -36,12 +42,12 @@ export class DavAncillarySyncService implements ProviderAncillarySyncService {
 			return {
 				dav,
 				moduleStatus: {
-					contacts: syncContacts
+					contacts: shouldSyncContacts
 						? {state: 'success'}
-						: {state: 'skipped', reason: 'Contacts sync is disabled for this account.'},
-					calendar: syncCalendar
+						: {state: 'skipped', reason: resolveSkippedReason('contacts', supportsContacts, syncContacts)},
+					calendar: shouldSyncCalendar
 						? {state: 'success'}
-						: {state: 'skipped', reason: 'Calendar sync is disabled for this account.'},
+						: {state: 'skipped', reason: resolveSkippedReason('calendar', supportsCalendar, syncCalendar)},
 				},
 			};
 		} catch (davError: any) {
@@ -50,8 +56,12 @@ export class DavAncillarySyncService implements ProviderAncillarySyncService {
 			createMailDebugLogger('caldav', `sync:${accountId}`).error('DAV sync skipped: %s', reason);
 			return {
 				moduleStatus: {
-					contacts: {state: 'failed', reason},
-					calendar: {state: 'failed', reason},
+					contacts: shouldSyncContacts
+						? {state: 'failed', reason}
+						: {state: 'skipped', reason: resolveSkippedReason('contacts', supportsContacts, syncContacts)},
+					calendar: shouldSyncCalendar
+						? {state: 'failed', reason}
+						: {state: 'skipped', reason: resolveSkippedReason('calendar', supportsCalendar, syncCalendar)},
 				},
 			};
 		}
@@ -70,7 +80,11 @@ export class OAuthApiAncillarySyncService implements ProviderAncillarySyncServic
 	async sync(accountId: number, options?: DavSyncOptions | null): Promise<ProviderAncillarySyncResult> {
 		const syncContacts = options?.modules?.contacts !== false;
 		const syncCalendar = options?.modules?.calendar !== false;
-		if (!this.#driver.supports('contacts') && !this.#driver.supports('calendar')) {
+		const supportsContacts = this.#driver.supports('contacts');
+		const supportsCalendar = this.#driver.supports('calendar');
+		const shouldSyncContacts = supportsContacts && syncContacts;
+		const shouldSyncCalendar = supportsCalendar && syncCalendar;
+		if (!supportsContacts && !supportsCalendar) {
 			return {
 				moduleStatus: {
 					contacts: {state: 'skipped', reason: 'Provider does not support contacts sync.'},
@@ -78,36 +92,41 @@ export class OAuthApiAncillarySyncService implements ProviderAncillarySyncServic
 				},
 			};
 		}
-		if (!syncContacts && !syncCalendar) {
+		if (!shouldSyncContacts && !shouldSyncCalendar) {
 			return {
 				moduleStatus: {
-					contacts: {state: 'skipped', reason: 'Contacts sync is disabled for this account.'},
-					calendar: {state: 'skipped', reason: 'Calendar sync is disabled for this account.'},
+					contacts: {state: 'skipped', reason: resolveSkippedReason('contacts', supportsContacts, syncContacts)},
+					calendar: {state: 'skipped', reason: resolveSkippedReason('calendar', supportsCalendar, syncCalendar)},
 				},
 			};
 		}
 
 		try {
 			const credentials = await this.#driver.resolveSyncCredentials(accountId);
-			const accessToken = String(credentials.oauth_session?.accessToken || '').trim();
+			let accessToken = String(credentials.oauth_session?.accessToken || '').trim();
 			if (credentials.auth_method !== 'oauth2' || !accessToken) {
 				const dav = await syncDav(accountId, options ?? null);
 				return {
 					dav,
 					moduleStatus: {
-						contacts: syncContacts
+						contacts: shouldSyncContacts
 							? {state: 'success'}
-							: {state: 'skipped', reason: 'Contacts sync is disabled for this account.'},
-						calendar: syncCalendar
+							: {state: 'skipped', reason: resolveSkippedReason('contacts', supportsContacts, syncContacts)},
+						calendar: shouldSyncCalendar
 							? {state: 'success'}
-							: {state: 'skipped', reason: 'Calendar sync is disabled for this account.'},
-					},
-				};
-			}
-			if (this.#provider === 'microsoft' && !looksLikeJwt(accessToken)) {
-				throw new Error(
-					'Microsoft OAuth token is invalid for Graph API. Reconnect the Microsoft account to refresh cloud/contacts/calendar scopes.',
-				);
+							: {state: 'skipped', reason: resolveSkippedReason('calendar', supportsCalendar, syncCalendar)},
+						},
+					};
+				}
+			if (this.#provider === 'microsoft' && credentials.oauth_session?.refreshToken) {
+				const refreshed = await refreshMailOAuthSessionWithOptions(credentials.oauth_session, {
+					additionalScopes: getMicrosoftGraphOAuthScopes(),
+					replaceExistingScopes: true,
+				});
+				accessToken = String(refreshed.accessToken || '').trim();
+				if (!accessToken) {
+					throw new Error('Microsoft OAuth token refresh did not return a Graph API access token.');
+				}
 			}
 			const dav = await syncOauthProviderDav({
 				accountId,
@@ -120,12 +139,12 @@ export class OAuthApiAncillarySyncService implements ProviderAncillarySyncServic
 			return {
 				dav,
 				moduleStatus: {
-					contacts: syncContacts
+					contacts: shouldSyncContacts
 						? {state: 'success'}
-						: {state: 'skipped', reason: 'Contacts sync is disabled for this account.'},
-					calendar: syncCalendar
+						: {state: 'skipped', reason: resolveSkippedReason('contacts', supportsContacts, syncContacts)},
+					calendar: shouldSyncCalendar
 						? {state: 'success'}
-						: {state: 'skipped', reason: 'Calendar sync is disabled for this account.'},
+						: {state: 'skipped', reason: resolveSkippedReason('calendar', supportsCalendar, syncCalendar)},
 				},
 			};
 		} catch (error: any) {
@@ -134,18 +153,32 @@ export class OAuthApiAncillarySyncService implements ProviderAncillarySyncServic
 			createMailDebugLogger('caldav', `sync:${accountId}`).error('OAuth ancillary sync failed: %s', reason);
 			return {
 				moduleStatus: {
-					contacts: {state: 'failed', reason},
-					calendar: {state: 'failed', reason},
+					contacts: shouldSyncContacts
+						? {state: 'failed', reason}
+						: {state: 'skipped', reason: resolveSkippedReason('contacts', supportsContacts, syncContacts)},
+					calendar: shouldSyncCalendar
+						? {state: 'failed', reason}
+						: {state: 'skipped', reason: resolveSkippedReason('calendar', supportsCalendar, syncCalendar)},
 				},
 			};
 		}
 	}
 }
 
-function looksLikeJwt(token: string): boolean {
-	return (
-		String(token || '')
-			.trim()
-			.split('.').length === 3
-	);
+function resolveSkippedReason(
+	module: 'contacts' | 'calendar',
+	isSupported: boolean,
+	isEnabled: boolean,
+): string {
+	if (!isSupported) {
+		return module === 'contacts'
+			? 'Provider does not support contacts sync.'
+			: 'Provider does not support calendar sync.';
+	}
+	if (!isEnabled) {
+		return module === 'contacts'
+			? 'Contacts sync is disabled for this account.'
+			: 'Calendar sync is disabled for this account.';
+	}
+	return module === 'contacts' ? 'Contacts sync was not executed.' : 'Calendar sync was not executed.';
 }

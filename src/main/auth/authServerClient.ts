@@ -145,6 +145,7 @@ export async function refreshMailOAuthSession(session: OAuthSession): Promise<Au
 
 type RefreshMailOAuthSessionOptions = {
 	additionalScopes?: string[];
+	replaceExistingScopes?: boolean;
 };
 
 function normalizeScopeList(scopes: Array<string | null | undefined>): string[] {
@@ -165,7 +166,9 @@ export async function refreshMailOAuthSessionWithOptions(
 	session: OAuthSession,
 	options: RefreshMailOAuthSessionOptions = {},
 ): Promise<AuthServerOAuthTokenDto> {
-	const requestedScopes = normalizeScopeList([session.scope, ...(options.additionalScopes ?? [])]);
+	const requestedScopes = options.replaceExistingScopes
+		? normalizeScopeList(options.additionalScopes ?? [])
+		: normalizeScopeList([session.scope, ...(options.additionalScopes ?? [])]);
 	const payload = await requestJson(
 		'/api/auth/refresh',
 		{

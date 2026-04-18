@@ -30,7 +30,6 @@ import type {
 	AddCloudAccountPayload,
 	CloudItem,
 	CloudProvider,
-	PublicAccount,
 	CloudStorageUsage,
 	PublicCloudAccount,
 	UpdateCloudAccountPayload,
@@ -41,6 +40,7 @@ import WorkspaceLayout from '@renderer/layouts/WorkspaceLayout';
 import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {
+	type AddCloudAccountDraft,
 	areCloudItemsEqual,
 	buildCloudRoute,
 	buildRootTrail,
@@ -49,6 +49,7 @@ import {
 	type CloudTableColumnKey,
 	constrainToViewport,
 	Field,
+	type EditCloudAccountDraft,
 	formatStorageUsage,
 	formatStorageUsagePercent,
 	invalidateDeletedFolderCaches,
@@ -71,14 +72,6 @@ import {
 import CloudSortableHeaderCell from './CloudSortableHeaderCell';
 
 type CloudTableSortDirection = 'asc' | 'desc';
-type EditCloudAccountDraft = {
-	id: number;
-	provider: CloudProvider;
-	name: string;
-	base_url: string;
-	user: string;
-	secret: string;
-};
 
 export default function CloudFilesPage() {
 	const {sidebarWidth, onResizeStart} = useResizableSidebar({
@@ -89,7 +82,6 @@ export default function CloudFilesPage() {
 	});
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [accounts, setAccounts] = useState<PublicCloudAccount[]>([]);
-	const [mailAccounts, setMailAccounts] = useState<PublicAccount[]>([]);
 	const [items, setItems] = useState<CloudItem[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [status, setStatus] = useState<string | null>(null);
@@ -155,7 +147,7 @@ export default function CloudFilesPage() {
 		startX: number;
 		startWidth: number;
 	} | null>(null);
-	const [draft, setDraft] = useState<AddCloudAccountPayload>({
+	const [draft, setDraft] = useState<AddCloudAccountDraft>({
 		provider: 'nextcloud',
 		name: '',
 		base_url: '',
@@ -183,31 +175,6 @@ export default function CloudFilesPage() {
 		return () => {
 			active = false;
 			if (typeof off === 'function') off();
-		};
-	}, []);
-
-	useEffect(() => {
-		let active = true;
-		const load = async () => {
-			const rows = await ipcClient.getAccounts();
-			if (!active) return;
-			setMailAccounts(rows);
-		};
-		void load();
-		const offAdded = ipcClient.onAccountAdded(() => {
-			void load();
-		});
-		const offUpdated = ipcClient.onAccountUpdated(() => {
-			void load();
-		});
-		const offDeleted = ipcClient.onAccountDeleted(() => {
-			void load();
-		});
-		return () => {
-			active = false;
-			if (typeof offAdded === 'function') offAdded();
-			if (typeof offUpdated === 'function') offUpdated();
-			if (typeof offDeleted === 'function') offDeleted();
 		};
 	}, []);
 
@@ -578,12 +545,10 @@ export default function CloudFilesPage() {
 	function buildCloudLink(accountId: number, trail: NavigationEntry[]): string {
 		return buildCloudRoute(accountId, trail);
 	}
-
 	function buildFolderLink(item: CloudItem): string {
 		if (!selectedAccount) return '/cloud';
 		return buildCloudLink(selectedAccount.id, [...nav, {token: item.path, label: item.name}]);
 	}
-
 	function toggleTableColumn(column: CloudTableColumnKey): void {
 		setTableColumns((prev) => {
 			if (prev.includes(column)) {
@@ -593,15 +558,12 @@ export default function CloudFilesPage() {
 			return [...prev, column];
 		});
 	}
-
 	function resetTableColumns(): void {
 		setTableColumns(CLOUD_TABLE_COLUMN_OPTIONS.map((column) => column.key));
 	}
-
 	function openTableHeadMenuAt(x: number, y: number): void {
 		setTableHeadMenu({x, y});
 	}
-
 	function moveTableColumnBefore(dragged: CloudTableColumnKey, target: CloudTableColumnKey): void {
 		if (dragged === target) return;
 		setTableColumns((prev) => {
@@ -615,7 +577,6 @@ export default function CloudFilesPage() {
 			return next;
 		});
 	}
-
 	function moveTableColumnAfter(dragged: CloudTableColumnKey, target: CloudTableColumnKey): void {
 		if (dragged === target) return;
 		setTableColumns((prev) => {
@@ -629,12 +590,10 @@ export default function CloudFilesPage() {
 			return next;
 		});
 	}
-
 	function onTableHeaderDragStart(column: CloudTableColumnKey): void {
 		if (resizeRef.current) return;
 		setDraggingColumn(column);
 	}
-
 	function isTableColumnMoveNoop(
 		dragged: CloudTableColumnKey,
 		target: CloudTableColumnKey,
@@ -649,7 +608,6 @@ export default function CloudFilesPage() {
 		const adjustedInsertionIndex = sourceIndex < rawInsertionIndex ? rawInsertionIndex - 1 : rawInsertionIndex;
 		return adjustedInsertionIndex === sourceIndex;
 	}
-
 	function onTableHeaderDrop(
 		target: CloudTableColumnKey,
 		side: 'before' | 'after',
@@ -670,7 +628,6 @@ export default function CloudFilesPage() {
 		setDragPlaceholder(null);
 		setDraggingColumn(null);
 	}
-
 	function toggleTableSort(column: CloudTableColumnKey): void {
 		setTableSort((prev) => {
 			if (prev.column === column) {
@@ -682,7 +639,6 @@ export default function CloudFilesPage() {
 			return {column, direction: 'asc'};
 		});
 	}
-
 	function onColumnResizeStart(key: CloudTableColumnKey, event: React.MouseEvent) {
 		event.preventDefault();
 		resizeRef.current = {
@@ -847,6 +803,22 @@ export default function CloudFilesPage() {
 		setAdding(true);
 		setStatus('Adding cloud account...');
 		try {
+			if (draft.provider === 'google-drive' || draft.provider === 'onedrive') {
+				const providerLabel = draft.provider === 'google-drive' ? 'Google Drive' : 'OneDrive';
+				setStatus(`Opening ${providerLabel} OAuth...`);
+				const linked = await ipcClient.linkCloudOAuth(draft.provider, {});
+				setShowAddModal(false);
+				setDraft({
+					provider: 'nextcloud',
+					name: '',
+					base_url: '',
+					user: '',
+					secret: '',
+				});
+				setStatus(`${providerLabel} account connected: ${linked.name}.`);
+				return;
+			}
+
 			const payload: AddCloudAccountPayload = {
 				provider: draft.provider,
 				name: draft.name.trim(),
@@ -887,10 +859,6 @@ export default function CloudFilesPage() {
 
 	async function onDeleteAccount(account: PublicCloudAccount): Promise<void> {
 		if (deleting) return;
-		if (isOAuthManagedCloudAccount(account)) {
-			setStatus('OAuth cloud accounts are managed from Account Settings and cannot be deleted here.');
-			return;
-		}
 		if (!window.confirm(`Delete cloud account "${account.name}"?`)) return;
 		setDeleting(true);
 		setAccountMenu(null);
@@ -965,19 +933,13 @@ export default function CloudFilesPage() {
 		setAccountMenu(null);
 	}
 
-	function onOpenLinkedAccountSettings(account: PublicCloudAccount): void {
-		const linkedAccountId = resolveLinkedMailAccountId(account, mailAccounts);
-		setAccountMenu(null);
-		if (!linkedAccountId) {
-			setStatus('No linked mail account found for this OAuth cloud account.');
-			return;
-		}
-		window.location.hash = `#/settings/account/${linkedAccountId}`;
-	}
-
 	const requiresWebDavFields = draft.provider === 'nextcloud' || draft.provider === 'webdav';
+	const isOAuthProviderDraft = draft.provider === 'google-drive' || draft.provider === 'onedrive';
 	const editRequiresWebDavFields = editDraft?.provider === 'nextcloud' || editDraft?.provider === 'webdav';
 	const secretLabel = 'Password / app token';
+	const canSubmitAddDraft = isOAuthProviderDraft
+		? true
+		: draft.name.trim().length > 0 && draft.secret.trim().length > 0;
 
 	function toggleAccountExpanded(accountId: number): void {
 		setCollapsedAccountIds((prev) => {
@@ -1431,7 +1393,7 @@ export default function CloudFilesPage() {
 														return (
 															<td
 																key={`${item.id}-${column.key}`}
-																className="px-3 py-2"
+																className="px-3 py-2 min-w-0 overflow-hidden whitespace-nowrap"
 																style={{width: columnWidths.name}}
 															>
 																{item.isFolder ? (
@@ -1653,32 +1615,12 @@ export default function CloudFilesPage() {
 					<ContextMenuItem type="button" onClick={() => void onRefreshAccount(accountMenu.account)}>
 						Refresh
 					</ContextMenuItem>
-					{isOAuthManagedCloudAccount(accountMenu.account) ? (
-						<>
-							<ContextMenuItem
-								type="button"
-								onClick={() => onOpenLinkedAccountSettings(accountMenu.account)}
-							>
-								Open linked account settings
-							</ContextMenuItem>
-							<ContextMenuItem type="button" disabled>
-								Managed by account settings
-							</ContextMenuItem>
-						</>
-					) : (
-						<>
-							<ContextMenuItem type="button" onClick={() => onOpenAccountSettings(accountMenu.account)}>
-								Edit account
-							</ContextMenuItem>
-							<ContextMenuItem
-								type="button"
-								danger
-								onClick={() => void onDeleteAccount(accountMenu.account)}
-							>
-								Delete account
-							</ContextMenuItem>
-						</>
-					)}
+					<ContextMenuItem type="button" onClick={() => onOpenAccountSettings(accountMenu.account)}>
+						Edit account
+					</ContextMenuItem>
+					<ContextMenuItem type="button" danger onClick={() => void onDeleteAccount(accountMenu.account)}>
+						Delete account
+					</ContextMenuItem>
 				</ContextMenu>
 			)}
 
@@ -1693,7 +1635,7 @@ export default function CloudFilesPage() {
 						<div>
 							<h3 className="ui-text-primary text-base font-semibold">Add Cloud Account</h3>
 							<p className="ui-text-muted mt-1 text-xs">
-								Nextcloud/WebDAV uses URL + username + app password.
+								Connect WebDAV directly, or use OAuth for Google Drive/OneDrive.
 							</p>
 						</div>
 						<Cloud size={18} className="icon-muted" />
@@ -1707,14 +1649,18 @@ export default function CloudFilesPage() {
 							options={[
 								{value: 'nextcloud', label: 'Nextcloud (WebDAV)'},
 								{value: 'webdav', label: 'Generic WebDAV'},
+								{value: 'google-drive', label: 'Google Drive (OAuth)'},
+								{value: 'onedrive', label: 'OneDrive (OAuth)'},
 							]}
 						/>
-						<Field
-							label="Account name"
-							value={draft.name}
-							onChange={(next) => setDraft((prev) => ({...prev, name: next}))}
-							placeholder="Personal Drive"
-						/>
+						{!isOAuthProviderDraft && (
+							<Field
+								label="Account name"
+								value={draft.name}
+								onChange={(next) => setDraft((prev) => ({...prev, name: next}))}
+								placeholder="Personal Drive"
+							/>
+						)}
 						{requiresWebDavFields && (
 							<>
 								<Field
@@ -1731,13 +1677,26 @@ export default function CloudFilesPage() {
 								/>
 							</>
 						)}
-						<Field
-							label={secretLabel}
-							value={draft.secret}
-							onChange={(next) => setDraft((prev) => ({...prev, secret: next}))}
-							placeholder="App password"
-							type="password"
-						/>
+						{requiresWebDavFields && (
+							<Field
+								label={secretLabel}
+								value={draft.secret}
+								onChange={(next) => setDraft((prev) => ({...prev, secret: next}))}
+								placeholder="App password"
+								type="password"
+							/>
+						)}
+						{isOAuthProviderDraft && (
+							<p className="ui-text-muted rounded-md border border-dashed p-3 text-xs">
+								This will open a browser window for OAuth sign-in.
+							</p>
+						)}
+						{adding && isOAuthProviderDraft && (
+							<div className="ui-text-secondary flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
+								<Loader2 size={14} className="animate-spin" />
+								<span>Waiting for OAuth in your browser. Finish sign-in to continue.</span>
+							</div>
+						)}
 					</div>
 					<div className="mt-4 flex items-center justify-between gap-2">
 						<Button
@@ -1752,12 +1711,12 @@ export default function CloudFilesPage() {
 							type="button"
 							variant="default"
 							className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
-							disabled={adding || !draft.name.trim() || !draft.secret.trim()}
+							disabled={adding || !canSubmitAddDraft}
 							onClick={() => {
 								void onAddCloudAccount();
 							}}
 						>
-							{adding ? 'Adding...' : 'Add Cloud Account'}
+							{adding ? 'Adding...' : isOAuthProviderDraft ? 'Connect with OAuth' : 'Add Cloud Account'}
 						</Button>
 					</div>
 				</Modal>
@@ -1956,37 +1915,4 @@ export default function CloudFilesPage() {
 			)}
 		</div>
 	);
-}
-
-function isOAuthManagedCloudAccount(account: PublicCloudAccount): boolean {
-	return account.provider === 'google-drive' || account.provider === 'onedrive';
-}
-
-function resolveLinkedMailAccountId(account: PublicCloudAccount, mailAccounts: PublicAccount[]): number | null {
-	const cloudUser = String(account.user || '')
-		.trim()
-		.toLowerCase();
-	const targetProvider =
-		account.provider === 'google-drive' ? 'google' : account.provider === 'onedrive' ? 'microsoft' : '';
-	if (!targetProvider) return null;
-
-	const byProvider = mailAccounts.filter((mailAccount) => {
-		const provider = String(mailAccount.provider || '')
-			.trim()
-			.toLowerCase();
-		const oauthProvider = String(mailAccount.oauth_provider || '')
-			.trim()
-			.toLowerCase();
-		return provider === targetProvider || oauthProvider === targetProvider;
-	});
-	if (byProvider.length === 0) return null;
-	if (!cloudUser) return byProvider[0]?.id ?? null;
-
-	const exact = byProvider.find((mailAccount) => {
-		const email = String(mailAccount.email || '')
-			.trim()
-			.toLowerCase();
-		return email === cloudUser;
-	});
-	return exact?.id ?? byProvider[0]?.id ?? null;
 }

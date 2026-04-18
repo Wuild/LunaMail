@@ -22,8 +22,8 @@ import {ipcClient} from '@renderer/lib/ipcClient';
 import NavRailItem from './NavRailItem';
 import {ContextMenu, ContextMenuItem} from '@renderer/components/ui/ContextMenu';
 
-type TopNavItemId = AppSettings['navRailOrder'][number];
-type TopNavItemDef = {
+export type TopNavItemId = AppSettings['navRailOrder'][number];
+export type TopNavItemDef = {
 	id: TopNavItemId;
 	to: string;
 	label: string;
@@ -31,7 +31,7 @@ type TopNavItemDef = {
 	badgeCount?: number;
 };
 
-type MainNavContextItemId = TopNavItemId | 'settings' | 'debug' | 'help';
+export type MainNavContextItemId = TopNavItemId | 'settings' | 'debug' | 'about';
 type MainNavContextMenuState = {
 	id: MainNavContextItemId;
 	label: string;
@@ -40,13 +40,13 @@ type MainNavContextMenuState = {
 	y: number;
 };
 
-const DEFAULT_TOP_NAV_ORDER: TopNavItemId[] = ['email', 'contacts', 'calendar', 'cloud'];
+export const DEFAULT_TOP_NAV_ORDER: TopNavItemId[] = ['email', 'contacts', 'calendar', 'cloud'];
 
-function isTopNavItemId(value: unknown): value is TopNavItemId {
+export function isTopNavItemId(value: unknown): value is TopNavItemId {
 	return value === 'email' || value === 'contacts' || value === 'calendar' || value === 'cloud';
 }
 
-function normalizeTopNavOrder(input: unknown): TopNavItemId[] {
+export function normalizeTopNavOrder(input: unknown): TopNavItemId[] {
 	const source = Array.isArray(input) ? input : [];
 	const normalized: TopNavItemId[] = [];
 	for (const item of source) {
@@ -60,7 +60,7 @@ function normalizeTopNavOrder(input: unknown): TopNavItemId[] {
 	return normalized;
 }
 
-function toTopNavSortableId(id: TopNavItemId): string {
+export function toTopNavSortableId(id: TopNavItemId): string {
 	return `topnav-${id}`;
 }
 
@@ -324,13 +324,13 @@ export default function MainNavRail() {
 					<div
 						onContextMenu={(event) =>
 							openMainNavContextMenu(event, {
-								id: 'help',
-								label: 'Help',
-								to: '/help',
+								id: 'about',
+								label: 'About',
+								to: '/about',
 							})
 						}
 					>
-						<NavRailItem to="/help" icon={<CircleHelp size={16} />} label="Help" />
+						<NavRailItem to="/about" icon={<CircleHelp size={16} />} label="About" />
 					</div>
 				</div>
 			</aside>

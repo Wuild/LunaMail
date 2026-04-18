@@ -12,7 +12,6 @@ import {
 } from '@/shared/accountModules.js';
 import type {AuthMethod, OAuthProvider, OAuthSession} from '@/shared/ipcTypes.js';
 import {ensureFreshMailOAuthSession, getDefaultMailOAuthAdditionalScopes} from '@main/mail/oauth.js';
-import {deleteCloudAccount, getCloudAccounts, type CloudProvider} from '@main/db/repositories/cloudRepo.js';
 
 // This repository still contains parameterized raw SQL for a few multi-step cleanup paths while Drizzle migration is
 // completed incrementally. Keep new data access Drizzle-first unless there is a documented exception.
@@ -540,13 +539,6 @@ export async function deleteAccount(accountId: number): Promise<{id: number; ema
 	const rawDb = getDb();
 	const existing = await db.select().from(accounts).where(eq(accounts.id, accountId)).get();
 	if (!existing?.id) throw new Error(`Account ${accountId} not found`);
-	const linkedCloudAccountIds = await resolveLinkedCloudAccountIds(existing.email, {
-		provider: existing.provider ?? null,
-		oauthProvider: normalizeOAuthProvider(existing.oauthProvider ?? null),
-	});
-	for (const linkedCloudAccountId of linkedCloudAccountIds) {
-		await deleteCloudAccount(linkedCloudAccountId);
-	}
 
 	const tx = rawDb.transaction((id: number) => {
 		rawDb
@@ -581,51 +573,6 @@ export async function deleteAccount(accountId: number): Promise<{id: number; ema
 	await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, existing.email));
 	await removeLocalAccountVCard(accountId, existing.email);
 	return {id: accountId, email: existing.email};
-}
-
-async function resolveLinkedCloudAccountIds(
-	email: string,
-	input: {provider: string | null; oauthProvider: OAuthProvider | null},
-): Promise<number[]> {
-	const cloudProvider = resolveAccountCloudProvider(input.provider, input.oauthProvider);
-	if (!cloudProvider) return [];
-	const normalizedEmail = String(email || '')
-		.trim()
-		.toLowerCase();
-	if (!normalizedEmail) return [];
-	const cloudAccounts = await getCloudAccounts();
-	return cloudAccounts
-		.filter((cloudAccount) => {
-			if (cloudAccount.provider !== cloudProvider) return false;
-			const cloudUser = String(cloudAccount.user || '')
-				.trim()
-				.toLowerCase();
-			return cloudUser === normalizedEmail;
-		})
-		.map((cloudAccount) => cloudAccount.id);
-}
-
-function resolveAccountCloudProvider(
-	provider: string | null,
-	oauthProvider: OAuthProvider | null,
-): Extract<CloudProvider, 'google-drive' | 'onedrive'> | null {
-	if (oauthProvider === 'google') return 'google-drive';
-	if (oauthProvider === 'microsoft') return 'onedrive';
-	const normalizedProvider = String(provider || '')
-		.trim()
-		.toLowerCase();
-	if (normalizedProvider === 'google' || normalizedProvider === 'gmail') return 'google-drive';
-	if (
-		normalizedProvider === 'microsoft' ||
-		normalizedProvider === 'outlook' ||
-		normalizedProvider === 'hotmail' ||
-		normalizedProvider === 'office365' ||
-		normalizedProvider === 'm365' ||
-		normalizedProvider === 'exchange'
-	) {
-		return 'onedrive';
-	}
-	return null;
 }
 
 function normalizeAuthMethod(value: string): AuthMethod {

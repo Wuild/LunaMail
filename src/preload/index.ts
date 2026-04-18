@@ -203,7 +203,7 @@ export interface CloudShareLinkResult {
 }
 
 export interface LinkCloudOAuthPayload {
-	clientId: string;
+	clientId?: string | null;
 	tenantId?: string | null;
 }
 

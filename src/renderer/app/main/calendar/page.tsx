@@ -753,11 +753,20 @@ export default function CalendarPage({accountId, accounts, onSelectAccount}: Cal
 							</div>
 						);
 					})}
-					{accounts.length === 0 && <p className="ui-text-muted px-2 py-2 text-sm">No accounts available.</p>}
+						{accounts.length === 0 && (
+							<Button
+								type="button"
+								variant="secondary"
+								className="w-full justify-center rounded-md px-3 py-2 text-sm"
+								onClick={() => navigate('/add-account')}
+							>
+								Add account
+							</Button>
+						)}
+					</div>
 				</div>
-			</div>
-		</aside>
-	);
+			</aside>
+		);
 	const selectedDayEvents = selectedDayForModal ? (eventsByDay.get(selectedDayForModal) ?? []) : [];
 	const selectedAccountEmail =
 		String(selectedAccount.account?.email || '')

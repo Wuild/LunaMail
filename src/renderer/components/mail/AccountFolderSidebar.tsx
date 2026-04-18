@@ -190,6 +190,7 @@ type AccountFolderSidebarProps = {
 	onOpenAccountSettings: (accountId: number) => void;
 	onOpenAccountContextMenu: (account: PublicAccount, x: number, y: number) => void;
 	onOpenCompose: (accountId: number | null) => void;
+	onOpenAddAccount: () => void;
 	onHandleMessageDropOnFolder: (folder: FolderItem, draggedIds: number[], dragAccountId: number) => void;
 	onOpenFolderContextMenu: (accountId: number, folder: FolderItem, x: number, y: number) => void;
 	onOpenFolderEditor: (folder: FolderItem) => void;
@@ -219,6 +220,7 @@ export default function AccountFolderSidebar({
 	onOpenAccountSettings,
 	onOpenAccountContextMenu,
 	onOpenCompose,
+	onOpenAddAccount,
 	onHandleMessageDropOnFolder,
 	onOpenFolderContextMenu,
 	onOpenFolderEditor,
@@ -406,9 +408,16 @@ export default function AccountFolderSidebar({
 							</Button>
 						</div>
 
-						{accounts.length === 0 && (
-							<div className="ui-text-muted rounded-lg px-3 py-2.5 text-sm">No accounts yet</div>
-						)}
+							{accounts.length === 0 && (
+								<Button
+									type="button"
+									variant="secondary"
+									className="w-full justify-center rounded-lg px-3 py-2.5 text-sm"
+									onClick={onOpenAddAccount}
+								>
+									Add account
+								</Button>
+							)}
 
 						<DndContext
 							sensors={accountSensors}

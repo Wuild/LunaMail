@@ -1,19 +1,14 @@
 import React, {useEffect, useState} from 'react';
-import {ExternalLink} from 'lucide-react';
 import type {AppSettings} from '@/preload';
 import {useAppSettings as useIpcAppSettings} from '@renderer/hooks/ipc/useAppSettings';
 import {useAutoUpdateState} from '@renderer/hooks/ipc/useAutoUpdateState';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {DEFAULT_APP_SETTINGS} from '@/shared/defaults';
-import {APP_URL} from '@/shared/appConfig';
 import {describeUpdatePhase} from '../mailFilterHelpers';
 import {Button} from '@renderer/components/ui/button';
 import {FormCheckbox, FormSelect} from '@renderer/components/ui/FormControls';
 import {normalizeSyncIntervalMinutes, parseAppLanguage} from '@/shared/settingsRules';
 import {APP_LANGUAGE_OPTIONS, SYNC_INTERVAL_OPTIONS} from '@/shared/settingsOptions';
-
-const GITHUB_URL = 'https://github.com/Wuild/LlamaMail';
-const PATREON_URL = 'https://patreon.com/wuild';
 
 export default function SettingsApplicationPage() {
 	const {appSettings: settings, setAppSettings: setSettings} = useIpcAppSettings(DEFAULT_APP_SETTINGS);
@@ -122,47 +117,6 @@ export default function SettingsApplicationPage() {
 
 	return (
 		<div className="mx-auto h-full min-h-0 w-full max-w-5xl space-y-4 pb-6">
-			<section className="panel rounded-xl p-4">
-				<div className="space-y-3">
-					<div className="min-w-0 flex-1">
-						<p className="ui-text-secondary text-sm font-medium">Project Links</p>
-						<p className="ui-text-muted mt-1 text-xs">
-							LlamaMail is built in spare time. If it helps you, support on Patreon directly funds
-							continued development, maintenance, and new features.
-						</p>
-					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<Button
-							type="button"
-							variant="success"
-							className="rounded-md px-3 py-2 text-sm"
-							onClick={() => window.open(PATREON_URL, '_blank', 'noopener,noreferrer')}
-							rightIcon={<ExternalLink size={14} />}
-						>
-							Support on Patreon
-						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							className="rounded-md px-3 py-2 text-sm"
-							onClick={() => window.open(GITHUB_URL, '_blank', 'noopener,noreferrer')}
-							rightIcon={<ExternalLink size={14} />}
-						>
-							GitHub
-						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							className="rounded-md px-3 py-2 text-sm"
-							onClick={() => window.open(APP_URL, '_blank', 'noopener,noreferrer')}
-							rightIcon={<ExternalLink size={14} />}
-						>
-							Website
-						</Button>
-					</div>
-				</div>
-			</section>
-
 			<div className="panel rounded-xl p-4">
 				<div className="flex items-start justify-between gap-3">
 					<div className="min-w-0">

@@ -36,7 +36,8 @@ export default function AppLayout() {
 		if (path.startsWith('/cloud')) return 'Cloud';
 		if (path.startsWith('/settings')) return 'Settings';
 		if (path.startsWith('/debug')) return 'Debug';
-		if (path.startsWith('/help')) return 'Help';
+		if (path.startsWith('/about')) return 'About';
+		if (path.startsWith('/help')) return 'About';
 		return 'Mail';
 	}, [location.pathname]);
 	const hasDefaultUpdateIndicator =

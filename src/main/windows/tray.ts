@@ -85,9 +85,9 @@ export function createTrayController(deps: TrayControllerDeps): {
 				click: () => deps.onNavigate('/settings/application'),
 			},
 			{
-				label: 'Help',
+				label: 'About',
 				enabled: canUseMainWindowActions,
-				click: () => deps.onNavigate('/help'),
+				click: () => deps.onNavigate('/about'),
 			},
 			{
 				label: 'Quit',

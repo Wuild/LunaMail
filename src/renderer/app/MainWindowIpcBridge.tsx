@@ -77,8 +77,8 @@ export function MainWindowIpcBridge() {
 		});
 		setAccountFoldersById(next);
 		setSelectedAccountId((prev) => {
-			if (prev && sortedAccounts.some((account) => account.id === prev)) return prev;
-			return emailAccounts[0]?.id ?? sortedAccounts[0]?.id ?? null;
+			if (prev && emailAccounts.some((account) => account.id === prev)) return prev;
+			return emailAccounts[0]?.id ?? null;
 		});
 	}, [setAccountFoldersById, setAccounts, setSelectedAccountId]);
 
@@ -135,6 +135,15 @@ export function MainWindowIpcBridge() {
 
 	useIpcEvent(ipcClient.onAccountUpdated, (updated: PublicAccount) => {
 		setAccounts((prev) => prev.map((account) => (account.id === updated.id ? updated : account)));
+		if (!isAccountEmailModuleEnabled(updated)) {
+			setAccountFoldersById((prev) => {
+				if (!(updated.id in prev)) return prev;
+				const next = {...prev};
+				delete next[updated.id];
+				return next;
+			});
+			setSelectedAccountId((prev) => (prev === updated.id ? null : prev));
+		}
 	});
 
 	useIpcEvent(ipcClient.onAccountDeleted, (deleted) => {

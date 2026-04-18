@@ -16,7 +16,7 @@ import {
 	updateCloudAccount,
 	type UpdateCloudAccountPayload,
 } from '@main/db/repositories/cloudRepo.js';
-import {getAccountSyncCredentials, getAccounts as getMailAccounts} from '@main/db/repositories/accountsRepo.js';
+import {getDefaultCloudOAuthAdditionalScopes, startMailOAuth} from '@main/mail/oauth.js';
 import {
 	createCloudFolder,
 	createCloudShareLink,
@@ -85,11 +85,10 @@ export function registerCloudIpc(): void {
 		}
 		const rawClientId = String(payload?.clientId || '').trim();
 		const clientId = provider === 'onedrive' ? rawClientId || ONEDRIVE_APP_ID : rawClientId;
-		if (!clientId) throw new Error('Client ID is required.');
 		const tenantId = String(payload?.tenantId || '').trim() || 'common';
 		const linked =
 			provider === 'google-drive'
-				? await linkGoogleDriveOAuth(clientId)
+				? await linkGoogleDriveViaAuthService()
 				: await linkOneDriveOAuth(clientId, tenantId);
 
 		const secretPayload = JSON.stringify({
@@ -99,7 +98,7 @@ export function registerCloudIpc(): void {
 			tokenType: linked.tokenType || null,
 			scope: linked.scope || null,
 			provider,
-			clientId,
+			clientId: provider === 'onedrive' ? clientId : null,
 			tenantId: provider === 'onedrive' ? tenantId : null,
 		});
 		const linkedEmail = String(linked.email || '').trim();
@@ -123,122 +122,9 @@ export function registerCloudIpc(): void {
 
 	ipcMain.handle('delete-cloud-account', async (_event, accountId: number) => {
 		logger.warn('IPC delete-cloud-account accountId=%d', accountId);
-		const accounts = await getCloudAccounts();
-		const target = accounts.find((account) => account.id === Number(accountId)) ?? null;
-		if (target && (target.provider === 'google-drive' || target.provider === 'onedrive')) {
-			throw new Error('OAuth cloud accounts are managed from Account Settings and cannot be deleted here.');
-		}
 		const result = await deleteCloudAccount(accountId);
 		broadcastCloudAccountsChanged();
 		return result;
-	});
-
-	ipcMain.handle('unlink-account-cloud-drive', async (_event, accountId: number) => {
-		const safeAccountId = Number(accountId);
-		if (!Number.isFinite(safeAccountId) || safeAccountId <= 0) {
-			throw new Error('Invalid accountId.');
-		}
-		logger.info('IPC unlink-account-cloud-drive accountId=%d', safeAccountId);
-		const mailAccounts = await getMailAccounts();
-		const mailAccount = mailAccounts.find((account) => account.id === safeAccountId) ?? null;
-		if (!mailAccount) {
-			throw new Error(`Account ${safeAccountId} not found.`);
-		}
-		const cloudProvider = resolveOAuthCloudProvider(
-			mailAccount.provider ?? null,
-			mailAccount.oauth_provider ?? null,
-		);
-		if (!cloudProvider) {
-			return {removed: false as const, reason: 'provider-not-supported' as const, cloudAccountId: null};
-		}
-		const linkedEmail = String(mailAccount.email || '')
-			.trim()
-			.toLowerCase();
-		const cloudAccounts = await getCloudAccounts();
-		const providerAccounts = cloudAccounts.filter((account) => account.provider === cloudProvider);
-		if (providerAccounts.length === 0) {
-			return {removed: false as const, reason: 'not-linked' as const, cloudAccountId: null};
-		}
-		const target =
-			providerAccounts.find((account) => {
-				const user = String(account.user || '')
-					.trim()
-					.toLowerCase();
-				return Boolean(linkedEmail) && user === linkedEmail;
-			}) ?? providerAccounts[0];
-		await deleteCloudAccount(target.id);
-		broadcastCloudAccountsChanged();
-		return {removed: true as const, reason: null, cloudAccountId: target.id};
-	});
-
-	ipcMain.handle('link-account-cloud-drive', async (_event, accountId: number) => {
-		const safeAccountId = Number(accountId);
-		if (!Number.isFinite(safeAccountId) || safeAccountId <= 0) {
-			throw new Error('Invalid accountId.');
-		}
-		logger.info('IPC link-account-cloud-drive accountId=%d', safeAccountId);
-		const mailAccounts = await getMailAccounts();
-		const mailAccount = mailAccounts.find((account) => account.id === safeAccountId) ?? null;
-		if (!mailAccount) {
-			throw new Error(`Account ${safeAccountId} not found.`);
-		}
-		const cloudProvider = resolveOAuthCloudProvider(
-			mailAccount.provider ?? null,
-			mailAccount.oauth_provider ?? null,
-		);
-		if (!cloudProvider) {
-			return {linked: false as const, reason: 'provider-not-supported' as const, cloudAccount: null};
-		}
-		const linkedEmail = String(mailAccount.email || '')
-			.trim()
-			.toLowerCase();
-		const existingCloudAccounts = await getCloudAccounts();
-		const alreadyLinked =
-			existingCloudAccounts.find((account) => {
-				if (account.provider !== cloudProvider) return false;
-				const user = String(account.user || '')
-					.trim()
-					.toLowerCase();
-				return Boolean(linkedEmail) && user === linkedEmail;
-			}) ?? null;
-		if (alreadyLinked) {
-			return {linked: false as const, reason: 'already-linked' as const, cloudAccount: alreadyLinked};
-		}
-
-		const credentials = await getAccountSyncCredentials(safeAccountId);
-		if (credentials.auth_method !== 'oauth2' || !credentials.oauth_session?.accessToken?.trim()) {
-			throw new Error('This account does not have an active OAuth session for cloud linking.');
-		}
-		const oauthSession = credentials.oauth_session;
-		const providerClientId =
-			cloudProvider === 'onedrive'
-				? String(oauthSession.clientId || '').trim() || ONEDRIVE_APP_ID
-				: String(oauthSession.clientId || '').trim() || null;
-		const providerTenantId =
-			cloudProvider === 'onedrive' ? String(oauthSession.tenantId || '').trim() || ONEDRIVE_TENANT_ID : null;
-		const secretPayload = JSON.stringify({
-			accessToken: oauthSession.accessToken,
-			refreshToken: oauthSession.refreshToken || null,
-			expiresAt: oauthSession.expiresAt,
-			tokenType: oauthSession.tokenType || null,
-			scope: oauthSession.scope || null,
-			provider: cloudProvider,
-			clientId: providerClientId,
-			tenantId: providerTenantId,
-		});
-		const accountName =
-			String(mailAccount.email || '').trim() ||
-			String(mailAccount.display_name || '').trim() ||
-			(cloudProvider === 'google-drive' ? 'Google Drive' : 'OneDrive');
-		const created = await addCloudAccount({
-			provider: cloudProvider,
-			name: accountName,
-			user: mailAccount.email || null,
-			base_url: null,
-			secret: secretPayload,
-		});
-		broadcastCloudAccountsChanged();
-		return {linked: true as const, reason: null, cloudAccount: created};
 	});
 
 	ipcMain.handle('list-cloud-items', async (_event, accountId: number, pathOrToken?: string | null) => {
@@ -392,21 +278,6 @@ function sanitizeCloudFilename(value: string): string {
 	return cleaned.slice(0, 180);
 }
 
-function resolveOAuthCloudProvider(
-	provider: string | null | undefined,
-	oauthProvider: string | null | undefined,
-): OAuthProvider | null {
-	const normalizedProvider = String(provider || '')
-		.trim()
-		.toLowerCase();
-	const normalizedOauthProvider = String(oauthProvider || '')
-		.trim()
-		.toLowerCase();
-	if (normalizedProvider === 'google' || normalizedOauthProvider === 'google') return 'google-drive';
-	if (normalizedProvider === 'microsoft' || normalizedOauthProvider === 'microsoft') return 'onedrive';
-	return null;
-}
-
 type LinkedOAuthAccount = {
 	accessToken: string;
 	refreshToken: string | null;
@@ -416,6 +287,22 @@ type LinkedOAuthAccount = {
 	displayName: string | null;
 	email: string | null;
 };
+
+async function linkGoogleDriveViaAuthService(): Promise<LinkedOAuthAccount> {
+	const session = await startMailOAuth({
+		provider: 'google',
+		scopes: getDefaultCloudOAuthAdditionalScopes('google'),
+	});
+	return {
+		accessToken: String(session.accessToken || '').trim(),
+		refreshToken: String(session.refreshToken || '').trim() || null,
+		expiresAt: Number.isFinite(Number(session.expiresAt)) ? Number(session.expiresAt) : null,
+		tokenType: String(session.tokenType || '').trim() || null,
+		scope: String(session.scope || '').trim() || null,
+		displayName: String(session.displayName || '').trim() || null,
+		email: String(session.email || '').trim() || null,
+	};
+}
 
 async function linkGoogleDriveOAuth(clientId: string): Promise<LinkedOAuthAccount> {
 	const state = randomBytes(16).toString('hex');
@@ -514,9 +401,11 @@ async function linkOneDriveOAuth(clientId: string, tenantId: string): Promise<Li
 		expires_in?: number;
 		token_type?: string;
 		scope?: string;
+		id_token?: string;
 	};
 	const accessToken = String(token.access_token || '').trim();
 	if (!accessToken) throw new Error('OneDrive OAuth response did not include an access token.');
+	const idTokenClaims = parseJwtClaims(token.id_token);
 	const meRes = await fetch(`${ONEDRIVE_RESOURCE}/v1.0/me`, {
 		headers: {Authorization: `Bearer ${accessToken}`},
 	});
@@ -526,6 +415,15 @@ async function linkOneDriveOAuth(clientId: string, tenantId: string): Promise<Li
 		const me = (await meRes.json()) as {displayName?: string; mail?: string; userPrincipalName?: string};
 		displayName = String(me.displayName || '').trim() || null;
 		email = String(me.mail || me.userPrincipalName || '').trim() || null;
+	}
+	if (!displayName) {
+		displayName =
+			String(idTokenClaims.name || idTokenClaims.given_name || idTokenClaims.preferred_username || '').trim() ||
+			null;
+	}
+	if (!email) {
+		email =
+			String(idTokenClaims.preferred_username || idTokenClaims.email || idTokenClaims.upn || '').trim() || null;
 	}
 	const expiresAt = Number.isFinite(Number(token.expires_in)) ? Date.now() + Number(token.expires_in) * 1000 : null;
 	return {
@@ -537,6 +435,24 @@ async function linkOneDriveOAuth(clientId: string, tenantId: string): Promise<Li
 		displayName,
 		email,
 	};
+}
+
+function parseJwtClaims(token: string | null | undefined): Record<string, string> {
+	const raw = String(token || '').trim();
+	if (!raw) return {};
+	const parts = raw.split('.');
+	if (parts.length < 2) return {};
+	try {
+		const payload = Buffer.from(parts[1], 'base64url').toString('utf8');
+		const parsed = JSON.parse(payload) as Record<string, unknown>;
+		const claims: Record<string, string> = {};
+		for (const [key, value] of Object.entries(parsed)) {
+			if (typeof value === 'string') claims[key] = value;
+		}
+		return claims;
+	} catch {
+		return {};
+	}
 }
 
 function createProtocolOAuthCallbackWaiter(

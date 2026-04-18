@@ -37,7 +37,8 @@ export function registerDefaultProtocolPageRoutes(): void {
 		{key: 'cloud', route: '/cloud'},
 		{key: 'settings', route: '/settings/application'},
 		{key: 'debug', route: '/debug'},
-		{key: 'help', route: '/help'},
+		{key: 'help', route: '/about'},
+		{key: 'about', route: '/about'},
 	]);
 }
 

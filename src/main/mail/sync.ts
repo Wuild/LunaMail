@@ -258,6 +258,8 @@ export async function syncAccountMailboxWithCredentials(
 				continue;
 			}
 		}
+	} catch (error: any) {
+		throw new Error(formatMailboxSyncError(error));
 	} finally {
 		try {
 			await client.logout();
@@ -268,6 +270,29 @@ export async function syncAccountMailboxWithCredentials(
 
 	const folders = listFoldersByAccount(accountId).length;
 	return {accountId, folders, messages: totalMessages, newMessages, newMessageIds, newestMessageTarget};
+}
+
+function formatMailboxSyncError(error: any): string {
+	const message = String(error?.message || '').trim();
+	const responseText = String(error?.responseText || '').trim();
+	const serverResponse = String(error?.serverResponse || '').trim();
+	const executedCommand = String(error?.executedCommand || error?.command || '').trim();
+	const merged = [message, responseText, serverResponse, executedCommand]
+		.filter(Boolean)
+		.join(' | ')
+		.toLowerCase();
+
+	if (merged.includes('noaduserbysid')) {
+		return 'Microsoft OAuth authenticated, but this account has no Exchange mailbox (NoAdUserBySid).';
+	}
+	if (/^command failed$/i.test(message)) {
+		if (responseText) return responseText;
+		if (serverResponse) return serverResponse;
+	}
+	if (responseText) return responseText;
+	if (serverResponse) return serverResponse;
+	if (message) return message;
+	return 'Mailbox sync failed.';
 }
 
 function inferFolderType(path: string): string | null {

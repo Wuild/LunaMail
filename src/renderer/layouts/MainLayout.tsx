@@ -1208,10 +1208,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 						onOpenAccountContextMenu={(account, x, y) => {
 							setAccountMenu({x, y, account});
 						}}
-						onOpenCompose={(accountId) => {
-							void ipcClient.openComposeWindow(accountId ? {accountId} : undefined);
-						}}
-						onHandleMessageDropOnFolder={handleMessageDropOnFolder}
+							onOpenCompose={(accountId) => {
+								void ipcClient.openComposeWindow(accountId ? {accountId} : undefined);
+							}}
+							onOpenAddAccount={() => {
+								window.location.hash = '/add-account';
+							}}
+							onHandleMessageDropOnFolder={handleMessageDropOnFolder}
 						onOpenFolderContextMenu={(accountId, folder, x, y) => {
 							if (accountId !== selectedAccountId) onSelectAccount(accountId);
 							setMenu({kind: 'folder', x, y, folder});

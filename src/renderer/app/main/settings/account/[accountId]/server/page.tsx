@@ -1,7 +1,6 @@
 import {useOutletContext} from 'react-router-dom';
 import ServiceSettingsCard from '@renderer/components/settings/ServiceSettingsCard';
 import {FormCheckbox} from '@renderer/components/ui/FormControls';
-import {Button} from '@renderer/components/ui/button';
 import {Field} from '@renderer/app/main/settings/formParts';
 import type {UseAccountSettingsRouteResult} from '../useAccountSettingsRoute';
 
@@ -10,11 +9,6 @@ export default function SettingsAccountServerPage() {
 		editor,
 		setEditor,
 		accountStatus,
-		linkedCloudDrive,
-		canLinkCloudDrive,
-		cloudDriveBusy,
-		onLinkCloudDrive,
-		onUnlinkCloudDrive,
 	} = useOutletContext<UseAccountSettingsRouteResult>();
 	if (!editor) return null;
 	const hasAnyModuleEnabled = !!editor.sync_emails || !!editor.sync_contacts || !!editor.sync_calendar;
@@ -88,46 +82,6 @@ export default function SettingsAccountServerPage() {
 						onChange={(v) => setEditor((p) => (p ? {...p, password: v} : p))}
 					/>
 				</div>
-			</section>
-			<section className="panel mt-4 rounded-xl p-4">
-				<h2 className="ui-text-primary text-base font-semibold">Cloud Drive</h2>
-				<p className="mt-1 ui-text-muted text-sm">
-					Manage whether this account has a linked cloud drive integration.
-				</p>
-				<div className="mt-4 flex items-center justify-between gap-3">
-					<div>
-						<p className="ui-text-secondary text-sm">
-							{linkedCloudDrive
-								? `Connected: ${linkedCloudDrive.name}`
-								: 'No cloud drive linked to this account.'}
-						</p>
-						{linkedCloudDrive?.user && (
-							<p className="ui-text-muted mt-1 text-xs">
-								{linkedCloudDrive.provider} · {linkedCloudDrive.user}
-							</p>
-						)}
-					</div>
-					<Button
-						type="button"
-						variant={linkedCloudDrive ? 'danger' : 'success'}
-						size="sm"
-						disabled={cloudDriveBusy || (!linkedCloudDrive && !canLinkCloudDrive)}
-						onClick={() => void (linkedCloudDrive ? onUnlinkCloudDrive() : onLinkCloudDrive())}
-					>
-						{cloudDriveBusy
-							? linkedCloudDrive
-								? 'Disconnecting...'
-								: 'Linking...'
-							: linkedCloudDrive
-								? 'Do Not Use Cloud Drive'
-								: 'Link Cloud Drive'}
-					</Button>
-				</div>
-				{!linkedCloudDrive && !canLinkCloudDrive && (
-					<p className="ui-text-muted mt-2 text-xs">
-						Cloud drive linking is available for OAuth Google and Microsoft accounts.
-					</p>
-				)}
 			</section>
 			<div className="mt-4">
 				<ServiceSettingsCard

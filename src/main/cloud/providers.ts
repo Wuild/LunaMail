@@ -50,7 +50,38 @@ type OAuthSecretPayload = {
 	tenantId?: string | null;
 };
 
+type GoogleDriveExportTarget = {
+	mimeType: string;
+	extension: string;
+};
+
 const logger = createMailDebugLogger('cloud', 'providers');
+const GOOGLE_DRIVE_DEFAULT_EXPORTS: Record<string, GoogleDriveExportTarget> = {
+	'application/vnd.google-apps.document': {
+		mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		extension: '.docx',
+	},
+	'application/vnd.google-apps.spreadsheet': {
+		mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+		extension: '.xlsx',
+	},
+	'application/vnd.google-apps.presentation': {
+		mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+		extension: '.pptx',
+	},
+	'application/vnd.google-apps.drawing': {
+		mimeType: 'image/png',
+		extension: '.png',
+	},
+	'application/vnd.google-apps.script': {
+		mimeType: 'application/vnd.google-apps.script+json',
+		extension: '.json',
+	},
+	'application/vnd.google-apps.site': {
+		mimeType: 'text/html',
+		extension: '.html',
+	},
+};
 
 export async function listCloudItems(
 	account: CloudAccountCredentials,
@@ -1211,7 +1242,7 @@ async function downloadGoogleDriveItem(
 	const itemId = String(itemPathOrToken || '').trim();
 	if (!itemId) throw new Error('Missing file token.');
 	const metadataRes = await fetch(
-		`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(itemId)}?fields=id,name,mimeType`,
+		`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(itemId)}?fields=id,name,mimeType,exportLinks`,
 		{
 			headers: {Authorization: `Bearer ${bearerToken}`},
 		},
@@ -1219,10 +1250,32 @@ async function downloadGoogleDriveItem(
 	if (!metadataRes.ok) {
 		throw new Error(`Open file failed (${metadataRes.status})`);
 	}
-	const metadata = (await metadataRes.json()) as {name?: string; mimeType?: string};
+	const metadata = (await metadataRes.json()) as {
+		name?: string;
+		mimeType?: string;
+		exportLinks?: Record<string, string>;
+	};
 	const mimeType = metadata.mimeType || null;
+	if (mimeType === 'application/vnd.google-apps.folder') {
+		throw new Error('Folders cannot be opened as files.');
+	}
 	if (mimeType?.startsWith('application/vnd.google-apps')) {
-		throw new Error('Google Docs native files are not downloadable yet.');
+		const exportTarget = resolveGoogleDriveExportTarget(mimeType, metadata.exportLinks);
+		if (!exportTarget) {
+			throw new Error(`Google file type is not exportable yet (${mimeType}).`);
+		}
+		const exportRes = await fetch(exportTarget.url, {
+			headers: {Authorization: `Bearer ${bearerToken}`},
+		});
+		if (!exportRes.ok) {
+			throw new Error(`Open file failed (${exportRes.status})`);
+		}
+		const arrayBuffer = await exportRes.arrayBuffer();
+		return {
+			name: ensureFilenameExtension(String(metadata.name || itemId), exportTarget.extension),
+			mimeType: exportRes.headers.get('content-type') || exportTarget.mimeType,
+			content: Buffer.from(arrayBuffer),
+		};
 	}
 	const contentRes = await fetch(
 		`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(itemId)}?alt=media`,
@@ -1239,6 +1292,73 @@ async function downloadGoogleDriveItem(
 		mimeType: contentRes.headers.get('content-type') || mimeType,
 		content: Buffer.from(arrayBuffer),
 	};
+}
+
+function resolveGoogleDriveExportTarget(
+	googleMimeType: string,
+	exportLinks?: Record<string, string>,
+): {url: string; mimeType: string; extension: string} | null {
+	const normalizedLinks = exportLinks ?? {};
+	const preferred = GOOGLE_DRIVE_DEFAULT_EXPORTS[googleMimeType];
+	if (preferred) {
+		const preferredUrl = String(normalizedLinks[preferred.mimeType] || '').trim();
+		if (preferredUrl) {
+			return {
+				url: preferredUrl,
+				mimeType: preferred.mimeType,
+				extension: preferred.extension,
+			};
+		}
+	}
+	for (const [candidateMimeType, candidateUrlRaw] of Object.entries(normalizedLinks)) {
+		const candidateUrl = String(candidateUrlRaw || '').trim();
+		if (!candidateUrl) continue;
+		return {
+			url: candidateUrl,
+			mimeType: candidateMimeType,
+			extension: guessExtensionFromMimeType(candidateMimeType),
+		};
+	}
+	return null;
+}
+
+function ensureFilenameExtension(name: string, extension: string): string {
+	const normalizedName = String(name || '').trim() || 'download';
+	const normalizedExtension = String(extension || '').trim().toLowerCase();
+	if (!normalizedExtension.startsWith('.')) return normalizedName;
+	if (normalizedName.toLowerCase().endsWith(normalizedExtension)) return normalizedName;
+	return `${normalizedName}${normalizedExtension}`;
+}
+
+function guessExtensionFromMimeType(mimeType: string): string {
+	switch (String(mimeType || '').toLowerCase()) {
+		case 'application/pdf':
+			return '.pdf';
+		case 'text/plain':
+			return '.txt';
+		case 'text/csv':
+			return '.csv';
+		case 'text/markdown':
+			return '.md';
+		case 'text/html':
+			return '.html';
+		case 'image/png':
+			return '.png';
+		case 'image/jpeg':
+			return '.jpg';
+		case 'image/svg+xml':
+			return '.svg';
+		case 'application/zip':
+			return '.zip';
+		case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+			return '.docx';
+		case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+			return '.xlsx';
+		case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+			return '.pptx';
+		default:
+			return '';
+	}
 }
 
 async function createOneDriveFolder(

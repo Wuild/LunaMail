@@ -6,6 +6,7 @@ import {
 	deleteAccount,
 	getAccountSyncCredentials,
 	getAccounts,
+	type PublicAccount,
 	updateAccount,
 } from '@main/db/repositories/accountsRepo.js';
 import {
@@ -324,9 +325,7 @@ export function registerAccountIpc(): void {
 		syncDav: async (accountId, options?: DavSyncOptions | null) => {
 			const result = await syncAccountAncillaryInWorker(accountId, options ?? null);
 			if (result.dav) return result.dav;
-			const contactsReason = result.moduleStatus?.contacts?.reason || 'Contacts sync was not executed.';
-			const calendarReason = result.moduleStatus?.calendar?.reason || 'Calendar sync was not executed.';
-			throw new Error(`${contactsReason} ${calendarReason}`.trim());
+			throw new Error(formatAncillarySyncFailure(result));
 		},
 		getContacts,
 		listRecentRecipients,
@@ -439,9 +438,7 @@ async function runAutoSyncCycle(source: 'startup' | 'interval'): Promise<void> {
 				!isDemoProvider(account.provider) && !isDemoModeEnabled() && isAccountEmailModuleEnabled(account),
 		);
 		void ensureIdleWatchersForAccounts(syncableAccounts.map((account) => account.id));
-		for (const account of accounts) {
-			if (isDemoModeEnabled()) continue;
-			if (isDemoProvider(account.provider)) continue;
+		for (const account of syncableAccounts) {
 			if (blockedSyncAccounts.has(account.id)) continue;
 			try {
 				await runSyncAndBroadcast(account.id, source);
@@ -520,6 +517,7 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 		state.inFlight = true;
 		state.queued = false;
 		const source = state.latestSource;
+		let accountSnapshot: PublicAccount | null = null;
 		let cancelled = false;
 		let activeMailWorker: Worker | null = null;
 		let activeAncillaryWorker: Worker | null = null;
@@ -547,10 +545,10 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 		appLogger.info('Sync started accountId=%d source=%s', accountId, source);
 
 		try {
-			const account = (await getAccounts()).find((item) => item.id === accountId) ?? null;
-			const emailsEnabled = isAccountEmailModuleEnabled(account);
-			const contactsEnabled = isAccountContactsModuleEnabled(account);
-			const calendarEnabled = isAccountCalendarModuleEnabled(account);
+			accountSnapshot = (await getAccounts()).find((item) => item.id === accountId) ?? null;
+			const emailsEnabled = isAccountEmailModuleEnabled(accountSnapshot);
+			const contactsEnabled = isAccountContactsModuleEnabled(accountSnapshot);
+			const calendarEnabled = isAccountCalendarModuleEnabled(accountSnapshot);
 			let mailSummary: SyncSummary = {
 				accountId,
 				folders: 0,
@@ -669,6 +667,16 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 				continue;
 			}
 			if (!isCancelled) {
+				const autoDisabled = await maybeDisableEmailSyncForMailboxlessMicrosoftAccount(
+					accountSnapshot,
+					message,
+					source,
+				);
+				if (autoDisabled) {
+					state.pending?.reject(new Error(autoDisabled.message));
+					state.pending = null;
+					return;
+				}
 				if (error instanceof ProviderManagerError) {
 					const providerError = `Sync unavailable: ${message}`;
 					broadcastSync({
@@ -711,6 +719,102 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 			state.cancelCurrent = null;
 		}
 	}
+}
+
+function isMicrosoftProviderAccount(account: PublicAccount | null): boolean {
+	if (!account) return false;
+	const provider = String(account.provider || '')
+		.trim()
+		.toLowerCase();
+	const oauthProvider = String(account.oauth_provider || '')
+		.trim()
+		.toLowerCase();
+	return provider === 'microsoft' || oauthProvider === 'microsoft';
+}
+
+function isMicrosoftMailboxMissingError(message: string): boolean {
+	const text = String(message || '').toLowerCase();
+	if (!text) return false;
+	return (
+		text.includes('noaduserbysid') ||
+		text.includes('mailboxnotenabledforrestapi') ||
+		text.includes('no mailbox') ||
+		text.includes('user has no mailbox') ||
+		text.includes('command error. 12')
+	);
+}
+
+async function maybeDisableEmailSyncForMailboxlessMicrosoftAccount(
+	account: PublicAccount | null,
+	message: string,
+	source: string,
+): Promise<{message: string} | null> {
+	if (!isMicrosoftProviderAccount(account) || !isMicrosoftMailboxMissingError(message)) return null;
+	if (!account || !isAccountEmailModuleEnabled(account)) return null;
+
+	if (!isAccountContactsModuleEnabled(account) && !isAccountCalendarModuleEnabled(account)) {
+		const syncMessage =
+			'Microsoft login succeeded, but this account has no Exchange mailbox. Sync was disabled for this account.';
+		blockedSyncAccounts.set(account.id, syncMessage);
+		stopIdleWatcher(account.id);
+		broadcastSync({
+			accountId: account.id,
+			status: 'error',
+			error: syncMessage,
+			source,
+			syncError: normalizeProviderSyncError(syncMessage),
+		});
+		appLogger.warn('Blocked sync for mailboxless Microsoft account accountId=%d reason=%s', account.id, message);
+		return {
+			message: syncMessage,
+		};
+	}
+
+	const updated = await updateAccount(account.id, {
+		email: account.email,
+		provider: account.provider,
+		auth_method: account.auth_method,
+		oauth_provider: account.oauth_provider,
+		display_name: account.display_name,
+		reply_to: account.reply_to,
+		organization: account.organization,
+		signature_text: account.signature_text,
+		signature_is_html: account.signature_is_html,
+		signature_file_path: account.signature_file_path,
+		attach_vcard: account.attach_vcard,
+		imap_host: account.imap_host,
+		imap_port: account.imap_port,
+		imap_secure: account.imap_secure,
+		pop3_host: account.pop3_host,
+		pop3_port: account.pop3_port,
+		pop3_secure: account.pop3_secure,
+		smtp_host: account.smtp_host,
+		smtp_port: account.smtp_port,
+		smtp_secure: account.smtp_secure,
+		sync_emails: 0,
+		sync_contacts: account.sync_contacts,
+		sync_calendar: account.sync_calendar,
+		user: account.user,
+	});
+
+	blockedSyncAccounts.set(
+		account.id,
+		'Microsoft sign-in succeeded, but this account has no Exchange mailbox.',
+	);
+	stopIdleWatcher(account.id);
+	broadcastToAllWindows('account-updated', updated);
+	const syncMessage =
+		'Email sync was turned off automatically: Microsoft sign-in succeeded, but this account has no Exchange mailbox.';
+	broadcastSync({
+		accountId: account.id,
+		status: 'error',
+		error: syncMessage,
+		source,
+		syncError: normalizeProviderSyncError(syncMessage),
+	});
+	appLogger.warn('Auto-disabled email sync accountId=%d provider=microsoft reason=%s', account.id, message);
+	notifyUnreadCountChanged();
+	return {message: syncMessage};
 }
 
 async function syncAccountAncillaryInWorker(
@@ -818,6 +922,22 @@ function createDeferred<T>(): Deferred<T> {
 		reject = rej;
 	});
 	return {promise, resolve, reject};
+}
+
+function formatAncillarySyncFailure(result: ProviderAncillarySyncResult): string {
+	const moduleStatuses = [result.moduleStatus?.contacts, result.moduleStatus?.calendar];
+	const preferredReasons = moduleStatuses
+		.filter((status) => status?.state === 'failed')
+		.map((status) => String(status?.reason || '').trim())
+		.filter(Boolean);
+	const fallbackReasons = moduleStatuses
+		.filter((status) => status?.state !== 'success')
+		.map((status) => String(status?.reason || '').trim())
+		.filter(Boolean);
+	const reasons = (preferredReasons.length > 0 ? preferredReasons : fallbackReasons).filter(
+		(reason, index, all) => all.indexOf(reason) === index,
+	);
+	return reasons.join(' ').trim() || 'DAV sync was not executed.';
 }
 
 function broadcastSync(payload: any) {
@@ -972,6 +1092,9 @@ async function connectIdleWatcher(state: IdleWatcherState): Promise<void> {
 	} catch (error: any) {
 		if (!state.stopped) {
 			const message = error?.message || String(error);
+			const account = (await getAccounts()).find((item) => item.id === state.accountId) ?? null;
+			const autoDisabled = await maybeDisableEmailSyncForMailboxlessMicrosoftAccount(account, message, 'idle-probe');
+			if (autoDisabled) return;
 			console.error(`IMAP IDLE connect failed for account ${state.accountId}:`, message);
 			for (const folder of state.folders.values()) {
 				scheduleFolderIdleReconnect(state, folder);
@@ -1042,6 +1165,9 @@ async function connectFolderIdleWatcher(state: IdleWatcherState, folder: FolderI
 	} catch (error: any) {
 		if (!state.stopped) {
 			const message = error?.message || String(error);
+			const account = (await getAccounts()).find((item) => item.id === state.accountId) ?? null;
+			const autoDisabled = await maybeDisableEmailSyncForMailboxlessMicrosoftAccount(account, message, 'idle');
+			if (autoDisabled) return;
 			console.error(
 				`IMAP IDLE connect failed for account ${state.accountId} folder ${folder.mailboxPath}:`,
 				message,

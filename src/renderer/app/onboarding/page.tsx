@@ -1,9 +1,8 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {Navigate, useNavigate} from 'react-router-dom';
+import {useNavigate} from 'react-router-dom';
 import {Check, Globe2, LayoutTemplate, MonitorCog, Moon, Sparkles, Sun} from 'lucide-react';
 import {Button} from '@renderer/components/ui/button';
 import {FormCheckbox, FormSelect} from '@renderer/components/ui/FormControls';
-import SettingsAddAccount from '../add-account/AddAccountForm';
 import {APP_LANGUAGE_OPTIONS, APP_THEME_OPTIONS, MAIL_VIEW_OPTIONS} from '@/shared/settingsOptions';
 import {parseAppLanguage} from '@/shared/settingsRules';
 import {createDefaultAppSettings} from '@/shared/defaults';
@@ -12,11 +11,6 @@ import {ipcClient} from '@renderer/lib/ipcClient';
 import llamaArt from '@resource/llama.png';
 import {useThemePreference} from '@renderer/hooks/useAppTheme';
 
-type OnboardingPageProps = {
-	hasAccounts: boolean;
-};
-
-type OnboardingStep = 'preferences' | 'account';
 type ThemeOptionValue = 'light' | 'dark' | 'system';
 
 const THEME_OPTION_META: Record<ThemeOptionValue, {icon: React.ReactNode; subtitle: string}> = {
@@ -34,10 +28,9 @@ const THEME_OPTION_META: Record<ThemeOptionValue, {icon: React.ReactNode; subtit
 	},
 };
 
-export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
+export default function OnboardingPage() {
 	const navigate = useNavigate();
 	const defaults = useMemo(() => createDefaultAppSettings(), []);
-	const [step, setStep] = useState<OnboardingStep>('preferences');
 	const [language, setLanguage] = useState<AppLanguage>(defaults.language);
 	const [theme, setTheme] = useState<AppTheme>(defaults.theme);
 	const [mailView, setMailView] = useState<MailView>(defaults.mailView);
@@ -65,11 +58,7 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
 		};
 	}, [defaults.autoUpdateEnabled, defaults.language, defaults.mailView, defaults.minimizeToTray, defaults.theme]);
 
-	if (hasAccounts) {
-		return <Navigate to="/email" replace />;
-	}
-
-	async function onContinueToAccountStep() {
+	async function onSaveAndContinue() {
 		setSaving(true);
 		setError(null);
 		try {
@@ -80,7 +69,7 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
 				minimizeToTray,
 				autoUpdateEnabled,
 			});
-			setStep('account');
+			navigate('/settings/application', {replace: true});
 		} catch (e: any) {
 			setError(e?.message || String(e));
 		} finally {
@@ -91,113 +80,101 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
 	return (
 		<div className="workspace-content h-full w-full overflow-hidden">
 			<div className="panel flex h-full w-full flex-col overflow-hidden border-0">
-				{step === 'preferences' ? (
-					<div className="flex h-full min-h-0 flex-col overflow-hidden">
-						<div className="grid h-full w-full min-h-0 overflow-hidden lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)]">
-							<section
-								className="relative hidden overflow-hidden px-6 py-7 text-inverse md:px-8 md:py-9 lg:block"
+				<div className="flex h-full min-h-0 flex-col overflow-hidden">
+					<div className="grid h-full w-full min-h-0 overflow-hidden lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)]">
+						<section
+							className="relative hidden overflow-hidden px-6 py-7 text-inverse md:px-8 md:py-9 lg:block"
+							style={{
+								backgroundImage:
+									'radial-gradient(120% 120% at 12% 0%, rgba(190, 132, 255, 0.52) 0%, transparent 52%), radial-gradient(120% 120% at 88% 100%, #7b3fe0 0%, transparent 56%), linear-gradient(160deg, #6a34cc 0%, #7440d8 40%, #552ab8 72%, #3c1e86 100%)',
+							}}
+						>
+							<div
+								className="absolute -left-14 top-8 h-52 w-52 rounded-full blur-3xl"
+								style={{backgroundColor: 'rgba(255, 255, 255, 0.10)'}}
+							/>
+							<div
+								className="absolute -right-16 bottom-0 h-56 w-56 rounded-full blur-3xl"
+								style={{backgroundColor: 'rgba(236, 72, 153, 0.20)'}}
+							/>
+							<div
+								className="absolute inset-x-0 bottom-0 h-40 opacity-45"
 								style={{
 									backgroundImage:
-										'radial-gradient(120% 120% at 12% 0%, rgba(190, 132, 255, 0.52) 0%, transparent 52%), radial-gradient(120% 120% at 88% 100%, #7b3fe0 0%, transparent 56%), linear-gradient(160deg, #6a34cc 0%, #7440d8 40%, #552ab8 72%, #3c1e86 100%)',
+										'radial-gradient(70% 130% at 25% 100%, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.22) 48%, transparent 74%), radial-gradient(80% 120% at 76% 100%, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.16) 45%, transparent 73%)',
 								}}
-							>
+							/>
+							<div className="relative z-10 flex h-full flex-col items-center justify-end text-center">
 								<div
-									className="absolute -left-14 top-8 h-52 w-52 rounded-full blur-3xl"
-									style={{backgroundColor: 'rgba(255, 255, 255, 0.10)'}}
-								/>
-								<div
-									className="absolute -right-16 bottom-0 h-56 w-56 rounded-full blur-3xl"
-									style={{backgroundColor: 'rgba(236, 72, 153, 0.20)'}}
-								/>
-								<div
-									className="absolute inset-x-0 bottom-0 h-40 opacity-45"
+									className="inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-wide"
 									style={{
-										backgroundImage:
-											'radial-gradient(70% 130% at 25% 100%, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.22) 48%, transparent 74%), radial-gradient(80% 120% at 76% 100%, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.16) 45%, transparent 73%)',
+										borderColor: 'rgba(255, 255, 255, 0.25)',
+										backgroundColor: 'rgba(255, 255, 255, 0.10)',
 									}}
-								/>
-								<div className="relative z-10 flex h-full flex-col items-center justify-end text-center">
-									<div
-										className="inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-wide"
-										style={{
-											borderColor: 'rgba(255, 255, 255, 0.25)',
-											backgroundColor: 'rgba(255, 255, 255, 0.10)',
-										}}
-									>
-										<Sparkles size={14} />
-										Setup wizard
-									</div>
-									<div className="mt-4 w-full max-w-[300px]">
-										<h1 className="text-3xl font-semibold leading-tight md:text-[2rem]">
-											Welcome to LlamaMail
-										</h1>
-										<p className="mt-2 text-sm text-inverse opacity-80">
-											Set your workspace preferences in under a minute, then connect your first
-											account.
+								>
+									<Sparkles size={14} />
+									Setup wizard
+								</div>
+								<div className="mt-4 w-full max-w-[300px]">
+									<h1 className="text-3xl font-semibold leading-tight md:text-[2rem]">
+										Welcome to LlamaMail
+									</h1>
+									<p className="mt-2 text-sm text-inverse opacity-80">
+										Set your workspace preferences in under a minute.
+									</p>
+									<ul className="mt-6 space-y-3 text-left text-sm text-inverse opacity-90">
+										<li className="flex items-center gap-2.5">
+											<span
+												className="rounded-full p-1"
+												style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
+											>
+												<Check size={12} />
+											</span>
+											Theme, language, and message layout
+										</li>
+										<li className="flex items-center gap-2.5">
+											<span
+												className="rounded-full p-1"
+												style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
+											>
+												<Check size={12} />
+											</span>
+											Startup and update behavior
+										</li>
+										<li className="flex items-center gap-2.5">
+											<span
+												className="rounded-full p-1"
+												style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
+											>
+												<Check size={12} />
+											</span>
+											Use the app with or without an account
+										</li>
+									</ul>
+								</div>
+								<div className="mt-6 w-full max-w-[300px]">
+									<img
+										src={llamaArt}
+										alt=""
+										className="mx-auto h-auto w-full max-w-[220px] object-contain drop-shadow-[0_12px_28px_rgba(21,8,46,0.45)]"
+										draggable={false}
+									/>
+								</div>
+							</div>
+						</section>
+						<section className="panel flex min-h-0 flex-col border-0">
+							<header className="ui-border-default border-b px-6 py-5 md:px-8">
+								<div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3">
+									<div>
+										<p className="ui-text-muted text-xs font-semibold uppercase tracking-wide">
+											Quick setup
 										</p>
-										<ul className="mt-6 space-y-3 text-left text-sm text-inverse opacity-90">
-											<li className="flex items-center gap-2.5">
-												<span
-													className="rounded-full p-1"
-													style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
-												>
-													<Check size={12} />
-												</span>
-												Theme, language, and message layout
-											</li>
-											<li className="flex items-center gap-2.5">
-												<span
-													className="rounded-full p-1"
-													style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
-												>
-													<Check size={12} />
-												</span>
-												Startup and update behavior
-											</li>
-											<li className="flex items-center gap-2.5">
-												<span
-													className="rounded-full p-1"
-													style={{backgroundColor: 'rgba(255, 255, 255, 0.15)'}}
-												>
-													<Check size={12} />
-												</span>
-												First account setup and sync
-											</li>
-										</ul>
-									</div>
-									<div className="mt-6 w-full max-w-[300px]">
-										<img
-											src={llamaArt}
-											alt=""
-											className="mx-auto h-auto w-full max-w-[220px] object-contain drop-shadow-[0_12px_28px_rgba(21,8,46,0.45)]"
-											draggable={false}
-										/>
+										<h2 className="ui-text-primary mt-1 text-2xl font-semibold">
+											Personalize your setup
+										</h2>
 									</div>
 								</div>
-							</section>
-							<section className="panel flex min-h-0 flex-col border-0">
-								<header className="ui-border-default border-b px-6 py-5 md:px-8">
-									<div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3">
-										<div>
-											<p className="ui-text-muted text-xs font-semibold uppercase tracking-wide">
-												Step 1 of 2
-											</p>
-											<h2 className="ui-text-primary mt-1 text-2xl font-semibold">
-												Personalize your setup
-											</h2>
-										</div>
-										<div className="flex items-center gap-2">
-											<span
-												className="h-2.5 w-8 rounded-full"
-												style={{backgroundColor: 'var(--color-primary)'}}
-											/>
-											<span
-												className="h-2.5 w-8 rounded-full"
-												style={{backgroundColor: 'var(--app-border)'}}
-											/>
-										</div>
-									</div>
-								</header>
+							</header>
 								<main className="min-h-0 flex-1 overflow-y-auto px-6 py-5 md:px-8 md:py-6">
 									<div className="mx-auto w-full max-w-4xl space-y-5">
 										<section className="panel rounded-xl p-4 md:p-5">
@@ -316,25 +293,16 @@ export default function OnboardingPage({hasAccounts}: OnboardingPageProps) {
 											className="rounded-md px-5 font-semibold"
 											disabled={saving}
 											onClick={() => {
-												void onContinueToAccountStep();
+												void onSaveAndContinue();
 											}}
 										>
-											{saving ? 'Saving...' : 'Continue to account setup'}
+											{saving ? 'Saving...' : 'Save and continue'}
 										</Button>
 									</div>
 								</footer>
-							</section>
-						</div>
+						</section>
 					</div>
-				) : (
-					<SettingsAddAccount
-						embedded
-						onCompleted={() => {
-							navigate('/email', {replace: true});
-						}}
-						onCancel={() => setStep('preferences')}
-					/>
-				)}
+				</div>
 			</div>
 		</div>
 	);

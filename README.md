@@ -77,8 +77,22 @@ cp .env.example .env
 OAuth/Auth server defaults to `https://llama.voracious.se` and can be overridden with:
 
 ```bash
-LUNAMAIL_AUTH_SERVER_BASE_URL=https://your-auth-host.example
+LLAMA_AUTH_SERVER_BASE_URL=https://your-auth-host.example
 ```
+
+## Environment Variables
+
+LlamaMail reads `LLAMA_*` variables by default. Legacy `LUNAMAIL_*` names are still accepted as fallback.
+
+| Variable | Default | Description | Legacy fallback |
+| --- | --- | --- | --- |
+| `LLAMA_AUTH_SERVER_BASE_URL` | `https://llama.voracious.se` | Base URL for OAuth/Auth server (`/api/auth/start`, `/exchange`, `/refresh`, etc.). | `LUNAMAIL_AUTH_SERVER_BASE_URL` |
+| `LLAMA_AUTH_SERVER_TIMEOUT_MS` | `8000` | Timeout in ms for auth server HTTP requests. | `LUNAMAIL_AUTH_SERVER_TIMEOUT_MS` |
+| `LLAMA_AUTH_SERVER_MAX_RETRIES` | `1` | Retry count for auth server HTTP requests. | `LUNAMAIL_AUTH_SERVER_MAX_RETRIES` |
+| `LLAMA_ENV_FILE` | unset | Absolute path to a `.env` file to load explicitly at runtime. | `LUNAMAIL_ENV_FILE` |
+| `LLAMA_DB_PATH` | unset | Override SQLite DB path (otherwise uses Electron `userData/llamamail.db`). | `LUNAMAIL_DB_PATH` |
+| `LLAMA_ALLOW_MULTI_INSTANCE` | `0` | Set to `1` to bypass single-instance lock (debug/dev only). | `LUNAMAIL_ALLOW_MULTI_INSTANCE` |
+| `LLAMA_ALLOW_STANDALONE_CLOUD_OAUTH` | `0` | Set to `1` to enable standalone cloud OAuth flow (`link-cloud-oauth`). Default enforces account-token reuse. | `LUNAMAIL_ALLOW_STANDALONE_CLOUD_OAUTH` |
 
 ## Package
 

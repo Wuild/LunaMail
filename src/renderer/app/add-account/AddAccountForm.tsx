@@ -66,7 +66,6 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 	const [syncEmails, setSyncEmails] = useState(1);
 	const [syncContacts, setSyncContacts] = useState(1);
 	const [syncCalendar, setSyncCalendar] = useState(1);
-	const [linkCloudStorage, setLinkCloudStorage] = useState(false);
 	const [davDiscovery, setDavDiscovery] = useState<DavDiscoveryResult | null>(null);
 	const [usedManualSetup, setUsedManualSetup] = useState(false);
 	const [providerDriverCatalog, setProviderDriverCatalog] = useState<ProviderDriverCatalogItem[]>([]);
@@ -116,12 +115,6 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 			},
 		[selectedProviderDriver],
 	);
-	const autoCloudProvider = useMemo<'google-drive' | 'onedrive' | null>(() => {
-		if (providerChoice === 'google') return 'google-drive';
-		if (providerChoice === 'microsoft') return 'onedrive';
-		return null;
-	}, [providerChoice]);
-	const canLinkCloudForProvider = autoCloudProvider !== null && selectedAuthMethod === 'oauth2';
 	const canSaveModules = useMemo(
 		() => syncEmails > 0 || syncContacts > 0 || syncCalendar > 0,
 		[syncCalendar, syncContacts, syncEmails],
@@ -463,74 +456,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 				sync_contacts: syncContacts,
 				sync_calendar: syncCalendar,
 			});
-			const cloudMessages: string[] = [];
-			if (linkCloudStorage && autoCloudProvider && selectedAuthMethod === 'oauth2') {
-				try {
-					const preferredEmailRaw = String(oauthSession?.email || email || '').trim();
-					const preferredEmail = preferredEmailRaw.trim().toLowerCase();
-					const existingCloudAccounts = await ipcClient.getCloudAccounts();
-					const hasMatchingAccount = preferredEmail
-						? existingCloudAccounts.some(
-								(account) =>
-									account.provider === autoCloudProvider &&
-									String(account.user || '')
-										.trim()
-										.toLowerCase() === preferredEmail,
-							)
-						: false;
-					if (!hasMatchingAccount) {
-						if (autoCloudProvider === 'google-drive') {
-							const accessToken = String(oauthSession?.accessToken || '').trim();
-							if (!accessToken) {
-								throw new Error('Missing Google OAuth access token.');
-							}
-							const secretPayload = JSON.stringify({
-								accessToken,
-								refreshToken: String(oauthSession?.refreshToken || '').trim() || null,
-								expiresAt: Number.isFinite(Number(oauthSession?.expiresAt))
-									? Number(oauthSession?.expiresAt)
-									: null,
-								tokenType: String(oauthSession?.tokenType || '').trim() || null,
-								scope: String(oauthSession?.scope || '').trim() || null,
-								provider: 'google-drive',
-								clientId: String(oauthSession?.clientId || '').trim() || null,
-								tenantId: null,
-							});
-							const displayName = String(oauthSession?.displayName || '').trim();
-							await ipcClient.addCloudAccount({
-								provider: 'google-drive',
-								name:
-									preferredEmailRaw ||
-									(displayName ? `${displayName} (Google Drive)` : 'Google Drive'),
-								user: preferredEmail || null,
-								base_url: null,
-								secret: secretPayload,
-							});
-							cloudMessages.push('Google Drive connected.');
-						} else {
-							await ipcClient.linkCloudOAuth('onedrive', {
-								clientId: String(oauthSession?.clientId || '').trim(),
-								tenantId: String(oauthSession?.tenantId || '').trim() || null,
-							});
-							cloudMessages.push('OneDrive connected.');
-						}
-					} else {
-						cloudMessages.push(
-							autoCloudProvider === 'google-drive'
-								? 'Google Drive was already connected.'
-								: 'OneDrive was already connected.',
-						);
-					}
-				} catch (cloudError: any) {
-					cloudMessages.push(
-						`Cloud link skipped: ${cloudError?.message || String(cloudError)} You can connect it later from Cloud.`,
-					);
-				}
-			}
-
-			setSuccess(
-				`Account added successfully${cloudMessages.length > 0 ? ` ${cloudMessages.join(' ')}` : ''}`.trim(),
-			);
+			setSuccess('Account added successfully');
 			onCompleted?.();
 
 			if (!embedded) {
@@ -566,7 +492,6 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		setSelectedAuthMethod(choice === 'custom' ? 'password' : 'oauth2');
 		setOauthSession(null);
 		setUsedManualSetup(false);
-		setLinkCloudStorage(false);
 		const capabilities = driver?.capabilities ?? {emails: true, contacts: true, calendar: true, files: false};
 		const defaultSyncEmails = capabilities.emails ? 1 : 0;
 		const defaultSyncContacts = capabilities.contacts ? 1 : 0;
@@ -1049,34 +974,6 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 													</p>
 												)}
 											</div>
-											{canLinkCloudForProvider && (
-												<div className="panel rounded-xl p-4">
-													<p className="ui-text-primary text-sm font-semibold">
-														Cloud storage
-													</p>
-													<p className="ui-text-muted mt-1 text-xs">
-														Optionally connect{' '}
-														{autoCloudProvider === 'google-drive'
-															? 'Google Drive'
-															: 'OneDrive'}{' '}
-														for this account.
-													</p>
-													<label className="ui-text-secondary mt-3 flex items-center justify-between gap-3 text-sm">
-														<span>
-															Also connect{' '}
-															{autoCloudProvider === 'google-drive'
-																? 'Google Drive'
-																: 'OneDrive'}
-														</span>
-														<FormCheckbox
-															checked={linkCloudStorage}
-															onChange={(event) =>
-																setLinkCloudStorage(event.target.checked)
-															}
-														/>
-													</label>
-												</div>
-											)}
 										</section>
 									)}
 

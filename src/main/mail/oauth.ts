@@ -11,14 +11,51 @@ import {
 const logger = createMailDebugLogger('app', 'mail:oauth');
 const OAUTH_LOGIN_TIMEOUT_MS = 2 * 60 * 1000;
 const TOKEN_REFRESH_BUFFER_MS = 60_000;
-const GOOGLE_DEFAULT_CLOUD_SCOPES = ['https://www.googleapis.com/auth/drive'];
-const MICROSOFT_DEFAULT_CLOUD_SCOPES = ['Files.ReadWrite', 'Files.ReadWrite.All', 'Sites.ReadWrite.All'];
+const GOOGLE_DEFAULT_REQUIRED_SCOPES = [
+	'openid',
+	'profile',
+	'email',
+	'https://mail.google.com/',
+	'https://www.googleapis.com/auth/contacts.readonly',
+	'https://www.googleapis.com/auth/calendar.readonly',
+];
+const MICROSOFT_EMAIL_REQUIRED_SCOPES = [
+	'offline_access',
+	'openid',
+	'profile',
+	'email',
+	'https://outlook.office.com/IMAP.AccessAsUser.All',
+	'https://outlook.office.com/SMTP.Send',
+];
+const MICROSOFT_GRAPH_REQUIRED_SCOPES = [
+	'https://graph.microsoft.com/Contacts.Read',
+	'https://graph.microsoft.com/Calendars.Read',
+	'https://graph.microsoft.com/Files.ReadWrite',
+	'https://graph.microsoft.com/Files.ReadWrite.All',
+	'https://graph.microsoft.com/Sites.ReadWrite.All',
+];
+const GOOGLE_CLOUD_REQUIRED_SCOPES = [
+	'openid',
+	'profile',
+	'email',
+	'https://www.googleapis.com/auth/drive',
+];
+const MICROSOFT_CLOUD_REQUIRED_SCOPES = [
+	'offline_access',
+	'openid',
+	'profile',
+	'email',
+	'https://graph.microsoft.com/Files.ReadWrite',
+	'https://graph.microsoft.com/Files.ReadWrite.All',
+	'https://graph.microsoft.com/Sites.ReadWrite.All',
+];
 
 type StartMailOAuthPayload = {
 	email?: string | null;
 	provider?: string | null;
 	clientId?: string | null;
 	tenantId?: string | null;
+	scopes?: string[] | null;
 };
 
 type PendingOAuthRequest = {
@@ -112,11 +149,14 @@ export function queueMailOAuthCallbackUrl(url: string): boolean {
 
 export async function startMailOAuth(payload: StartMailOAuthPayload): Promise<OAuthSession> {
 	const provider = (payload.provider === 'microsoft' ? 'microsoft' : 'google') as OAuthProvider;
+	const requestedScopes = Array.isArray(payload.scopes)
+		? payload.scopes.map((scope) => String(scope || '').trim()).filter(Boolean)
+		: [];
 
 	const requestId = randomBytes(16).toString('hex');
 	const redirectTo = `llamamail://oauth/callback?request_id=${encodeURIComponent(requestId)}`;
 	const authUrl = buildMailOAuthStartUrl(provider, redirectTo, {
-		additionalScopes: getDefaultMailOAuthAdditionalScopes(provider),
+		additionalScopes: requestedScopes.length > 0 ? requestedScopes : getDefaultMailOAuthAdditionalScopes(provider),
 	});
 
 	logger.info('Opening broker auth provider=%s', provider);
@@ -200,5 +240,13 @@ export async function ensureFreshMailOAuthSession(
 }
 
 export function getDefaultMailOAuthAdditionalScopes(provider: OAuthProvider): string[] {
-	return provider === 'microsoft' ? [...MICROSOFT_DEFAULT_CLOUD_SCOPES] : [...GOOGLE_DEFAULT_CLOUD_SCOPES];
+	return provider === 'microsoft' ? [...MICROSOFT_EMAIL_REQUIRED_SCOPES] : [...GOOGLE_DEFAULT_REQUIRED_SCOPES];
+}
+
+export function getMicrosoftGraphOAuthScopes(): string[] {
+	return [...MICROSOFT_GRAPH_REQUIRED_SCOPES];
+}
+
+export function getDefaultCloudOAuthAdditionalScopes(provider: OAuthProvider): string[] {
+	return provider === 'microsoft' ? [...MICROSOFT_CLOUD_REQUIRED_SCOPES] : [...GOOGLE_CLOUD_REQUIRED_SCOPES];
 }

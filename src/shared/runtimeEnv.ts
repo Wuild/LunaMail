@@ -32,7 +32,7 @@ function parseAndApplyEnv(text: string): void {
 
 function candidateEnvFiles(): string[] {
 	const out = new Set<string>();
-	const explicitFile = String(process.env.LUNAMAIL_ENV_FILE || '').trim();
+	const explicitFile = String(process.env.LLAMA_ENV_FILE || process.env.LUNAMAIL_ENV_FILE || '').trim();
 	if (explicitFile) {
 		out.add(path.resolve(explicitFile));
 		return Array.from(out);

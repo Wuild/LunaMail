@@ -6,6 +6,21 @@ import type {CloudItem, CloudProvider, CloudStorageUsage} from '@/preload';
 export type NavigationEntry = {token: string; label: string};
 export type CloudTableColumnKey = 'name' | 'type' | 'size' | 'modified' | 'created';
 export type OneDriveDriveScope = 'home' | 'my-files' | 'shares' | 'recycle-bin';
+export type EditCloudAccountDraft = {
+	id: number;
+	provider: CloudProvider;
+	name: string;
+	base_url: string;
+	user: string;
+	secret: string;
+};
+export type AddCloudAccountDraft = {
+	provider: CloudProvider;
+	name: string;
+	base_url: string;
+	user: string;
+	secret: string;
+};
 
 export const providerLabels: Record<CloudProvider, string> = {
 	nextcloud: 'Nextcloud',

@@ -8,6 +8,7 @@ export default function SupportPage() {
 	useAppTheme();
 	const [version, setVersion] = useState('unknown');
 	const repoUrl = 'https://github.com/wuild/LlamaMail';
+	const patreonUrl = 'https://patreon.com/wuild';
 	const author = 'wuild';
 
 	useEffect(() => {
@@ -43,9 +44,6 @@ export default function SupportPage() {
 										<span className="chip-info rounded-full px-2.5 py-1 font-medium">
 											Version {version}
 										</span>
-										<span className="chip-success rounded-full px-2.5 py-1 font-medium">
-											By {author}
-										</span>
 										<a
 											href={repoUrl}
 											target="_blank"
@@ -70,9 +68,9 @@ export default function SupportPage() {
 						</section>
 
 						<div className="columns-1 gap-4 md:columns-2">
-							<section className="panel mb-4 break-inside-avoid rounded-xl p-4 text-sm">
-								<h2 className="ui-text-primary font-semibold">Project Snapshot</h2>
-								<div className="ui-text-secondary mt-2 grid gap-2">
+						<section className="panel mb-4 break-inside-avoid rounded-xl p-4 text-sm">
+							<h2 className="ui-text-primary font-semibold">Project Snapshot</h2>
+							<div className="ui-text-secondary mt-2 grid gap-2">
 									<div>
 										<span className="ui-text-muted font-medium">App version:</span> {version}
 									</div>
@@ -90,11 +88,29 @@ export default function SupportPage() {
 											{repoUrl}
 										</a>
 									</div>
-								</div>
-							</section>
+									<a
+										href={patreonUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="ui-surface-hover ui-border-default mt-2 inline-flex w-fit items-center rounded-lg border px-2.5 py-2"
+										aria-label="Support LlamaMail on Patreon"
+										title="Support on Patreon"
+									>
+										<span className="inline-flex items-center gap-2">
+											<span aria-hidden className="relative h-5 w-5">
+												<span className="absolute bottom-0 left-0 h-5 w-3 rounded-full bg-[#FF424D]" />
+												<span className="absolute left-3.5 top-0 h-5 w-1.5 rounded-sm bg-[#052D49]" />
+											</span>
+											<span className="ui-text-primary text-sm font-semibold tracking-tight">
+												Patreon
+											</span>
+										</span>
+									</a>
+							</div>
+						</section>
 
-							<section className="panel mb-4 break-inside-avoid rounded-xl p-4 text-sm">
-								<h2 className="ui-text-primary font-semibold">How It Works</h2>
+						<section className="panel mb-4 break-inside-avoid rounded-xl p-4 text-sm">
+							<h2 className="ui-text-primary font-semibold">How It Works</h2>
 								<div className="ui-text-secondary mt-2 space-y-2">
 									<p>
 										<span className="ui-text-secondary font-medium">Accounts & sync:</span> Each

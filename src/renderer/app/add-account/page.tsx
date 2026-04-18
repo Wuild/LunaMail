@@ -16,7 +16,11 @@ export default function AddAccountPage({hasAccounts}: AddAccountPageProps) {
 				navigate('/email', {replace: true});
 			}}
 			onCancel={() => {
-				navigate(hasAccounts ? '/settings/application' : '/onboarding', {replace: true});
+				if (window.history.length > 1) {
+					navigate(-1);
+					return;
+				}
+				navigate('/email', {replace: true});
 			}}
 		/>
 	);

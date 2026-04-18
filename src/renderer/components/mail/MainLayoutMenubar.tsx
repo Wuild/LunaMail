@@ -139,10 +139,10 @@ export default function MainLayoutMenubar({
 					variant="ghost"
 					className="titlebar-nav-button h-9 w-9 rounded-md p-0"
 					onClick={() => {
-						window.location.hash = '/help';
+						window.location.hash = '/about';
 					}}
-					title="Support"
-					aria-label="Support"
+					title="About"
+					aria-label="About"
 				>
 					<CircleHelp size={17} />
 				</Button>

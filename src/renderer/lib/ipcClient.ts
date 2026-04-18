@@ -169,7 +169,7 @@ export const ipcClient = {
 		window.electronAPI.linkAccountCloudDrive(accountId),
 	linkCloudOAuth: (
 		provider: 'google-drive' | 'onedrive',
-		payload: {clientId: string; tenantId?: string | null},
+		payload: {clientId?: string | null; tenantId?: string | null},
 	): Promise<PublicCloudAccount> => window.electronAPI.linkCloudOAuth(provider, payload),
 	listCloudItems: (accountId: number, pathOrToken?: string | null): Promise<{path: string; items: CloudItem[]}> =>
 		window.electronAPI.listCloudItems(accountId, pathOrToken ?? null),

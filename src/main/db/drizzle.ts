@@ -7,7 +7,7 @@ import {createAppLogger} from '@main/debug/debugLog.js';
 // Create or reuse a singleton DB connection + Drizzle client
 let _db: any = null;
 let _drizzle: ReturnType<typeof drizzle> | null = null;
-let _sqlitePathOverride: string | null = process.env.LUNAMAIL_DB_PATH || null;
+let _sqlitePathOverride: string | null = process.env.LLAMA_DB_PATH || process.env.LUNAMAIL_DB_PATH || null;
 
 const require = createRequire(import.meta.url);
 const logger = createAppLogger('db');

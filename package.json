@@ -45,7 +45,8 @@
 		"build:win": "npm run build && electron-builder --win",
 		"build:mac": "node scripts/build-mac.cjs",
 		"build:mac:x64": "node scripts/build-mac.cjs --x64",
-		"build:mac:arm64": "node scripts/build-mac.cjs --arm64"
+		"build:mac:arm64": "node scripts/build-mac.cjs --arm64",
+		"build:packages": "npm run build -w @llamamail/app && npm run build -w @llamamail/ui && npm run build -w @llamamail/plugin-sdk"
 	},
 	"keywords": [],
 	"author": {

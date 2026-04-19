@@ -22,5 +22,5 @@ function normalizeAuthServerBaseUrl(raw: string | undefined): string {
 }
 
 export const AUTH_SERVER_BASE_URL = normalizeAuthServerBaseUrl(readRuntimeEnv('AUTH_SERVER_BASE_URL'));
-export const AUTH_SERVER_TIMEOUT_MS = parseNumberSetting(readRuntimeEnv('AUTH_SERVER_TIMEOUT_MS'), 8_000);
+export const AUTH_SERVER_TIMEOUT_MS = parseNumberSetting(readRuntimeEnv('AUTH_SERVER_TIMEOUT_MS'), 8000);
 export const AUTH_SERVER_MAX_RETRIES = parseNumberSetting(readRuntimeEnv('AUTH_SERVER_MAX_RETRIES'), 1);

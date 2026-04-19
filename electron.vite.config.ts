@@ -1,6 +1,7 @@
 import {defineConfig} from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
+
 const alias = {
 	'@': path.resolve(__dirname, './src'),
 	'@renderer': path.resolve(__dirname, './src/renderer'),
@@ -8,12 +9,24 @@ const alias = {
 	'@resource': path.resolve(__dirname, './src/resources'),
 };
 
+function buildWorkspaces() {
+	return {
+		name: 'build-workspaces',
+		async buildStart() {
+			const {execSync} = await import('node:child_process');
+			execSync('npm run build:packages', {stdio: 'inherit'});
+		},
+	};
+}
+
 export default defineConfig({
 	main: {
 		resolve: {
 			alias,
 		},
-
+		plugins: [
+			buildWorkspaces(),
+		],
 		build: {
 			outDir: 'build/main',
 			sourcemap: true,

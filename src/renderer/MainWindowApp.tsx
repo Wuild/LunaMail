@@ -2,6 +2,7 @@ import {Button} from '@llamamail/ui/button';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Loader2, X} from '@llamamail/ui/icon';
 import {useLocation, useNavigate} from 'react-router-dom';
+import {Modal} from '@llamamail/ui/modal';
 import {DEFAULT_APP_SETTINGS} from '@llamamail/app/defaults';
 import {useAccounts} from './hooks/ipc/useAccounts';
 import {useAutoUpdateState} from './hooks/ipc/useAutoUpdateState';
@@ -9,13 +10,19 @@ import {useAppSettings} from './hooks/ipc/useAppSettings';
 import {useIpcEvent} from './hooks/ipc/useIpcEvent';
 import {ipcClient} from './lib/ipcClient';
 import type {GlobalErrorEvent} from '@llamamail/app/ipcTypes';
-import type {SyncStatusEvent} from '@preload';
+import type {PublicCloudAccount, SyncStatusEvent} from '@preload';
 import {ContextMenu, ContextMenuItem} from '@llamamail/ui/contextmenu';
 import MainWindowRoutes from './app/MainWindowRoutes';
 import {MainWindowIpcBridge} from './app/MainWindowIpcBridge';
 import {useApp} from '@renderer/app/AppContext';
 import {useRuntimeStore} from '@renderer/store/runtimeStore';
 import {useNotificationStore} from '@renderer/store/notificationStore';
+import {
+	emitReconnectRequired,
+	isReconnectRequiredMessage,
+	RECONNECT_REQUIRED_EVENT,
+	type ReconnectRequest,
+} from '@renderer/lib/reconnectPrompt';
 
 type MainNavContextItemId = 'email' | 'contacts' | 'calendar' | 'cloud' | 'settings' | 'debug' | 'help';
 type MainNavContextMenuState = {
@@ -52,6 +59,9 @@ function MainWindowShell() {
 	const applySyncEvent = useRuntimeStore((state) => state.applySyncEvent);
 	const [mainNavContextMenu, setMainNavContextMenu] = useState<MainNavContextMenuState | null>(null);
 	const mainNavContextMenuRef = useRef<HTMLDivElement | null>(null);
+	const [cloudAccounts, setCloudAccounts] = useState<PublicCloudAccount[]>([]);
+	const [reconnectQueue, setReconnectQueue] = useState<ReconnectRequest[]>([]);
+	const [reconnectBusyKey, setReconnectBusyKey] = useState<string | null>(null);
 
 	const pushGlobalError = (entry: GlobalErrorEvent) => {
 		setGlobalErrors((prev) => {
@@ -114,7 +124,70 @@ function MainWindowShell() {
 			autoCloseMs: 6500,
 			accountId: isAuthFailure ? payload.accountId : undefined,
 		});
+		if (isAuthFailure) {
+			emitReconnectRequired({
+				kind: 'mail',
+				accountId: payload.accountId,
+				reason: errorText,
+			});
+		}
 	});
+
+	useEffect(() => {
+		let active = true;
+		void ipcClient
+			.getCloudAccounts()
+			.then((rows) => {
+				if (!active) return;
+				setCloudAccounts(rows);
+			})
+			.catch(() => undefined);
+		const off = ipcClient.onCloudAccountsUpdated((rows) => {
+			if (!active) return;
+			setCloudAccounts(rows);
+		});
+		return () => {
+			active = false;
+			if (typeof off === 'function') off();
+		};
+	}, []);
+
+	useEffect(() => {
+		const onReconnectRequired = (event: Event) => {
+			const customEvent = event as CustomEvent<ReconnectRequest>;
+			const detail = customEvent.detail;
+			if (!detail || !Number.isFinite(Number(detail.accountId)) || Number(detail.accountId) <= 0) return;
+			const normalized: ReconnectRequest = {
+				kind: detail.kind === 'cloud' ? 'cloud' : 'mail',
+				accountId: Number(detail.accountId),
+				reason: String(detail.reason || '').trim() || 'Reconnect required.',
+			};
+			setReconnectQueue((prev) => {
+				const exists = prev.some((item) => item.kind === normalized.kind && item.accountId === normalized.accountId);
+				if (exists) return prev;
+				return [...prev, normalized];
+			});
+		};
+		window.addEventListener(RECONNECT_REQUIRED_EVENT, onReconnectRequired as EventListener);
+		return () => {
+			window.removeEventListener(RECONNECT_REQUIRED_EVENT, onReconnectRequired as EventListener);
+		};
+	}, []);
+
+	useEffect(() => {
+		if (globalErrors.length === 0) return;
+		for (const item of globalErrors) {
+			const message = String(item.message || '').trim();
+			if (!isReconnectRequiredMessage(message)) continue;
+			if (!selectedAccountId) continue;
+			emitReconnectRequired({
+				kind: 'mail',
+				accountId: selectedAccountId,
+				reason: message,
+			});
+			break;
+		}
+	}, [globalErrors, selectedAccountId]);
 
 	useEffect(() => {
 		if (!mainNavContextMenu) return;
@@ -284,6 +357,95 @@ function MainWindowShell() {
 		};
 	}, [globalErrors]);
 
+	const queuedReconnect = reconnectQueue[0] ?? null;
+	const queuedReconnectKey = queuedReconnect ? `${queuedReconnect.kind}:${queuedReconnect.accountId}` : null;
+	const queuedReconnectAccountLabel = queuedReconnect
+		? queuedReconnect.kind === 'cloud'
+			? (cloudAccounts.find((item) => item.id === queuedReconnect.accountId)?.name ??
+				`Cloud account ${queuedReconnect.accountId}`)
+			: (accounts.find((item) => item.id === queuedReconnect.accountId)?.display_name?.trim() ||
+				accounts.find((item) => item.id === queuedReconnect.accountId)?.email ||
+				`Account ${queuedReconnect.accountId}`)
+		: null;
+
+	const dismissReconnectPrompt = useCallback(() => {
+		if (!queuedReconnect) return;
+		setReconnectQueue((prev) => prev.filter((item) => !(item.kind === queuedReconnect.kind && item.accountId === queuedReconnect.accountId)));
+	}, [queuedReconnect]);
+
+	const onReconnectQueued = useCallback(async () => {
+		if (!queuedReconnect || !queuedReconnectKey) return;
+		setReconnectBusyKey(queuedReconnectKey);
+		try {
+			if (queuedReconnect.kind === 'cloud') {
+				await ipcClient.relinkCloudOAuth(queuedReconnect.accountId, {});
+			} else {
+				const account = accounts.find((item) => item.id === queuedReconnect.accountId) ?? null;
+				if (!account) throw new Error(`Account ${queuedReconnect.accountId} not found.`);
+				const provider = String(account.oauth_provider || account.provider || '')
+					.trim()
+					.toLowerCase();
+				const oauthProvider =
+					provider === 'microsoft' || provider.includes('outlook') || provider.includes('office')
+						? 'microsoft'
+						: provider === 'google' || provider.includes('gmail')
+							? 'google'
+							: null;
+				if (!oauthProvider) {
+					navigate(`/settings/account?accountId=${queuedReconnect.accountId}`);
+				} else {
+					const session = await ipcClient.startMailOAuth({
+						provider: oauthProvider,
+						email: account.email,
+					});
+					await ipcClient.updateAccount(account.id, {
+						email: account.email,
+						provider: account.provider,
+						auth_method: 'oauth2',
+						oauth_provider: session.provider ?? oauthProvider,
+						display_name: account.display_name,
+						reply_to: account.reply_to,
+						organization: account.organization,
+						signature_text: account.signature_text,
+						signature_is_html: account.signature_is_html,
+						signature_file_path: account.signature_file_path,
+						attach_vcard: account.attach_vcard,
+						imap_host: account.imap_host,
+						imap_port: account.imap_port,
+						imap_secure: account.imap_secure,
+						pop3_host: account.pop3_host,
+						pop3_port: account.pop3_port,
+						pop3_secure: account.pop3_secure,
+						smtp_host: account.smtp_host,
+						smtp_port: account.smtp_port,
+						smtp_secure: account.smtp_secure,
+						sync_emails: account.sync_emails,
+						sync_contacts: account.sync_contacts,
+						sync_calendar: account.sync_calendar,
+						user: account.user,
+						password: null,
+						oauth_session: session,
+					});
+					void ipcClient.syncAccount(account.id).catch(() => undefined);
+				}
+			}
+			setReconnectQueue((prev) =>
+				prev.filter((item) => !(item.kind === queuedReconnect.kind && item.accountId === queuedReconnect.accountId)),
+			);
+		} catch (error: any) {
+			pushGlobalError({
+				id: `reconnect-failed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+				source: 'renderer-window',
+				message: `Reconnect failed: ${String(error?.message || error || 'Unknown error')}`,
+				detail: null,
+				timestamp: new Date().toISOString(),
+				fatal: false,
+			});
+		} finally {
+			setReconnectBusyKey((current) => (current === queuedReconnectKey ? null : current));
+		}
+	}, [accounts, navigate, queuedReconnect, queuedReconnectKey]);
+
 	const hideMainNavRail = location.pathname.startsWith('/onboarding') || location.pathname.startsWith('/add-account');
 
 	const showUpdateBanner =
@@ -452,6 +614,49 @@ function MainWindowShell() {
 						</div>
 					))}
 				</div>
+			)}
+			{queuedReconnect && queuedReconnectAccountLabel && (
+				<Modal
+					open
+					onClose={dismissReconnectPrompt}
+					backdropClassName="z-[1205] backdrop-blur-[1px]"
+					contentClassName="max-w-md p-4"
+				>
+					<div className="mb-3">
+						<h3 className="ui-text-primary text-base font-semibold">Reconnect Account</h3>
+						<p className="ui-text-muted mt-1 text-xs">
+							{queuedReconnectAccountLabel} needs a new sign-in before this action can continue.
+						</p>
+						<p className="ui-text-muted mt-2 text-xs">{queuedReconnect.reason}</p>
+						<div className="ui-text-muted mt-3 rounded-md border border-[var(--theme-border)] bg-[var(--theme-bg-secondary)] p-2 text-xs">
+							<p className="ui-text-primary mb-1 font-medium">Why this can happen</p>
+							<p>
+								Access can expire or be revoked, your approved scopes may have changed, or the provider requires
+								periodic re-authentication for security.
+							</p>
+						</div>
+					</div>
+					<div className="flex items-center justify-end gap-2">
+						<Button
+							type="button"
+							variant="outline"
+							className="rounded-md px-3 py-2 text-sm"
+							onClick={dismissReconnectPrompt}
+							disabled={reconnectBusyKey === queuedReconnectKey}
+						>
+							Later
+						</Button>
+						<Button
+							type="button"
+							variant="default"
+							className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
+							onClick={() => void onReconnectQueued()}
+							disabled={reconnectBusyKey === queuedReconnectKey}
+						>
+							{reconnectBusyKey === queuedReconnectKey ? 'Connecting...' : 'Reconnect'}
+						</Button>
+					</div>
+				</Modal>
 			)}
 			{mainNavContextMenu && (
 				<ContextMenu

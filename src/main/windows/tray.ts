@@ -63,19 +63,6 @@ export const tray = {
 		});
 	},
 
-	hide() {
-		if (!state.tray) return;
-		state.tray.destroy();
-		state.tray = null;
-	},
-
-	reload() {
-		const unread = state.unreadCount;
-		this.hide();
-		this.ensure();
-		this.setUnread(unread);
-	},
-
 	setUnread(count: number) {
 		state.unreadCount = count;
 
@@ -87,9 +74,6 @@ export const tray = {
 
 	refresh() {
 		if (!state.tray || !state.deps) return;
-		// Re-apply image/tooltip together with menu updates; some Linux tray hosts drop the image on menu refresh.
-		const icon = resolveBestTrayIcon(state.deps.appIconPath);
-		state.tray.setImage(icon);
 		const appName = state.deps.appName || APP_NAME;
 		state.tray.setToolTip(buildTrayTooltip(appName, state.unreadCount));
 		buildMenu();

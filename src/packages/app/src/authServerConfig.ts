@@ -1,4 +1,4 @@
-import {loadRuntimeEnvOnce} from './runtimeEnv.js';
+import {loadRuntimeEnvOnce} from './runtimeEnv';
 
 loadRuntimeEnvOnce();
 

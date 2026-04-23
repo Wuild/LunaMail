@@ -1,12 +1,12 @@
 import {randomBytes} from 'node:crypto';
 import type {OAuthProvider, OAuthSession} from '@llamamail/app/ipcTypes';
-import {createMailDebugLogger} from '@main/debug/debugLog.js';
+import {createMailDebugLogger} from '@main/debug/debugLog';
 import {
 	AuthServerClientError,
 	buildMailOAuthStartUrl,
 	exchangeMailOAuthCode,
 	refreshMailOAuthSessionWithOptions,
-} from '@main/auth/authServerClient.js';
+} from '@main/auth/authServerClient';
 
 const logger = createMailDebugLogger('app', 'mail:oauth');
 const OAUTH_LOGIN_TIMEOUT_MS = 2 * 60 * 1000;
@@ -16,9 +16,8 @@ const GOOGLE_DEFAULT_REQUIRED_SCOPES = [
 	'profile',
 	'email',
 	'https://mail.google.com/',
-	'https://www.googleapis.com/auth/contacts.readonly',
-	'https://www.googleapis.com/auth/contacts.other.readonly',
-	'https://www.googleapis.com/auth/calendar.readonly',
+	'https://www.googleapis.com/auth/contacts',
+	'https://www.googleapis.com/auth/calendar',
 ];
 const MICROSOFT_EMAIL_REQUIRED_SCOPES = [
 	'offline_access',
@@ -29,7 +28,7 @@ const MICROSOFT_EMAIL_REQUIRED_SCOPES = [
 	'https://outlook.office.com/SMTP.Send',
 ];
 const MICROSOFT_GRAPH_REQUIRED_SCOPES = [
-	'https://graph.microsoft.com/Contacts.Read',
+	'https://graph.microsoft.com/Contacts.ReadWrite',
 	'https://graph.microsoft.com/Calendars.Read',
 	'https://graph.microsoft.com/Files.ReadWrite',
 	'https://graph.microsoft.com/Files.ReadWrite.All',

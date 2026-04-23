@@ -1,15 +1,15 @@
 import {app, BrowserWindow} from 'electron';
 import path from 'path';
 import {fileURLToPath} from 'url';
-import {loadWindowContent} from './loadWindowContent.js';
-import {getAppSettingsSync, getSpellCheckerLanguages} from '@main/settings/store.js';
+import {loadWindowContent} from './loadWindowContent';
+import {getAppSettingsSync, getSpellCheckerLanguages} from '@main/settings/store';
 import {
 	attachWindowShortcuts,
 	buildSecureWebPreferences,
 	createAppWindow,
 	createFramelessAppWindow,
-} from './windowFactory.js';
-import {loadWindowState} from './windowState.js';
+} from './windowFactory';
+import {loadWindowState} from './windowState';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -57,7 +57,7 @@ export function openComposeWindow(parentWindow?: BrowserWindow, draft?: ComposeD
 	const windowState = loadWindowState({
 		defaultWidth: 920,
 		defaultHeight: 760,
-		file: 'compose-window-state.json',
+		file: 'compose-window-stateon',
 	});
 
 	const useNativeTitleBar = Boolean(getAppSettingsSync().useNativeTitleBar);

@@ -1,8 +1,8 @@
 import {app, BrowserWindow} from 'electron';
 import path from 'path';
 import {fileURLToPath} from 'url';
-import {loadWindowContent} from './loadWindowContent.js';
-import {loadWindowState} from './windowState.js';
+import {loadWindowContent} from './loadWindowContent';
+import {loadWindowState} from './windowState';
 
 type MainWindowLogger = {
 	info: (...args: any[]) => void;
@@ -49,7 +49,7 @@ export function createMainWindowManager(deps: MainWindowManagerDeps): {
 		const windowState = loadWindowState({
 			defaultWidth: 1200,
 			defaultHeight: 800,
-			file: 'main-window-state.json',
+			file: 'main-window-stateon',
 		});
 		const currentSettings = deps.getAppSettingsSync();
 		const useNativeTitleBar = Boolean(currentSettings.useNativeTitleBar);

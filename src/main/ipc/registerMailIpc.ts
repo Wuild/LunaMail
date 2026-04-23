@@ -2,8 +2,8 @@ import {BrowserWindow, dialog, ipcMain, shell} from 'electron';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {confirmFileOpen, isRiskyFileOpenTarget} from '@main/security/fileOpenRisk.js';
-import {resolveSenderNotificationIconPath} from '@main/notifications/senderIcon.js';
+import {confirmFileOpen, isRiskyFileOpenTarget} from '@main/security/fileOpenRisk';
+import {resolveSenderNotificationIconPath} from '@main/notifications/senderIcon';
 
 type MailIpcDeps = {
 	appLogger: {debug: (...args: any[]) => void; info: (...args: any[]) => void; warn: (...args: any[]) => void};

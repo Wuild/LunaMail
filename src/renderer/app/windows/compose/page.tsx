@@ -268,7 +268,7 @@ function ComposeEmailPage() {
 		}
 		const currentBodyTrimmed = body.trim();
 		const currentPlainTrimmed = plainBody.trim();
-		let nextBody = stripAutoSignatureHtml(currentBodyTrimmed);
+			const nextBody = stripAutoSignatureHtml(currentBodyTrimmed);
 		let nextPlain = currentPlainTrimmed;
 
 		if (previousAuto) {

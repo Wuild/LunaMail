@@ -11,6 +11,7 @@ const alias = {
 	'@llamamail/app': path.resolve(__dirname, 'src/packages/app/src'),
 	'@llamamail/ui': path.resolve(__dirname, 'src/packages/ui/src'),
 	'@llamamail/plugin-sdk': path.resolve(__dirname, 'src/packages/plugin-sdk/src'),
+	'@llamamail/providers': path.resolve(__dirname, 'src/packages/providers/src'),
 };
 
 function buildWorkspaces() {

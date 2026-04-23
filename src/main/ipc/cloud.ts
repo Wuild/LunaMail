@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import {createServer} from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import {createMailDebugLogger} from '@main/debug/debugLog.js';
+import {createMailDebugLogger} from '@main/debug/debugLog';
 import {
 	addCloudAccount,
 	type AddCloudAccountPayload,
@@ -18,8 +18,8 @@ import {
 	type PublicCloudAccount,
 	updateCloudAccount,
 	type UpdateCloudAccountPayload,
-} from '@main/db/repositories/cloudRepo.js';
-import {getDefaultCloudOAuthAdditionalScopes, startMailOAuth} from '@main/mail/oauth.js';
+} from '@main/db/repositories/cloudRepo';
+import {getDefaultCloudOAuthAdditionalScopes, startMailOAuth} from '@main/mail/oauth';
 import {
 	createCloudFolder,
 	createCloudShareLink,
@@ -30,11 +30,11 @@ import {
 	listCloudItems,
 	moveCloudItem,
 	uploadCloudFile,
-} from '@main/cloud/providers.js';
-import {syncCloudDav} from '@main/cloud/davSync.js';
+} from '@main/cloud/providers';
+import {syncCloudDav} from '@main/cloud/davSync';
 import {APP_NAME, APP_PROTOCOL} from '@llamamail/app/appConfig';
 import {appEventHandler, AppEvent} from '@llamamail/app/appEventHandler';
-import {confirmFileOpen, isRiskyFileOpenTarget} from '@main/security/fileOpenRisk.js';
+import {confirmFileOpen, isRiskyFileOpenTarget} from '@main/security/fileOpenRisk';
 
 const logger = createMailDebugLogger('cloud', 'ipc:cloud');
 const ONEDRIVE_APP_ID = 'e063ebfa-cd51-47fd-8a97-6a73fe65f26c';
@@ -462,7 +462,7 @@ async function linkGoogleDriveOAuth(clientId: string): Promise<LinkedOAuthAccoun
 		}),
 	});
 	if (!tokenRes.ok) throw new Error(`Google OAuth token exchange failed (${tokenRes.status}).`);
-	const token = (await tokenRes.json()) as {
+	const token = (await tokenReson()) as {
 		access_token?: string;
 		refresh_token?: string;
 		expires_in?: number;
@@ -477,7 +477,7 @@ async function linkGoogleDriveOAuth(clientId: string): Promise<LinkedOAuthAccoun
 	let displayName: string | null = null;
 	let email: string | null = null;
 	if (userRes.ok) {
-		const user = (await userRes.json()) as {name?: string; email?: string};
+		const user = (await userReson()) as {name?: string; email?: string};
 		displayName = String(user.name || '').trim() || null;
 		email = String(user.email || '').trim() || null;
 	}
@@ -524,7 +524,7 @@ async function linkOneDriveOAuth(clientId: string, tenantId: string): Promise<Li
 		}),
 	});
 	if (!tokenRes.ok) throw new Error(`OneDrive OAuth token exchange failed (${tokenRes.status}).`);
-	const token = (await tokenRes.json()) as {
+	const token = (await tokenReson()) as {
 		access_token?: string;
 		refresh_token?: string;
 		expires_in?: number;
@@ -541,7 +541,7 @@ async function linkOneDriveOAuth(clientId: string, tenantId: string): Promise<Li
 	let displayName: string | null = null;
 	let email: string | null = null;
 	if (meRes.ok) {
-		const me = (await meRes.json()) as {displayName?: string; mail?: string; userPrincipalName?: string};
+		const me = (await meReson()) as {displayName?: string; mail?: string; userPrincipalName?: string};
 		displayName = String(me.displayName || '').trim() || null;
 		email = String(me.mail || me.userPrincipalName || '').trim() || null;
 	}

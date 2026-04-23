@@ -1,8 +1,8 @@
 import {ImapFlow} from 'imapflow';
-import {createMailDebugLogger} from '@main/debug/debugLog.js';
-import {getAccountSyncCredentials} from '@main/db/repositories/accountsRepo.js';
-import {resolveImapSecurity} from './security.js';
-import {resolveImapAuth} from './auth.js';
+import {createMailDebugLogger} from '@main/debug/debugLog';
+import {getAccountSyncCredentials} from '@main/db/repositories/accountsRepo';
+import {resolveImapSecurity} from './security';
+import {providerManager} from './providerManager';
 import {
 	getMessageContext,
 	listFoldersByAccount,
@@ -11,7 +11,7 @@ import {
 	setMessageFlagged,
 	setMessageRead,
 	type SetMessageReadResult,
-} from '@main/db/repositories/mailRepo.js';
+} from '@main/db/repositories/mailRepo';
 
 interface ActionResult {
 	accountId: number;
@@ -121,11 +121,12 @@ export async function createServerFolder(accountId: number, folderPath: string):
 	if (!path) throw new Error('Folder name is required');
 
 	const account = await getAccountSyncCredentials(accountId);
+	const imapAuth = await resolveAccountImapAuth(accountId, account);
 	const client = new ImapFlow({
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: resolveImapAuth(account),
+		auth: imapAuth,
 		logger: createMailDebugLogger('imap', `folder:create:${accountId}`),
 	});
 
@@ -152,11 +153,12 @@ export async function deleteServerFolder(accountId: number, folderPath: string):
 	}
 
 	const account = await getAccountSyncCredentials(accountId);
+	const imapAuth = await resolveAccountImapAuth(accountId, account);
 	const client = new ImapFlow({
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: resolveImapAuth(account),
+		auth: imapAuth,
 		logger: createMailDebugLogger('imap', `folder:delete:${accountId}`),
 	});
 
@@ -180,11 +182,12 @@ async function withImapLock(
 	fn: (client: ImapFlow) => Promise<void>,
 ): Promise<void> {
 	const account = await getAccountSyncCredentials(accountId);
+	const imapAuth = await resolveAccountImapAuth(accountId, account);
 	const client = new ImapFlow({
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: resolveImapAuth(account),
+		auth: imapAuth,
 		logger: createMailDebugLogger('imap', `message:action:${accountId}:${folderPath}`),
 	});
 
@@ -214,4 +217,9 @@ function isProtectedFolderPath(path: string): boolean {
 	if (/(^|[\/._ -])junk($|[\/._ -])|spam/.test(normalized)) return true;
 	if (/(^|[\/._ -])archive($|[\/._ -])/.test(normalized)) return true;
 	return false;
+}
+
+async function resolveAccountImapAuth(accountId: number, credentials: any): Promise<{user: string; pass?: string; accessToken?: string}> {
+	const driver = await providerManager.resolveDriverForAccount(accountId);
+	return driver.resolveImapAuth(credentials);
 }

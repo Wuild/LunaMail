@@ -115,9 +115,8 @@ export function parseNavigationTrail(raw: string | null, provider: CloudProvider
 
 export function buildCloudRoute(accountId: number, trail: NavigationEntry[]): string {
 	const params = new URLSearchParams();
-	params.set('account', String(accountId));
 	params.set('trail', serializeNavigationTrail(trail));
-	return `/cloud?${params.toString()}`;
+	return `/cloud/${accountId}?${params.toString()}`;
 }
 
 export function readCloudTableColumns(): CloudTableColumnKey[] {

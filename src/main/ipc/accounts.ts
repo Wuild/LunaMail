@@ -1,6 +1,6 @@
 import {Worker} from 'node:worker_threads';
 import {ImapFlow} from 'imapflow';
-import {createAppLogger, createMailDebugLogger, pushDebugLog} from '@main/debug/debugLog.js';
+import {createAppLogger, createMailDebugLogger, pushDebugLog} from '@main/debug/debugLog';
 import {
 	addAccount,
 	deleteAccount,
@@ -8,7 +8,7 @@ import {
 	getAccounts,
 	type PublicAccount,
 	updateAccount,
-} from '@main/db/repositories/accountsRepo.js';
+} from '@main/db/repositories/accountsRepo';
 import {
 	deleteFolderByPath,
 	deleteMessageLocally,
@@ -22,15 +22,15 @@ import {
 	searchMessages,
 	setMessageTag,
 	updateFolderSettings,
-} from '@main/db/repositories/mailRepo.js';
-import {autodiscover, autodiscoverBasic} from '@main/mail/autodiscover.js';
+} from '@main/db/repositories/mailRepo';
+import {autodiscover, autodiscoverBasic} from '@main/mail/autodiscover';
 import {
 	deleteMailFilter,
 	listMailFilters,
 	runMailFiltersForMessages,
 	upsertMailFilter,
-} from '@main/mail/filterRules.js';
-import {resolveImapSecurity} from '@main/mail/security.js';
+} from '@main/mail/filterRules';
+import {resolveImapSecurity} from '@main/mail/security';
 import {
 	createServerFolder,
 	deleteServerFolder,
@@ -38,13 +38,12 @@ import {
 	moveServerMessage,
 	setServerMessageFlagged,
 	setServerMessageRead,
-} from '@main/mail/actions.js';
-import {saveDraftEmail, sendEmail} from '@main/mail/send.js';
-import {downloadMessageAttachment, syncMessageBody, syncMessageSource, type SyncSummary} from '@main/mail/sync.js';
-import {getDb, getSqlitePath} from '@main/db/drizzle.js';
-import {verifyConnection} from '@main/mail/verify.js';
-import {cancelPendingMailOAuth, startMailOAuth} from '@main/mail/oauth.js';
-import {resolveImapAuth} from '@main/mail/auth.js';
+} from '@main/mail/actions';
+import {saveDraftEmail, sendEmail} from '@main/mail/send';
+import {downloadMessageAttachment, syncMessageBody, syncMessageSource, type SyncSummary} from '@main/mail/sync';
+import {getDb, getSqlitePath} from '@main/db/drizzle';
+import {verifyConnection} from '@main/mail/verify';
+import {cancelPendingMailOAuth, startMailOAuth} from '@main/mail/oauth';
 import {
 	addAddressBook,
 	addCalendarEvent,
@@ -60,11 +59,11 @@ import {
 	removeAddressBook,
 	removeCalendarEvent,
 	removeContact,
-} from '@main/dav/sync.js';
-import {registerAccountCoreIpc} from './registerAccountCoreIpc.js';
-import {registerComposeIpc} from './registerComposeIpc.js';
-import {registerDavIpc} from './registerDavIpc.js';
-import {registerMailIpc} from './registerMailIpc.js';
+} from '@main/dav/sync';
+import {registerAccountCoreIpc} from './registerAccountCoreIpc';
+import {registerComposeIpc} from './registerComposeIpc';
+import {registerDavIpc} from './registerDavIpc';
+import {registerMailIpc} from './registerMailIpc';
 import {normalizeSyncIntervalMinutes} from '@llamamail/app/settingsRules';
 import type {AccountSyncModuleStatusMap, DavSyncOptions, SyncModuleKey} from '@llamamail/app/ipcTypes';
 import {
@@ -73,18 +72,21 @@ import {
 	isAccountEmailModuleEnabled,
 } from '@llamamail/app/accountModules';
 import {appEventHandler, AppEvent} from '@llamamail/app/appEventHandler';
-import {getAppSettingsSync} from '@main/settings/store.js';
+import {getAppSettingsSync} from '@main/settings/store';
 import {
 	broadcastAccountSyncStatus,
 	broadcastMessageReadUpdated as broadcastMessageReadUpdatedEvent,
 	broadcastToAllWindows,
 	broadcastUnreadCountUpdated,
-} from './broadcast.js';
-import {isDemoProvider} from '@main/demo/demoMode.js';
-import {ProviderManagerError, providerManager} from '@main/mail/providers/providerManager.js';
-import {normalizeProviderSyncError} from '@main/mail/providers/errors.js';
-import {revokeMailOAuthSession} from '@main/auth/authServerClient.js';
-import type {ProviderAncillarySyncResult} from '@main/mail/providers/contracts.js';
+} from './broadcast';
+import {isDemoProvider} from '@main/demo/demoMode';
+import {providerManager} from '@main/mail/providerManager';
+import {ProviderManagerError} from '@llamamail/app/providerManager';
+import {normalizeProviderSyncError} from '@llamamail/app/providerSyncError';
+import {revokeMailOAuthSession} from '@main/auth/authServerClient';
+import type {ProviderAncillarySyncResult as BaseProviderAncillarySyncResult} from '@llamamail/app/providerManager';
+
+type ProviderAncillarySyncResult = BaseProviderAncillarySyncResult<DavSyncSummary>;
 
 const bodyRequests = new Map<string, {cancel: () => void}>();
 const SYNC_DEBOUNCE_MS = 350;
@@ -991,7 +993,7 @@ async function syncAccountAncillaryInWorker(
 			},
 		};
 	}
-	const worker = new Worker(new URL('../main/ancillarySyncWorker.js', import.meta.url), {
+	const worker = new Worker(new URL('../main/ancillarySyncWorker', import.meta.url), {
 		workerData: {
 			dbPath: getSqlitePath(),
 			accountId,
@@ -1218,13 +1220,13 @@ async function connectIdleWatcher(state: IdleWatcherState): Promise<void> {
 		const account = await driver.resolveSyncCredentials(state.accountId);
 		if (state.stopped) return;
 
-		const probeClient = new ImapFlow({
-			host: account.imap_host,
-			port: account.imap_port,
-			...resolveImapSecurity(account.imap_secure),
-			auth: resolveImapAuth(account),
-			logger: createMailDebugLogger('imap', `idle-probe:${state.accountId}`),
-		});
+			const probeClient = new ImapFlow({
+				host: account.imap_host,
+				port: account.imap_port,
+				...resolveImapSecurity(account.imap_secure),
+				auth: driver.resolveImapAuth(account),
+				logger: createMailDebugLogger('imap', `idle-probe:${state.accountId}`),
+			});
 		let mailboxes: any[] = [];
 		try {
 			await probeClient.connect();
@@ -1301,13 +1303,13 @@ async function connectFolderIdleWatcher(state: IdleWatcherState, folder: FolderI
 		}
 		const account = await driver.resolveSyncCredentials(state.accountId);
 		if (state.stopped) return;
-		const client = new ImapFlow({
-			host: account.imap_host,
-			port: account.imap_port,
-			...resolveImapSecurity(account.imap_secure),
-			auth: resolveImapAuth(account),
-			logger: createMailDebugLogger('imap', `idle:${state.accountId}:${folder.mailboxPath}`),
-		});
+			const client = new ImapFlow({
+				host: account.imap_host,
+				port: account.imap_port,
+				...resolveImapSecurity(account.imap_secure),
+				auth: driver.resolveImapAuth(account),
+				logger: createMailDebugLogger('imap', `idle:${state.accountId}:${folder.mailboxPath}`),
+			});
 
 		client.on('exists', () => {
 			if (state.stopped) return;

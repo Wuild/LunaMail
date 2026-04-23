@@ -2,8 +2,8 @@ import keytar from 'keytar';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {eq} from 'drizzle-orm';
-import {getDb, getDrizzle, getSqlitePath} from '@main/db/drizzle.js';
-import {accounts, type InsertAccount} from '@main/db/schema.js';
+import {getDb, getDrizzle, getSqlitePath} from '@main/db/drizzle';
+import {accounts, type InsertAccount} from '@main/db/schema';
 import {APP_NAME} from '@llamamail/app/appConfig';
 import {
 	hasAnyEnabledAccountModule,
@@ -11,7 +11,7 @@ import {
 	type AccountModuleSelection,
 } from '@llamamail/app/accountModules';
 import type {AuthMethod, OAuthProvider, OAuthSession} from '@llamamail/app/ipcTypes';
-import {ensureFreshMailOAuthSession, getDefaultMailOAuthAdditionalScopes} from '@main/mail/oauth.js';
+import {ensureFreshMailOAuthSession, getDefaultMailOAuthAdditionalScopes} from '@main/mail/oauth';
 
 // This repository still contains parameterized raw SQL for a few multi-step cleanup paths while Drizzle migration is
 // completed incrementally. Keep new data access Drizzle-first unless there is a documented exception.

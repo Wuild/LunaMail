@@ -1,5 +1,5 @@
 import {AUTH_SERVER_BASE_URL, AUTH_SERVER_MAX_RETRIES, AUTH_SERVER_TIMEOUT_MS} from '@llamamail/app/authServerConfig';
-import {createMailDebugLogger} from '@main/debug/debugLog.js';
+import {createMailDebugLogger} from '@main/debug/debugLog';
 import {
 	extractAuthServerErrorMessage,
 	parseAuthServerExchangeDto,
@@ -119,7 +119,6 @@ export function buildMailOAuthStartUrl(
 		for (const scope of normalizedAdditionalScopes) {
 			url.searchParams.append('scope', scope);
 		}
-		url.searchParams.set('include_cloud_scopes', '1');
 	}
 	return url.toString();
 }

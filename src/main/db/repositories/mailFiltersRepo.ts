@@ -1,4 +1,4 @@
-import {getDb} from '@main/db/drizzle.js';
+import {getDb} from '@main/db/drizzle';
 import type {
 	MailFilter,
 	MailFilterAction,

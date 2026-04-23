@@ -11,7 +11,7 @@ import {
 	parsePositiveInt,
 	parseRequiredObject,
 	parseRequiredText,
-} from './validation.js';
+} from './validation';
 import type {DavSyncOptions} from '@llamamail/app/ipcTypes';
 import {appEventHandler, AppEvent} from '@llamamail/app/appEventHandler';
 

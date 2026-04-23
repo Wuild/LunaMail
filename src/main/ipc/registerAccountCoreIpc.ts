@@ -1,5 +1,5 @@
 import {ipcMain} from 'electron';
-import {parseOptionalText, parsePositiveInt, parseRequiredObject, parseRequiredText} from './validation.js';
+import {parseOptionalText, parsePositiveInt, parseRequiredObject, parseRequiredText} from './validation';
 import {tray} from '@main/windows/tray';
 import {getAppSettings} from '@main/settings/store';
 import {appEventHandler, AppEvent} from '@llamamail/app/appEventHandler';

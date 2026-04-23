@@ -1,7 +1,7 @@
 import {app} from 'electron';
 import path from 'path';
 import {APP_PROTOCOL} from '@llamamail/app/appConfig';
-import {registerDefaultProtocolPageRoutes, resolveProtocolPageRoute} from './pageRoutes.js';
+import {registerDefaultProtocolPageRoutes, resolveProtocolPageRoute} from './pageRoutes';
 
 type AppLogger = {
 	info: (...args: any[]) => void;

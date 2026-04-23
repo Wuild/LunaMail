@@ -1,8 +1,8 @@
 import {app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, Notification, shell} from 'electron';
 import path from 'path';
-import {createAppLogger, onDebugLog} from './debug/debugLog.js';
-import {initDb} from '@main/db/index.js';
-import {getAccounts} from './db/repositories/accountsRepo.js';
+import {createAppLogger, onDebugLog} from './debug/debugLog';
+import {initDb} from '@main/db/index';
+import {getAccounts} from './db/repositories/accountsRepo';
 import {
 	getCurrentUnreadCount,
 	registerAccountIpc,
@@ -11,48 +11,48 @@ import {
 	setUnreadCountListener,
 	startAccountAutoSync,
 	stopAccountAutoSync,
-} from './ipc/accounts.js';
-import {installTrustedSenderGuard} from './ipc/installTrustedSenderGuard.js';
-import {queueCloudOAuthCallbackUrl, registerCloudIpc} from './ipc/cloud.js';
-import {queueMailOAuthCallbackUrl} from './mail/oauth.js';
-import {createProtocolHandler} from './protocol/handler.js';
-import {registerSettingsIpc} from './ipc/settings.js';
+} from './ipc/accounts';
+import {installTrustedSenderGuard} from './ipc/installTrustedSenderGuard';
+import {queueCloudOAuthCallbackUrl, registerCloudIpc} from './ipc/cloud';
+import {queueMailOAuthCallbackUrl} from './mail/oauth';
+import {createProtocolHandler} from './protocol/handler';
+import {registerSettingsIpc} from './ipc/settings';
 import {
 	broadcastAccountSyncStatus,
 	broadcastGlobalError,
 	broadcastToAllWindows,
 	broadcastUnreadCountUpdated,
-} from './ipc/broadcast.js';
-import {broadcastAutoUpdateState, registerUpdaterIpc} from './ipc/updater.js';
-import {registerWindowIpc} from './ipc/windows.js';
+} from './ipc/broadcast';
+import {broadcastAutoUpdateState, registerUpdaterIpc} from './ipc/updater';
+import {registerWindowIpc} from './ipc/windows';
 import {
 	getAppSettings,
 	getAppSettingsBootSnapshotSync,
 	getAppSettingsSync,
 	getSpellCheckerLanguages,
-} from './settings/store.js';
-import {resolveNotificationIconPath} from './notifications/icon.js';
-import {resolveSenderNotificationIconPath} from './notifications/senderIcon.js';
-import {getMessageById} from './db/repositories/mailRepo.js';
-import {reconcileDemoData} from './demo/demoMode.js';
+} from './settings/store';
+import {resolveNotificationIconPath} from './notifications/icon';
+import {resolveSenderNotificationIconPath} from './notifications/senderIcon';
+import {getMessageById} from './db/repositories/mailRepo';
+import {reconcileDemoData} from './demo/demoMode';
 import {
 	checkForUpdates,
 	getAutoUpdateState,
 	initAutoUpdater,
 	runStartupUpdateFlow,
 	setAutoUpdateEnabled,
-} from './updater/autoUpdate.js';
+} from './updater/autoUpdate';
 import type {GlobalErrorEvent, GlobalErrorSource} from '@llamamail/app/ipcTypes';
-import type {ComposeDraftPayload} from './windows/composeWindow.js';
-import {openComposeWindow} from './windows/composeWindow.js';
-import {createMainWindowManager} from './windows/mainWindow.js';
+import type {ComposeDraftPayload} from './windows/composeWindow';
+import {openComposeWindow} from './windows/composeWindow';
+import {createMainWindowManager} from './windows/mainWindow';
 import {
 	attachWindowShortcuts,
 	buildSecureWebPreferences,
 	createAppWindow,
 	createFramelessAppWindow,
 	resolveWindowIconPath,
-} from './windows/windowFactory.js';
+} from './windows/windowFactory';
 import {initTray, tray} from './windows/tray';
 import {APP_NAME, APP_PROTOCOL} from '@llamamail/app/appConfig';
 import {appEventHandler, AppEvent} from '@llamamail/app/appEventHandler';
@@ -157,8 +157,8 @@ const UNSAFE_LINK_EXTENSIONS = new Set([
 	'.exe',
 	'.hta',
 	'.jar',
-	'.js',
-	'.jse',
+	'',
+	'e',
 	'.lnk',
 	'.mjs',
 	'.msi',
@@ -386,6 +386,7 @@ function setMainWindowActionsEnabled(enabled: boolean): void {
 	const next = Boolean(enabled);
 	if (mainWindowActionsEnabled === next) return;
 	mainWindowActionsEnabled = next;
+	tray.refresh();
 	configurePlatformQuickActions();
 }
 
@@ -506,6 +507,7 @@ function configurePlatformQuickActions(): void {
 
 function updateUnreadIndicators(unreadCount: number): void {
 	currentUnreadCount = Math.max(0, Number(unreadCount) || 0);
+	tray.setUnread(currentUnreadCount);
 	const settings = getAppSettingsSync();
 	const showUnreadInTitleBar = settings.showUnreadInTitleBar;
 
@@ -1085,6 +1087,7 @@ if (!gotSingleInstanceLock) {
 		.then(async () => {
 			logger.info('App ready start');
 			console.log('[main-startup] app.whenReady entered');
+			tray.ensure();
 			let devStartupWatchdog: ReturnType<typeof setTimeout> | null = null;
 			let dbReady = true;
 			if (isDev) {
@@ -1234,8 +1237,6 @@ if (!gotSingleInstanceLock) {
 				clearTimeout(devStartupWatchdog);
 				devStartupWatchdog = null;
 			}
-
-			tray.ensure();
 
 			app.on('activate', () => {
 				if (mainWindow && !mainWindow.isDestroyed()) {

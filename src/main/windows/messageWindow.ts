@@ -1,14 +1,14 @@
 import {app} from 'electron';
 import path from 'path';
 import {fileURLToPath} from 'url';
-import {loadWindowContent} from './loadWindowContent.js';
-import {getAppSettingsSync} from '@main/settings/store.js';
+import {loadWindowContent} from './loadWindowContent';
+import {getAppSettingsSync} from '@main/settings/store';
 import {
 	attachWindowShortcuts,
 	buildSecureWebPreferences,
 	createAppWindow,
 	createFramelessAppWindow,
-} from './windowFactory.js';
+} from './windowFactory';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);

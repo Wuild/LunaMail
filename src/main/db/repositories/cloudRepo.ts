@@ -1,20 +1,22 @@
 import keytar from 'keytar';
 import {eq} from 'drizzle-orm';
-import {getDb, getDrizzle} from '@main/db/drizzle.js';
-import {cloudAccounts, type InsertCloudAccount} from '@main/db/schema.js';
+import {getDb, getDrizzle} from '@main/db/drizzle';
+import {cloudAccounts, type InsertCloudAccount} from '@main/db/schema';
 import {APP_NAME} from '@llamamail/app/appConfig';
+import {getUnifiedProviderDefinition} from '@llamamail/app/providerCatalog';
 
 // This repository keeps some parameterized raw SQL where cloud/DAV bridge cleanup is still transitioning to Drizzle.
 // Retain SQL only in this layer and prefer Drizzle for new queries.
 const SERVICE_NAME = APP_NAME;
 export const CLOUD_DAV_ACCOUNT_ID_OFFSET = 1_000_000;
 
-export type CloudProvider = 'nextcloud' | 'webdav' | 'icloud-drive' | 'google-drive' | 'onedrive';
+export type CloudProvider = 'nextcloud' | 'webdav' | 'icloud-drive' | 'google-drive' | 'onedrive' | 'google' | 'microsoft';
 
 export function assertCloudProviderEnabled(provider: CloudProvider): void {
-	if (provider === 'icloud-drive') {
-		throw new Error('iCloud cloud provider is temporarily disabled.');
-	}
+	const definition = getUnifiedProviderDefinition(provider);
+	if (!definition) throw new Error(`Unsupported cloud provider: ${provider}`);
+	if (!definition.enabled) throw new Error(`${definition.label} provider is currently disabled.`);
+	if (!definition.capabilities.files) throw new Error(`${definition.label} does not support cloud files.`);
 }
 
 export interface PublicCloudAccount {

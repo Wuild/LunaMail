@@ -4,7 +4,9 @@ import AddAccountPage from './add-account/page';
 import AddAccountLayout from './add-account/layout';
 import MainSectionLayout from './main/layout';
 import CalendarPage from './main/calendar/page';
+import CalendarAccountPage from './main/calendar/[accountId]/page';
 import CloudPage from './main/cloud/page';
+import CloudAccountPage from './main/cloud/[accountId]/page';
 import DebugPage from './main/debug/page';
 import EmailPage from './main/email/page';
 import EmailSectionLayout from './main/email/layout';
@@ -23,6 +25,7 @@ import SettingsWhitelistPage from './main/settings/whitelist/page';
 import SettingsLegalPage from './main/settings/legal/page';
 import SettingsDeveloperPage from './main/settings/developer/page';
 import ContactsPage from './main/contacts/page';
+import ContactsAccountPage from './main/contacts/[accountId]/page';
 import OnboardingPage from './onboarding/page';
 import type {MainWindowRouteContext} from './mainWindowRouteContext';
 import {isAccountCalendarModuleEnabled, isAccountContactsModuleEnabled} from '@llamamail/app/accountModules';
@@ -58,11 +61,11 @@ export function buildMainWindowRouteObjects(context: MainWindowRouteContext, sho
 	const contactsAccountId =
 		context.accountId && contactsAccounts.some((account) => account.id === context.accountId)
 			? context.accountId
-			: (contactsAccounts[0]?.id ?? null);
+			: null;
 	const calendarAccountId =
 		context.accountId && calendarAccounts.some((account) => account.id === context.accountId)
 			? context.accountId
-			: (calendarAccounts[0]?.id ?? null);
+			: null;
 	return [
 		{
 			path: '/onboarding',
@@ -87,6 +90,7 @@ export function buildMainWindowRouteObjects(context: MainWindowRouteContext, sho
 				},
 				{path: '/mail/*', element: <Navigate to="/email" replace />},
 				{path: '/cloud', element: <CloudPage />},
+				{path: '/cloud/:accountId', element: <CloudAccountPage />},
 				{
 					path: '/contacts',
 					element: (
@@ -98,9 +102,29 @@ export function buildMainWindowRouteObjects(context: MainWindowRouteContext, sho
 					),
 				},
 				{
+					path: '/contacts/:accountId',
+					element: (
+						<ContactsAccountPage
+							accountId={contactsAccountId}
+							accounts={contactsAccounts}
+							onSelectAccount={context.onSelectAccount}
+						/>
+					),
+				},
+				{
 					path: '/calendar',
 					element: (
 						<CalendarPage
+							accountId={calendarAccountId}
+							accounts={calendarAccounts}
+							onSelectAccount={context.onSelectAccount}
+						/>
+					),
+				},
+				{
+					path: '/calendar/:accountId',
+					element: (
+						<CalendarAccountPage
 							accountId={calendarAccountId}
 							accounts={calendarAccounts}
 							onSelectAccount={context.onSelectAccount}

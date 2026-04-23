@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import {createRequire} from 'node:module';
 import path from 'path';
 import {drizzle} from 'drizzle-orm/better-sqlite3';
-import {createAppLogger} from '@main/debug/debugLog.js';
+import {createAppLogger} from '@main/debug/debugLog';
 
 // Create or reuse a singleton DB connection + Drizzle client
 let _db: any = null;

@@ -1,7 +1,7 @@
 import {app} from 'electron';
 import type {ProgressInfo, UpdateDownloadedEvent, UpdateInfo} from 'electron-updater';
 import electronUpdater from 'electron-updater';
-import {createAppLogger} from '@main/debug/debugLog.js';
+import {createAppLogger} from '@main/debug/debugLog';
 import type {AutoUpdateState} from '@llamamail/app/ipcTypes';
 
 export type {AutoUpdatePhase, AutoUpdateState} from '@llamamail/app/ipcTypes';

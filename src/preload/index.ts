@@ -119,6 +119,7 @@ export interface UpdateAccountPayload {
 	sync_calendar?: number;
 	user: string;
 	password?: string | null;
+	oauth_session?: OAuthSession | null;
 }
 
 export interface PublicAccount {

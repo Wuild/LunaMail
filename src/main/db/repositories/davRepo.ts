@@ -1,4 +1,4 @@
-import {getDb} from '@main/db/drizzle.js';
+import {getDb} from '@main/db/drizzle';
 import {randomUUID} from 'node:crypto';
 
 // DAV repository currently uses parameterized raw SQL due to breadth/legacy surface (contacts, address books,
@@ -271,7 +271,51 @@ export function upsertCalendarEvents(
                            updated_at     = CURRENT_TIMESTAMP
             `,
 		);
+		const findByUid = db.prepare(
+			`
+                SELECT id
+                FROM calendar_events
+                WHERE account_id = ?
+                  AND source = ?
+                  AND uid = ?
+                LIMIT 1
+            `,
+		);
+		const updateById = db.prepare(
+			`
+                UPDATE calendar_events
+                SET calendar_url = ?,
+                    summary = ?,
+                    description = ?,
+                    location = ?,
+                    starts_at = ?,
+                    ends_at = ?,
+                    etag = ?,
+                    raw_ics = ?,
+                    last_seen_sync = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `,
+		);
 		for (const row of rows) {
+			if (source === 'google-api') {
+				const existing = findByUid.get(accountId, source, row.uid) as {id: number} | undefined;
+				if (existing?.id) {
+					updateById.run(
+						row.calendarUrl,
+						row.summary ?? null,
+						row.description ?? null,
+						row.location ?? null,
+						row.startsAt ?? null,
+						row.endsAt ?? null,
+						row.etag ?? null,
+						row.rawIcs ?? null,
+						seenAt,
+						existing.id,
+					);
+					continue;
+				}
+			}
 			upsert.run(
 				accountId,
 				source,
@@ -738,6 +782,50 @@ export function updateLocalContact(
             WHERE id = ?
         `,
 	).run(nextBookId, nextSource, nextName, nextEmail, nextPhone, nextOrganization, nextTitle, nextNote, contactId);
+
+	return db.prepare('SELECT * FROM contacts WHERE id = ?').get(contactId) as ContactRow;
+}
+
+export function updateExternalContact(
+	contactId: number,
+	payload: {
+		fullName?: string | null;
+		email?: string;
+		phone?: string | null;
+		organization?: string | null;
+		title?: string | null;
+		note?: string | null;
+	},
+): ContactRow {
+	const db = getDb();
+	const current = getContactById(contactId);
+	if (!current) throw new Error('Contact not found.');
+	if (current.source.startsWith('local:') || current.source === 'carddav') {
+		throw new Error('External contact updater does not support local/CardDAV sources.');
+	}
+
+	const nextEmail = payload.email === undefined ? current.email : normalizeEmail(payload.email);
+	if (!nextEmail) throw new Error('A valid email is required.');
+	const nextName = payload.fullName === undefined ? current.full_name : normalizeDisplayName(payload.fullName);
+	const nextPhone = payload.phone === undefined ? current.phone : normalizeContactText(payload.phone);
+	const nextOrganization =
+		payload.organization === undefined ? current.organization : normalizeContactText(payload.organization);
+	const nextTitle = payload.title === undefined ? current.title : normalizeContactText(payload.title);
+	const nextNote = payload.note === undefined ? current.note : normalizeContactText(payload.note, 4000);
+
+	db.prepare(
+		`
+            UPDATE contacts
+            SET full_name = ?,
+                email = ?,
+                phone = ?,
+                organization = ?,
+                title = ?,
+                note = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `,
+	).run(nextName, nextEmail, nextPhone, nextOrganization, nextTitle, nextNote, contactId);
 
 	return db.prepare('SELECT * FROM contacts WHERE id = ?').get(contactId) as ContactRow;
 }

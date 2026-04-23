@@ -1,12 +1,12 @@
 import {BrowserWindow, ipcMain} from 'electron';
-import {createAppLogger} from '@main/debug/debugLog.js';
+import {createAppLogger} from '@main/debug/debugLog';
 import {
 	type AutoUpdateState,
 	checkForUpdates,
 	downloadUpdate,
 	getAutoUpdateState,
 	quitAndInstallUpdate,
-} from '@main/updater/autoUpdate.js';
+} from '@main/updater/autoUpdate';
 
 const logger = createAppLogger('ipc:updater');
 

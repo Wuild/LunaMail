@@ -1,10 +1,10 @@
 import {app, BrowserWindow, ipcMain, Notification, shell} from 'electron';
-import {getAccounts} from '@main/db/repositories/accountsRepo.js';
-import {listFoldersByAccount, listMessagesByFolder} from '@main/db/repositories/mailRepo.js';
-import {createAppLogger} from '@main/debug/debugLog.js';
+import {getAccounts} from '@main/db/repositories/accountsRepo';
+import {listFoldersByAccount, listMessagesByFolder} from '@main/db/repositories/mailRepo';
+import {createAppLogger} from '@main/debug/debugLog';
 import {APP_NAME} from '@llamamail/app/appConfig';
-import {type AppSettingsPatch, getAppSettings, updateAppSettings} from '@main/settings/store.js';
-import {resolveNotificationIconPath} from '@main/notifications/icon.js';
+import {type AppSettingsPatch, getAppSettings, updateAppSettings} from '@main/settings/store';
+import {resolveNotificationIconPath} from '@main/notifications/icon';
 
 const logger = createAppLogger('ipc:settings');
 const notificationIconPath = resolveNotificationIconPath();

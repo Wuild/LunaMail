@@ -2,7 +2,7 @@ import {ImapFlow} from 'imapflow';
 import nodemailer from 'nodemailer';
 import tls from 'tls';
 import net from 'net';
-import {createMailDebugLogger} from '@main/debug/debugLog.js';
+import {createMailDebugLogger} from '@main/debug/debugLog';
 import type {AuthMethod, OAuthSession} from '@llamamail/app/ipcTypes';
 
 export interface VerifyPayload {

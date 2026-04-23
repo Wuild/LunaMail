@@ -1,11 +1,11 @@
 import type {OpenDialogOptions} from 'electron';
 import {app, BrowserWindow, dialog, ipcMain} from 'electron';
 import path from 'node:path';
-import {clearDebugLogs, createAppLogger, getDebugLogs} from '@main/debug/debugLog.js';
-import {getComposeDraft, openComposeWindow} from '@main/windows/composeWindow.js';
-import {getMessageWindowTargetId, openMessageWindow} from '@main/windows/messageWindow.js';
-import {openDebugWindow} from '@main/windows/debugWindow.js';
-import {openRouteWindow} from '@main/windows/routeWindow.js';
+import {clearDebugLogs, createAppLogger, getDebugLogs} from '@main/debug/debugLog';
+import {getComposeDraft, openComposeWindow} from '@main/windows/composeWindow';
+import {getMessageWindowTargetId, openMessageWindow} from '@main/windows/messageWindow';
+import {openDebugWindow} from '@main/windows/debugWindow';
+import {openRouteWindow} from '@main/windows/routeWindow';
 
 const logger = createAppLogger('ipc:windows');
 

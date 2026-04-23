@@ -95,6 +95,8 @@ export function useAccountSettingsRoute(
 			id: selectedAccount.id,
 			email: selectedAccount.email,
 			provider: selectedAccount.provider,
+			auth_method: selectedAccount.auth_method,
+			oauth_provider: selectedAccount.oauth_provider,
 			display_name: selectedAccount.display_name,
 			reply_to: selectedAccount.reply_to,
 			organization: selectedAccount.organization,

@@ -6,12 +6,12 @@ import {
 	getAccountSendCredentials,
 	getAccountSyncCredentials,
 	getLocalAccountVCardPath,
-} from '@main/db/repositories/accountsRepo.js';
-import {getMessageById, getMessageContext, upsertLocalDraftSnapshot} from '@main/db/repositories/mailRepo.js';
-import {createMailDebugLogger} from '@main/debug/debugLog.js';
-import {markdownToEmailHtml} from './markdown.js';
-import {resolveImapSecurity, resolveSmtpSecurity} from './security.js';
-import {resolveImapAuth, resolveSmtpAuth} from './auth.js';
+} from '@main/db/repositories/accountsRepo';
+import {getMessageById, getMessageContext, upsertLocalDraftSnapshot} from '@main/db/repositories/mailRepo';
+import {createMailDebugLogger} from '@main/debug/debugLog';
+import {markdownToEmailHtml} from './markdown';
+import {resolveImapSecurity, resolveSmtpSecurity} from './security';
+import {providerManager} from './providerManager';
 
 const DRAFT_SESSION_HEADER = 'X-LlamaMail-Draft-Session';
 
@@ -68,11 +68,12 @@ export async function sendEmail(payload: SendEmailPayload): Promise<SendEmailRes
 	if (!to) throw new Error('Recipient is required');
 
 	const account = await getAccountSendCredentials(payload.accountId);
+	const smtpAuth = await resolveAccountSmtpAuth(payload.accountId, account);
 	const transporter = nodemailer.createTransport({
 		host: account.smtp_host,
 		port: account.smtp_port,
 		...resolveSmtpSecurity(account.smtp_secure),
-		auth: resolveSmtpAuth(account),
+		auth: smtpAuth,
 		logger: createMailDebugLogger('smtp', `send:${account.email}`),
 		debug: true,
 	});
@@ -204,6 +205,7 @@ export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDra
 	}
 
 	const account = await getAccountSyncCredentials(payload.accountId);
+	const draftImapAuth = await resolveAccountImapAuth(payload.accountId, account);
 	if (draftMessageId) {
 		const existingDraftMessage = getMessageById(draftMessageId);
 		const existingDraftRfcMessageId = normalizeMessageId(existingDraftMessage?.message_id ?? null);
@@ -233,7 +235,7 @@ export async function saveDraftEmail(payload: SaveDraftPayload): Promise<SaveDra
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: resolveImapAuth(account),
+		auth: draftImapAuth,
 		logger: createMailDebugLogger('imap', `draft:${payload.accountId}`),
 	});
 
@@ -412,11 +414,12 @@ async function buildRawMessage(message: {
 
 async function appendToSentMailbox(accountId: number, raw: Buffer, date: Date): Promise<void> {
 	const account = await getAccountSyncCredentials(accountId);
+	const sentImapAuth = await resolveAccountImapAuth(accountId, account);
 	const client = new ImapFlow({
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: resolveImapAuth(account),
+		auth: sentImapAuth,
 		logger: createMailDebugLogger('imap', `sent-append:${accountId}`),
 	});
 
@@ -464,11 +467,12 @@ async function resolveDraftMailbox(client: ImapFlow): Promise<string | null> {
 
 async function deleteDraftsBySession(accountId: number, draftSessionId: string): Promise<void> {
 	const account = await getAccountSyncCredentials(accountId);
+	const cleanupImapAuth = await resolveAccountImapAuth(accountId, account);
 	const client = new ImapFlow({
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: resolveImapAuth(account),
+		auth: cleanupImapAuth,
 		logger: createMailDebugLogger('imap', `draft-cleanup:${accountId}`),
 	});
 
@@ -499,11 +503,12 @@ async function deleteDraftByMessageId(accountId: number, draftMessageId: number)
 	if (context.accountId !== accountId) return;
 
 	const account = await getAccountSyncCredentials(accountId);
+	const replaceDraftImapAuth = await resolveAccountImapAuth(accountId, account);
 	const client = new ImapFlow({
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: resolveImapAuth(account),
+		auth: replaceDraftImapAuth,
 		logger: createMailDebugLogger('imap', `draft-replace:${accountId}`),
 	});
 
@@ -528,11 +533,12 @@ async function deleteDraftByMessageId(accountId: number, draftMessageId: number)
 
 async function deleteDraftByRfcMessageId(accountId: number, messageId: string): Promise<void> {
 	const account = await getAccountSyncCredentials(accountId);
+	const replaceByMessageIdImapAuth = await resolveAccountImapAuth(accountId, account);
 	const client = new ImapFlow({
 		host: account.imap_host,
 		port: account.imap_port,
 		...resolveImapSecurity(account.imap_secure),
-		auth: resolveImapAuth(account),
+		auth: replaceByMessageIdImapAuth,
 		logger: createMailDebugLogger('imap', `draft-replace-message-id:${accountId}`),
 	});
 
@@ -559,6 +565,36 @@ async function deleteDraftByRfcMessageId(accountId: number, messageId: string): 
 			// ignore close errors
 		}
 	}
+}
+
+async function resolveAccountImapAuth(
+	accountId: number,
+	credentials: {
+		id: number;
+		user: string;
+		auth_method: 'password' | 'app_password' | 'oauth2';
+		oauth_provider: 'google' | 'microsoft' | null;
+		password: string | null;
+		oauth_session: any | null;
+	},
+): Promise<{user: string; pass?: string; accessToken?: string}> {
+	const driver = await providerManager.resolveDriverForAccount(accountId);
+	return driver.resolveImapAuth(credentials);
+}
+
+async function resolveAccountSmtpAuth(
+	accountId: number,
+	credentials: {
+		id: number;
+		user: string;
+		auth_method: 'password' | 'app_password' | 'oauth2';
+		oauth_provider: 'google' | 'microsoft' | null;
+		password: string | null;
+		oauth_session: any | null;
+	},
+): Promise<{user: string; pass: string} | {type: 'OAuth2'; user: string; accessToken: string}> {
+	const driver = await providerManager.resolveDriverForAccount(accountId);
+	return driver.resolveSmtpAuth(credentials);
 }
 
 function normalizeRecipients(raw?: string | null): string | undefined {

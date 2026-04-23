@@ -1,5 +1,5 @@
 import {ipcMain} from 'electron';
-import {parseOptionalPositiveInt, parsePositiveInt, parseRequiredObject} from './validation.js';
+import {parseOptionalPositiveInt, parsePositiveInt, parseRequiredObject} from './validation';
 
 type ComposeIpcDeps = {
 	appLogger: {debug: (...args: any[]) => void; info: (...args: any[]) => void};

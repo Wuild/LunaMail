@@ -1,6 +1,6 @@
 import {parentPort, workerData} from 'node:worker_threads';
-import {setSqlitePathOverride} from '../db/drizzle.js';
-import {syncAccountMailboxWithCredentials, type SyncSummary} from '../mail/sync.js';
+import {setSqlitePathOverride} from '../db/drizzle';
+import {syncAccountMailboxWithCredentials, type SyncSummary} from '../mail/sync';
 
 type WorkerCredentials = {
 	id: number;

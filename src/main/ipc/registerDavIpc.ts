@@ -22,7 +22,16 @@ type ExportContactsPayload = {
 
 type DavIpcDeps = {
 	discoverDav: (accountId: number) => any;
-	discoverDavPreview: (payload: {email: string; user: string; password: string; imapHost: string}) => any;
+	discoverDavPreview: (payload: {
+		email: string;
+		user: string;
+		password: string;
+		imapHost: string;
+		carddavUser?: string | null;
+		carddavPassword?: string | null;
+		caldavUser?: string | null;
+		caldavPassword?: string | null;
+	}) => any;
 	syncDav: (accountId: number, options?: DavSyncOptions | null) => any;
 	getContacts: (accountId: number, query?: string | null, limit?: number, addressBookId?: number | null) => any[];
 	listRecentRecipients: (accountId: number, query?: string | null, limit?: number) => any[];
@@ -55,6 +64,10 @@ export function registerDavIpc(deps: DavIpcDeps): void {
 				user: string;
 				password: string;
 				imapHost: string;
+				carddavUser?: string | null;
+				carddavPassword?: string | null;
+				caldavUser?: string | null;
+				caldavPassword?: string | null;
 			},
 		) => {
 			const safePayload = parseRequiredObject(payload, 'payload');
@@ -63,6 +76,10 @@ export function registerDavIpc(deps: DavIpcDeps): void {
 				user: parseRequiredText(safePayload.user, 'payload.user', 320),
 				password: parseRequiredText(safePayload.password, 'payload.password', 1024),
 				imapHost: parseRequiredText(safePayload.imapHost, 'payload.imapHost', 255),
+				carddavUser: parseOptionalText(safePayload.carddavUser, 'payload.carddavUser', 320),
+				carddavPassword: parseOptionalText(safePayload.carddavPassword, 'payload.carddavPassword', 1024),
+				caldavUser: parseOptionalText(safePayload.caldavUser, 'payload.caldavUser', 320),
+				caldavPassword: parseOptionalText(safePayload.caldavPassword, 'payload.caldavPassword', 1024),
 			});
 		},
 	);

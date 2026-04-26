@@ -112,6 +112,8 @@ type DavCredentials = {
 	imapHost: string;
 };
 
+type DavProtocol = 'carddav' | 'caldav';
+
 export interface DavDiscoveryResult {
 	accountId: number;
 	carddavUrl: string | null;
@@ -123,6 +125,10 @@ export interface DavDiscoveryPreviewPayload {
 	user: string;
 	password: string;
 	imapHost: string;
+	carddavUser?: string | null;
+	carddavPassword?: string | null;
+	caldavUser?: string | null;
+	caldavPassword?: string | null;
 }
 
 export interface DavSyncSummary {
@@ -135,25 +141,45 @@ export interface DavSyncSummary {
 export async function discoverDav(accountId: number): Promise<DavDiscoveryResult> {
 	const carddavLogger = createMailDebugLogger('carddav', `discover:${accountId}`);
 	const caldavLogger = createMailDebugLogger('caldav', `discover:${accountId}`);
-	const creds = await resolveCredentials(accountId);
 	const saved = getDavSettings(accountId);
-	carddavLogger.debug('Starting CardDAV discovery for account=%d email=%s', accountId, creds.email);
-	caldavLogger.debug('Starting CalDAV discovery for account=%d email=%s', accountId, creds.email);
+	let carddavUrl = saved?.carddav_url || null;
+	let caldavUrl = saved?.caldav_url || null;
 
-	const carddavUrl = await discoverHomeUrl(
-		creds,
-		saved?.carddav_url || null,
-		'carddav',
-		'addressbook-home-set',
-		carddavLogger,
-	);
-	const caldavUrl = await discoverHomeUrl(
-		creds,
-		saved?.caldav_url || null,
-		'caldav',
-		'calendar-home-set',
-		caldavLogger,
-	);
+	try {
+		const carddavCreds = await resolveCredentials(accountId, 'carddav');
+		carddavLogger.debug('Starting CardDAV discovery for account=%d email=%s', accountId, carddavCreds.email);
+		carddavUrl = await discoverHomeUrl(
+			carddavCreds,
+			saved?.carddav_url || null,
+			'carddav',
+			'addressbook-home-set',
+			carddavLogger,
+		);
+	} catch (error: any) {
+		carddavLogger.warn(
+			'CardDAV discovery skipped for account=%d, using saved URL. reason=%s',
+			accountId,
+			String(error?.message || error || 'unknown'),
+		);
+	}
+
+	try {
+		const caldavCreds = await resolveCredentials(accountId, 'caldav');
+		caldavLogger.debug('Starting CalDAV discovery for account=%d email=%s', accountId, caldavCreds.email);
+		caldavUrl = await discoverHomeUrl(
+			caldavCreds,
+			saved?.caldav_url || null,
+			'caldav',
+			'calendar-home-set',
+			caldavLogger,
+		);
+	} catch (error: any) {
+		caldavLogger.warn(
+			'CalDAV discovery skipped for account=%d, using saved URL. reason=%s',
+			accountId,
+			String(error?.message || error || 'unknown'),
+		);
+	}
 
 	if (carddavUrl || caldavUrl) {
 		upsertDavSettings(accountId, carddavUrl, caldavUrl);
@@ -168,23 +194,37 @@ export async function discoverDav(accountId: number): Promise<DavDiscoveryResult
 }
 
 export async function discoverDavPreview(payload: DavDiscoveryPreviewPayload): Promise<DavDiscoveryResult> {
-	const creds: DavCredentials = {
+	const baseCreds: DavCredentials = {
 		email: String(payload.email || '').trim(),
 		user: String(payload.user || '').trim(),
 		password: String(payload.password || ''),
 		imapHost: String(payload.imapHost || '').trim(),
 	};
-	if (!creds.email || !creds.user || !creds.password || !creds.imapHost) {
+	if (!baseCreds.email || !baseCreds.user || !baseCreds.password || !baseCreds.imapHost) {
 		throw new Error('Missing DAV preview credentials');
 	}
+	const carddavCreds: DavCredentials = {
+		...baseCreds,
+		user: String(payload.carddavUser || '').trim() || baseCreds.user,
+		password: String(payload.carddavPassword || '').trim() || baseCreds.password,
+	};
+	const caldavCreds: DavCredentials = {
+		...baseCreds,
+		user: String(payload.caldavUser || '').trim() || baseCreds.user,
+		password: String(payload.caldavPassword || '').trim() || baseCreds.password,
+	};
 
 	const carddavLogger = createMailDebugLogger('carddav', 'discover:preview');
 	const caldavLogger = createMailDebugLogger('caldav', 'discover:preview');
-	carddavLogger.debug('Starting CardDAV preview discovery email=%s imapHost=%s', creds.email, creds.imapHost);
-	caldavLogger.debug('Starting CalDAV preview discovery email=%s imapHost=%s', creds.email, creds.imapHost);
+	carddavLogger.debug(
+		'Starting CardDAV preview discovery email=%s imapHost=%s',
+		carddavCreds.email,
+		carddavCreds.imapHost,
+	);
+	caldavLogger.debug('Starting CalDAV preview discovery email=%s imapHost=%s', caldavCreds.email, caldavCreds.imapHost);
 
-	const carddavUrl = await discoverHomeUrl(creds, null, 'carddav', 'addressbook-home-set', carddavLogger);
-	const caldavUrl = await discoverHomeUrl(creds, null, 'caldav', 'calendar-home-set', caldavLogger);
+	const carddavUrl = await discoverHomeUrl(carddavCreds, null, 'carddav', 'addressbook-home-set', carddavLogger);
+	const caldavUrl = await discoverHomeUrl(caldavCreds, null, 'caldav', 'calendar-home-set', caldavLogger);
 
 	return {
 		accountId: 0,
@@ -238,7 +278,8 @@ export async function syncDav(accountId: number, options?: DavSyncOptions | null
 			discovered.caldavUrl ?? 'null',
 		);
 	}
-	const creds = await resolveCredentials(accountId);
+	const carddavCreds = await resolveCredentials(accountId, 'carddav');
+	const caldavCreds = await resolveCredentials(accountId, 'caldav');
 	carddavLogger.debug(
 		'Discovery result carddav=%s caldav=%s',
 		discovered.carddavUrl ?? 'null',
@@ -254,7 +295,7 @@ export async function syncDav(accountId: number, options?: DavSyncOptions | null
 	if (!syncContacts) {
 		carddavLogger.debug('Skipping CardDAV contacts sync because contacts module is disabled');
 	} else if (discovered.carddavUrl) {
-		const books = await listAddressBookCollections(creds, discovered.carddavUrl, carddavLogger);
+		const books = await listAddressBookCollections(carddavCreds, discovered.carddavUrl, carddavLogger);
 		const sourceBooks = books.length > 0 ? books.map((book) => book.url) : [discovered.carddavUrl];
 		carddavLogger.debug('Using %d CardDAV address books', sourceBooks.length);
 		const syncedBookIds = syncCardDavAddressBooks(
@@ -263,7 +304,7 @@ export async function syncDav(accountId: number, options?: DavSyncOptions | null
 				? books.map((book) => ({remoteUrl: book.url, name: book.name ?? null}))
 				: [{remoteUrl: discovered.carddavUrl, name: 'Contacts'}],
 		);
-		const contacts = await pullContacts(creds, sourceBooks, carddavLogger);
+		const contacts = await pullContacts(carddavCreds, sourceBooks, carddavLogger);
 		const persisted = upsertContacts(
 			accountId,
 			contacts.map((contact) => ({
@@ -287,10 +328,10 @@ export async function syncDav(accountId: number, options?: DavSyncOptions | null
 	if (!syncCalendar) {
 		caldavLogger.debug('Skipping CalDAV sync because calendar module is disabled');
 	} else if (discovered.caldavUrl) {
-		const calendars = await listCollections(creds, discovered.caldavUrl, 'calendar', caldavLogger);
+		const calendars = await listCollections(caldavCreds, discovered.caldavUrl, 'calendar', caldavLogger);
 		const sourceCalendars = calendars.length > 0 ? calendars : [discovered.caldavUrl];
 		caldavLogger.debug('Using %d CalDAV calendars', sourceCalendars.length);
-		const events = await pullEvents(creds, sourceCalendars, caldavLogger);
+		const events = await pullEvents(caldavCreds, sourceCalendars, caldavLogger);
 		const persisted = upsertCalendarEvents(accountId, events, 'caldav');
 		eventsResult = {upserted: persisted.upserted, removed: persisted.removed, calendars: calendars.length || 1};
 		caldavLogger.info(
@@ -371,7 +412,7 @@ export async function addContact(
 		});
 	}
 
-	const creds = await resolveCredentials(accountId);
+	const creds = await resolveCredentials(accountId, 'carddav');
 	const books = await listCollections(creds, discovered.carddavUrl, 'addressbook', logger).catch(() => []);
 	const targetBookUrl = books[0] ?? discovered.carddavUrl;
 	const sourceUid = randomUUID();
@@ -674,7 +715,7 @@ export async function removeCalendarEvent(eventId: number) {
 	return removeCalDavEvent(current);
 }
 
-async function resolveCredentials(accountId: number): Promise<DavCredentials> {
+async function resolveCredentials(accountId: number, protocol: DavProtocol): Promise<DavCredentials> {
 	const creds = await getAccountSyncCredentials(accountId);
 	if (creds.auth_method === 'oauth2') {
 		const providerLabel = creds.oauth_provider ? `${creds.oauth_provider}` : 'selected provider';
@@ -683,13 +724,21 @@ async function resolveCredentials(accountId: number): Promise<DavCredentials> {
 				`Use account/app password DAV credentials for now, or report this on GitHub: https://github.com/wuild/LlamaMail/issues`,
 		);
 	}
-	if (!creds.password) {
-		throw new Error('DAV sync currently requires account password or app password credentials.');
+	const protocolUser =
+		protocol === 'carddav'
+			? String(creds.carddav_user || creds.user || '').trim()
+			: String(creds.caldav_user || creds.user || '').trim();
+	const protocolPassword =
+		protocol === 'carddav'
+			? String(creds.carddav_password || creds.password || '').trim()
+			: String(creds.caldav_password || creds.password || '').trim();
+	if (!protocolUser || !protocolPassword) {
+		throw new Error(`${protocol.toUpperCase()} sync requires username and password credentials.`);
 	}
 	return {
 		email: creds.email,
-		user: creds.user,
-		password: creds.password,
+		user: protocolUser,
+		password: protocolPassword,
 		imapHost: creds.imap_host,
 	};
 }
@@ -1337,7 +1386,7 @@ async function editCardDavContact(
 		throw new Error('No CardDAV endpoint discovered for this account.');
 	}
 
-	const creds = await resolveCredentials(current.account_id);
+	const creds = await resolveCredentials(current.account_id, 'carddav');
 	const books = await listCollections(creds, discovered.carddavUrl, 'addressbook', logger).catch(() => []);
 	const sourceBooks = books.length > 0 ? books : [discovered.carddavUrl];
 	const fullName = payload.fullName === undefined ? current.full_name : payload.fullName;
@@ -1404,7 +1453,7 @@ async function removeCardDavContact(current: {
 		throw new Error('No CardDAV endpoint discovered for this account.');
 	}
 
-	const creds = await resolveCredentials(current.account_id);
+	const creds = await resolveCredentials(current.account_id, 'carddav');
 	const books = await listCollections(creds, discovered.carddavUrl, 'addressbook', logger).catch(() => []);
 	const sourceBooks = books.length > 0 ? books : [discovered.carddavUrl];
 	const existingCardUrl = await findCardDavContactUrl(creds, sourceBooks, current.source_uid, logger);
@@ -1462,7 +1511,7 @@ async function createCalDavEvent(
 		throw new Error('Event end must be after start.');
 	}
 
-	const creds = await resolveCredentials(accountId);
+	const creds = await resolveCredentials(accountId, 'caldav');
 	const calendars = await listCollections(creds, discovered.caldavUrl, 'calendar', logger).catch(() => []);
 	const calendarUrl = (calendars[0] || discovered.caldavUrl).trim();
 	const uid = randomUUID();
@@ -1539,7 +1588,7 @@ async function editCalDavEvent(
 		throw new Error('Event end must be after start.');
 	}
 
-	const creds = await resolveCredentials(current.account_id);
+	const creds = await resolveCredentials(current.account_id, 'caldav');
 	const calendars = await listCollections(creds, discovered.caldavUrl, 'calendar', logger).catch(() => []);
 	const sourceCalendars = calendars.length > 0 ? calendars : [discovered.caldavUrl];
 	const eventUrl = await findCalDavEventUrl(creds, sourceCalendars, current.uid, logger);
@@ -1586,7 +1635,7 @@ async function removeCalDavEvent(current: {id: number; account_id: number; uid: 
 		throw new Error('No CalDAV endpoint discovered for this account.');
 	}
 
-	const creds = await resolveCredentials(current.account_id);
+	const creds = await resolveCredentials(current.account_id, 'caldav');
 	const calendars = await listCollections(creds, discovered.caldavUrl, 'calendar', logger).catch(() => []);
 	const sourceCalendars = calendars.length > 0 ? calendars : [discovered.caldavUrl];
 	const eventUrl = await findCalDavEventUrl(creds, sourceCalendars, current.uid, logger);

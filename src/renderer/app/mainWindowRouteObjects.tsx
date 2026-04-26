@@ -17,7 +17,11 @@ import SettingsTabPage from './main/settings/[tab]/page';
 import SettingsAccountPage from './main/settings/account/[accountId]/page';
 import SettingsAccountLayout from './main/settings/account/[accountId]/layout';
 import SettingsAccountIdentityPage from './main/settings/account/[accountId]/identity/page';
+import SettingsAccountEmailPage from './main/settings/account/[accountId]/email/page';
+import SettingsAccountCardDavPage from './main/settings/account/[accountId]/carddav/page';
+import SettingsAccountCalDavPage from './main/settings/account/[accountId]/caldav/page';
 import SettingsAccountServerPage from './main/settings/account/[accountId]/server/page';
+import SettingsAccountMailPage from './main/settings/account/[accountId]/mail/page';
 import SettingsAccountFiltersPage from './main/settings/account/[accountId]/filters/page';
 import SettingsApplicationPage from './main/settings/application/page';
 import SettingsLayoutPage from './main/settings/layout/page';
@@ -150,8 +154,24 @@ export function buildMainWindowRouteObjects(context: MainWindowRouteContext, sho
 									element: <SettingsAccountIdentityPage />,
 								},
 								{
+									path: '/settings/account/:accountId/email',
+									element: <SettingsAccountEmailPage />,
+								},
+								{
+									path: '/settings/account/:accountId/carddav',
+									element: <SettingsAccountCardDavPage />,
+								},
+								{
+									path: '/settings/account/:accountId/caldav',
+									element: <SettingsAccountCalDavPage />,
+								},
+								{
 									path: '/settings/account/:accountId/server',
 									element: <SettingsAccountServerPage />,
+								},
+								{
+									path: '/settings/account/:accountId/mail',
+									element: <SettingsAccountMailPage />,
 								},
 								{
 									path: '/settings/account/:accountId/filters',

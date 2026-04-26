@@ -1,12 +1,14 @@
 export type AppLanguage = 'system' | 'en-US';
 export type AppTheme = 'system' | 'light' | 'dark';
 export type MailView = 'side-list' | 'top-table';
+export type MailListSort = 'arrived_desc' | 'unread_then_arrived_desc';
 export type NavRailItemId = 'email' | 'contacts' | 'calendar' | 'cloud';
 
 export interface AppSettings {
 	language: AppLanguage;
 	theme: AppTheme;
 	mailView: MailView;
+	mailListSort: MailListSort;
 	navRailOrder: NavRailItemId[];
 	hardwareAcceleration: boolean;
 	pendingHardwareAcceleration: boolean | null;

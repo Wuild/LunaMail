@@ -1,15 +1,23 @@
 import Store from 'electron-store';
-import type {AppLanguage, AppSettings, AppSettingsPatch, AppTheme, MailView} from '@llamamail/app/ipcTypes';
+import type {
+	AppLanguage,
+	AppSettings,
+	AppSettingsPatch,
+	AppTheme,
+	MailListSort,
+	MailView,
+} from '@llamamail/app/ipcTypes';
 import {createDefaultAppSettings, DEFAULT_APP_SETTINGS} from '@llamamail/app/defaults';
 import {
 	normalizeNavRailOrder,
 	normalizeSyncIntervalMinutes,
 	parseAppLanguage,
+	parseMailListSort,
 	parseAppTheme,
 	parseMailView,
 } from '@llamamail/app/settingsRules';
 
-export type {AppLanguage, AppSettings, AppSettingsPatch, AppTheme, MailView} from '@llamamail/app/ipcTypes';
+export type {AppLanguage, AppSettings, AppSettingsPatch, AppTheme, MailListSort, MailView} from '@llamamail/app/ipcTypes';
 
 let settingsCache: AppSettings = createDefaultAppSettings();
 let hasLoaded = false;
@@ -51,6 +59,7 @@ function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSe
 	const language: AppLanguage = parseAppLanguage(input?.language);
 	const theme: AppTheme = parseAppTheme(input?.theme);
 	const mailView: MailView = parseMailView(input?.mailView);
+	const mailListSort: MailListSort = parseMailListSort(input?.mailListSort);
 	const navRailOrder = normalizeNavRailOrder(input?.navRailOrder);
 	const blockRemoteContent = parseBoolean(input?.blockRemoteContent, DEFAULT_APP_SETTINGS.blockRemoteContent);
 	const remoteContentAllowlist = Array.isArray(input?.remoteContentAllowlist)
@@ -105,6 +114,7 @@ function sanitizeSettings(input: Partial<AppSettings> | null | undefined): AppSe
 		language,
 		theme,
 		mailView,
+		mailListSort,
 		navRailOrder,
 		hardwareAcceleration,
 		pendingHardwareAcceleration,

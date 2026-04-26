@@ -657,6 +657,27 @@ function notifyNativeThemeUpdated(): void {
 	}
 }
 
+function closeAllWindowsForQuit(): void {
+	const windows = BrowserWindow.getAllWindows().filter((win) => !win.isDestroyed());
+	if (windows.length === 0) return;
+	logger.info('Closing all windows for quit count=%d', windows.length);
+	for (const win of windows) {
+		try {
+			win.close();
+		} catch {
+			// ignore close failures during shutdown
+		}
+	}
+	for (const win of windows) {
+		if (win.isDestroyed()) continue;
+		try {
+			win.destroy();
+		} catch {
+			// ignore destroy failures during shutdown
+		}
+	}
+}
+
 function handleAppProtocolFallbackUrl(url: string): boolean {
 	if (!isAppProtocolUrl(url)) return false;
 	if (!resolveWrappedMessageLink(url)) return false;
@@ -697,6 +718,10 @@ function installExternalNavigationPolicy(): void {
 			});
 		});
 		contents.on('will-prevent-unload', (event) => {
+			if (isQuitting) {
+				event.preventDefault();
+				return;
+			}
 			const owner = BrowserWindow.fromWebContents(contents) ?? undefined;
 			if (owner && !owner.isDestroyed()) {
 				if (owner.isMinimized()) owner.restore();
@@ -1268,6 +1293,7 @@ if (!gotSingleInstanceLock) {
 	app.on('before-quit', () => {
 		logger.info('App before-quit');
 		isQuitting = true;
+		closeAllWindowsForQuit();
 		nativeTheme.removeListener('updated', notifyNativeThemeUpdated);
 		if (initialBackgroundUpdateCheckTimer) {
 			clearTimeout(initialBackgroundUpdateCheckTimer);

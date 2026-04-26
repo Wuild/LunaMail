@@ -7,8 +7,8 @@ import {DEFAULT_APP_SETTINGS} from '@llamamail/app/defaults';
 import {describeUpdatePhase} from '../mailFilterHelpers';
 import {Button} from '@llamamail/ui/button';
 import {FormCheckbox, FormSelect} from '@llamamail/ui/form';
-import {normalizeSyncIntervalMinutes, parseAppLanguage} from '@llamamail/app/settingsRules';
-import {APP_LANGUAGE_OPTIONS, SYNC_INTERVAL_OPTIONS} from '@llamamail/app/settingsOptions';
+import {parseAppLanguage} from '@llamamail/app/settingsRules';
+import {APP_LANGUAGE_OPTIONS} from '@llamamail/app/settingsOptions';
 import {Card} from '@llamamail/ui/card';
 import {Label} from '@llamamail/ui';
 import {Container} from '@llamamail/ui/container';
@@ -221,50 +221,9 @@ export default function SettingsApplicationPage() {
 							))}
 						</FormSelect>
 					</Label>
-
-					<Label
-						label={'Auto sync interval (minutes)'}
-						subtitle={'How often the app checks mail and updates unread counts in the background.'}
-					>
-						<FormSelect
-							className="field-select h-10 w-full rounded-md px-3 text-sm"
-							value={settings.syncIntervalMinutes}
-							onChange={(e) =>
-								void applySettingsPatch({
-									syncIntervalMinutes: normalizeSyncIntervalMinutes(e.target.value),
-								})
-							}
-						>
-							{SYNC_INTERVAL_OPTIONS.map((m) => (
-								<option key={m} value={m}>
-									Every {m} minute{m > 1 ? 's' : ''}
-								</option>
-							))}
-						</FormSelect>
-					</Label>
 				</Card>
 
 				<Card title={'Window And Startup'}>
-					<Label
-						label={'Auto sync interval (minutes)'}
-						subtitle={'How often the app checks mail and updates unread counts in the background.'}
-					>
-						<FormSelect
-							className="field-select h-10 w-full rounded-md px-3 text-sm"
-							value={settings.syncIntervalMinutes}
-							onChange={(e) =>
-								void applySettingsPatch({
-									syncIntervalMinutes: normalizeSyncIntervalMinutes(e.target.value),
-								})
-							}
-						>
-							{SYNC_INTERVAL_OPTIONS.map((m) => (
-								<option key={m} value={m}>
-									Every {m} minute{m > 1 ? 's' : ''}
-								</option>
-							))}
-						</FormSelect>
-					</Label>
 					<label className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 						<div className="pr-3">
 							<span className="ui-text-secondary">Minimize to tray</span>

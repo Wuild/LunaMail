@@ -54,7 +54,8 @@ import {buildMessageIframeSrcDoc, formatMessageTagLabel, parseRouteNumber} from 
 import {normalizeAccountOrder, readPersistedAccountOrder, writePersistedAccountOrder} from './mailAccountOrder';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {DEFAULT_APP_SETTINGS} from '@llamamail/app/defaults';
-import type {FolderItem, MessageItem, OpenMessageTargetEvent, PublicAccount} from '@preload';
+import {parseMailListSort} from '@llamamail/app/settingsRules';
+import type {FolderItem, MailListSort, MessageItem, OpenMessageTargetEvent, PublicAccount} from '@preload';
 import {isAccountEmailModuleEnabled} from '@llamamail/app/accountModules';
 
 const MESSAGE_PAGE_SIZE = 100;
@@ -62,6 +63,33 @@ const SEARCH_FALLBACK_MESSAGES_PER_FOLDER = 1000;
 const SIDE_LIST_SPLIT_BREAKPOINT_PX = 1320;
 const TOP_TABLE_COMPACT_BREAKPOINT_PX = 860;
 const LEGACY_JUNK_SENDER_RULE_PREFIX = '[LunaMail] sender-rule:';
+
+function parseMessageSortTimestamp(message: MessageItem): number {
+	if (!message?.date) return 0;
+	const parsed = Date.parse(message.date);
+	return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function compareMessagesByDateDesc(a: MessageItem, b: MessageItem): number {
+	const timeDiff = parseMessageSortTimestamp(b) - parseMessageSortTimestamp(a);
+	if (timeDiff !== 0) return timeDiff;
+	return Number(b.id || 0) - Number(a.id || 0);
+}
+
+function sortMessagesByMode(messages: MessageItem[], mode: MailListSort): MessageItem[] {
+	const rows = [...messages];
+	if (mode === 'unread_then_arrived_desc') {
+		rows.sort((a, b) => {
+			const readA = Number(a.is_read ?? 0) > 0 ? 1 : 0;
+			const readB = Number(b.is_read ?? 0) > 0 ? 1 : 0;
+			if (readA !== readB) return readA - readB;
+			return compareMessagesByDateDesc(a, b);
+		});
+		return rows;
+	}
+	rows.sort(compareMessagesByDateDesc);
+	return rows;
+}
 
 function hasMoreFolderMessages(loadedCount: number, requestedLimit: number, folderTotalCount: number): boolean {
 	if (loadedCount >= requestedLimit) return true;
@@ -93,6 +121,9 @@ function MailPage() {
 	);
 	const setAccountsStore = useAccountsRuntimeStore((state) => state.setAccounts);
 	const selectedAccountId = useAccountsRuntimeStore((state) => state.selectedAccountId);
+	const currentMailListSort = parseMailListSort(
+		accounts.find((account) => account.id === selectedAccountId)?.email_list_sort,
+	);
 	const setSelectedAccountId = useAccountsRuntimeStore((state) => state.setSelectedAccountId);
 	const [accountOrder, setAccountOrder] = useState<number[]>(() => readPersistedAccountOrder());
 	const accountFoldersById = useMailFoldersStore((state) => state.accountFoldersById);
@@ -118,6 +149,7 @@ function MailPage() {
 	const setLoadingMoreMessagesStore = useMailMessagesStore((state) => state.setLoadingMoreMessages);
 	const setHasMoreMessagesStore = useMailMessagesStore((state) => state.setHasMoreMessages);
 	const resetMessageListState = useMailMessagesStore((state) => state.resetMessageListState);
+	const {appSettings, setAppSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
 	const setAccountFoldersById = useCallback(
 		(value: SetStateAction<Record<number, FolderItem[]>>) => {
 			setAccountFoldersByIdStore((prev) =>
@@ -145,11 +177,13 @@ function MailPage() {
 	);
 	const setMessages = useCallback(
 		(value: SetStateAction<MessageItem[]>) => {
-			setMessagesStore((prev) =>
-				typeof value === 'function' ? (value as (current: MessageItem[]) => MessageItem[])(prev) : value,
-			);
+			setMessagesStore((prev) => {
+				const next =
+					typeof value === 'function' ? (value as (current: MessageItem[]) => MessageItem[])(prev) : value;
+				return sortMessagesByMode(next, currentMailListSort);
+			});
 		},
-		[setMessagesStore],
+		[currentMailListSort, setMessagesStore],
 	);
 	const setSearchQuery = useCallback(
 		(value: SetStateAction<string>) => {
@@ -161,11 +195,13 @@ function MailPage() {
 	);
 	const setSearchResults = useCallback(
 		(value: SetStateAction<MessageItem[]>) => {
-			setSearchResultsStore((prev) =>
-				typeof value === 'function' ? (value as (current: MessageItem[]) => MessageItem[])(prev) : value,
-			);
+			setSearchResultsStore((prev) => {
+				const next =
+					typeof value === 'function' ? (value as (current: MessageItem[]) => MessageItem[])(prev) : value;
+				return sortMessagesByMode(next, currentMailListSort);
+			});
 		},
-		[setSearchResultsStore],
+		[currentMailListSort, setSearchResultsStore],
 	);
 	const setSearchLoading = useCallback(
 		(value: SetStateAction<boolean>) => {
@@ -207,6 +243,10 @@ function MailPage() {
 		},
 		[setAccountsStore],
 	);
+	useEffect(() => {
+		setMessagesStore((prev) => sortMessagesByMode(prev, currentMailListSort));
+		setSearchResultsStore((prev) => sortMessagesByMode(prev, currentMailListSort));
+	}, [currentMailListSort, setMessagesStore, setSearchResultsStore]);
 	const [showMessageDetails, setShowMessageDetails] = useState(false);
 	const [senderAvatarSrc, setSenderAvatarSrc] = useState<string | null>(null);
 	const [showSourceModal, setShowSourceModal] = useState(false);
@@ -217,7 +257,6 @@ function MailPage() {
 	const [sessionRemoteAllowedMessageIds, setSessionRemoteAllowedMessageIds] = useState<number[]>([]);
 	const [hoveredLinkUrl, setHoveredLinkUrl] = useState('');
 	const [isPointerOverMessageFrame, setIsPointerOverMessageFrame] = useState(false);
-	const {appSettings, setAppSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
 	const selectedFolderPathRef = useRef<string | null>(null);
 	const selectedMessageIdRef = useRef<number | null>(null);
 	const pendingDeleteMessageIdsRef = useRef<Set<number>>(new Set());

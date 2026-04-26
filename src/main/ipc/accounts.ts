@@ -64,7 +64,15 @@ import {registerAccountCoreIpc} from './registerAccountCoreIpc';
 import {registerComposeIpc} from './registerComposeIpc';
 import {registerDavIpc} from './registerDavIpc';
 import {registerMailIpc} from './registerMailIpc';
-import {normalizeSyncIntervalMinutes} from '@llamamail/app/settingsRules';
+import {
+	DEFAULT_ACCOUNT_CALENDAR_SYNC_INTERVAL_MINUTES,
+	DEFAULT_ACCOUNT_CONTACTS_SYNC_INTERVAL_MINUTES,
+	DEFAULT_ACCOUNT_EMAIL_SYNC_INTERVAL_MINUTES,
+	normalizeAccountCalendarSyncIntervalMinutes,
+	normalizeAccountContactsSyncIntervalMinutes,
+	normalizeAccountEmailSyncIntervalMinutes,
+	normalizeSyncIntervalMinutes,
+} from '@llamamail/app/settingsRules';
 import type {AccountSyncModuleStatusMap, DavSyncOptions, SyncModuleKey} from '@llamamail/app/ipcTypes';
 import {
 	isAccountCalendarModuleEnabled,
@@ -114,10 +122,17 @@ type AccountSyncState = {
 	inFlight: boolean;
 	queued: boolean;
 	latestSource: string;
+	latestSyncRequest: AccountSyncRequest | null;
 	timer: NodeJS.Timeout | null;
 	runner: Promise<void> | null;
 	cancelCurrent: (() => void) | null;
 	pending: Deferred<AccountSyncSummary> | null;
+};
+
+type AccountSyncRequest = {
+	emails?: boolean;
+	contacts?: boolean;
+	calendar?: boolean;
 };
 
 export type AccountSyncSummary = SyncSummary & {
@@ -129,6 +144,9 @@ export type AccountSyncSummary = SyncSummary & {
 
 const accountSyncState = new Map<number, AccountSyncState>();
 const blockedSyncAccounts = new Map<number, string>();
+const accountLastEmailAutoSyncAt = new Map<number, number>();
+const accountLastContactsAutoSyncAt = new Map<number, number>();
+const accountLastCalendarAutoSyncAt = new Map<number, number>();
 
 type IdleWatcherState = {
 	accountId: number;
@@ -235,15 +253,33 @@ function toVcf(
 }
 
 export function registerAccountIpc(): void {
+	const clearAccountAutoSyncMarkers = (accountId: number): void => {
+		accountLastEmailAutoSyncAt.delete(accountId);
+		accountLastContactsAutoSyncAt.delete(accountId);
+		accountLastCalendarAutoSyncAt.delete(accountId);
+	};
+
 	registerAccountCoreIpc({
 		appLogger,
 		getAccounts: async () => filterAccountsForCurrentMode(await getAccounts()),
 		getProviderDriverCatalog: () => providerManager.getProviderDriverCatalog(),
 		getProviderCapabilities: async (accountId: number) => await providerManager.getCapabilities(accountId),
 		getTotalUnreadCount: () => getVisibleUnreadCount(getAccountsSyncSnapshot()),
-		addAccount,
-		updateAccount,
-		deleteAccount,
+		addAccount: async (payload) => {
+			const created = await addAccount(payload);
+			clearAccountAutoSyncMarkers(created.id);
+			return created;
+		},
+		updateAccount: async (accountId, payload) => {
+			const updated = await updateAccount(accountId, payload);
+			clearAccountAutoSyncMarkers(accountId);
+			return updated;
+		},
+		deleteAccount: async (accountId) => {
+			const deleted = await deleteAccount(accountId);
+			clearAccountAutoSyncMarkers(accountId);
+			return deleted;
+		},
 		revokeAccountOAuthTokens: async (accountId: number) => {
 			try {
 				const credentials = await getAccountSyncCredentials(accountId);
@@ -275,6 +311,69 @@ export function registerAccountIpc(): void {
 		autodiscover,
 		autodiscoverBasic,
 		verifyConnection,
+		testAccountServiceConnection: async (accountId, payload) => {
+			const service = String(payload?.service || '').trim().toLowerCase();
+			const mode = String(payload?.mode || 'authentication').trim().toLowerCase();
+			if (service !== 'imap' && service !== 'smtp') {
+				throw new Error('Invalid service. Expected "imap" or "smtp".');
+			}
+			if (mode !== 'connection' && mode !== 'authentication') {
+				throw new Error('Invalid mode. Expected "connection" or "authentication".');
+			}
+			const hostOverride = String(payload?.host || '').trim() || null;
+			const userOverride = String(payload?.user || '').trim() || null;
+			const passwordOverride = String(payload?.password || '').trim() || null;
+			const portOverride = Number(payload?.port);
+			const secureOverride = typeof payload?.secure === 'boolean' ? payload.secure : null;
+
+			if (service === 'imap') {
+				const credentials = await getAccountSyncCredentials(accountId);
+				const host = hostOverride || credentials.imap_host;
+				const port = Number.isFinite(portOverride) && portOverride > 0 ? Math.round(portOverride) : credentials.imap_port;
+				const secure = secureOverride === null ? Number(credentials.imap_secure ?? 1) > 0 : secureOverride;
+				const user = userOverride || String(credentials.imap_user || credentials.user || credentials.email || '').trim();
+				const password =
+					mode === 'authentication'
+						? passwordOverride ||
+							String(credentials.imap_password || credentials.password || '').trim() ||
+							undefined
+						: undefined;
+				return await verifyConnection({
+					type: 'imap',
+					mode: mode as 'connection' | 'authentication',
+					host,
+					port,
+					secure,
+					user,
+					password,
+					auth_method: credentials.auth_method,
+					oauth_session: credentials.oauth_session,
+				});
+			}
+
+			const credentials = await getAccountSendCredentials(accountId);
+			const host = hostOverride || credentials.smtp_host;
+			const port = Number.isFinite(portOverride) && portOverride > 0 ? Math.round(portOverride) : credentials.smtp_port;
+			const secure = secureOverride === null ? Number(credentials.smtp_secure ?? 1) > 0 : secureOverride;
+			const user = userOverride || String(credentials.smtp_user || credentials.user || credentials.email || '').trim();
+			const password =
+				mode === 'authentication'
+					? passwordOverride ||
+						String(credentials.smtp_password || credentials.password || '').trim() ||
+						undefined
+					: undefined;
+			return await verifyConnection({
+				type: 'smtp',
+				mode: mode as 'connection' | 'authentication',
+				host,
+				port,
+				secure,
+				user,
+				password,
+				auth_method: credentials.auth_method,
+				oauth_session: credentials.oauth_session,
+			});
+		},
 		startMailOAuth,
 		cancelPendingMailOAuth,
 	});
@@ -363,6 +462,69 @@ function getAccountsSyncSnapshot(): Array<{id: number; provider: string | null |
 	}
 }
 
+function resolveAccountEmailSyncIntervalMs(account: PublicAccount): number {
+	const minutes = normalizeAccountEmailSyncIntervalMinutes(
+		account.email_sync_interval_minutes,
+		DEFAULT_ACCOUNT_EMAIL_SYNC_INTERVAL_MINUTES,
+	);
+	return minutes * 60 * 1000;
+}
+
+function resolveAccountContactsSyncIntervalMs(account: PublicAccount): number {
+	const minutes = normalizeAccountContactsSyncIntervalMinutes(
+		account.contacts_sync_interval_minutes,
+		DEFAULT_ACCOUNT_CONTACTS_SYNC_INTERVAL_MINUTES,
+	);
+	return minutes * 60 * 1000;
+}
+
+function resolveAccountCalendarSyncIntervalMs(account: PublicAccount): number {
+	const minutes = normalizeAccountCalendarSyncIntervalMinutes(
+		account.calendar_sync_interval_minutes,
+		DEFAULT_ACCOUNT_CALENDAR_SYNC_INTERVAL_MINUTES,
+	);
+	return minutes * 60 * 1000;
+}
+
+function isAutoSyncModuleDue(
+	lastRunAtByAccountId: Map<number, number>,
+	accountId: number,
+	intervalMs: number,
+	nowMs: number,
+): boolean {
+	const lastRunAt = lastRunAtByAccountId.get(accountId) ?? 0;
+	if (!lastRunAt) return true;
+	return nowMs - lastRunAt >= intervalMs;
+}
+
+function resolveIntervalSyncRequest(account: PublicAccount, nowMs: number): AccountSyncRequest | null {
+	const shouldSyncEmails =
+		isAccountEmailModuleEnabled(account) &&
+		isAutoSyncModuleDue(accountLastEmailAutoSyncAt, account.id, resolveAccountEmailSyncIntervalMs(account), nowMs);
+	const shouldSyncContacts =
+		isAccountContactsModuleEnabled(account) &&
+		isAutoSyncModuleDue(
+			accountLastContactsAutoSyncAt,
+			account.id,
+			resolveAccountContactsSyncIntervalMs(account),
+			nowMs,
+		);
+	const shouldSyncCalendar =
+		isAccountCalendarModuleEnabled(account) &&
+		isAutoSyncModuleDue(
+			accountLastCalendarAutoSyncAt,
+			account.id,
+			resolveAccountCalendarSyncIntervalMs(account),
+			nowMs,
+		);
+	if (!shouldSyncEmails && !shouldSyncContacts && !shouldSyncCalendar) return null;
+	return {
+		emails: shouldSyncEmails,
+		contacts: shouldSyncContacts,
+		calendar: shouldSyncCalendar,
+	};
+}
+
 export function startAccountAutoSync(): void {
 	if (autoSyncTimer) return;
 	appLogger.info('Starting account auto sync intervalMs=%d', autoSyncIntervalMs);
@@ -444,15 +606,33 @@ async function runAutoSyncCycle(source: 'startup' | 'interval'): Promise<void> {
 					isAccountContactsModuleEnabled(account) ||
 					isAccountCalendarModuleEnabled(account)),
 		);
+		const nowMs = Date.now();
 		void ensureIdleWatchersForAccounts(
 			syncableAccounts.filter((account) => isAccountEmailModuleEnabled(account)).map((account) => account.id),
 		);
 		for (const account of syncableAccounts) {
+			const syncRequest = source === 'interval' ? resolveIntervalSyncRequest(account, nowMs) : null;
+			if (source === 'interval' && !syncRequest) continue;
 			if (blockedSyncAccounts.has(account.id)) continue;
 			try {
-				await runSyncAndBroadcast(account.id, source);
+				await runSyncAndBroadcast(account.id, source, syncRequest ?? undefined);
 			} catch (error) {
 				console.error(`Autosync failed for account ${account.email}:`, error);
+			} finally {
+				if (source === 'interval' || source === 'startup') {
+					const completedAt = Date.now();
+					const completedRequest: AccountSyncRequest =
+						source === 'interval'
+							? (syncRequest ?? {emails: false, contacts: false, calendar: false})
+							: {
+									emails: isAccountEmailModuleEnabled(account),
+									contacts: isAccountContactsModuleEnabled(account),
+									calendar: isAccountCalendarModuleEnabled(account),
+								};
+					if (completedRequest.emails) accountLastEmailAutoSyncAt.set(account.id, completedAt);
+					if (completedRequest.contacts) accountLastContactsAutoSyncAt.set(account.id, completedAt);
+					if (completedRequest.calendar) accountLastCalendarAutoSyncAt.set(account.id, completedAt);
+				}
 			}
 		}
 	} finally {
@@ -460,7 +640,11 @@ async function runAutoSyncCycle(source: 'startup' | 'interval'): Promise<void> {
 	}
 }
 
-async function runSyncAndBroadcast(accountId: number, source: string): Promise<AccountSyncSummary> {
+async function runSyncAndBroadcast(
+	accountId: number,
+	source: string,
+	syncRequest?: AccountSyncRequest,
+): Promise<AccountSyncSummary> {
 	appLogger.debug('runSyncAndBroadcast accountId=%d source=%s', accountId, source);
 	const account = (await getAccounts()).find((item) => item.id === accountId) ?? null;
 	if (account && isDemoModeEnabled() && !isDemoProvider(account.provider)) {
@@ -516,6 +700,7 @@ async function runSyncAndBroadcast(accountId: number, source: string): Promise<A
 
 	const state = getAccountSyncState(accountId);
 	state.latestSource = source;
+	state.latestSyncRequest = syncRequest ?? null;
 	if (!state.pending) {
 		state.pending = createDeferred<AccountSyncSummary>();
 	}
@@ -546,6 +731,7 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 		state.inFlight = true;
 		state.queued = false;
 		const source = state.latestSource;
+		const syncRequest = state.latestSyncRequest;
 		let accountSnapshot: PublicAccount | null = null;
 		let cancelled = false;
 		let activeMailWorker: Worker | null = null;
@@ -585,6 +771,9 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 			const emailsEnabled = isAccountEmailModuleEnabled(accountSnapshot);
 			const contactsEnabled = isAccountContactsModuleEnabled(accountSnapshot);
 			const calendarEnabled = isAccountCalendarModuleEnabled(accountSnapshot);
+			const shouldSyncEmails = emailsEnabled && (syncRequest?.emails ?? true);
+			const shouldSyncContacts = contactsEnabled && (syncRequest?.contacts ?? true);
+			const shouldSyncCalendar = calendarEnabled && (syncRequest?.calendar ?? true);
 			let mailSummary: SyncSummary = {
 				accountId,
 				folders: 0,
@@ -594,35 +783,76 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 				newestMessageTarget: null,
 			};
 			const moduleStatus: AccountSyncModuleStatusMap = {
-				emails: emailsEnabled
+				emails: shouldSyncEmails
 					? {state: 'success'}
 					: {
 							state: 'skipped',
-							reason: 'Email sync is disabled for this account.',
+							reason: emailsEnabled
+								? 'Email sync was not requested.'
+								: 'Email sync is disabled for this account.',
 						},
-				contacts: contactsEnabled
+				contacts: shouldSyncContacts
 					? {state: 'skipped', reason: 'Contacts sync was not executed.'}
 					: {
 							state: 'skipped',
-							reason: 'Contacts sync is disabled for this account.',
+							reason: contactsEnabled
+								? 'Contacts sync was not requested.'
+								: 'Contacts sync is disabled for this account.',
 						},
-				calendar: calendarEnabled
+				calendar: shouldSyncCalendar
 					? {state: 'skipped', reason: 'Calendar sync was not executed.'}
 					: {
 							state: 'skipped',
-							reason: 'Calendar sync is disabled for this account.',
+							reason: calendarEnabled
+								? 'Calendar sync was not requested.'
+								: 'Calendar sync is disabled for this account.',
 						},
 				files: {state: 'skipped', reason: 'Files sync is not implemented.'},
 			};
-			if (emailsEnabled) {
+			if (shouldSyncEmails) {
 				const emailSyncService = await providerManager.resolveEmailSyncServiceForAccount(accountId);
 				mailSummary = await emailSyncService.syncMailbox(accountId, (worker) => {
 					activeMailWorker = worker;
+					worker.on('message', (payload: unknown) => {
+						if (!payload || typeof payload !== 'object') return;
+						const data = payload as {type?: string; entry?: unknown};
+						if (data.type !== 'debug-log' || !data.entry || typeof data.entry !== 'object') return;
+						const entry = data.entry as {
+							source?: unknown;
+							level?: unknown;
+							scope?: unknown;
+							message?: unknown;
+						};
+						const source = String(entry.source || '').trim();
+						const level = String(entry.level || '').trim().toLowerCase();
+						if (
+							(source !== 'imap' &&
+								source !== 'smtp' &&
+								source !== 'carddav' &&
+								source !== 'caldav' &&
+								source !== 'cloud' &&
+								source !== 'app') ||
+							(level !== 'trace' &&
+								level !== 'debug' &&
+								level !== 'info' &&
+								level !== 'warn' &&
+								level !== 'error' &&
+								level !== 'fatal')
+						) {
+							return;
+						}
+						pushDebugLog({
+							source: source as any,
+							level: level as any,
+							scope: String(entry.scope || 'mail-sync-worker').trim() || 'mail-sync-worker',
+							message: String(entry.message || ''),
+						});
+					});
 				});
 			}
 			if (cancelled && state.queued) continue;
 
-			if (emailsEnabled && source !== 'manual' && mailSummary.newMessageIds.length > 0) {
+			if (shouldSyncEmails && source !== 'manual' && mailSummary.newMessageIds.length > 0) {
 				try {
 					await runMailFiltersForMessages(accountId, mailSummary.newMessageIds, 'incoming');
 				} catch (filterError) {
@@ -639,7 +869,7 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 							accountId,
 							{
 								modules: {
-									contacts: true,
+									contacts: shouldSyncContacts,
 									calendar: false,
 								},
 							},
@@ -654,7 +884,7 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 							{
 								modules: {
 									contacts: false,
-									calendar: true,
+									calendar: shouldSyncCalendar,
 								},
 							},
 							(worker) => {
@@ -663,6 +893,28 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 						)
 					: Promise.resolve<ProviderAncillarySyncResult>({}),
 			]);
+			if (!shouldSyncContacts) {
+				contactsAncillarySummary.moduleStatus = {
+					...(contactsAncillarySummary.moduleStatus ?? {}),
+					contacts: {
+						state: 'skipped',
+						reason: contactsEnabled
+							? 'Contacts sync was not requested.'
+							: 'Contacts sync is disabled for this account.',
+					},
+				};
+			}
+			if (!shouldSyncCalendar) {
+				calendarAncillarySummary.moduleStatus = {
+					...(calendarAncillarySummary.moduleStatus ?? {}),
+					calendar: {
+						state: 'skipped',
+						reason: calendarEnabled
+							? 'Calendar sync was not requested.'
+							: 'Calendar sync is disabled for this account.',
+					},
+				};
+			}
 			const contactsDavSummary = contactsAncillarySummary.dav;
 			const calendarDavSummary = calendarAncillarySummary.dav;
 			const discoveredSummary =
@@ -689,13 +941,13 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 							},
 					}
 				: undefined;
-			if (contactsEnabled) {
+			if (shouldSyncContacts) {
 				moduleStatus.contacts = contactsAncillarySummary.moduleStatus?.contacts ?? {
 					state: 'skipped',
 					reason: 'Contacts sync was not executed.',
 				};
 			}
-			if (calendarEnabled) {
+			if (shouldSyncCalendar) {
 				moduleStatus.calendar = calendarAncillarySummary.moduleStatus?.calendar ?? {
 					state: 'skipped',
 					reason: 'Calendar sync was not executed.',
@@ -722,7 +974,7 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 			};
 
 			notifyUnreadCountChanged();
-			if (emailsEnabled && mailSummary.newMessages > 0 && newMailListener) {
+			if (shouldSyncEmails && mailSummary.newMessages > 0 && newMailListener) {
 				newMailListener({
 					accountId,
 					newMessages: mailSummary.newMessages,
@@ -730,7 +982,7 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 					target: mailSummary.newestMessageTarget,
 				});
 			}
-			if (emailsEnabled && mailSummary.newMessages > 0) {
+			if (shouldSyncEmails && mailSummary.newMessages > 0) {
 				appEventHandler.emit(AppEvent.EmailNew, {
 					accountId,
 					newMessages: mailSummary.newMessages,
@@ -1073,6 +1325,7 @@ function getAccountSyncState(accountId: number): AccountSyncState {
 		inFlight: false,
 		queued: false,
 		latestSource: 'manual',
+		latestSyncRequest: null,
 		timer: null,
 		runner: null,
 		cancelCurrent: null,

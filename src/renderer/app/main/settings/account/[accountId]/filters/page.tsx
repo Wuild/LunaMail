@@ -1,6 +1,7 @@
 import {useOutletContext} from 'react-router-dom';
 import type {MailFilterActionType, MailFilterField, MailFilterMatchMode, MailFilterOperator} from '@preload';
 import {Button} from '@llamamail/ui/button';
+import {Card} from '@llamamail/ui/card';
 import {FormCheckbox, FormInput, FormSelect} from '@llamamail/ui/form';
 import {Modal} from '@llamamail/ui/modal';
 import {isProtectedFolder} from '@renderer/features/mail/folders';
@@ -76,42 +77,48 @@ export default function SettingsAccountFiltersPage() {
 
 	return (
 		<>
-			<section className="panel rounded-xl p-4">
-				<div className="flex items-start justify-between gap-3">
-					<div>
-						<h2 className="ui-text-primary text-base font-semibold">Message Filters</h2>
-						<p className="mt-1 ui-text-muted text-sm">
-							Thunderbird-style account filters that can run on new incoming mail or manually.
-						</p>
+			<Card
+				header={
+					<div className="flex items-start justify-between gap-3">
+						<div>
+							<h2 className="ui-text-primary text-base font-semibold">Rules</h2>
+							<p className="mt-1 ui-text-muted text-sm">
+								Configure account-level rules that run on incoming mail or manually on demand.
+							</p>
+						</div>
+						<div className="flex items-center gap-2">
+							<Button
+								type="button"
+								variant="secondary"
+								size="sm"
+								onClick={() => void onRunMailFilter()}
+								disabled={runningFilterId !== null || mailFilterBusy || !!mailFilterModal}
+								className="rounded-md"
+							>
+								{runningFilterId === -1 ? 'Running...' : 'Run All'}
+							</Button>
+							<Button
+								type="button"
+								variant="default"
+								size="sm"
+								onClick={onOpenCreateMailFilter}
+								disabled={mailFilterBusy || !!mailFilterModal}
+								className="rounded-md font-medium"
+							>
+								Add Rule
+							</Button>
+						</div>
 					</div>
-					<div className="flex items-center gap-2">
-						<Button
-							type="button"
-							onClick={() => void onRunMailFilter()}
-							disabled={runningFilterId !== null || mailFilterBusy || !!mailFilterModal}
-							className="button-secondary rounded-md px-3 py-2 text-xs disabled:opacity-50"
-						>
-							{runningFilterId === -1 ? 'Running...' : 'Run All'}
-						</Button>
-						<Button
-							type="button"
-							onClick={onOpenCreateMailFilter}
-							disabled={mailFilterBusy || !!mailFilterModal}
-							className="button-primary rounded-md px-3 py-2 text-xs font-medium disabled:opacity-50"
-						>
-							Add Filter
-						</Button>
-					</div>
-				</div>
-
-				<div className="mt-4 space-y-4">
+				}
+			>
+				<div className="space-y-4">
 					{mailFilters.length === 0 && (
 						<div className="ui-border-default ui-text-muted rounded-md border border-dashed px-3 py-4 text-sm">
-							No filters yet.
+							No rules yet.
 						</div>
 					)}
 					{mailFilters.map((filter) => (
-						<div key={filter.id} className="panel rounded-lg p-3">
+						<Card key={filter.id} variant="outline" size="sm">
 							<div className="flex items-start justify-between gap-3">
 								<div>
 									<div className="ui-text-primary text-sm font-semibold">{filter.name}</div>
@@ -143,34 +150,39 @@ export default function SettingsAccountFiltersPage() {
 							<div className="mt-3 flex items-center gap-2">
 								<Button
 									type="button"
+									variant="default"
+									size="sm"
 									onClick={() => onOpenEditMailFilter(filter)}
 									disabled={mailFilterBusy || !!mailFilterModal}
-									className="button-primary rounded-md px-3 py-2 text-xs font-medium disabled:opacity-50"
+									className="rounded-md font-medium"
 								>
 									Edit
 								</Button>
 								<Button
 									type="button"
+									variant="secondary"
+									size="sm"
 									onClick={() => void onRunMailFilter(filter.id)}
 									disabled={runningFilterId !== null || mailFilterBusy || !!mailFilterModal}
-									className="button-secondary rounded-md px-3 py-2 text-xs disabled:opacity-50"
+									className="rounded-md"
 								>
-									{runningFilterId === filter.id ? 'Running...' : 'Run Filter'}
+									{runningFilterId === filter.id ? 'Running...' : 'Run Rule'}
 								</Button>
 								<Button
 									type="button"
 									variant="danger"
+									size="sm"
 									onClick={() => void onDeleteMailFilter(filter.id)}
 									disabled={mailFilterBusy}
-									className="rounded-md px-3 py-2 text-xs disabled:opacity-50"
+									className="rounded-md"
 								>
 									Delete
 								</Button>
 							</div>
-						</div>
+						</Card>
 					))}
 				</div>
-			</section>
+			</Card>
 
 			{mailFilterModal && (
 				<Modal
@@ -182,7 +194,7 @@ export default function SettingsAccountFiltersPage() {
 					<header className="ui-border-default flex items-start justify-between gap-3 border-b px-5 py-4">
 						<div className="min-w-0">
 							<h3 className="ui-text-primary text-lg font-semibold">
-								{mailFilterModal.mode === 'create' ? 'Create Filter' : 'Edit Filter'}
+								{mailFilterModal.mode === 'create' ? 'Create Rule' : 'Edit Rule'}
 							</h3>
 							<p className="ui-text-muted mt-1 text-sm">
 								Configure matching rules and actions for this account.
@@ -539,8 +551,8 @@ export default function SettingsAccountFiltersPage() {
 							{mailFilterBusy
 								? 'Saving...'
 								: mailFilterModal.mode === 'create'
-									? 'Create Filter'
-									: 'Save Filter'}
+									? 'Create Rule'
+									: 'Save Rule'}
 						</Button>
 					</footer>
 				</Modal>

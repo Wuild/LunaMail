@@ -4,6 +4,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
 	language: 'system',
 	theme: 'system',
 	mailView: 'side-list',
+	mailListSort: 'unread_then_arrived_desc',
 	navRailOrder: ['email', 'contacts', 'calendar', 'cloud'],
 	hardwareAcceleration: true,
 	pendingHardwareAcceleration: null,

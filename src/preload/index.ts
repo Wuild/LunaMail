@@ -14,6 +14,7 @@ import type {
 	DiscoverResult,
 	GlobalErrorEvent,
 	MailFilter,
+	MailListSort,
 	MailFilterRunSummary,
 	OAuthProvider,
 	OAuthSession,
@@ -50,6 +51,7 @@ export type {
 	MailFilterMatchMode,
 	MailFilterOperator,
 	MailFilterRunSummary,
+	MailListSort,
 	MailView,
 	DavSyncOptions,
 	DavSyncModules,
@@ -88,8 +90,21 @@ export interface AddAccountPayload {
 	sync_emails?: number;
 	sync_contacts?: number;
 	sync_calendar?: number;
+	contacts_sync_interval_minutes?: number;
+	calendar_sync_interval_minutes?: number;
+	email_list_sort?: MailListSort;
+	email_sync_interval_minutes?: number;
+	email_sync_lookback_months?: number | null;
+	imap_user?: string | null;
+	smtp_user?: string | null;
+	carddav_user?: string | null;
+	caldav_user?: string | null;
 	user: string;
 	password?: string;
+	imap_password?: string;
+	smtp_password?: string;
+	carddav_password?: string;
+	caldav_password?: string;
 	oauth_session?: OAuthSession | null;
 }
 
@@ -117,8 +132,21 @@ export interface UpdateAccountPayload {
 	sync_emails?: number;
 	sync_contacts?: number;
 	sync_calendar?: number;
+	contacts_sync_interval_minutes?: number;
+	calendar_sync_interval_minutes?: number;
+	email_list_sort?: MailListSort;
+	email_sync_interval_minutes?: number;
+	email_sync_lookback_months?: number | null;
+	imap_user?: string | null;
+	smtp_user?: string | null;
+	carddav_user?: string | null;
+	caldav_user?: string | null;
 	user: string;
 	password?: string | null;
+	imap_password?: string | null;
+	smtp_password?: string | null;
+	carddav_password?: string | null;
+	caldav_password?: string | null;
 	oauth_session?: OAuthSession | null;
 }
 
@@ -147,6 +175,15 @@ export interface PublicAccount {
 	sync_emails: number;
 	sync_contacts: number;
 	sync_calendar: number;
+	contacts_sync_interval_minutes: number;
+	calendar_sync_interval_minutes: number;
+	email_list_sort: MailListSort;
+	email_sync_interval_minutes: number;
+	email_sync_lookback_months: number | null;
+	imap_user: string;
+	smtp_user: string;
+	carddav_user: string;
+	caldav_user: string;
 	user: string;
 	created_at: string;
 }
@@ -236,6 +273,7 @@ export interface CloudOpenItemResult {
 
 export interface VerifyPayload {
 	type: 'imap' | 'pop3' | 'smtp';
+	mode?: 'connection' | 'authentication';
 	host: string;
 	port: number;
 	secure: boolean;
@@ -340,6 +378,10 @@ export interface DavDiscoveryPreviewPayload {
 	user: string;
 	password: string;
 	imapHost: string;
+	carddavUser?: string | null;
+	carddavPassword?: string | null;
+	caldavUser?: string | null;
+	caldavPassword?: string | null;
 }
 
 export interface DavSyncSummary {

@@ -76,24 +76,28 @@ export class ImapProviderDriver implements ProviderSyncMetadata {
 	}
 
 	resolveImapAuth(credentials: ProviderMailAuthCredentials): ProviderImapAuth {
+		const user = String(credentials.imap_user || credentials.user || '').trim();
+		if (!user) throw new Error('IMAP username is missing.');
 		if (credentials.auth_method === 'oauth2') {
 			const accessToken = String(credentials.oauth_session?.accessToken || '').trim();
 			if (!accessToken) throw new Error('OAuth access token is missing.');
-			return {user: credentials.user, accessToken};
+			return {user, accessToken};
 		}
-		const pass = String(credentials.password || '').trim();
-		if (!pass) throw new Error('Password is missing.');
-		return {user: credentials.user, pass};
+		const pass = String(credentials.imap_password || credentials.password || '').trim();
+		if (!pass) throw new Error('IMAP password is missing.');
+		return {user, pass};
 	}
 
 	resolveSmtpAuth(credentials: ProviderMailAuthCredentials): ProviderSmtpAuth {
+		const user = String(credentials.smtp_user || credentials.user || '').trim();
+		if (!user) throw new Error('SMTP username is missing.');
 		if (credentials.auth_method === 'oauth2') {
 			const accessToken = String(credentials.oauth_session?.accessToken || '').trim();
 			if (!accessToken) throw new Error('OAuth access token is missing.');
-			return {type: 'OAuth2', user: credentials.user, accessToken};
+			return {type: 'OAuth2', user, accessToken};
 		}
-		const pass = String(credentials.password || '').trim();
-		if (!pass) throw new Error('Password is missing.');
-		return {user: credentials.user, pass};
+		const pass = String(credentials.smtp_password || credentials.password || '').trim();
+		if (!pass) throw new Error('SMTP password is missing.');
+		return {user, pass};
 	}
 }

@@ -1,6 +1,7 @@
 import {parentPort, workerData} from 'node:worker_threads';
 import {setSqlitePathOverride} from '../db/drizzle';
 import {syncAccountMailboxWithCredentials, type SyncSummary} from '../mail/sync';
+import {onDebugLog, type DebugLogEntry} from '../debug/debugLog';
 
 type WorkerCredentials = {
 	id: number;
@@ -18,7 +19,10 @@ type WorkerInput = {
 	credentials: WorkerCredentials;
 };
 
-type WorkerMessage = {type: 'result'; summary: SyncSummary} | {type: 'error'; error: string};
+type WorkerMessage =
+	| {type: 'result'; summary: SyncSummary}
+	| {type: 'error'; error: string}
+	| {type: 'debug-log'; entry: DebugLogEntry};
 
 let cancelled = false;
 
@@ -34,11 +38,19 @@ async function run(): Promise<void> {
 	if (!payload?.credentials?.id) throw new Error('Missing worker credentials');
 
 	setSqlitePathOverride(payload.dbPath);
-	const summary = await syncAccountMailboxWithCredentials(payload.credentials, {
-		isCancelled: () => cancelled,
+	const stopDebugForwarding = onDebugLog((entry) => {
+		const message: WorkerMessage = {type: 'debug-log', entry};
+		parentPort?.postMessage(message);
 	});
-	const message: WorkerMessage = {type: 'result', summary};
-	parentPort?.postMessage(message);
+	try {
+		const summary = await syncAccountMailboxWithCredentials(payload.credentials, {
+			isCancelled: () => cancelled,
+		});
+		const message: WorkerMessage = {type: 'result', summary};
+		parentPort?.postMessage(message);
+	} finally {
+		stopDebugForwarding();
+	}
 }
 
 void run().catch((error: unknown) => {

@@ -17,6 +17,7 @@ import type {
 	ComposeDraftPayload,
 	ContactItem,
 	DavDiscoveryResult,
+	DavDiscoveryPreviewPayload,
 	DavSyncOptions,
 	DavSyncSummary,
 	DebugLogEntry,
@@ -145,12 +146,8 @@ export const ipcClient = {
 	startMailOAuth: (payload: StartMailOAuthPayload): Promise<OAuthSession> =>
 		window.electronAPI.startMailOAuth(payload),
 	cancelMailOAuth: (): Promise<{ok: true; cancelled: number}> => window.electronAPI.cancelMailOAuth(),
-	discoverDavPreview: (payload: {
-		email: string;
-		user: string;
-		password: string;
-		imapHost: string;
-	}): Promise<DavDiscoveryResult> => window.electronAPI.discoverDavPreview(payload),
+	discoverDavPreview: (payload: DavDiscoveryPreviewPayload): Promise<DavDiscoveryResult> =>
+		window.electronAPI.discoverDavPreview(payload),
 	addAccount: (payload: AddAccountPayload) => window.electronAPI.addAccount(payload),
 	updateAccount: (accountId: number, payload: UpdateAccountPayload) =>
 		window.electronAPI.updateAccount(accountId, payload),

@@ -17,6 +17,7 @@ type ServiceSettingsCardProps = {
 	tone?: 'neutral' | 'muted' | 'sky' | 'cyan';
 	controlVariant?: ControlVariant;
 	controlSize?: ControlSize;
+	children?: React.ReactNode;
 };
 
 const toneClasses: Record<NonNullable<ServiceSettingsCardProps['tone']>, string> = {
@@ -38,6 +39,7 @@ export default function ServiceSettingsCard({
 	tone = 'neutral',
 	controlVariant = 'default',
 	controlSize = 'md',
+	children,
 }: ServiceSettingsCardProps) {
 	return (
 		<div className={`rounded-lg border p-4 ${toneClasses[tone]}`}>
@@ -78,6 +80,7 @@ export default function ServiceSettingsCard({
 						</FormSelect>
 					</label>
 				</div>
+				{children ? <div className="mt-3">{children}</div> : null}
 			</div>
 		</div>
 	);

@@ -7,6 +7,7 @@ import type {AuthMethod, OAuthSession} from '@llamamail/app/ipcTypes';
 
 export interface VerifyPayload {
 	type: 'imap' | 'pop3' | 'smtp';
+	mode?: 'connection' | 'authentication';
 	host: string;
 	port: number;
 	secure: boolean; // TLS from start
@@ -24,6 +25,10 @@ export interface VerifyResult {
 
 export async function verifyConnection(p: VerifyPayload): Promise<VerifyResult> {
 	try {
+		if ((p.mode ?? 'authentication') === 'connection') {
+			await verifyConnectivityOnly(p);
+			return {ok: true};
+		}
 		switch (p.type) {
 			case 'imap':
 				await verifyImap(p);
@@ -40,6 +45,24 @@ export async function verifyConnection(p: VerifyPayload): Promise<VerifyResult> 
 	} catch (e: any) {
 		return {ok: false, error: formatVerifyError(e)};
 	}
+}
+
+async function verifyConnectivityOnly(p: VerifyPayload): Promise<void> {
+	await new Promise<void>((resolve, reject) => {
+		const onConnect = () => {
+			socket.destroy();
+			resolve();
+		};
+		const onError = (error: Error) => {
+			socket.destroy();
+			reject(error);
+		};
+		const socket = p.secure
+			? tls.connect({host: p.host, port: p.port, servername: p.host}, onConnect)
+			: net.connect({host: p.host, port: p.port}, onConnect);
+		socket.setTimeout(12000, () => onError(new Error('Connection timeout')));
+		socket.once('error', onError);
+	});
 }
 
 async function verifyImap(p: VerifyPayload): Promise<void> {

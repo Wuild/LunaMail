@@ -27,9 +27,13 @@ export interface ProviderSyncMetadata {
 export interface ProviderMailAuthCredentials {
 	id: number;
 	user: string;
+	imap_user?: string;
+	smtp_user?: string;
 	auth_method: AuthMethod;
 	oauth_provider?: OAuthProvider | null;
 	password: string | null;
+	imap_password?: string | null;
+	smtp_password?: string | null;
 	oauth_session: OAuthSession | null;
 }
 

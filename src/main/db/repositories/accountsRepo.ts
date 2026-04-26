@@ -10,7 +10,18 @@ import {
 	normalizeAccountModuleSelection,
 	type AccountModuleSelection,
 } from '@llamamail/app/accountModules';
-import type {AuthMethod, OAuthProvider, OAuthSession} from '@llamamail/app/ipcTypes';
+import type {AuthMethod, MailListSort, OAuthProvider, OAuthSession} from '@llamamail/app/ipcTypes';
+import {
+	DEFAULT_ACCOUNT_CALENDAR_SYNC_INTERVAL_MINUTES,
+	DEFAULT_ACCOUNT_CONTACTS_SYNC_INTERVAL_MINUTES,
+	DEFAULT_ACCOUNT_EMAIL_SYNC_INTERVAL_MINUTES,
+	DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
+	normalizeAccountCalendarSyncIntervalMinutes,
+	normalizeAccountContactsSyncIntervalMinutes,
+	normalizeAccountEmailSyncIntervalMinutes,
+	normalizeAccountEmailSyncLookbackMonths,
+	parseMailListSort,
+} from '@llamamail/app/settingsRules';
 import {ensureFreshMailOAuthSession, getDefaultMailOAuthAdditionalScopes} from '@main/mail/oauth';
 
 // This repository still contains parameterized raw SQL for a few multi-step cleanup paths while Drizzle migration is
@@ -43,6 +54,15 @@ export interface PublicAccount {
 	sync_emails: number;
 	sync_contacts: number;
 	sync_calendar: number;
+	contacts_sync_interval_minutes: number;
+	calendar_sync_interval_minutes: number;
+	email_list_sort: MailListSort;
+	email_sync_interval_minutes: number;
+	email_sync_lookback_months: number | null;
+	imap_user: string;
+	smtp_user: string;
+	carddav_user: string;
+	caldav_user: string;
 	created_at: string;
 	user: string;
 }
@@ -77,6 +97,27 @@ export async function getAccounts(): Promise<PublicAccount[]> {
 			sync_emails: r.syncEmails ?? 1,
 			sync_contacts: r.syncContacts ?? 1,
 			sync_calendar: r.syncCalendar ?? 1,
+			contacts_sync_interval_minutes: normalizeAccountContactsSyncIntervalMinutes(
+				r.contactsSyncIntervalMinutes,
+				DEFAULT_ACCOUNT_CONTACTS_SYNC_INTERVAL_MINUTES,
+			),
+			calendar_sync_interval_minutes: normalizeAccountCalendarSyncIntervalMinutes(
+				r.calendarSyncIntervalMinutes,
+				DEFAULT_ACCOUNT_CALENDAR_SYNC_INTERVAL_MINUTES,
+			),
+			email_list_sort: parseMailListSort(r.emailListSort),
+			email_sync_interval_minutes: normalizeAccountEmailSyncIntervalMinutes(
+				r.emailSyncIntervalMinutes,
+				DEFAULT_ACCOUNT_EMAIL_SYNC_INTERVAL_MINUTES,
+			),
+			email_sync_lookback_months: normalizeAccountEmailSyncLookbackMonths(
+				r.emailSyncLookbackMonths,
+				DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
+			),
+			imap_user: String(r.imapUser || r.user || '').trim(),
+			smtp_user: String(r.smtpUser || r.user || '').trim(),
+			carddav_user: String(r.carddavUser || r.user || '').trim(),
+			caldav_user: String(r.caldavUser || r.user || '').trim(),
 			user: r.user!,
 			created_at: r.createdAt!,
 		}),
@@ -107,8 +148,21 @@ export interface AddAccountPayload {
 	sync_emails?: number;
 	sync_contacts?: number;
 	sync_calendar?: number;
+	contacts_sync_interval_minutes?: number;
+	calendar_sync_interval_minutes?: number;
+	email_list_sort?: MailListSort;
+	email_sync_interval_minutes?: number;
+	email_sync_lookback_months?: number | null;
+	imap_user?: string | null;
+	smtp_user?: string | null;
+	carddav_user?: string | null;
+	caldav_user?: string | null;
 	user: string;
 	password?: string;
+	imap_password?: string;
+	smtp_password?: string;
+	carddav_password?: string;
+	caldav_password?: string;
 	oauth_session?: OAuthSession | null;
 }
 
@@ -136,8 +190,21 @@ export interface UpdateAccountPayload {
 	sync_emails?: number;
 	sync_contacts?: number;
 	sync_calendar?: number;
+	contacts_sync_interval_minutes?: number;
+	calendar_sync_interval_minutes?: number;
+	email_list_sort?: MailListSort;
+	email_sync_interval_minutes?: number;
+	email_sync_lookback_months?: number | null;
+	imap_user?: string | null;
+	smtp_user?: string | null;
+	carddav_user?: string | null;
+	caldav_user?: string | null;
 	user: string;
 	password?: string | null;
+	imap_password?: string | null;
+	smtp_password?: string | null;
+	carddav_password?: string | null;
+	caldav_password?: string | null;
 	oauth_session?: OAuthSession | null;
 }
 
@@ -165,8 +232,21 @@ export async function addAccount(payload: AddAccountPayload): Promise<{id: numbe
 		sync_emails = 1,
 		sync_contacts = 1,
 		sync_calendar = 1,
+		contacts_sync_interval_minutes = DEFAULT_ACCOUNT_CONTACTS_SYNC_INTERVAL_MINUTES,
+		calendar_sync_interval_minutes = DEFAULT_ACCOUNT_CALENDAR_SYNC_INTERVAL_MINUTES,
+		email_list_sort = 'unread_then_arrived_desc',
+		email_sync_interval_minutes = DEFAULT_ACCOUNT_EMAIL_SYNC_INTERVAL_MINUTES,
+		email_sync_lookback_months = DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
+		imap_user = null,
+		smtp_user = null,
+		carddav_user = null,
+		caldav_user = null,
 		user,
 		password = '',
+		imap_password = undefined,
+		smtp_password = undefined,
+		carddav_password = undefined,
+		caldav_password = undefined,
 		auth_method = payload.oauth_session ? 'oauth2' : 'password',
 		oauth_provider = payload.oauth_session?.provider ?? null,
 		oauth_session = null,
@@ -174,8 +254,21 @@ export async function addAccount(payload: AddAccountPayload): Promise<{id: numbe
 	const normalizedAuthMethod = normalizeAuthMethod(auth_method);
 	const normalizedOAuthProvider = normalizeOAuthProvider(oauth_provider);
 
-	if (!email || !user || (normalizedAuthMethod !== 'oauth2' && !String(password || '').trim())) {
+	const normalizedImapUser = String(imap_user || user || '').trim();
+	const normalizedSmtpUser = String(smtp_user || user || '').trim();
+	const normalizedCarddavUser = String(carddav_user || user || '').trim();
+	const normalizedCaldavUser = String(caldav_user || user || '').trim();
+	const normalizedLegacyPassword = normalizeOptionalSecret(password);
+	const normalizedImapPassword = normalizeOptionalSecret(imap_password) ?? normalizedLegacyPassword;
+	const normalizedSmtpPassword = normalizeOptionalSecret(smtp_password) ?? normalizedLegacyPassword;
+	const normalizedCarddavPassword = normalizeOptionalSecret(carddav_password) ?? normalizedLegacyPassword;
+	const normalizedCaldavPassword = normalizeOptionalSecret(caldav_password) ?? normalizedLegacyPassword;
+
+	if (!email || !user || !normalizedImapUser || !normalizedSmtpUser || !normalizedCarddavUser || !normalizedCaldavUser) {
 		throw new Error('Missing required account fields');
+	}
+	if (normalizedAuthMethod !== 'oauth2' && (!normalizedImapPassword || !normalizedSmtpPassword)) {
+		throw new Error('IMAP and SMTP passwords are required.');
 	}
 	if (normalizedAuthMethod === 'oauth2' && !oauth_session?.accessToken?.trim()) {
 		throw new Error('OAuth session is required for OAuth accounts.');
@@ -185,6 +278,23 @@ export async function addAccount(payload: AddAccountPayload): Promise<{id: numbe
 		sync_contacts,
 		sync_calendar,
 	});
+	const normalizedEmailSyncIntervalMinutes = normalizeAccountEmailSyncIntervalMinutes(
+		email_sync_interval_minutes,
+		DEFAULT_ACCOUNT_EMAIL_SYNC_INTERVAL_MINUTES,
+	);
+	const normalizedContactsSyncIntervalMinutes = normalizeAccountContactsSyncIntervalMinutes(
+		contacts_sync_interval_minutes,
+		DEFAULT_ACCOUNT_CONTACTS_SYNC_INTERVAL_MINUTES,
+	);
+	const normalizedCalendarSyncIntervalMinutes = normalizeAccountCalendarSyncIntervalMinutes(
+		calendar_sync_interval_minutes,
+		DEFAULT_ACCOUNT_CALENDAR_SYNC_INTERVAL_MINUTES,
+	);
+	const normalizedEmailListSort = parseMailListSort(email_list_sort);
+	const normalizedEmailSyncLookbackMonths = normalizeAccountEmailSyncLookbackMonths(
+		email_sync_lookback_months,
+		DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
+	);
 	if (!hasAnyEnabledAccountModule(moduleSelection)) {
 		throw new Error('Select at least one sync module (email, contacts, or calendar).');
 	}
@@ -216,17 +326,42 @@ export async function addAccount(payload: AddAccountPayload): Promise<{id: numbe
 		syncEmails: moduleSelection.sync_emails,
 		syncContacts: moduleSelection.sync_contacts,
 		syncCalendar: moduleSelection.sync_calendar,
+		contactsSyncIntervalMinutes: normalizedContactsSyncIntervalMinutes,
+		calendarSyncIntervalMinutes: normalizedCalendarSyncIntervalMinutes,
+		emailListSort: normalizedEmailListSort,
+		emailSyncIntervalMinutes: normalizedEmailSyncIntervalMinutes,
+		emailSyncLookbackMonths: normalizedEmailSyncLookbackMonths,
+		imapUser: normalizedImapUser,
+		smtpUser: normalizedSmtpUser,
+		carddavUser: normalizedCarddavUser,
+		caldavUser: normalizedCaldavUser,
 		user,
 	} as InsertAccount;
 
 	const result = await db.insert(accounts).values(toInsert).returning({id: accounts.id}).get();
 	const accountId = result?.id as number;
 
-	if (normalizedAuthMethod !== 'oauth2') {
-		await keytar.setPassword(SERVICE_NAME, getAccountPasswordKey(accountId, email), String(password || '').trim());
+	if (normalizedAuthMethod !== 'oauth2' && normalizedImapPassword && normalizedSmtpPassword) {
+		await keytar.setPassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'imap'), normalizedImapPassword);
+		await keytar.setPassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'smtp'), normalizedSmtpPassword);
+		if (normalizedCarddavPassword) {
+			await keytar.setPassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'carddav'), normalizedCarddavPassword);
+		}
+		if (normalizedCaldavPassword) {
+			await keytar.setPassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'caldav'), normalizedCaldavPassword);
+		}
+		const normalizedAccountPassword =
+			normalizedLegacyPassword || normalizedImapPassword || normalizedSmtpPassword || normalizedCarddavPassword || normalizedCaldavPassword;
+		if (normalizedAccountPassword) {
+			await keytar.setPassword(SERVICE_NAME, getAccountPasswordKey(accountId, email), normalizedAccountPassword);
+		}
 	}
 	if (normalizedAuthMethod === 'oauth2' && oauth_session) {
 		await setAccountOAuthSession(accountId, email, oauth_session);
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'imap'));
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'smtp'));
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'carddav'));
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'caldav'));
 		await keytar.deletePassword(SERVICE_NAME, getAccountPasswordKey(accountId, email));
 	} else {
 		await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, email));
@@ -253,8 +388,17 @@ export interface AccountSyncCredentials {
 	imap_host: string;
 	imap_port: number;
 	imap_secure: number;
+	email_sync_lookback_months: number | null;
 	user: string;
+	imap_user: string;
+	smtp_user: string;
+	carddav_user: string;
+	caldav_user: string;
 	password: string | null;
+	imap_password: string | null;
+	smtp_password: string | null;
+	carddav_password: string | null;
+	caldav_password: string | null;
 	oauth_session: OAuthSession | null;
 }
 
@@ -271,9 +415,17 @@ export interface AccountSendCredentials {
 	smtp_port: number;
 	smtp_secure: number;
 	user: string;
+	imap_user: string;
+	smtp_user: string;
+	carddav_user: string;
+	caldav_user: string;
 	auth_method: AuthMethod;
 	oauth_provider: OAuthProvider | null;
 	password: string | null;
+	imap_password: string | null;
+	smtp_password: string | null;
+	carddav_password: string | null;
+	caldav_password: string | null;
 	oauth_session: OAuthSession | null;
 }
 
@@ -284,7 +436,16 @@ export async function getAccountSyncCredentials(accountId: number): Promise<Acco
 
 	const authMethod = normalizeAuthMethod(row.authMethod ?? 'password');
 	const oauthProvider = normalizeOAuthProvider(row.oauthProvider ?? null);
-	const password = await keytar.getPassword(SERVICE_NAME, getAccountPasswordKey(row.id, row.email));
+	const accountPassword = await getLegacyAccountPassword(row.id, row.email);
+	const imapPassword = await getAccountProtocolPassword(row.id, row.email, 'imap');
+	const smtpPassword = await getAccountProtocolPassword(row.id, row.email, 'smtp');
+	const carddavPassword = await getAccountProtocolPassword(row.id, row.email, 'carddav');
+	const caldavPassword = await getAccountProtocolPassword(row.id, row.email, 'caldav');
+	const protocolPassword = imapPassword ?? smtpPassword ?? carddavPassword ?? caldavPassword ?? accountPassword ?? null;
+	const imapUser = String(row.imapUser || row.user || '').trim();
+	const smtpUser = String(row.smtpUser || row.user || '').trim();
+	const carddavUser = String(row.carddavUser || row.user || '').trim();
+	const caldavUser = String(row.caldavUser || row.user || '').trim();
 	let oauthSession = authMethod === 'oauth2' ? await getAccountOAuthSession(row.id, row.email) : null;
 	if (oauthSession) {
 		const refreshed = await ensureFreshMailOAuthSession(oauthSession, {
@@ -309,7 +470,7 @@ export async function getAccountSyncCredentials(accountId: number): Promise<Acco
 			oauthSession = forcedRefresh;
 		}
 	}
-	if (authMethod !== 'oauth2' && !password) throw new Error('Account password not found in keychain');
+	if (authMethod !== 'oauth2' && !protocolPassword) throw new Error('Account password not found in keychain');
 	if (authMethod === 'oauth2' && !oauthSession?.accessToken?.trim()) {
 		throw new Error('OAuth access token not found in keychain.');
 	}
@@ -322,8 +483,20 @@ export async function getAccountSyncCredentials(accountId: number): Promise<Acco
 		imap_host: row.imapHost,
 		imap_port: row.imapPort,
 		imap_secure: row.imapSecure ?? 1,
+		email_sync_lookback_months: normalizeAccountEmailSyncLookbackMonths(
+			row.emailSyncLookbackMonths,
+			DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
+		),
 		user: row.user,
-		password: password ?? null,
+		imap_user: imapUser,
+		smtp_user: smtpUser,
+		carddav_user: carddavUser,
+		caldav_user: caldavUser,
+		password: accountPassword ?? protocolPassword,
+		imap_password: imapPassword ?? accountPassword ?? protocolPassword,
+		smtp_password: smtpPassword ?? accountPassword ?? protocolPassword,
+		carddav_password: carddavPassword ?? accountPassword ?? protocolPassword,
+		caldav_password: caldavPassword ?? accountPassword ?? protocolPassword,
 		oauth_session: oauthSession,
 	};
 }
@@ -335,7 +508,16 @@ export async function getAccountSendCredentials(accountId: number): Promise<Acco
 
 	const authMethod = normalizeAuthMethod(row.authMethod ?? 'password');
 	const oauthProvider = normalizeOAuthProvider(row.oauthProvider ?? null);
-	const password = await keytar.getPassword(SERVICE_NAME, getAccountPasswordKey(row.id, row.email));
+	const accountPassword = await getLegacyAccountPassword(row.id, row.email);
+	const imapPassword = await getAccountProtocolPassword(row.id, row.email, 'imap');
+	const smtpPassword = await getAccountProtocolPassword(row.id, row.email, 'smtp');
+	const carddavPassword = await getAccountProtocolPassword(row.id, row.email, 'carddav');
+	const caldavPassword = await getAccountProtocolPassword(row.id, row.email, 'caldav');
+	const protocolPassword = smtpPassword ?? imapPassword ?? carddavPassword ?? caldavPassword ?? accountPassword ?? null;
+	const imapUser = String(row.imapUser || row.user || '').trim();
+	const smtpUser = String(row.smtpUser || row.user || '').trim();
+	const carddavUser = String(row.carddavUser || row.user || '').trim();
+	const caldavUser = String(row.caldavUser || row.user || '').trim();
 	let oauthSession = authMethod === 'oauth2' ? await getAccountOAuthSession(row.id, row.email) : null;
 	if (oauthSession) {
 		const refreshed = await ensureFreshMailOAuthSession(oauthSession, {
@@ -360,7 +542,7 @@ export async function getAccountSendCredentials(accountId: number): Promise<Acco
 			oauthSession = forcedRefresh;
 		}
 	}
-	if (authMethod !== 'oauth2' && !password) throw new Error('Account password not found in keychain');
+	if (authMethod !== 'oauth2' && !protocolPassword) throw new Error('Account password not found in keychain');
 	if (authMethod === 'oauth2' && !oauthSession?.accessToken?.trim()) {
 		throw new Error('OAuth access token not found in keychain.');
 	}
@@ -380,7 +562,15 @@ export async function getAccountSendCredentials(accountId: number): Promise<Acco
 		smtp_port: row.smtpPort,
 		smtp_secure: row.smtpSecure ?? 1,
 		user: row.user,
-		password: password ?? null,
+		imap_user: imapUser,
+		smtp_user: smtpUser,
+		carddav_user: carddavUser,
+		caldav_user: caldavUser,
+		password: smtpPassword ?? protocolPassword,
+		imap_password: imapPassword ?? protocolPassword,
+		smtp_password: smtpPassword ?? protocolPassword,
+		carddav_password: carddavPassword ?? protocolPassword,
+		caldav_password: caldavPassword ?? protocolPassword,
 		oauth_session: oauthSession,
 	};
 }
@@ -395,9 +585,13 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 	const imapHost = payload.imap_host?.trim();
 	const smtpHost = payload.smtp_host?.trim();
 	const user = payload.user?.trim();
+	const imapUser = String(payload.imap_user || existing.imapUser || user || existing.user || '').trim();
+	const smtpUser = String(payload.smtp_user || existing.smtpUser || user || existing.user || '').trim();
+	const carddavUser = String(payload.carddav_user || existing.carddavUser || user || existing.user || '').trim();
+	const caldavUser = String(payload.caldav_user || existing.caldavUser || user || existing.user || '').trim();
 	const authMethod = normalizeAuthMethod(payload.auth_method ?? existing.authMethod ?? 'password');
 	const oauthProvider = normalizeOAuthProvider(payload.oauth_provider ?? existing.oauthProvider ?? null);
-	if (!email || !user) {
+	if (!email || !user || !imapUser || !smtpUser || !carddavUser || !caldavUser) {
 		throw new Error('Missing required account fields');
 	}
 	const moduleFallback: AccountModuleSelection = {
@@ -412,6 +606,23 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 			sync_calendar: payload.sync_calendar,
 		},
 		moduleFallback,
+	);
+	const normalizedEmailSyncIntervalMinutes = normalizeAccountEmailSyncIntervalMinutes(
+		payload.email_sync_interval_minutes,
+		existing.emailSyncIntervalMinutes ?? DEFAULT_ACCOUNT_EMAIL_SYNC_INTERVAL_MINUTES,
+	);
+	const normalizedContactsSyncIntervalMinutes = normalizeAccountContactsSyncIntervalMinutes(
+		payload.contacts_sync_interval_minutes,
+		existing.contactsSyncIntervalMinutes ?? DEFAULT_ACCOUNT_CONTACTS_SYNC_INTERVAL_MINUTES,
+	);
+	const normalizedCalendarSyncIntervalMinutes = normalizeAccountCalendarSyncIntervalMinutes(
+		payload.calendar_sync_interval_minutes,
+		existing.calendarSyncIntervalMinutes ?? DEFAULT_ACCOUNT_CALENDAR_SYNC_INTERVAL_MINUTES,
+	);
+	const normalizedEmailListSort = parseMailListSort(payload.email_list_sort, parseMailListSort(existing.emailListSort));
+	const normalizedEmailSyncLookbackMonths = normalizeAccountEmailSyncLookbackMonths(
+		payload.email_sync_lookback_months,
+		existing.emailSyncLookbackMonths ?? DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
 	);
 	if (!hasAnyEnabledAccountModule(moduleSelection)) {
 		throw new Error('Select at least one sync module (email, contacts, or calendar).');
@@ -452,6 +663,15 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 			syncEmails: moduleSelection.sync_emails,
 			syncContacts: moduleSelection.sync_contacts,
 			syncCalendar: moduleSelection.sync_calendar,
+			contactsSyncIntervalMinutes: normalizedContactsSyncIntervalMinutes,
+			calendarSyncIntervalMinutes: normalizedCalendarSyncIntervalMinutes,
+			emailListSort: normalizedEmailListSort,
+			emailSyncIntervalMinutes: normalizedEmailSyncIntervalMinutes,
+			emailSyncLookbackMonths: normalizedEmailSyncLookbackMonths,
+			imapUser,
+			smtpUser,
+			carddavUser,
+			caldavUser,
 			user,
 		})
 		.where(eq(accounts.id, accountId))
@@ -472,23 +692,64 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 		});
 	}
 
-	const oldServiceAccount = `${accountId}:${existing.email}`;
-	const newServiceAccount = `${accountId}:${email}`;
-	const existingPassword = await keytar.getPassword(SERVICE_NAME, oldServiceAccount);
-	const password = payload.password?.trim() || existingPassword;
-	if (authMethod !== 'oauth2' && password) {
-		await keytar.setPassword(SERVICE_NAME, newServiceAccount, password);
+	const existingImapPassword = await getAccountProtocolPassword(accountId, existing.email, 'imap');
+	const existingSmtpPassword = await getAccountProtocolPassword(accountId, existing.email, 'smtp');
+	const existingCarddavPassword = await getAccountProtocolPassword(accountId, existing.email, 'carddav');
+	const existingCaldavPassword = await getAccountProtocolPassword(accountId, existing.email, 'caldav');
+	const existingAccountPassword = await getLegacyAccountPassword(accountId, existing.email);
+	const legacyPasswordInput = normalizeOptionalSecret(payload.password);
+	const imapPasswordInput = normalizeOptionalSecret(payload.imap_password);
+	const smtpPasswordInput = normalizeOptionalSecret(payload.smtp_password);
+	const carddavPasswordInput = normalizeOptionalSecret(payload.carddav_password);
+	const caldavPasswordInput = normalizeOptionalSecret(payload.caldav_password);
+	const baseFallbackPassword = legacyPasswordInput ?? existingAccountPassword;
+	const nextImapPassword = imapPasswordInput ?? baseFallbackPassword ?? existingImapPassword;
+	const nextSmtpPassword = smtpPasswordInput ?? baseFallbackPassword ?? existingSmtpPassword;
+	const nextCarddavPassword = carddavPasswordInput ?? baseFallbackPassword ?? existingCarddavPassword ?? nextImapPassword;
+	const nextCaldavPassword = caldavPasswordInput ?? baseFallbackPassword ?? existingCaldavPassword ?? nextSmtpPassword;
+	if (authMethod !== 'oauth2' && (!nextImapPassword || !nextSmtpPassword)) {
+		throw new Error('IMAP and SMTP passwords are required.');
+	}
+	if (authMethod !== 'oauth2' && nextImapPassword && nextSmtpPassword) {
+		await keytar.setPassword(
+			SERVICE_NAME,
+			getAccountProtocolPasswordKey(accountId, email, 'imap'),
+			nextImapPassword,
+		);
+		await keytar.setPassword(
+			SERVICE_NAME,
+			getAccountProtocolPasswordKey(accountId, email, 'smtp'),
+			nextSmtpPassword,
+		);
+		if (nextCarddavPassword) {
+			await keytar.setPassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'carddav'), nextCarddavPassword);
+		}
+		if (nextCaldavPassword) {
+			await keytar.setPassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'caldav'), nextCaldavPassword);
+		}
+		const nextAccountPassword = baseFallbackPassword || nextImapPassword || nextSmtpPassword || nextCarddavPassword || nextCaldavPassword;
+		if (nextAccountPassword) {
+			await keytar.setPassword(SERVICE_NAME, getAccountPasswordKey(accountId, email), nextAccountPassword);
+		}
 	}
 	if (authMethod === 'oauth2' && payload.oauth_session) {
 		await setAccountOAuthSession(accountId, email, payload.oauth_session);
-		await keytar.deletePassword(SERVICE_NAME, newServiceAccount);
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'imap'));
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'smtp'));
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'carddav'));
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, 'caldav'));
+		await keytar.deletePassword(SERVICE_NAME, getAccountPasswordKey(accountId, email));
 	}
 	if (authMethod !== 'oauth2') {
 		await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, existing.email));
 		await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, email));
 	}
-	if (oldServiceAccount !== newServiceAccount) {
-		await keytar.deletePassword(SERVICE_NAME, oldServiceAccount);
+	if (existing.email !== email) {
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, existing.email, 'imap'));
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, existing.email, 'smtp'));
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, existing.email, 'carddav'));
+		await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, existing.email, 'caldav'));
+		await keytar.deletePassword(SERVICE_NAME, getAccountPasswordKey(accountId, existing.email));
 		await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, existing.email));
 	}
 	await ensureLocalAccountVCard(
@@ -529,6 +790,27 @@ export async function updateAccount(accountId: number, payload: UpdateAccountPay
 		sync_emails: updated.syncEmails ?? 1,
 		sync_contacts: updated.syncContacts ?? 1,
 		sync_calendar: updated.syncCalendar ?? 1,
+		contacts_sync_interval_minutes: normalizeAccountContactsSyncIntervalMinutes(
+			updated.contactsSyncIntervalMinutes,
+			DEFAULT_ACCOUNT_CONTACTS_SYNC_INTERVAL_MINUTES,
+		),
+		calendar_sync_interval_minutes: normalizeAccountCalendarSyncIntervalMinutes(
+			updated.calendarSyncIntervalMinutes,
+			DEFAULT_ACCOUNT_CALENDAR_SYNC_INTERVAL_MINUTES,
+		),
+		email_list_sort: parseMailListSort(updated.emailListSort),
+		email_sync_interval_minutes: normalizeAccountEmailSyncIntervalMinutes(
+			updated.emailSyncIntervalMinutes,
+			DEFAULT_ACCOUNT_EMAIL_SYNC_INTERVAL_MINUTES,
+		),
+		email_sync_lookback_months: normalizeAccountEmailSyncLookbackMonths(
+			updated.emailSyncLookbackMonths,
+			DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
+		),
+		imap_user: String(updated.imapUser || updated.user || '').trim(),
+		smtp_user: String(updated.smtpUser || updated.user || '').trim(),
+		carddav_user: String(updated.carddavUser || updated.user || '').trim(),
+		caldav_user: String(updated.caldavUser || updated.user || '').trim(),
 		user: updated.user,
 		created_at: updated.createdAt,
 	};
@@ -569,7 +851,11 @@ export async function deleteAccount(accountId: number): Promise<{id: number; ema
 	});
 
 	tx(accountId);
-	await keytar.deletePassword(SERVICE_NAME, `${accountId}:${existing.email}`);
+	await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, existing.email, 'imap'));
+	await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, existing.email, 'smtp'));
+	await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, existing.email, 'carddav'));
+	await keytar.deletePassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, existing.email, 'caldav'));
+	await keytar.deletePassword(SERVICE_NAME, getAccountPasswordKey(accountId, existing.email));
 	await keytar.deletePassword(SERVICE_NAME, getAccountOAuthKey(accountId, existing.email));
 	await removeLocalAccountVCard(accountId, existing.email);
 	return {id: accountId, email: existing.email};
@@ -593,6 +879,38 @@ function normalizeOAuthProvider(value: string | null): OAuthProvider | null {
 
 function getAccountPasswordKey(accountId: number, email: string): string {
 	return `${accountId}:${email}`;
+}
+
+function getAccountProtocolPasswordKey(
+	accountId: number,
+	email: string,
+	protocol: 'imap' | 'smtp' | 'carddav' | 'caldav',
+): string {
+	return `${accountId}:${email}:${protocol}`;
+}
+
+async function getAccountProtocolPassword(
+	accountId: number,
+	email: string,
+	protocol: 'imap' | 'smtp' | 'carddav' | 'caldav',
+): Promise<string | null> {
+	const protocolValue = await keytar.getPassword(SERVICE_NAME, getAccountProtocolPasswordKey(accountId, email, protocol));
+	if (String(protocolValue || '').trim()) return String(protocolValue || '').trim();
+	const legacy = await getLegacyAccountPassword(accountId, email);
+	if (String(legacy || '').trim()) return String(legacy || '').trim();
+	return null;
+}
+
+async function getLegacyAccountPassword(accountId: number, email: string): Promise<string | null> {
+	const value = await keytar.getPassword(SERVICE_NAME, getAccountPasswordKey(accountId, email));
+	const normalized = String(value || '').trim();
+	return normalized || null;
+}
+
+function normalizeOptionalSecret(value: unknown): string | null {
+	if (value === undefined || value === null) return null;
+	const normalized = String(value).trim();
+	return normalized || null;
 }
 
 function getAccountOAuthKey(accountId: number, email: string): string {

@@ -38,13 +38,15 @@ export function initDb(): void {
 		logDrizzleConsole('Migrations complete');
 	} catch (error: any) {
 		const message = String(error?.message || error || '');
+		const causeMessage = String(error?.cause?.message || '');
+		const combinedMessage = `${message}\n${causeMessage}`;
 		if (
-			/duplicate column name/i.test(message) ||
-			/already exists/i.test(message) ||
-			/The supplied SQL string contains more than one statement/i.test(message)
+			/duplicate column name/i.test(combinedMessage) ||
+			/already exists/i.test(combinedMessage) ||
+			/The supplied SQL string contains more than one statement/i.test(combinedMessage)
 		) {
-			logger.warn('Ignoring non-fatal migration error: %s', message);
-			console.warn(`[drizzle] Non-fatal migration warning: ${message}`);
+			logger.warn('Ignoring non-fatal migration error: %s', combinedMessage);
+			console.warn(`[drizzle] Non-fatal migration warning: ${combinedMessage}`);
 		} else {
 			console.error('[drizzle] Migration failed:', error);
 			throw error;
@@ -70,6 +72,53 @@ function ensureAccountsModuleColumns(db: any): void {
 	}
 	if (!existing.has('sync_calendar')) {
 		missing.push({name: 'sync_calendar', sqlType: 'integer', defaultValue: '1'});
+	}
+	if (!existing.has('contacts_sync_interval_minutes')) {
+		missing.push({name: 'contacts_sync_interval_minutes', sqlType: 'integer', defaultValue: '15'});
+	}
+	if (!existing.has('calendar_sync_interval_minutes')) {
+		missing.push({name: 'calendar_sync_interval_minutes', sqlType: 'integer', defaultValue: '15'});
+	}
+	if (!existing.has('email_sync_interval_minutes')) {
+		missing.push({name: 'email_sync_interval_minutes', sqlType: 'integer', defaultValue: '15'});
+	}
+	if (!existing.has('email_sync_lookback_months')) {
+		missing.push({name: 'email_sync_lookback_months', sqlType: 'integer', defaultValue: '1'});
+	}
+	if (!existing.has('email_list_sort')) {
+		missing.push({
+			name: 'email_list_sort',
+			sqlType: 'text',
+			defaultValue: "'unread_then_arrived_desc'",
+		});
+	}
+	if (!existing.has('imap_user')) {
+		missing.push({
+			name: 'imap_user',
+			sqlType: 'text',
+			defaultValue: "''",
+		});
+	}
+	if (!existing.has('smtp_user')) {
+		missing.push({
+			name: 'smtp_user',
+			sqlType: 'text',
+			defaultValue: "''",
+		});
+	}
+	if (!existing.has('carddav_user')) {
+		missing.push({
+			name: 'carddav_user',
+			sqlType: 'text',
+			defaultValue: "''",
+		});
+	}
+	if (!existing.has('caldav_user')) {
+		missing.push({
+			name: 'caldav_user',
+			sqlType: 'text',
+			defaultValue: "''",
+		});
 	}
 	for (const column of missing) {
 		db.prepare(

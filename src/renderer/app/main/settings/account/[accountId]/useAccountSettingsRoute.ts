@@ -117,6 +117,19 @@ export function useAccountSettingsRoute(
 			sync_emails: selectedAccount.sync_emails,
 			sync_contacts: selectedAccount.sync_contacts,
 			sync_calendar: selectedAccount.sync_calendar,
+			contacts_sync_interval_minutes: selectedAccount.contacts_sync_interval_minutes,
+			calendar_sync_interval_minutes: selectedAccount.calendar_sync_interval_minutes,
+			email_list_sort: selectedAccount.email_list_sort,
+			email_sync_interval_minutes: selectedAccount.email_sync_interval_minutes,
+			email_sync_lookback_months: selectedAccount.email_sync_lookback_months,
+			imap_user: selectedAccount.imap_user,
+			smtp_user: selectedAccount.smtp_user,
+			carddav_user: selectedAccount.carddav_user,
+			caldav_user: selectedAccount.caldav_user,
+			imap_password: '',
+			smtp_password: '',
+			carddav_password: '',
+			caldav_password: '',
 			password: '',
 		});
 	}, [selectedAccount]);
@@ -158,13 +171,32 @@ export function useAccountSettingsRoute(
 				smtp_host: editor.smtp_host.trim(),
 				pop3_host: editor.pop3_host?.trim() || null,
 				password: editor.password?.trim() || null,
+				imap_user: editor.imap_user?.trim() || null,
+				smtp_user: editor.smtp_user?.trim() || null,
+				carddav_user: editor.carddav_user?.trim() || null,
+				caldav_user: editor.caldav_user?.trim() || null,
+				imap_password: editor.imap_password?.trim() || null,
+				smtp_password: editor.smtp_password?.trim() || null,
+				carddav_password: editor.carddav_password?.trim() || null,
+				caldav_password: editor.caldav_password?.trim() || null,
 				sync_emails: editor.sync_emails ? 1 : 0,
 				sync_contacts: editor.sync_contacts ? 1 : 0,
 				sync_calendar: editor.sync_calendar ? 1 : 0,
 			};
 			await ipcClient.updateAccount(editor.id, normalized);
 			setAccountStatus('Account settings saved.');
-			setEditor((prev) => (prev ? {...prev, password: ''} : prev));
+			setEditor((prev) =>
+				prev
+					? {
+							...prev,
+							password: '',
+							imap_password: '',
+							smtp_password: '',
+							carddav_password: '',
+							caldav_password: '',
+						}
+					: prev,
+			);
 		} catch (e: any) {
 			setAccountStatus(`Save failed: ${e?.message || String(e)}`);
 		} finally {

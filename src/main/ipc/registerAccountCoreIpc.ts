@@ -3,6 +3,17 @@ import {parseOptionalText, parsePositiveInt, parseRequiredObject, parseRequiredT
 import {tray} from '@main/windows/tray';
 import {getAppSettings} from '@main/settings/store';
 import {appEventHandler, AppEvent} from '@llamamail/app/appEventHandler';
+import {
+	DEFAULT_ACCOUNT_CALENDAR_SYNC_INTERVAL_MINUTES,
+	DEFAULT_ACCOUNT_CONTACTS_SYNC_INTERVAL_MINUTES,
+	DEFAULT_ACCOUNT_EMAIL_SYNC_INTERVAL_MINUTES,
+	DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
+	normalizeAccountCalendarSyncIntervalMinutes,
+	normalizeAccountContactsSyncIntervalMinutes,
+	normalizeAccountEmailSyncIntervalMinutes,
+	normalizeAccountEmailSyncLookbackMonths,
+	parseMailListSort,
+} from '@llamamail/app/settingsRules';
 
 type AccountCoreIpcDeps = {
 	appLogger: {debug: (...args: any[]) => void; info: (...args: any[]) => void; warn: (...args: any[]) => void};
@@ -27,6 +38,7 @@ type AccountCoreIpcDeps = {
 	autodiscover: (email: string) => Promise<any>;
 	autodiscoverBasic: (email: string) => Promise<any>;
 	verifyConnection: (payload: any) => Promise<any>;
+	testAccountServiceConnection: (accountId: number, payload: any) => Promise<any>;
 	startMailOAuth: (payload: any) => Promise<any>;
 	cancelPendingMailOAuth: (reason?: string) => number;
 };
@@ -60,11 +72,45 @@ export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
 			email: parseRequiredText(rawAccount.email, 'account.email', 320),
 			name: parseOptionalText(rawAccount.name, 'account.name', 200),
 			user: parseOptionalText(rawAccount.user, 'account.user', 320),
+			imap_user: parseOptionalText(rawAccount.imap_user, 'account.imap_user', 320),
+			smtp_user: parseOptionalText(rawAccount.smtp_user, 'account.smtp_user', 320),
+			carddav_user: parseOptionalText(rawAccount.carddav_user, 'account.carddav_user', 320),
+			caldav_user: parseOptionalText(rawAccount.caldav_user, 'account.caldav_user', 320),
 			sync_emails: rawAccount.sync_emails === undefined ? undefined : Number(rawAccount.sync_emails) > 0 ? 1 : 0,
 			sync_contacts:
 				rawAccount.sync_contacts === undefined ? undefined : Number(rawAccount.sync_contacts) > 0 ? 1 : 0,
 			sync_calendar:
 				rawAccount.sync_calendar === undefined ? undefined : Number(rawAccount.sync_calendar) > 0 ? 1 : 0,
+			contacts_sync_interval_minutes:
+				rawAccount.contacts_sync_interval_minutes === undefined
+					? undefined
+					: normalizeAccountContactsSyncIntervalMinutes(
+							rawAccount.contacts_sync_interval_minutes,
+							DEFAULT_ACCOUNT_CONTACTS_SYNC_INTERVAL_MINUTES,
+						),
+			calendar_sync_interval_minutes:
+				rawAccount.calendar_sync_interval_minutes === undefined
+					? undefined
+					: normalizeAccountCalendarSyncIntervalMinutes(
+							rawAccount.calendar_sync_interval_minutes,
+							DEFAULT_ACCOUNT_CALENDAR_SYNC_INTERVAL_MINUTES,
+						),
+			email_list_sort:
+				rawAccount.email_list_sort === undefined ? undefined : parseMailListSort(rawAccount.email_list_sort),
+			email_sync_interval_minutes:
+				rawAccount.email_sync_interval_minutes === undefined
+					? undefined
+					: normalizeAccountEmailSyncIntervalMinutes(
+							rawAccount.email_sync_interval_minutes,
+							DEFAULT_ACCOUNT_EMAIL_SYNC_INTERVAL_MINUTES,
+						),
+			email_sync_lookback_months:
+				rawAccount.email_sync_lookback_months === undefined
+					? undefined
+					: normalizeAccountEmailSyncLookbackMonths(
+							rawAccount.email_sync_lookback_months,
+							DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
+						),
 		};
 		deps.appLogger.info('IPC add-account email=%s', payload.email);
 		const created = await deps.addAccount(payload);
@@ -95,6 +141,40 @@ export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
 				rawPayload.sync_contacts === undefined ? undefined : Number(rawPayload.sync_contacts) > 0 ? 1 : 0,
 			sync_calendar:
 				rawPayload.sync_calendar === undefined ? undefined : Number(rawPayload.sync_calendar) > 0 ? 1 : 0,
+			imap_user: parseOptionalText(rawPayload.imap_user, 'payload.imap_user', 320),
+			smtp_user: parseOptionalText(rawPayload.smtp_user, 'payload.smtp_user', 320),
+			carddav_user: parseOptionalText(rawPayload.carddav_user, 'payload.carddav_user', 320),
+			caldav_user: parseOptionalText(rawPayload.caldav_user, 'payload.caldav_user', 320),
+			contacts_sync_interval_minutes:
+				rawPayload.contacts_sync_interval_minutes === undefined
+					? undefined
+					: normalizeAccountContactsSyncIntervalMinutes(
+							rawPayload.contacts_sync_interval_minutes,
+							DEFAULT_ACCOUNT_CONTACTS_SYNC_INTERVAL_MINUTES,
+						),
+			calendar_sync_interval_minutes:
+				rawPayload.calendar_sync_interval_minutes === undefined
+					? undefined
+					: normalizeAccountCalendarSyncIntervalMinutes(
+							rawPayload.calendar_sync_interval_minutes,
+							DEFAULT_ACCOUNT_CALENDAR_SYNC_INTERVAL_MINUTES,
+						),
+			email_list_sort:
+				rawPayload.email_list_sort === undefined ? undefined : parseMailListSort(rawPayload.email_list_sort),
+			email_sync_interval_minutes:
+				rawPayload.email_sync_interval_minutes === undefined
+					? undefined
+					: normalizeAccountEmailSyncIntervalMinutes(
+							rawPayload.email_sync_interval_minutes,
+							DEFAULT_ACCOUNT_EMAIL_SYNC_INTERVAL_MINUTES,
+						),
+			email_sync_lookback_months:
+				rawPayload.email_sync_lookback_months === undefined
+					? undefined
+					: normalizeAccountEmailSyncLookbackMonths(
+							rawPayload.email_sync_lookback_months,
+							DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
+						),
 		};
 		deps.appLogger.info('IPC update-account accountId=%d', safeAccountId);
 		const updated = await deps.updateAccount(safeAccountId, normalizedPayload);
@@ -168,6 +248,12 @@ export function registerAccountCoreIpc(deps: AccountCoreIpcDeps): void {
 	ipcMain.handle('verify-credentials', async (_event, payload: any) => {
 		const safePayload = parseRequiredObject(payload, 'payload');
 		return await deps.verifyConnection(safePayload);
+	});
+
+	ipcMain.handle('test-account-service-connection', async (_event, accountId: number, payload: any) => {
+		const safeAccountId = parsePositiveInt(accountId, 'accountId');
+		const safePayload = parseRequiredObject(payload, 'payload');
+		return await deps.testAccountServiceConnection(safeAccountId, safePayload);
 	});
 
 	ipcMain.handle('start-mail-oauth', async (_event, payload: any) => {

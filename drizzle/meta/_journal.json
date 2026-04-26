@@ -19,6 +19,36 @@
       "tag": "0002_account_sync_modules",
       "when": 1776362400000,
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "tag": "0003_account_email_sync_preferences",
+      "when": 1777046400000,
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "tag": "0004_account_email_list_sort",
+      "when": 1777132800000,
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "tag": "0005_account_ancillary_sync_preferences",
+      "when": 1777305600000,
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "tag": "0006_account_protocol_usernames",
+      "when": 1777392000000,
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "tag": "0007_account_dav_usernames",
+      "when": 1777478400000,
+      "breakpoints": true
     }
   ]
 }

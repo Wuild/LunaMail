@@ -2,6 +2,10 @@ import {ImapFlow} from 'imapflow';
 import {simpleParser} from 'mailparser';
 import type {OAuthSession} from '@llamamail/app/ipcTypes';
 import type {ProviderCapability, ProviderImapAuth, ProviderMailAuthCredentials} from '@llamamail/app/providerDriver';
+import {
+	DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
+	normalizeAccountEmailSyncLookbackMonths,
+} from '@llamamail/app/settingsRules';
 
 type MailSyncRuntimeDependencies = {
 	createMailDebugLogger: (channel: string, context: string) => {
@@ -17,6 +21,7 @@ type MailSyncRuntimeDependencies = {
 		imap_host: string;
 		imap_port: number;
 		imap_secure: number;
+		email_sync_lookback_months: number | null;
 		user: string;
 		auth_method: 'password' | 'app_password' | 'oauth2';
 		password: string | null;
@@ -167,6 +172,7 @@ export async function syncAccountMailboxWithCredentials(
 		imap_host: string;
 		imap_port: number;
 		imap_secure: number;
+		email_sync_lookback_months?: number | null;
 		user: string;
 		auth_method: 'password' | 'app_password' | 'oauth2';
 		password: string | null;
@@ -175,6 +181,11 @@ export async function syncAccountMailboxWithCredentials(
 	options?: AccountSyncOptions,
 ): Promise<SyncSummary> {
 	const accountId = account.id;
+	const lookbackMonths = normalizeAccountEmailSyncLookbackMonths(
+		account.email_sync_lookback_months,
+		DEFAULT_ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS,
+	);
+	const lookbackSince = lookbackMonths ? resolveLookbackSinceDate(lookbackMonths) : null;
 	const imapAuth = await resolveImapAuth(account);
 	const folderLogger = createMailDebugLogger('imap', `sync:account:${accountId}:folders`);
 	const client = new ImapFlow({
@@ -319,16 +330,127 @@ export async function syncAccountMailboxWithCredentials(
 							}
 						}
 					};
+					const upsertUidBatch = async (uids: number[]): Promise<void> => {
+						if (uids.length === 0) return;
+						const uidSet = uids.join(',');
+						for await (const msg of client.fetch(
+							uidSet,
+							{
+								uid: true,
+								envelope: true,
+								flags: true,
+								size: true,
+								internalDate: true,
+							},
+							{uid: true},
+						)) {
+							if (options?.isCancelled?.()) throw new Error('Mailbox sync cancelled');
+							if (fetchedUids.has(msg.uid)) continue;
+							fetchedUids.add(msg.uid);
+							if (isExchangeImapPlaceholderEnvelope(msg.envelope)) {
+								folderLogger.debug(
+									'Skipping Exchange placeholder message path=%s uid=%s',
+									box.path,
+									String(msg.uid),
+								);
+								continue;
+							}
+							totalMessages += 1;
+							const existed = hasMessageByFolderAndUid(folderId, msg.uid);
+							const isRead = msg.flags?.has('\\Seen') ? 1 : 0;
+							const messageDate = msg.internalDate ? new Date(msg.internalDate).toISOString() : null;
+							const envelopeWithRefs = msg.envelope as
+								| (typeof msg.envelope & {
+										references?: unknown;
+								  })
+								| undefined;
+							const referencesText = stringifyReferences(envelopeWithRefs?.references);
+							const threadId = buildThreadId({
+								messageId: msg.envelope?.messageId ?? null,
+								inReplyTo: msg.envelope?.inReplyTo ?? null,
+								references: envelopeWithRefs?.references,
+								subject: msg.envelope?.subject ?? null,
+								fromAddress: msg.envelope?.from?.[0]?.address ?? null,
+								toAddress:
+									msg.envelope?.to
+										?.map((a) => a.address)
+										.filter(Boolean)
+										.join(', ') ?? null,
+							});
+							upsertThread(
+								threadId,
+								msg.envelope?.subject ?? null,
+								messageDate ?? new Date().toISOString(),
+							);
+							upsertMessage({
+								accountId,
+								folderId,
+								uid: msg.uid,
+								seq: (msg.seq as number) ?? 0,
+								threadId,
+								messageId: msg.envelope?.messageId ?? null,
+								inReplyTo: msg.envelope?.inReplyTo ?? null,
+								referencesText,
+								subject: msg.envelope?.subject ?? null,
+								fromName: msg.envelope?.from?.[0]?.name ?? null,
+								fromAddress: msg.envelope?.from?.[0]?.address ?? null,
+								toAddress:
+									msg.envelope?.to
+										?.map((a) => a.address)
+										.filter(Boolean)
+										.join(', ') ?? null,
+								date: messageDate,
+								isRead,
+								isFlagged: msg.flags?.has('\\Flagged') ? 1 : 0,
+								size: msg.size ?? null,
+							});
+							if (!existed && isInboxFolder && !isRead) {
+								const messageId = getMessageIdByFolderAndUid(folderId, msg.uid);
+								if (!messageId) continue;
+								newMessages += 1;
+								newMessageIds.push(messageId);
+								if (!newestMessageTarget) {
+									newestMessageTarget = {
+										accountId,
+										folderPath: box.path,
+										messageId,
+									};
+								}
+							}
+						}
+					};
 
-					const recentStart = Math.max(1, total - IMAP_RECENT_SYNC_WINDOW + 1);
-					await upsertRange(`${recentStart}:*`);
+					if (lookbackSince) {
+						const scopedSearchResult = await client.search({since: lookbackSince}, {uid: true});
+						const scopedUids = (Array.isArray(scopedSearchResult) ? scopedSearchResult : [])
+							.filter((uid: unknown): uid is number => Number.isFinite(Number(uid)) && Number(uid) > 0)
+							.map((uid: number) => Number(uid))
+							.sort((a: number, b: number) => a - b);
 
-					const uidBounds = getFolderPositiveUidBounds(folderId);
-					if (uidBounds.minUid && uidBounds.minUid > 1) {
-						const backfillEnd = uidBounds.minUid - 1;
-						const backfillStart = Math.max(1, backfillEnd - IMAP_BACKFILL_BATCH_SIZE + 1);
-						if (backfillStart <= backfillEnd) {
-							await upsertRange(`${backfillStart}:${backfillEnd}`);
+						if (scopedUids.length > 0) {
+							const recentUids = scopedUids.slice(Math.max(0, scopedUids.length - IMAP_RECENT_SYNC_WINDOW));
+							await upsertUidBatch(recentUids);
+
+							const uidBounds = getFolderPositiveUidBounds(folderId);
+							if (uidBounds.minUid && uidBounds.minUid > 1) {
+								const backfillCandidates = scopedUids.filter((uid: number) => uid < uidBounds.minUid!);
+								const backfillUids = backfillCandidates.slice(
+									Math.max(0, backfillCandidates.length - IMAP_BACKFILL_BATCH_SIZE),
+								);
+								await upsertUidBatch(backfillUids);
+							}
+						}
+					} else {
+						const recentStart = Math.max(1, total - IMAP_RECENT_SYNC_WINDOW + 1);
+						await upsertRange(`${recentStart}:*`);
+
+						const uidBounds = getFolderPositiveUidBounds(folderId);
+						if (uidBounds.minUid && uidBounds.minUid > 1) {
+							const backfillEnd = uidBounds.minUid - 1;
+							const backfillStart = Math.max(1, backfillEnd - IMAP_BACKFILL_BATCH_SIZE + 1);
+							if (backfillStart <= backfillEnd) {
+								await upsertRange(`${backfillStart}:${backfillEnd}`);
+							}
 						}
 					}
 				} finally {
@@ -383,6 +505,12 @@ function inferFolderType(path: string): string | null {
 	if (p.includes('archive')) return 'archive';
 	if (p.includes('spam') || p.includes('junk')) return 'junk';
 	return null;
+}
+
+function resolveLookbackSinceDate(months: number): Date {
+	const since = new Date();
+	since.setMonth(since.getMonth() - months);
+	return since;
 }
 
 function isExchangeImapPlaceholderEnvelope(envelope: unknown): boolean {

@@ -133,6 +133,9 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 	const [newContactOrganization, setNewContactOrganization] = useState('');
 	const [newContactTitle, setNewContactTitle] = useState('');
 	const [newContactNote, setNewContactNote] = useState('');
+	const [addingContact, setAddingContact] = useState(false);
+	const [addContactFormError, setAddContactFormError] = useState<string | null>(null);
+	const [addContactFormStatus, setAddContactFormStatus] = useState<string | null>(null);
 	const [showAddContactModal, setShowAddContactModal] = useState(false);
 	const [showAddAddressBookModal, setShowAddAddressBookModal] = useState(false);
 	const [newAddressBookName, setNewAddressBookName] = useState('');
@@ -349,14 +352,20 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 	});
 
 	async function onAddContact() {
-		if (!effectiveAccountId) return;
+		if (!effectiveAccountId || addingContact) return;
 		const emails = normalizeContactValues(newContactEmails);
 		const phones = normalizeContactValues(newContactPhones);
 		const email = emails[0] || '';
-		if (!email) return;
+		if (!email) {
+			setAddContactFormError('Enter at least one valid email address.');
+			return;
+		}
+		setAddingContact(true);
+		setAddContactFormError(null);
+		setAddContactFormStatus('Saving contact...');
 		setContactError(null);
 		try {
-			await selectedAccount.contacts.add({
+			const created = await selectedAccount.contacts.add({
 				addressBookId: selectedBookId,
 				fullName: newContactName.trim() || null,
 				email,
@@ -365,16 +374,32 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 				title: newContactTitle.trim() || null,
 				note: composeContactNote(newContactNote, emails, phones),
 			});
+			const isExternalSource = !String(created?.source || '').startsWith('local:');
+			const nextBookId = isExternalSource ? null : selectedBookId;
+			if (isExternalSource && selectedBookId !== null) {
+				setSelectedBookId(null);
+			}
 			setNewContactName('');
 			setNewContactEmails(['']);
 			setNewContactPhones(['']);
 			setNewContactOrganization('');
 			setNewContactTitle('');
 			setNewContactNote('');
+			setAddContactFormStatus('Contact saved.');
 			setShowAddContactModal(false);
-			await loadContacts(effectiveAccountId, query, selectedBookId);
+			await loadContacts(effectiveAccountId, query, nextBookId);
+			const createdLabel =
+				String(created?.full_name || '').trim() ||
+				String(created?.email || '').trim() ||
+				'Contact';
+			setSyncStatusText(`${createdLabel} added`);
 		} catch (error: any) {
-			setContactError(handleContactsError(error, effectiveAccountId));
+			const message = handleContactsError(error, effectiveAccountId);
+			setAddContactFormError(message);
+			setContactError(message);
+			setAddContactFormStatus(null);
+		} finally {
+			setAddingContact(false);
 		}
 	}
 
@@ -933,7 +958,11 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 			{showAddContactModal && effectiveAccountId && (
 				<Modal
 					open
-					onClose={() => setShowAddContactModal(false)}
+					onClose={() => {
+						setShowAddContactModal(false);
+						setAddContactFormError(null);
+						setAddContactFormStatus(null);
+					}}
 					backdropClassName="z-50"
 					contentClassName="max-w-5xl"
 				>
@@ -953,7 +982,11 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 								variant="ghost"
 								size="icon"
 								className="h-8 w-8 rounded-md"
-								onClick={() => setShowAddContactModal(false)}
+								onClick={() => {
+									setShowAddContactModal(false);
+									setAddContactFormError(null);
+									setAddContactFormStatus(null);
+								}}
 								title="Close"
 								aria-label="Close add contact modal"
 							>
@@ -1034,12 +1067,23 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 								</label>
 							</div>
 						</div>
+						{addContactFormStatus && !addContactFormError && (
+							<p className="notice-info mt-4 rounded-lg px-3 py-2 text-sm">{addContactFormStatus}</p>
+						)}
+						{addContactFormError && (
+							<p className="notice-danger mt-4 rounded-lg px-3 py-2 text-sm">{addContactFormError}</p>
+						)}
 						<div className="mt-4 flex items-center justify-end gap-2">
 							<Button
 								type="button"
 								variant="outline"
 								className="rounded-md px-3 py-2 text-sm"
-								onClick={() => setShowAddContactModal(false)}
+								onClick={() => {
+									setShowAddContactModal(false);
+									setAddContactFormError(null);
+									setAddContactFormStatus(null);
+								}}
+								disabled={addingContact}
 							>
 								Cancel
 							</Button>
@@ -1047,9 +1091,9 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 								type="submit"
 								variant="default"
 								className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
-								disabled={!normalizeContactValues(newContactEmails).length}
+								disabled={addingContact || !normalizeContactValues(newContactEmails).length}
 							>
-								Save Contact
+								{addingContact ? 'Saving...' : 'Save Contact'}
 							</Button>
 						</div>
 					</form>

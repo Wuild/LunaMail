@@ -8,8 +8,13 @@ export interface ProviderAccountSyncCredentials {
 	imap_host: string;
 	imap_port: number;
 	imap_secure: number;
+	email_sync_lookback_months: number | null;
 	user: string;
+	imap_user?: string;
+	smtp_user?: string;
 	password: string | null;
+	imap_password?: string | null;
+	smtp_password?: string | null;
 	oauth_session: OAuthSession | null;
 }
 

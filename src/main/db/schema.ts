@@ -25,7 +25,16 @@ export const accounts = sqliteTable('accounts', {
 	syncEmails: integer('sync_emails').default(1).notNull(),
 	syncContacts: integer('sync_contacts').default(1).notNull(),
 	syncCalendar: integer('sync_calendar').default(1).notNull(),
+	contactsSyncIntervalMinutes: integer('contacts_sync_interval_minutes').default(15).notNull(),
+	calendarSyncIntervalMinutes: integer('calendar_sync_interval_minutes').default(15).notNull(),
+	emailListSort: text('email_list_sort').default('unread_then_arrived_desc').notNull(),
+	emailSyncIntervalMinutes: integer('email_sync_interval_minutes').default(15).notNull(),
+	emailSyncLookbackMonths: integer('email_sync_lookback_months').default(1),
 	user: text('user').notNull(),
+	imapUser: text('imap_user'),
+	smtpUser: text('smtp_user'),
+	carddavUser: text('carddav_user'),
+	caldavUser: text('caldav_user'),
 	createdAt: text('created_at').default('CURRENT_TIMESTAMP').notNull(),
 });
 

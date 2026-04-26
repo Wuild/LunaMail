@@ -55,6 +55,7 @@ import {normalizeAccountOrder, readPersistedAccountOrder, writePersistedAccountO
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {DEFAULT_APP_SETTINGS} from '@llamamail/app/defaults';
 import {parseMailListSort} from '@llamamail/app/settingsRules';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 import type {FolderItem, MailListSort, MessageItem, OpenMessageTargetEvent, PublicAccount} from '@preload';
 import {isAccountEmailModuleEnabled} from '@llamamail/app/accountModules';
 
@@ -111,6 +112,7 @@ function isInboxFolder(folder: FolderItem | null | undefined): boolean {
 }
 
 function MailPage() {
+	const {t} = useI18n();
 	const params = useParams<{accountId?: string; folderId?: string; emailId?: string}>();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -579,7 +581,7 @@ function MailPage() {
 					triggerBackgroundFolderSync(
 						selectedAccountId,
 						selectedFolderPath,
-						'Syncing older messages in background...',
+						t('mail_page.status.syncing_older_messages_background'),
 					);
 				}
 				setMessages(applyPendingReadOverrides(filterOutPendingRemovals(rowsRaw)));
@@ -704,7 +706,11 @@ function MailPage() {
 			const hasMore = hasMoreFolderMessages(rowsRaw.length, nextLimit, selectedFolderTotalCount);
 			setHasMoreMessages(hasMore);
 			if (hasMore && rowsRaw.length < nextLimit) {
-				triggerBackgroundFolderSync(selectedAccountId, selectedFolderPath, 'Syncing older messages...');
+				triggerBackgroundFolderSync(
+					selectedAccountId,
+					selectedFolderPath,
+					t('mail_page.status.syncing_older_messages'),
+				);
 			}
 			setMessages(applyPendingReadOverrides(filterOutPendingRemovals(rowsRaw)));
 		} finally {
@@ -992,7 +998,7 @@ function MailPage() {
 		const hasMore = hasMoreFolderMessages(msgRowsRaw.length, messageFetchLimit, chosenFolderTotalCount);
 		setHasMoreMessages(hasMore);
 		if (hasMore && msgRowsRaw.length < messageFetchLimit) {
-			triggerBackgroundFolderSync(accountId, chosenFolder, 'Syncing older messages in background...');
+			triggerBackgroundFolderSync(accountId, chosenFolder, t('mail_page.status.syncing_older_messages_background'));
 		}
 		setMessages(msgRows);
 		if (preferredMessageId) {
@@ -1138,7 +1144,7 @@ function MailPage() {
 		const sourceFolderPath = options?.sourceFolderPath ?? selectedFolderPathRef.current;
 		pendingMoveMessageIdsRef.current.add(message.id);
 		applyMoveOptimistic(message, sourceFolderPath, targetFolderPath);
-		setSyncStatusText(options?.pendingStatus || 'Syncing move to server...');
+		setSyncStatusText(options?.pendingStatus || t('mail_page.status.syncing_move_server'));
 		void moveMessageMutation
 			.mutateAsync({
 				messageId: message.id,
@@ -1164,10 +1170,15 @@ function MailPage() {
 						return folder;
 					}),
 				);
-				setSyncStatusText(options?.successStatus || 'Move synced');
+				setSyncStatusText(options?.successStatus || t('mail_page.status.move_synced'));
 			})
 			.catch((error: unknown) => {
-				setSyncStatusText(`${options?.failurePrefix || 'Move failed'}: ${toErrorMessage(error)}`);
+				setSyncStatusText(
+					t('mail_page.status.prefixed_error', {
+						prefix: options?.failurePrefix || t('mail_page.status.move_failed'),
+						error: toErrorMessage(error),
+					}),
+				);
 				queueReconcileReload(message.account_id, selectedFolderPathRef.current, selectedMessageIdRef.current);
 			})
 			.finally(() => {
@@ -1198,29 +1209,37 @@ function MailPage() {
 		);
 		const junkFolderPath = resolveJunkFolderPath(message.account_id);
 		if (!junkFolderPath) {
-			setSyncStatusText('No Junk folder found for this account.');
+			setSyncStatusText(t('mail_page.status.no_junk_folder'));
 			return;
 		}
 		const inboxFolderPath = resolveInboxFolderPath(message.account_id);
 		const targetFolderPath = preference === 'junk' ? junkFolderPath : sourceIsJunk ? inboxFolderPath : null;
 		if (preference === 'not-junk' && sourceIsJunk && !targetFolderPath) {
-			setSyncStatusText('No Inbox folder found for this account.');
+			setSyncStatusText(t('mail_page.status.no_inbox_folder'));
 			return;
 		}
 		if (!targetFolderPath) {
-			setSyncStatusText(preference === 'junk' ? 'Message is already in Junk.' : 'Message is not in Junk.');
+			setSyncStatusText(
+				preference === 'junk'
+					? t('mail_page.status.message_already_in_junk')
+					: t('mail_page.status.message_not_in_junk'),
+			);
 			return;
 		}
 		if (sourceFolderPath && sourceFolderPath === targetFolderPath) {
-			setSyncStatusText(preference === 'junk' ? 'Message is already in Junk.' : 'Message is not in Junk.');
+			setSyncStatusText(
+				preference === 'junk'
+					? t('mail_page.status.message_already_in_junk')
+					: t('mail_page.status.message_not_in_junk'),
+			);
 			return;
 		}
-		const actionLabel = preference === 'junk' ? 'Junk' : 'Not junk';
+		const actionLabel = preference === 'junk' ? t('mail_page.action.junk') : t('mail_page.action.not_junk');
 		syncMoveWithOptimistic(message, targetFolderPath, {
 			sourceFolderPath,
-			pendingStatus: `${actionLabel} updated locally. Syncing server in background...`,
-			successStatus: `${actionLabel} synced`,
-			failurePrefix: `${actionLabel} sync failed`,
+			pendingStatus: t('mail_page.status.action_updated_locally_syncing', {action: actionLabel}),
+			successStatus: t('mail_page.status.action_synced', {action: actionLabel}),
+			failurePrefix: t('mail_page.status.action_sync_failed', {action: actionLabel}),
 		});
 	}
 
@@ -1245,7 +1264,7 @@ function MailPage() {
 
 	function onReply(): void {
 		if (!selectedMessage) return;
-		const subject = ensurePrefixedSubject(selectedMessage.subject, 'Re:');
+		const subject = ensurePrefixedSubject(selectedMessage.subject, t('mail_page.subject_prefix.reply'));
 		const quoteText = selectedMessageBody?.text ?? htmlToText(selectedMessageBody?.html);
 		const quoteHtml = buildReplyQuoteHtml(selectedMessage, selectedMessageBody?.html, quoteText, systemLocale);
 		const replyTo = inferReplyAddress(selectedMessage);
@@ -1266,7 +1285,7 @@ function MailPage() {
 
 	function onReplyAll(): void {
 		if (!selectedMessage) return;
-		const subject = ensurePrefixedSubject(selectedMessage.subject, 'Re:');
+		const subject = ensurePrefixedSubject(selectedMessage.subject, t('mail_page.subject_prefix.reply'));
 		const quoteText = selectedMessageBody?.text ?? htmlToText(selectedMessageBody?.html);
 		const quoteHtml = buildReplyQuoteHtml(selectedMessage, selectedMessageBody?.html, quoteText, systemLocale);
 		const replyTo = inferReplyAddress(selectedMessage);
@@ -1288,7 +1307,7 @@ function MailPage() {
 
 	function onForward(): void {
 		if (!selectedMessage) return;
-		const subject = ensurePrefixedSubject(selectedMessage.subject, 'Fwd:');
+		const subject = ensurePrefixedSubject(selectedMessage.subject, t('mail_page.subject_prefix.forward'));
 		const originalText = selectedMessageBody?.text ?? htmlToText(selectedMessageBody?.html);
 		const forwarded = buildForwardQuoteText(selectedMessage, originalText, systemLocale);
 
@@ -1315,7 +1334,11 @@ function MailPage() {
 	}
 
 	function confirmAndDeleteMessage(message: MessageItem): void {
-		const confirmed = window.confirm(`Delete email "${message.subject || '(No subject)'}"?`);
+		const confirmed = window.confirm(
+			t('mail_page.confirm.delete_email', {
+				subject: message.subject || t('mail_page.placeholder.no_subject'),
+			}),
+		);
 		if (!confirmed) return;
 		deleteMessagesBatch([message]);
 	}
@@ -1329,12 +1352,12 @@ function MailPage() {
 			applyRemoveOptimistic(message, selectedFolderPath);
 		});
 
-		setSyncStatusText(`Deleted ${deleting.length} locally. Syncing server in background...`);
+		setSyncStatusText(t('mail_page.status.deleted_local_syncing', {count: deleting.length}));
 		for (const message of deleting) {
 			void deleteMessageMutation
 				.mutateAsync({messageId: message.id})
 				.catch((error: unknown) => {
-					setSyncStatusText(`Delete sync failed: ${toErrorMessage(error)}`);
+					setSyncStatusText(t('mail_page.status.delete_sync_failed', {error: toErrorMessage(error)}));
 					queueReconcileReload(selectedAccountId, selectedFolderPath, selectedMessageIdRef.current);
 				})
 				.finally(() => {
@@ -1405,11 +1428,11 @@ function MailPage() {
 		const attachmentName =
 			typeof attachment?.filename === 'string' && attachment.filename.trim().length > 0
 				? attachment.filename.trim()
-				: `Attachment ${index + 1}`;
-		const actionLabel = action === 'open' ? 'Open' : 'Save';
+				: t('mail_page.placeholder.attachment', {index: index + 1});
+		const actionLabel = action === 'open' ? t('mail_page.action.open') : t('mail_page.action.save');
 		const notificationId = createNotification({
-			title: `${actionLabel} attachment`,
-			message: `${actionLabel}ing ${attachmentName}...`,
+			title: t('mail_page.notification.attachment_action_title', {action: actionLabel}),
+			message: t('mail_page.notification.attachment_action_progress', {action: actionLabel, name: attachmentName}),
 			progress: 15,
 			busy: true,
 			tone: 'info',
@@ -1417,7 +1440,7 @@ function MailPage() {
 		});
 		const preparingTimer = window.setTimeout(() => {
 			updateNotification(notificationId, {
-				message: 'Preparing attachment...',
+				message: t('mail_page.notification.preparing_attachment'),
 				progress: 45,
 				busy: true,
 				tone: 'info',
@@ -1425,7 +1448,10 @@ function MailPage() {
 		}, 250);
 		const writingTimer = window.setTimeout(() => {
 			updateNotification(notificationId, {
-				message: action === 'open' ? 'Opening file...' : 'Saving file...',
+				message:
+					action === 'open'
+						? t('mail_page.notification.opening_file')
+						: t('mail_page.notification.saving_file'),
 				progress: 82,
 				busy: true,
 				tone: 'info',
@@ -1435,7 +1461,10 @@ function MailPage() {
 			.openMessageAttachment(selectedMessage.id, index, action)
 			.then(() => {
 				updateNotification(notificationId, {
-					message: action === 'open' ? `${attachmentName} opened.` : `${attachmentName} saved.`,
+					message:
+						action === 'open'
+							? t('mail_page.notification.attachment_opened', {name: attachmentName})
+							: t('mail_page.notification.attachment_saved', {name: attachmentName}),
 					progress: 100,
 					busy: false,
 					tone: 'success',
@@ -1444,9 +1473,9 @@ function MailPage() {
 			})
 			.catch((error: unknown) => {
 				const errorMessage = toErrorMessage(error);
-				setSyncStatusText(`Attachment failed: ${errorMessage}`);
+				setSyncStatusText(t('mail_page.status.attachment_failed', {error: errorMessage}));
 				updateNotification(notificationId, {
-					message: `Attachment failed: ${errorMessage}`,
+					message: t('mail_page.status.attachment_failed', {error: errorMessage}),
 					progress: 100,
 					busy: false,
 					tone: 'danger',
@@ -1473,13 +1502,13 @@ function MailPage() {
 	function allowRemoteContentForSender(): void {
 		const sender = extractEmailAddress(selectedMessage?.from_address);
 		if (!sender) {
-			setSyncStatusText('Could not determine sender address for allowlist.');
+			setSyncStatusText(t('mail_page.status.could_not_determine_sender'));
 			return;
 		}
 		const nextAllowlist = [...new Set([...(appSettings.remoteContentAllowlist || []), sender])];
 		setAppSettings((prev) => ({...prev, remoteContentAllowlist: nextAllowlist}));
 		void ipcClient.updateAppSettings({remoteContentAllowlist: nextAllowlist}).catch((error: unknown) => {
-			setSyncStatusText(`Failed to update allowlist: ${toErrorMessage(error)}`);
+			setSyncStatusText(t('mail_page.status.allowlist_update_failed', {error: toErrorMessage(error)}));
 		});
 	}
 
@@ -1640,12 +1669,12 @@ function MailPage() {
 					}
 					return;
 				}
-				setSyncStatusText(`Refreshing folder ${folderLabel}...`);
+				setSyncStatusText(t('mail_page.status.refreshing_folder', {folder: folderLabel}));
 				try {
 					await reloadAccountData(folder.account_id, folder.path, selectedMessageIdRef.current);
-					setSyncStatusText(`Folder refreshed: ${folderLabel}`);
+					setSyncStatusText(t('mail_page.status.folder_refreshed', {folder: folderLabel}));
 				} catch (error: unknown) {
-					setSyncStatusText(`Folder refresh failed: ${toErrorMessage(error)}`);
+					setSyncStatusText(t('mail_page.status.folder_refresh_failed', {error: toErrorMessage(error)}));
 					throw error;
 				}
 			}}
@@ -1675,15 +1704,15 @@ function MailPage() {
 				void ipcClient.updateAppSettings({mailView: view}).catch(() => undefined);
 			}}
 			syncStatusText={syncStatusText}
-			syncInProgress={Boolean(syncStatusText && syncStatusText.toLowerCase().startsWith('syncing'))}
+			syncInProgress={syncingAccountIds.length > 0}
 			statusHintText={isPointerOverMessageFrame && hoveredLinkUrl ? hoveredLinkUrl : null}
 			syncingAccountIds={syncingAccountIds}
 			onCreateFolder={async ({accountId, folderPath, type, color}) => {
 				const targetAccountId = accountId;
 				const normalizedPath = (folderPath || '').trim();
-				if (!targetAccountId) throw new Error('Select an account first');
-				if (!normalizedPath) throw new Error('Folder path is required');
-				setSyncStatusText('Creating folder...');
+				if (!targetAccountId) throw new Error(t('mail_page.error.select_account_first'));
+				if (!normalizedPath) throw new Error(t('mail_page.error.folder_path_required'));
+				setSyncStatusText(t('mail_page.status.creating_folder'));
 				try {
 					const targetAccount = getAccount(targetAccountId);
 					await targetAccount.email.createFolder(normalizedPath);
@@ -1699,9 +1728,9 @@ function MailPage() {
 						setSelectedAccountId(targetAccountId);
 					}
 					setSelectedFolderPath(normalizedPath);
-					setSyncStatusText(`Folder created: ${normalizedPath}`);
+					setSyncStatusText(t('mail_page.status.folder_created', {folder: normalizedPath}));
 				} catch (e: any) {
-					setSyncStatusText(`Create folder failed: ${e?.message || String(e)}`);
+					setSyncStatusText(t('mail_page.status.create_folder_failed', {error: e?.message || String(e)}));
 					throw e;
 				}
 			}}
@@ -1740,24 +1769,26 @@ function MailPage() {
 				} catch (e: any) {
 					setAccountFoldersById(previousAccountFoldersById);
 					setFolders(previousFolders);
-					setSyncStatusText(`Reorder failed: ${e?.message || String(e)}`);
+					setSyncStatusText(t('mail_page.status.reorder_failed', {error: e?.message || String(e)}));
 					throw e;
 				}
 			}}
 			onDeleteFolder={(folder) =>
 				void (async () => {
 					if (!selectedAccountId) {
-						setSyncStatusText('Select an account first');
+						setSyncStatusText(t('mail_page.error.select_account_first'));
 						return;
 					}
 					if (isProtectedFolder(folder)) {
-						setSyncStatusText('System folders cannot be deleted');
+						setSyncStatusText(t('mail_page.error.system_folders_not_deletable'));
 						return;
 					}
-					const confirmed = window.confirm(`Delete folder "${folder.custom_name || folder.name}"?`);
+					const confirmed = window.confirm(
+						t('mail_page.confirm.delete_folder', {folder: folder.custom_name || folder.name}),
+					);
 					if (!confirmed) return;
 
-					setSyncStatusText(`Deleting folder ${folder.custom_name || folder.name}...`);
+					setSyncStatusText(t('mail_page.status.deleting_folder', {folder: folder.custom_name || folder.name}));
 					const previousFolders = folders;
 					const previousMessages = messages;
 					const previousSelectedFolder = selectedFolderPath;
@@ -1778,13 +1809,13 @@ function MailPage() {
 					try {
 						await selectedAccount.email.deleteFolder(folder.path);
 						await reloadAccountData(selectedAccountId, null, null);
-						setSyncStatusText(`Deleted folder: ${folder.custom_name || folder.name}`);
+						setSyncStatusText(t('mail_page.status.deleted_folder', {folder: folder.custom_name || folder.name}));
 					} catch (e: any) {
 						setFolders(previousFolders);
 						setMessages(previousMessages);
 						setSelectedFolderPath(previousSelectedFolder);
 						setSelectedMessageId(previousSelectedMessage);
-						setSyncStatusText(`Delete folder failed: ${e?.message || String(e)}`);
+						setSyncStatusText(t('mail_page.status.delete_folder_failed', {error: e?.message || String(e)}));
 					}
 				})()
 			}
@@ -1820,7 +1851,7 @@ function MailPage() {
 					const selectedSet = new Set(messageIds);
 					const targets = messages.filter((message) => selectedSet.has(message.id));
 					if (targets.length === 0) return;
-					const confirmed = window.confirm(`Delete ${targets.length} selected emails?`);
+					const confirmed = window.confirm(t('mail_page.confirm.delete_selected_emails', {count: targets.length}));
 					if (!confirmed) return;
 					deleteMessagesBatch(targets);
 				})()
@@ -1834,15 +1865,15 @@ function MailPage() {
 					const nextFlag = message.is_flagged ? 0 : 1;
 					const previousFlag = message.is_flagged;
 					applyFlagOptimistic(message.id, nextFlag);
-					setSyncStatusText('Flag updated locally. Syncing server in background...');
+					setSyncStatusText(t('mail_page.status.flag_updated_locally_syncing'));
 					void setMessageFlagMutation
 						.mutateAsync({messageId: message.id, isFlagged: nextFlag})
 						.then(() => {
-							setSyncStatusText('Flag synced');
+							setSyncStatusText(t('mail_page.status.flag_synced'));
 						})
 						.catch((error: unknown) => {
 							applyFlagOptimistic(message.id, previousFlag);
-							setSyncStatusText(`Flag sync failed: ${toErrorMessage(error)}`);
+							setSyncStatusText(t('mail_page.status.flag_sync_failed', {error: toErrorMessage(error)}));
 						});
 				})()
 			}
@@ -1868,7 +1899,7 @@ function MailPage() {
 						.mutateAsync({messageId: message.id, tag: nextTag})
 						.catch((error: unknown) => {
 							applyTagOptimistic(message.id, previousTag);
-							setSyncStatusText(`Tag update failed: ${toErrorMessage(error)}`);
+							setSyncStatusText(t('mail_page.status.tag_update_failed', {error: toErrorMessage(error)}));
 						});
 				})()
 			}
@@ -1876,7 +1907,7 @@ function MailPage() {
 				void (() => {
 					if (!selectedAccountId) return;
 					applyRemoveOptimistic(message, selectedFolderPath);
-					setSyncStatusText('Archived locally. Syncing server in background...');
+					setSyncStatusText(t('mail_page.status.archived_locally_syncing'));
 					void archiveMessageMutation
 						.mutateAsync({messageId: message.id})
 						.then((res) => {
@@ -1899,10 +1930,10 @@ function MailPage() {
 									return folder;
 								}),
 							);
-							setSyncStatusText('Archive synced');
+							setSyncStatusText(t('mail_page.status.archive_synced'));
 						})
 						.catch((error: unknown) => {
-							setSyncStatusText(`Archive sync failed: ${toErrorMessage(error)}`);
+							setSyncStatusText(t('mail_page.status.archive_sync_failed', {error: toErrorMessage(error)}));
 							queueReconcileReload(selectedAccountId, selectedFolderPath, null);
 						});
 				})()
@@ -1927,9 +1958,9 @@ function MailPage() {
 				void (() => {
 					syncMoveWithOptimistic(message, targetFolderPath, {
 						sourceFolderPath: selectedFolderPath,
-						pendingStatus: 'Syncing move to server...',
-						successStatus: 'Move synced',
-						failurePrefix: 'Move failed',
+						pendingStatus: t('mail_page.status.syncing_move_server'),
+						successStatus: t('mail_page.status.move_synced'),
+						failurePrefix: t('mail_page.status.move_failed'),
 					});
 				})()
 			}
@@ -1941,7 +1972,7 @@ function MailPage() {
 					targets.forEach((message) => {
 						applyMoveOptimistic(message, selectedFolderPath, targetFolderPath);
 					});
-					setSyncStatusText(`Moved ${targets.length} locally. Syncing server in background...`);
+					setSyncStatusText(t('mail_page.status.moved_locally_syncing', {count: targets.length}));
 					for (const message of targets) {
 						void moveMessageMutation
 							.mutateAsync({messageId: message.id, targetFolderPath})
@@ -1967,7 +1998,7 @@ function MailPage() {
 								);
 							})
 							.catch((error: unknown) => {
-								setSyncStatusText(`Move sync failed: ${toErrorMessage(error)}`);
+								setSyncStatusText(t('mail_page.status.move_sync_failed', {error: toErrorMessage(error)}));
 								queueReconcileReload(
 									selectedAccountId,
 									selectedFolderPath,
@@ -2033,11 +2064,11 @@ function MailPage() {
 							[accountId]: accountFolders.map((f) => (f.id === updated.id ? updated : f)),
 						};
 					});
-					setSyncStatusText('Folder settings saved');
+					setSyncStatusText(t('mail_page.status.folder_settings_saved'));
 				} catch (e: any) {
 					setFolders(previous);
 					setAccountFoldersById(previousAccountFoldersById);
-					setSyncStatusText(`Folder settings failed: ${e?.message || String(e)}`);
+					setSyncStatusText(t('mail_page.status.folder_settings_failed', {error: e?.message || String(e)}));
 					throw e;
 				}
 			}}
@@ -2047,36 +2078,36 @@ function MailPage() {
 					<article className="flex h-full flex-col">
 						<div
 							role="toolbar"
-							aria-label="Message actions"
+							aria-label={t('mail_page.action.message_actions')}
 							className="mail-menubar shrink-0 flex w-full flex-wrap items-center gap-1.5 px-3 py-2"
 						>
 							{showMessageOnly && (
 								<>
-									<ToolboxButton label="Back" icon={<ArrowLeft size={14} />} onClick={onBackToList} />
+									<ToolboxButton label={t('mail_page.action.back')} icon={<ArrowLeft size={14} />} onClick={onBackToList} />
 									<span className="divider-default mx-1 h-6 w-px" />
 								</>
 							)}
 							{!isDraftMessageSelected && (
 								<>
-									<ToolboxButton label="Reply" icon={<Reply size={14} />} onClick={onReply} primary />
+									<ToolboxButton label={t('mail_page.action.reply')} icon={<Reply size={14} />} onClick={onReply} primary />
 									{canReplyAll && (
 										<ToolboxButton
-											label="Reply all"
+											label={t('mail_page.action.reply_all')}
 											icon={<ReplyAll size={14} />}
 											onClick={onReplyAll}
 										/>
 									)}
-									<ToolboxButton label="Forward" icon={<Forward size={14} />} onClick={onForward} />
+									<ToolboxButton label={t('mail_page.action.forward')} icon={<Forward size={14} />} onClick={onForward} />
 									<span className="divider-default mx-1 h-6 w-px" />
 								</>
 							)}
 							{isDraftMessageSelected ? (
-								<ToolboxButton label="Edit draft" icon={<PenSquare size={14} />} onClick={onEditDraft} primary />
+								<ToolboxButton label={t('mail_page.action.edit_draft')} icon={<PenSquare size={14} />} onClick={onEditDraft} primary />
 							) : (
 								<>
-									<ToolboxButton label="View source" icon={<FileText size={14} />} onClick={onViewSource} />
+									<ToolboxButton label={t('mail_page.action.view_source')} icon={<FileText size={14} />} onClick={onViewSource} />
 									<ToolboxButton
-										label={isSelectedMessageInJunk ? 'Not junk' : 'Junk'}
+										label={isSelectedMessageInJunk ? t('mail_page.action.not_junk') : t('mail_page.action.junk')}
 										icon={isSelectedMessageInJunk ? <ShieldCheck size={14} /> : <ShieldAlert size={14} />}
 										onClick={() => {
 											if (!selectedMessage) return;
@@ -2089,7 +2120,7 @@ function MailPage() {
 								</>
 							)}
 							<ToolboxButton
-								label="Delete"
+								label={t('mail_page.action.delete')}
 								icon={<Trash2 size={14} />}
 								onClick={onDeleteSelected}
 								danger
@@ -2097,7 +2128,7 @@ function MailPage() {
 						</div>
 						<MessageHeaderCard
 							message={selectedMessage}
-							folderLabel={selectedFolderPath || 'Message'}
+							folderLabel={selectedFolderPath || t('mail_page.placeholder.message')}
 							attachmentsCount={messageAttachments.length}
 							showMessageDetails={showMessageDetails}
 							onToggleMessageDetails={() => setShowMessageDetails((prev) => !prev)}
@@ -2118,7 +2149,7 @@ function MailPage() {
 						/>
 						<MessageBodyPane
 							loading={bodyLoading}
-							loadingLabel="Loading message body..."
+							loadingLabel={t('mail_page.placeholder.loading_message_body')}
 							iframeSrcDoc={iframeSrcDoc}
 							plainText={selectedMessageBody?.text}
 							iframeTitle={`message-body-${selectedMessage.id}`}
@@ -2165,7 +2196,7 @@ function MailPage() {
 							setAttachmentMenu(null);
 						}}
 					>
-						Open
+						{t('mail_page.action.open')}
 					</ContextMenuItem>
 					<ContextMenuItem
 						onClick={() => {
@@ -2173,7 +2204,7 @@ function MailPage() {
 							setAttachmentMenu(null);
 						}}
 					>
-						Save As...
+						{t('mail_page.action.save_as')}
 					</ContextMenuItem>
 				</ContextMenu>
 			)}

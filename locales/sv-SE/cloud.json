@@ -1,0 +1,209 @@
+{
+	"cloud_page": {
+		"title": "Molnfiler",
+		"accounts": {
+			"title": "Molnkonton",
+			"add": "Lägg till molnkonto",
+			"none": "Inga molnkonton ännu.",
+			"refresh": "Uppdatera konto",
+			"actions": "Kontoåtgärder",
+			"collapse_drives": "Fäll ihop enheter",
+			"expand_drives": "Expandera enheter"
+		},
+		"selection": {
+			"selected_count": "{{count}} markerade"
+		},
+		"action": {
+			"clear": "Rensa",
+			"new_folder": "Ny mapp",
+			"upload": "Ladda upp",
+			"go_back": "Gå tillbaka",
+			"actions": "Åtgärder",
+			"actions_for": "Åtgärder för {{name}}",
+			"close_details": "Stäng detaljer",
+			"open": "Öppna",
+			"download": "Ladda ner",
+			"share": "Dela",
+			"delete": "Ta bort",
+			"view": "Visa",
+			"open_in_new_window": "Öppna i nytt fönster",
+			"refresh": "Uppdatera",
+			"reconnect_account": "Återanslut konto",
+			"edit_account": "Redigera konto",
+			"delete_account": "Ta bort konto",
+			"cancel": "Avbryt",
+			"connect_oauth": "Anslut med OAuth",
+			"save": "Spara",
+			"create": "Skapa",
+			"close": "Stäng",
+			"copy_link": "Kopiera länk"
+		},
+		"table": {
+			"column_options": "Kolumnval för tabell",
+			"columns": "Tabellkolumner",
+			"reset_columns": "Återställ kolumner",
+			"folder": "Mapp",
+			"file": "Fil",
+			"folder_lc": "mapp",
+			"file_lc": "fil",
+			"parent": "Överordnad"
+		},
+		"field": {
+			"type": "Typ",
+			"size": "Storlek",
+			"modified": "Ändrad",
+			"created": "Skapad",
+			"path": "Sökväg",
+			"provider": "Leverantör",
+			"account_name": "Kontonamn",
+			"webdav_url": "WebDAV-URL",
+			"username": "Användarnamn",
+			"secret_password": "Lösenord / app-token",
+			"secret_optional": "Hemlighet (valfritt)",
+			"folder_name": "Mappnamn"
+		},
+		"placeholder": {
+			"personal_drive": "Personlig enhet",
+			"webdav_url": "https://cloud.example.com/remote.php/dav/files/username/",
+			"username": "username",
+			"app_password": "Applösenord",
+			"leave_secret_unchanged": "Lämna tomt för att behålla oförändrat",
+			"new_folder": "Ny mapp"
+		},
+		"provider": {
+			"nextcloud_webdav": "Nextcloud (WebDAV)",
+			"generic_webdav": "Generisk WebDAV",
+			"google_drive_oauth": "Google Drive (OAuth)",
+			"onedrive_oauth": "OneDrive (OAuth)",
+			"google_drive": "Google Drive",
+			"onedrive": "OneDrive"
+		},
+		"modal": {
+			"add_account": {
+				"title": "Lägg till molnkonto",
+				"subtitle": "Anslut WebDAV direkt, eller använd OAuth för Google Drive/OneDrive.",
+				"oauth_hint": "Detta öppnar ett webbläsarfönster för OAuth-inloggning.",
+				"oauth_waiting": "Väntar på OAuth i din webbläsare. Slutför inloggningen för att fortsätta."
+			},
+			"edit_account": {
+				"title": "Redigera molnkonto",
+				"subtitle": "Uppdatera kontouppgifter. Lämna hemligheten tom för att behålla nuvarande."
+			},
+			"create_folder": {
+				"title": "Skapa mapp"
+			},
+			"share_link": {
+				"title": "Dela länk"
+			}
+		},
+		"empty": {
+			"add_account_to_browse": "Lägg till ett konto för att bläddra i molnfiler.",
+			"no_files": "Inga filer"
+		},
+		"confirm": {
+			"delete_item": "Ta bort {{label}} \"{{name}}\"?",
+			"delete_account": "Ta bort molnkonto \"{{name}}\"?"
+		},
+		"notification": {
+			"deleting_title": "Tar bort {{name}}",
+			"removing_item": "Tar bort objekt från listan...",
+			"sending_delete_request": "Skickar begäran om borttagning...",
+			"checking_remote_status": "Kontrollerar fjärrstatus...",
+			"refreshing_folder": "Uppdaterar mapp...",
+			"delete_requested_syncing": "Borttagning begärd; synk pågår fortfarande.",
+			"delete_complete": "Borttagning klar."
+		},
+		"status": {
+			"ready": "Redo",
+			"loading": "Laddar...",
+			"loading_storage": "Laddar lagring...",
+			"loading_cloud_files": "Laddar molnfiler...",
+			"loading_folder": "Laddar mapp...",
+			"loaded_items": "Läste in {{count}} objekt.",
+			"sync_paused_reconnect": "Synk pausad för {{name}}. Återanslut kontot för att återuppta synk.",
+			"storage_check_paused": "Lagringskontroll pausad: {{message}}. Återanslut kontot för att återuppta synk.",
+			"load_failed_paused": "Inläsning misslyckades: {{message}}. Synk pausad tills kontot återansluts.",
+			"load_failed": "Inläsning misslyckades: {{message}}",
+			"opening_label": "Öppnar {{label}}...",
+			"moving_items": "Flyttar {{count}} objekt...",
+			"moved_items": "Flyttade {{count}} objekt.",
+			"move_failed": "Flytt misslyckades: {{error}}",
+			"creating_folder": "Skapar mapp...",
+			"folder_created": "Mapp \"{{name}}\" skapad.",
+			"create_folder_failed": "Skapa mapp misslyckades: {{error}}",
+			"uploading_files": "Laddar upp filer...",
+			"upload_cancelled": "Uppladdning avbruten.",
+			"uploaded_files": "Laddade upp {{count}} filer.",
+			"upload_failed": "Uppladdning misslyckades: {{error}}",
+			"deleting_label": "Tar bort {{label}}...",
+			"item_deleted": "{{name}} borttagen.",
+			"delete_requested_syncing_name": "Borttagning begärd för {{name}}; synk pågår fortfarande.",
+			"delete_failed": "Borttagning misslyckades: {{error}}",
+			"opening_external_app": "Öppnar {{name}} i extern app...",
+			"opened_name": "Öppnade {{name}}.",
+			"open_failed": "Öppning misslyckades: {{error}}",
+			"downloading_name": "Laddar ner {{name}}...",
+			"download_cancelled": "Nedladdning avbruten.",
+			"saved_name": "Sparade {{name}}.",
+			"download_failed": "Nedladdning misslyckades: {{error}}",
+			"generating_share_link": "Skapar delningslänk för {{name}}...",
+			"share_link_ready": "Delningslänk klar.",
+			"share_failed": "Delning misslyckades: {{error}}",
+			"adding_account": "Lägger till molnkonto...",
+			"opening_oauth": "Öppnar {{provider}} OAuth...",
+			"account_connected": "{{provider}}-konto anslutet: {{name}}.",
+			"account_added": "Molnkonto tillagt.",
+			"add_failed": "Kunde inte lägga till: {{error}}",
+			"deleting_account": "Tar bort molnkonto...",
+			"account_deleted": "Molnkonto borttaget.",
+			"refreshing_name": "Uppdaterar {{name}}...",
+			"opening_signin": "Öppnar {{provider}}-inloggning...",
+			"account_reconnected": "{{provider}}-konto återanslutet.",
+			"reconnect_failed": "Återanslutning misslyckades: {{error}}",
+			"saving_account": "Sparar molnkonto...",
+			"account_updated": "Molnkonto uppdaterat.",
+			"update_failed": "Uppdatering misslyckades: {{error}}",
+			"share_copied": "Delningslänk kopierad till urklipp.",
+			"copy_failed": "Kopiering misslyckades: {{error}}",
+			"adding": "Lägger till...",
+			"saving": "Sparar...",
+			"deleting": "Tar bort...",
+			"reconnecting": "Återansluter...",
+			"opening_folder": "Öppnar mapp...",
+			"opening_parent_folder": "Öppnar överordnad mapp..."
+		},
+		"error": {
+			"unknown": "Okänt fel"
+		}
+	},
+	"cloud": {
+		"default_item_name": "moln-objekt",
+		"default_attachment_name": "moln-bilaga",
+		"file_type_label": "molnfil",
+		"dialog": {
+			"upload_title": "Ladda upp filer till moln",
+			"save_title": "Spara molnfil"
+		},
+		"error": {
+			"oauth_linking_supported_providers": "OAuth-länkning stöds endast för Google Drive och OneDrive.",
+			"oauth_relinking_supported_providers": "OAuth-återlänkning stöds endast för Google Drive- och OneDrive-konton.",
+			"google_token_exchange_failed": "Google OAuth-tokenutbyte misslyckades ({{status}}).",
+			"google_no_access_token": "Google OAuth-svaret innehöll ingen access token.",
+			"onedrive_token_exchange_failed": "OneDrive OAuth-tokenutbyte misslyckades ({{status}}).",
+			"onedrive_no_access_token": "OneDrive OAuth-svaret innehöll ingen access token.",
+			"oauth_callback_no_code": "OAuth-callback returnerade ingen kod.",
+			"oauth_callback_missing_code": "OAuth-callback saknade kod.",
+			"oauth_state_mismatch": "OAuth-state stämmer inte.",
+			"oauth_authorization_failed": "OAuth-auktorisering misslyckades.",
+			"oauth_login_timed_out": "OAuth-inloggning tog för lång tid. Försök igen.",
+			"oauth_listener_start_failed": "Kunde inte starta lyssnare för OAuth-callback."
+		},
+		"http": {
+			"not_found": "Hittades inte",
+			"state_mismatch_close_tab": "State stämmer inte. Du kan stänga denna flik.",
+			"authentication_failed_close_tab": "Autentisering misslyckades. Du kan stänga denna flik.",
+			"missing_authorization_code_close_tab": "Saknar auktoriseringskod. Du kan stänga denna flik.",
+			"account_linked_close_tab": "{{app}}-konto länkades. Du kan stänga denna flik."
+		}
+	}
+}

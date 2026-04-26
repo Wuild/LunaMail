@@ -56,6 +56,7 @@ import {useComposeWindowGuards} from '@renderer/app/windows/compose/useComposeWi
 import {useComposeRecipients} from '@renderer/app/windows/compose/useComposeRecipients';
 import {useComposeAttachments} from '@renderer/app/windows/compose/useComposeAttachments';
 import type {ComposeAttachment, RecipientFieldKey} from '@renderer/app/windows/compose/types';
+import {useI18n, t as i18nT} from '@llamamail/app/i18n/renderer';
 
 const EMAIL_ADDRESS_REGEX = /^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/;
 const CONTACT_META_PREFIX = '[LUNAMAIL_CONTACT_META_V1]';
@@ -86,6 +87,7 @@ const EMPTY_COMPOSE_VALIDATION_ERRORS: ComposeValidationErrors = {
 
 function ComposeEmailPage() {
 	useAppTheme();
+	const {t} = useI18n();
 	const {setTitle, setOnRequestClose} = useApp();
 	const [accounts, setAccounts] = useState<PublicAccount[]>([]);
 	const [fromAccountId, setFromAccountId] = useState<number | ''>('');
@@ -173,8 +175,8 @@ function ComposeEmailPage() {
 	}, []);
 
 	useEffect(() => {
-		setTitle('Compose Email');
-	}, [setTitle]);
+		setTitle(t('compose.window_title'));
+	}, [setTitle, t]);
 
 	useEffect(() => {
 		let active = true;
@@ -217,7 +219,7 @@ function ComposeEmailPage() {
 	}, [selectedFromAccount]);
 	const fromAccountOptions = useMemo<FormSelectOption[]>(() => {
 		if (emailEnabledAccounts.length === 0) {
-			return [{value: '', label: 'No accounts', description: null, disabled: true}];
+			return [{value: '', label: t('compose.no_accounts'), description: null, disabled: true}];
 		}
 		return emailEnabledAccounts.map((account) => {
 			const label = account.display_name?.trim() || account.email;
@@ -238,7 +240,7 @@ function ComposeEmailPage() {
 				),
 				};
 			});
-	}, [emailEnabledAccounts]);
+	}, [emailEnabledAccounts, t]);
 
 	useEffect(() => {
 		if (emailEnabledAccounts.length === 0) {
@@ -523,7 +525,7 @@ function ComposeEmailPage() {
 			}
 			const requestSeq = ++cloudRequestSeqRef.current;
 			setCloudLoading(true);
-			setCloudStatus(forceReload ? 'Refreshing cloud files...' : null);
+			setCloudStatus(forceReload ? t('compose.cloud.status.refreshing_files') : null);
 			try {
 				const response = await ipcClient.listCloudItems(selectedAccountId, requestedPath);
 				if (requestSeq !== cloudRequestSeqRef.current) return;
@@ -539,7 +541,7 @@ function ComposeEmailPage() {
 				setCloudStatus(null);
 			} catch (e: any) {
 				if (requestSeq !== cloudRequestSeqRef.current) return;
-				setCloudStatus(`Cloud browser failed: ${e?.message || String(e)}`);
+				setCloudStatus(t('compose.cloud.status.browser_failed', {error: e?.message || String(e)}));
 				if (!persistedCached || forceReload) {
 					setCloudItems([]);
 				}
@@ -572,7 +574,7 @@ function ComposeEmailPage() {
 			const initialAccount = rows.find((row) => row.id === initialAccountId) ?? null;
 			void loadCloudItems(initialAccountId, cloudRootToken(initialAccount?.provider ?? 'webdav'));
 		} catch (e: any) {
-			setCloudStatus(`Failed to load cloud accounts: ${e?.message || String(e)}`);
+			setCloudStatus(t('compose.cloud.status.load_accounts_failed', {error: e?.message || String(e)}));
 			setCloudAccounts([]);
 			setCloudAccountId('');
 			setCloudItems([]);
@@ -687,7 +689,9 @@ function ComposeEmailPage() {
 						lastSavedSignatureRef.current = '';
 					}
 					setStatus((prev) =>
-						prev?.startsWith('Sending') ? prev : `Draft save failed: ${e?.message || String(e)}`,
+						prev?.startsWith(t('compose.status.sending_prefix'))
+							? prev
+							: t('compose.status.draft_save_failed', {error: e?.message || String(e)}),
 					);
 				})
 				.finally(() => {
@@ -712,7 +716,7 @@ function ComposeEmailPage() {
 
 			// Optimistic: reflect "saved" immediately and persist in background.
 			lastSavedSignatureRef.current = signature;
-			setStatus((prev) => (prev?.startsWith('Send failed:') ? prev : 'Draft saved'));
+			setStatus((prev) => (prev?.startsWith(t('compose.status.send_failed_prefix')) ? prev : t('compose.status.draft_saved')));
 			queuedDraftSaveRef.current = {payload, signature};
 			flushQueuedDraftSave();
 
@@ -812,7 +816,7 @@ function ComposeEmailPage() {
 		}
 		setRecipientInvalidMessages((prev) => ({
 			...prev,
-			[field]: parsed.invalid.length > 0 ? `Invalid address: ${parsed.invalid[0]}` : null,
+			[field]: parsed.invalid.length > 0 ? t('compose.error.invalid_address', {address: parsed.invalid[0]}) : null,
 		}));
 		setRecipientDrafts((prev) => ({...prev, [field]: ''}));
 		setRecipientRows((prev) => ({...prev, [field]: []}));
@@ -865,9 +869,9 @@ function ComposeEmailPage() {
 		setRecipientDrafts({to: '', cc: '', bcc: ''});
 		setRecipientRows({to: [], cc: [], bcc: []});
 		setRecipientInvalidMessages({
-			to: draftEntries.to.invalid[0] ? `Invalid address: ${draftEntries.to.invalid[0]}` : null,
-			cc: draftEntries.cc.invalid[0] ? `Invalid address: ${draftEntries.cc.invalid[0]}` : null,
-			bcc: draftEntries.bcc.invalid[0] ? `Invalid address: ${draftEntries.bcc.invalid[0]}` : null,
+			to: draftEntries.to.invalid[0] ? t('compose.error.invalid_address', {address: draftEntries.to.invalid[0]}) : null,
+			cc: draftEntries.cc.invalid[0] ? t('compose.error.invalid_address', {address: draftEntries.cc.invalid[0]}) : null,
+			bcc: draftEntries.bcc.invalid[0] ? t('compose.error.invalid_address', {address: draftEntries.bcc.invalid[0]}) : null,
 		});
 
 		const invalidAddresses = [...nextTo, ...nextCc, ...nextBcc].filter(
@@ -876,14 +880,14 @@ function ComposeEmailPage() {
 		const nextValidationErrors: ComposeValidationErrors = {...EMPTY_COMPOSE_VALIDATION_ERRORS};
 
 		if (!fromAccountId) {
-			nextValidationErrors.from = 'Select a sender account first.';
+			nextValidationErrors.from = t('compose.error.select_sender_first');
 		}
 		if (draftInvalid.length > 0) {
-			nextValidationErrors.recipients = `Invalid address: ${draftInvalid[0]}`;
+			nextValidationErrors.recipients = t('compose.error.invalid_address', {address: draftInvalid[0]});
 		} else if (nextTo.length === 0 && nextCc.length === 0 && nextBcc.length === 0) {
-			nextValidationErrors.recipients = 'At least one recipient is required.';
+			nextValidationErrors.recipients = t('compose.error.at_least_one_recipient');
 		} else if (invalidAddresses.length > 0) {
-			nextValidationErrors.recipients = `Invalid address: ${invalidAddresses[0]}`;
+			nextValidationErrors.recipients = t('compose.error.invalid_address', {address: invalidAddresses[0]});
 		}
 		nextValidationErrors.subject = null;
 		nextValidationErrors.body = null;
@@ -900,7 +904,7 @@ function ComposeEmailPage() {
 		}
 
 		setSending(true);
-		setStatus('Queueing send...');
+		setStatus(t('compose.status.queueing_send'));
 		try {
 			if (autosaveTimerRef.current) {
 				clearTimeout(autosaveTimerRef.current);
@@ -928,7 +932,7 @@ function ComposeEmailPage() {
 			window.close();
 		} catch (e: any) {
 			setSending(false);
-			setStatus(`Queue send failed: ${e?.message || String(e)}`);
+			setStatus(t('compose.status.queue_send_failed', {error: e?.message || String(e)}));
 		}
 	}
 
@@ -975,14 +979,14 @@ function ComposeEmailPage() {
 				{
 					id: picked.path,
 					path: picked.path,
-					filename: picked.filename || item.name || 'attachment',
+					filename: picked.filename || item.name || t('compose.attachment.default_name'),
 					contentType: picked.contentType || null,
 					size: item.size ?? null,
 				},
 			]);
 			setShowCloudPicker(false);
 		} catch (e: any) {
-			setCloudStatus(`Cloud attachment failed: ${e?.message || String(e)}`);
+			setCloudStatus(t('compose.cloud.status.attachment_failed', {error: e?.message || String(e)}));
 		} finally {
 			setCloudAttaching(false);
 		}
@@ -998,7 +1002,7 @@ function ComposeEmailPage() {
 		>
 			{windowDragActive && (
 				<div className="dropzone-info pointer-events-none absolute inset-x-3 bottom-3 top-13 z-90 flex items-center justify-center rounded-xl border-2 border-dashed text-sm font-medium">
-					Drop files to attach. Drop on editor body to insert images inline.
+					{t('compose.dropzone_hint')}
 				</div>
 			)}
 			<div className="flex h-full min-h-0 flex-col">
@@ -1009,13 +1013,13 @@ function ComposeEmailPage() {
 								<PenSquare size={16} />
 							</div>
 							<div>
-								<h1 className="compose-hero-title text-base font-semibold">Compose</h1>
-								<p className="compose-hero-meta text-xs">{status || 'New message'}</p>
+								<h1 className="compose-hero-title text-base font-semibold">{t('compose.title')}</h1>
+								<p className="compose-hero-meta text-xs">{status || t('compose.new_message')}</p>
 							</div>
 						</div>
 						<div className="compose-hero-meta flex items-center gap-2 text-xs">
-							<span>{words} words</span>
-							<span className="compose-hero-chip rounded-full px-2 py-0.5">Draft</span>
+							<span>{t('compose.words_count', {count: words})}</span>
+							<span className="compose-hero-chip rounded-full px-2 py-0.5">{t('compose.draft_chip')}</span>
 						</div>
 					</div>
 				</header>
@@ -1032,7 +1036,7 @@ function ComposeEmailPage() {
 							>
 								{showFromSelector && (
 									<label className="block text-sm">
-										<span className="ui-text-muted mb-1 block text-xs font-medium">From</span>
+										<span className="ui-text-muted mb-1 block text-xs font-medium">{t('compose.field.from')}</span>
 										<FormSelect
 											value={fromAccountId ? String(fromAccountId) : ''}
 											onChange={(e) => {
@@ -1044,7 +1048,7 @@ function ComposeEmailPage() {
 											className={validationErrors.from ? 'border-danger' : ''}
 											options={fromAccountOptions}
 											renderSelectedOption={(option) => {
-												if (!option) return <span className="truncate">No accounts</span>;
+												if (!option) return <span className="truncate">{t('compose.no_accounts')}</span>;
 												return (
 													<span className="flex min-w-0 items-center gap-2">
 														{option.icon ? (
@@ -1070,11 +1074,11 @@ function ComposeEmailPage() {
 								)}
 
 								<label className="block text-sm">
-									<span className="ui-text-muted mb-1 block text-xs font-medium">To</span>
+									<span className="ui-text-muted mb-1 block text-xs font-medium">{t('compose.field.to')}</span>
 									<div className="flex gap-2">
 										<FormControlGroup className="flex w-full min-w-0 items-stretch">
 											<RecipientMultiInput
-												placeholder="recipient@example.com"
+												placeholder={t('compose.placeholder.recipient')}
 												recipients={recipientListsByField.to}
 												draft={recipientDrafts.to}
 												rows={recipientRows.to}
@@ -1110,7 +1114,7 @@ function ComposeEmailPage() {
 												className="min-h-12 shrink-0 self-stretch px-3 text-xs font-semibold"
 												onClick={() => setShowCcBcc((prev) => !prev)}
 											>
-												{showCcBcc ? 'Hide Cc/Bcc' : 'Cc/Bcc'}
+												{showCcBcc ? t('compose.hide_cc_bcc') : t('compose.cc_bcc')}
 											</Button>
 										</FormControlGroup>
 									</div>
@@ -1123,9 +1127,9 @@ function ComposeEmailPage() {
 							{showCcBcc && (
 								<div className="mt-2 grid grid-cols-2 gap-2">
 									<label className="block min-w-0 text-sm">
-										<span className="ui-text-muted mb-1 block text-xs font-medium">Cc</span>
+										<span className="ui-text-muted mb-1 block text-xs font-medium">{t('compose.field.cc')}</span>
 										<RecipientMultiInput
-											placeholder="optional"
+											placeholder={t('compose.placeholder.optional')}
 											recipients={recipientListsByField.cc}
 											draft={recipientDrafts.cc}
 											rows={recipientRows.cc}
@@ -1154,9 +1158,9 @@ function ComposeEmailPage() {
 									</label>
 
 									<label className="block min-w-0 text-sm">
-										<span className="ui-text-muted mb-1 block text-xs font-medium">Bcc</span>
+										<span className="ui-text-muted mb-1 block text-xs font-medium">{t('compose.field.bcc')}</span>
 										<RecipientMultiInput
-											placeholder="optional"
+											placeholder={t('compose.placeholder.optional')}
 											recipients={recipientListsByField.bcc}
 											draft={recipientDrafts.bcc}
 											rows={recipientRows.bcc}
@@ -1188,9 +1192,9 @@ function ComposeEmailPage() {
 
 							<div className="mt-2">
 								<label className="block text-sm">
-									<span className="ui-text-muted mb-1 block text-xs font-medium">Subject</span>
+									<span className="ui-text-muted mb-1 block text-xs font-medium">{t('compose.field.subject')}</span>
 									<FormInput
-										placeholder="Add a subject"
+										placeholder={t('compose.placeholder.subject')}
 										value={subject}
 										onChange={(e) => {
 											setSubject(e.target.value);
@@ -1208,7 +1212,7 @@ function ComposeEmailPage() {
 							{quotedBodyHtml.trim().length > 0 && (
 								<div className="surface-muted mt-2 flex items-center justify-between rounded-md border ui-border-default px-3 py-2">
 									<p className="ui-text-secondary text-xs">
-										Quoted message will be included in this reply/forward.
+										{t('compose.quoted.included_notice')}
 									</p>
 									<Button
 										type="button"
@@ -1217,7 +1221,7 @@ function ComposeEmailPage() {
 										className="h-auto px-2 py-1 text-xs"
 										onClick={() => setShowQuotedPreview(true)}
 									>
-										Preview quote
+										{t('compose.quoted.preview')}
 									</Button>
 								</div>
 							)}
@@ -1230,7 +1234,7 @@ function ComposeEmailPage() {
 								>
 									<HtmlLexicalEditor
 										value={body}
-										placeholder="Write your message..."
+										placeholder={t('compose.placeholder.body')}
 										onDropNonImageFiles={onDropNonImageFiles}
 										onChange={(html, plainText) => {
 											setBody(html);
@@ -1273,7 +1277,7 @@ function ComposeEmailPage() {
 											leftIcon={<Paperclip size={14} />}
 											onClick={() => void onPickAttachments()}
 										>
-											Attach
+											{t('compose.attach')}
 										</Button>
 										<Button
 											type="button"
@@ -1283,7 +1287,7 @@ function ComposeEmailPage() {
 											leftIcon={<Cloud size={14} />}
 											onClick={() => void openCloudAttachmentPicker()}
 										>
-											Add file from cloud
+											{t('compose.cloud.add_file')}
 										</Button>
 									</ButtonGroup>
 								</div>
@@ -1294,7 +1298,7 @@ function ComposeEmailPage() {
 									onClick={() => void onSend()}
 									disabled={sending}
 								>
-									{sending ? 'Sending...' : 'Send'}
+									{sending ? t('compose.status.sending') : t('compose.send')}
 								</Button>
 							</div>
 							<FormInput
@@ -1330,12 +1334,12 @@ function ComposeEmailPage() {
 				<Modal
 					open
 					onClose={() => setShowQuotedPreview(false)}
-					ariaLabel="Quoted message preview"
+					ariaLabel={t('compose.quoted.modal_aria')}
 					backdropClassName="z-50 px-4"
 					contentClassName="overlay flex w-full max-w-4xl flex-col overflow-hidden rounded-xl p-0"
 				>
 					<div className="flex items-center justify-between border-b ui-border-default px-4 py-3">
-						<h2 className="ui-text-primary text-sm font-semibold">Quoted message preview</h2>
+						<h2 className="ui-text-primary text-sm font-semibold">{t('compose.quoted.modal_title')}</h2>
 						<Button
 							type="button"
 							variant="ghost"
@@ -1343,19 +1347,19 @@ function ComposeEmailPage() {
 							className="h-auto px-2 py-1 text-xs"
 							onClick={() => setShowQuotedPreview(false)}
 						>
-							Close
+							{t('compose.close')}
 						</Button>
 					</div>
 					<div className="surface-muted max-h-[70vh] overflow-auto p-4">
 						{quotedPreviewSrcDoc ? (
 							<iframe
-								title="quoted-message-preview"
+								title={t('compose.quoted.iframe_title')}
 								srcDoc={quotedPreviewSrcDoc}
 								sandbox="allow-popups allow-popups-to-escape-sandbox"
 								className="iframe-surface h-[64vh] w-full rounded-md border-0"
 							/>
 						) : (
-							<div className="ui-text-muted text-sm">No quoted content available.</div>
+							<div className="ui-text-muted text-sm">{t('compose.quoted.no_content')}</div>
 						)}
 					</div>
 				</Modal>
@@ -1397,13 +1401,14 @@ function CloudAttachmentPickerModal({
 	onRefresh: () => void;
 	onAttach: (item: CloudItem) => void;
 }) {
+	const {t} = useI18n();
 	const currentPath = normalizeRequestedCloudPath(cloudPath, selectedProvider);
 	const rootPath = cloudRootToken(selectedProvider);
 	const breadcrumbs = buildCloudBreadcrumbs(currentPath, selectedProvider);
 	const isAtRoot = currentPath === rootPath;
 	const cloudAccountOptions = useMemo<FormSelectOption[]>(() => {
 		if (cloudAccounts.length === 0) {
-			return [{value: '', label: 'No cloud accounts', description: null, disabled: true}];
+			return [{value: '', label: t('compose.cloud.no_accounts'), description: null, disabled: true}];
 		}
 		return cloudAccounts.map((account) => {
 			const primaryLabel = account.name?.trim() || cloudProviderLabel(account.provider);
@@ -1427,7 +1432,7 @@ function CloudAttachmentPickerModal({
 				),
 			};
 		});
-	}, [cloudAccounts]);
+	}, [cloudAccounts, t]);
 	const selectedCloudAccountOption = useMemo(
 		() => cloudAccountOptions.find((option) => option.value === String(selectedAccountId)) ?? null,
 		[cloudAccountOptions, selectedAccountId],
@@ -1437,14 +1442,14 @@ function CloudAttachmentPickerModal({
 		<Modal
 			open
 			onClose={onClose}
-			ariaLabel="Add file from cloud"
+			ariaLabel={t('compose.cloud.modal_aria')}
 			backdropClassName="z-50 px-4"
 			contentClassName="overlay flex h-[90vh] w-[95vw] min-h-[80vh] min-w-[80vw] max-w-none flex-col overflow-hidden rounded-xl p-0"
 		>
 			<div className="flex items-center justify-between border-b ui-border-default px-4 py-3">
-				<h2 className="ui-text-primary text-sm font-semibold">Add file from cloud</h2>
+				<h2 className="ui-text-primary text-sm font-semibold">{t('compose.cloud.modal_title')}</h2>
 				<Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={onClose}>
-					Close
+					{t('compose.close')}
 				</Button>
 			</div>
 
@@ -1455,7 +1460,7 @@ function CloudAttachmentPickerModal({
 						onChange={(event) => onAccountChange(event.target.value)}
 						options={cloudAccountOptions}
 						renderSelectedOption={() => {
-							if (!selectedCloudAccountOption) return 'No cloud accounts';
+							if (!selectedCloudAccountOption) return t('compose.cloud.no_accounts');
 							return (
 								<div className="flex min-w-0 items-center gap-2">
 									{selectedCloudAccountOption.icon}
@@ -1498,11 +1503,11 @@ function CloudAttachmentPickerModal({
 					className="h-9 rounded-md px-3 text-xs disabled:opacity-50"
 					onClick={() => onNavigate(rootPath)}
 					disabled={busy || isAtRoot}
-					title="Go to root"
+					title={t('compose.cloud.go_to_root')}
 				>
 					<span className="inline-flex items-center gap-1">
 						<Home size={12} />
-						Root
+						{t('compose.cloud.root')}
 					</span>
 				</Button>
 				<Button
@@ -1512,7 +1517,7 @@ function CloudAttachmentPickerModal({
 					onClick={onUp}
 					disabled={busy || isAtRoot}
 				>
-					Up
+					{t('compose.cloud.up')}
 				</Button>
 				<Button
 					type="button"
@@ -1523,7 +1528,7 @@ function CloudAttachmentPickerModal({
 				>
 					<span className="inline-flex items-center gap-1">
 						{loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-						Refresh
+						{t('compose.cloud.refresh')}
 					</span>
 				</Button>
 			</div>
@@ -1532,13 +1537,13 @@ function CloudAttachmentPickerModal({
 				{loading && cloudItems.length === 0 ? (
 					<div className="ui-text-muted flex min-h-64 items-center justify-center gap-2 px-2 py-3 text-sm">
 						<Loader2 size={16} className="animate-spin" />
-						<span>Loading cloud files...</span>
+						<span>{t('compose.cloud.loading_files')}</span>
 					</div>
 				) : cloudAccounts.length === 0 ? (
-					<p className="ui-text-muted px-2 py-3 text-sm">Add a cloud account in Cloud to attach files.</p>
+					<p className="ui-text-muted px-2 py-3 text-sm">{t('compose.cloud.add_account_hint')}</p>
 				) : cloudItems.length === 0 ? (
 					<div className="ui-text-muted flex min-h-64 items-center justify-center px-2 py-3 text-sm">
-						No files in this folder.
+						{t('compose.cloud.no_files_in_folder')}
 					</div>
 				) : (
 					<table className="table-fixed border-collapse text-sm" style={{width: '100%'}}>
@@ -1552,12 +1557,12 @@ function CloudAttachmentPickerModal({
 						</colgroup>
 						<thead className="surface-muted sticky top-0 z-10 border-b ui-border-default text-xs uppercase tracking-wide ui-text-secondary">
 							<tr className="text-left">
-								<th className="px-3 py-2">Name</th>
-								<th className="px-3 py-2">Type</th>
-								<th className="px-3 py-2">Size</th>
-								<th className="px-3 py-2">Modified</th>
-								<th className="px-3 py-2">Created</th>
-								<th className="px-2 py-2 text-right">Action</th>
+								<th className="px-3 py-2">{t('compose.cloud.table.name')}</th>
+								<th className="px-3 py-2">{t('compose.cloud.table.type')}</th>
+								<th className="px-3 py-2">{t('compose.cloud.table.size')}</th>
+								<th className="px-3 py-2">{t('compose.cloud.table.modified')}</th>
+								<th className="px-3 py-2">{t('compose.cloud.table.created')}</th>
+								<th className="px-2 py-2 text-right">{t('compose.cloud.table.action')}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -1577,7 +1582,7 @@ function CloudAttachmentPickerModal({
 										</Button>
 									</td>
 									<td className="ui-text-muted px-3 py-2 text-xs">
-										{item.isFolder ? 'Folder' : cloudFileTypeLabel(item)}
+										{item.isFolder ? t('compose.cloud.folder') : cloudFileTypeLabel(item)}
 									</td>
 									<td className="ui-text-muted px-3 py-2 text-xs">
 										{item.isFolder ? '-' : formatBytes(item.size ?? 0)}
@@ -1597,7 +1602,7 @@ function CloudAttachmentPickerModal({
 												onClick={() => onAttach(item)}
 												disabled={busy}
 											>
-												Attach
+												{t('compose.attach')}
 											</Button>
 										)}
 									</td>
@@ -1644,6 +1649,7 @@ function RecipientMultiInput({
 	groupPosition?: 'none' | 'first' | 'middle' | 'last';
 	className?: string;
 }) {
+	const {t} = useI18n();
 	const groupPositionClass =
 		groupPosition === 'first'
 			? 'rounded-l-lg rounded-r-none'
@@ -1689,8 +1695,8 @@ function RecipientMultiInput({
 							event.stopPropagation();
 							onRemoveRecipient(recipient);
 						}}
-						aria-label={`Remove ${recipient}`}
-						title="Remove"
+						aria-label={t('compose.recipient.remove_aria', {recipient})}
+						title={t('compose.remove')}
 					>
 						<X size={10} />
 					</Button>
@@ -1751,6 +1757,7 @@ function joinRecipients(recipients: string[]): string {
 }
 
 function AttachmentCard({attachment, onRemove}: {attachment: ComposeAttachment; onRemove: () => void}) {
+	const {t} = useI18n();
 	return (
 		<div className="surface-muted group relative flex w-68 items-center gap-2 rounded-lg border ui-border-default p-2 text-xs ui-text-secondary">
 			<div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border ui-border-default ui-surface-card">
@@ -1770,8 +1777,8 @@ function AttachmentCard({attachment, onRemove}: {attachment: ComposeAttachment; 
 				variant="ghost"
 				className="rounded p-1 opacity-80 transition group-hover:opacity-100"
 				onClick={onRemove}
-				aria-label={`Remove ${attachment.filename}`}
-				title="Remove attachment"
+				aria-label={t('compose.attachment.remove_aria', {filename: attachment.filename})}
+				title={t('compose.attachment.remove')}
 			>
 				x
 			</Button>
@@ -1866,7 +1873,7 @@ function cloudProviderLabel(provider: PublicCloudAccount['provider']): string {
 		case 'onedrive':
 			return 'OneDrive';
 		default:
-			return 'Cloud';
+			return i18nT('compose.cloud.provider.cloud');
 	}
 }
 
@@ -1920,11 +1927,11 @@ function buildCloudBreadcrumbs(
 	const root = cloudRootToken(provider);
 	const normalized = normalizeRequestedCloudPath(currentPath, provider);
 	if (!normalized.startsWith('/')) {
-		const label = normalized === root ? 'Root' : normalized;
+		const label = normalized === root ? i18nT('compose.cloud.root') : normalized;
 		return [{path: root, label}];
 	}
 	const segments = normalized.split('/').filter(Boolean);
-	const crumbs: Array<{path: string; label: string}> = [{path: root, label: 'Root'}];
+	const crumbs: Array<{path: string; label: string}> = [{path: root, label: i18nT('compose.cloud.root')}];
 	for (let index = 0; index < segments.length; index += 1) {
 		crumbs.push({
 			path: `/${segments.slice(0, index + 1).join('/')}`,

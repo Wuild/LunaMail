@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {confirmFileOpen, isRiskyFileOpenTarget} from '@main/security/fileOpenRisk';
 import {resolveSenderNotificationIconPath} from '@main/notifications/senderIcon';
+import {__} from '@llamamail/app/i18n/main';
 
 type MailIpcDeps = {
 	appLogger: {debug: (...args: any[]) => void; info: (...args: any[]) => void; warn: (...args: any[]) => void};
@@ -68,7 +69,7 @@ const EXPECTED_CANCEL_IMAP_MESSAGE_PATTERNS = [
 function parsePositiveInt(value: unknown, fieldName: string): number {
 	const parsed = Number(value);
 	if (!Number.isInteger(parsed) || parsed <= 0) {
-		throw new Error(`Invalid ${fieldName}`);
+		throw new Error(__('mail.error.invalid_field', {field: fieldName}));
 	}
 	return parsed;
 }
@@ -76,18 +77,18 @@ function parsePositiveInt(value: unknown, fieldName: string): number {
 function parseBinaryFlag(value: unknown, fieldName: string): 0 | 1 {
 	const parsed = Number(value);
 	if (parsed !== 0 && parsed !== 1) {
-		throw new Error(`Invalid ${fieldName}`);
+		throw new Error(__('mail.error.invalid_field', {field: fieldName}));
 	}
 	return parsed;
 }
 
 function parseFolderPath(value: unknown, fieldName: string): string {
 	if (typeof value !== 'string') {
-		throw new Error(`Invalid ${fieldName}`);
+		throw new Error(__('mail.error.invalid_field', {field: fieldName}));
 	}
 	const normalized = value.trim();
 	if (!normalized) {
-		throw new Error(`Invalid ${fieldName}`);
+		throw new Error(__('mail.error.invalid_field', {field: fieldName}));
 	}
 	return normalized;
 }
@@ -95,7 +96,7 @@ function parseFolderPath(value: unknown, fieldName: string): string {
 function parseOptionalTag(value: unknown): string | null {
 	if (value === null || value === undefined) return null;
 	if (typeof value !== 'string') {
-		throw new Error('Invalid tag');
+		throw new Error(__('mail.error.invalid_tag'));
 	}
 	const normalized = value.trim().toLowerCase();
 	return normalized.length > 0 ? normalized : null;
@@ -408,10 +409,10 @@ export function registerMailIpc(deps: MailIpcDeps): void {
 			const safeMessageId = parsePositiveInt(messageId, 'messageId');
 			const safeAttachmentIndex = Number(attachmentIndex);
 			if (!Number.isInteger(safeAttachmentIndex) || safeAttachmentIndex < 0) {
-				throw new Error('Invalid attachmentIndex');
+				throw new Error(__('mail.error.invalid_attachment_index'));
 			}
 			if (action && action !== 'open' && action !== 'save' && action !== 'prompt') {
-				throw new Error('Invalid attachment action');
+				throw new Error(__('mail.error.invalid_attachment_action'));
 			}
 			deps.appLogger.info(
 				'IPC open-message-attachment messageId=%d attachmentIndex=%d action=%s',
@@ -437,7 +438,7 @@ export function registerMailIpc(deps: MailIpcDeps): void {
 			}
 			if (requestedAction === 'save') {
 				const saveDialogOptions = {
-					title: 'Save attachment',
+					title: __('mail.attachment.save_title'),
 					defaultPath: safeName,
 					showsTagField: false,
 				};
@@ -452,10 +453,14 @@ export function registerMailIpc(deps: MailIpcDeps): void {
 			}
 			const dialogOptions = {
 				type: 'question' as const,
-				title: 'Attachment',
+				title: __('mail.attachment.title'),
 				message: safeName,
-				detail: 'Choose how to continue with this attachment.',
-				buttons: ['Open', 'Save As...', 'Cancel'],
+				detail: __('mail.attachment.choose_action_detail'),
+				buttons: [
+					__('mail.attachment.open'),
+					__('mail.attachment.save_as'),
+					__('mail.attachment.cancel'),
+				],
 				defaultId: 0,
 				cancelId: 2,
 			};
@@ -481,7 +486,7 @@ export function registerMailIpc(deps: MailIpcDeps): void {
 			}
 
 			const saveDialogOptions = {
-				title: 'Save attachment',
+				title: __('mail.attachment.save_title'),
 				defaultPath: safeName,
 				showsTagField: false,
 			};
@@ -555,9 +560,9 @@ export function registerMailIpc(deps: MailIpcDeps): void {
 		const safeMessageId = parsePositiveInt(messageId, 'messageId');
 		deps.appLogger.info('IPC archive-message messageId=%d', safeMessageId);
 		const ctx = deps.getMessageContext(safeMessageId);
-		if (!ctx) throw new Error(`Message ${safeMessageId} not found`);
+		if (!ctx) throw new Error(__('mail.error.message_not_found', {messageId: safeMessageId}));
 		const archivePath = deps.resolveArchiveFolderPath(ctx.accountId, ctx.folderPath);
-		if (!archivePath) throw new Error('No archive folder available for this account.');
+		if (!archivePath) throw new Error(__('mail.error.no_archive_folder'));
 		const result = await deps.moveServerMessage(safeMessageId, archivePath);
 		deps.notifyUnreadCountChanged();
 		return result;
@@ -567,7 +572,7 @@ export function registerMailIpc(deps: MailIpcDeps): void {
 		const safeMessageId = parsePositiveInt(messageId, 'messageId');
 		deps.appLogger.warn('IPC delete-message messageId=%d', safeMessageId);
 		const ctx = deps.getMessageContext(safeMessageId);
-		if (!ctx) throw new Error(`Message ${safeMessageId} not found`);
+		if (!ctx) throw new Error(__('mail.error.message_not_found', {messageId: safeMessageId}));
 		const {accountId} = deps.deleteMessageLocally(safeMessageId);
 		deps.notifyUnreadCountChanged();
 		void (async () => {

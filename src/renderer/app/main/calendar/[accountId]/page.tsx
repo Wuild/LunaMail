@@ -67,6 +67,7 @@ import {
 	normalizeAccountOrder,
 	sortAccountsByOrder,
 } from '../../email/mailAccountOrder';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type CalendarPageProps = {
 	accountId: number | null;
@@ -188,6 +189,7 @@ function SortableAccountEndDrop() {
 }
 
 export default function CalendarPage({accountId: selectedAccountId, accounts, onSelectAccount}: CalendarPageProps) {
+	const {t} = useI18n();
 	const CALENDAR_VIEW_STORAGE_KEY = 'llamamail.calendar.view.mode';
 	const CALENDAR_HIDE_SHARED_EVENTS_STORAGE_KEY = 'llamamail.calendar.hideSharedEvents.v1';
 	const CALENDAR_EVENT_FETCH_LIMIT_WEEK = 1200;
@@ -214,7 +216,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 	const [savingEditEvent, setSavingEditEvent] = useState(false);
 	const [syncing, setSyncing] = useState(false);
 	const [syncingAccountId, setSyncingAccountId] = useState<number | null>(null);
-	const [syncStatusText, setSyncStatusText] = useState('Calendar ready');
+	const [syncStatusText, setSyncStatusText] = useState(t('calendar_page.status.ready'));
 	const [events, setEvents] = useState<CalendarEventItem[]>([]);
 	const [hideSharedEvents, setHideSharedEvents] = useState<boolean>(() => {
 		try {
@@ -516,7 +518,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 				if (targetAccountId === accountId) {
 					await refreshVisibleEvents(targetAccount);
 				}
-				setSyncStatusText('Calendar synced');
+				setSyncStatusText(t('calendar_page.status.synced'));
 			})
 			.catch((error: any) => {
 				if (syncSequence !== syncSequenceRef.current || activeAccountIdRef.current !== targetAccountId) return;
@@ -616,7 +618,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 		}
 		setSyncing(false);
 		setSyncingAccountId(null);
-		setSyncStatusText('Calendar synced');
+		setSyncStatusText(t('calendar_page.status.synced'));
 		void refreshVisibleEvents();
 	});
 
@@ -756,7 +758,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 			const startDate = composeLocalDateTime(eventStartDate, eventStartTime);
 			const endDate = composeLocalDateTime(eventEndDate, eventEndTime);
 			if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-				setCalendarError('Please provide a valid start and end date/time.');
+				setCalendarError(t('calendar_page.error.invalid_start_end'));
 				return;
 			}
 			const created = await selectedAccount.calendar.add({
@@ -790,7 +792,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 
 	function openEditEventModal(event: CalendarEventItem) {
 		if (isReadOnlySharedEvent(event)) {
-			setCalendarError('Shared events are read-only in LunaMail.');
+			setCalendarError(t('calendar_page.error.shared_read_only'));
 			return;
 		}
 		const start = event.starts_at ? new Date(event.starts_at) : nextRoundedHour();
@@ -812,7 +814,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 		if (!editEventId) return;
 		const current = events.find((event) => event.id === editEventId) ?? null;
 		if (isReadOnlySharedEvent(current)) {
-			setCalendarError('Shared events are read-only in LunaMail.');
+			setCalendarError(t('calendar_page.error.shared_read_only'));
 			return;
 		}
 		setCalendarError(null);
@@ -821,7 +823,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 			const startDate = composeLocalDateTime(editEventStartDate, editEventStartTime);
 			const endDate = composeLocalDateTime(editEventEndDate, editEventEndTime);
 			if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-				setCalendarError('Please provide a valid start and end date/time.');
+				setCalendarError(t('calendar_page.error.invalid_start_end'));
 				return;
 			}
 			const updated = await selectedAccount.calendar.update(editEventId, {
@@ -849,7 +851,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 	async function onDeleteEvent() {
 		if (!eventToDelete) return;
 		if (isReadOnlySharedEvent(eventToDelete)) {
-			setCalendarError('Shared events are read-only in LunaMail.');
+			setCalendarError(t('calendar_page.error.shared_read_only'));
 			setEventToDelete(null);
 			return;
 		}
@@ -972,7 +974,9 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 	const accountSidebar = (
 		<aside className="sidebar flex h-full min-h-0 shrink-0 flex-col">
 			<ScrollArea className="min-h-0 flex-1 px-3 py-3">
-				<p className="ui-text-muted px-2 pb-2 text-xs font-semibold uppercase tracking-wide">Accounts</p>
+				<p className="ui-text-muted px-2 pb-2 text-xs font-semibold uppercase tracking-wide">
+					{t('calendar_page.accounts.title')}
+				</p>
 				<DndContext
 					sensors={accountSensors}
 					collisionDetection={closestCenter}
@@ -1040,8 +1044,8 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 												variant="ghost"
 												className="ui-surface-hover ui-hover-text-primary rounded p-1 ui-text-muted transition-colors"
 												onClick={() => void onManualSync(account.id)}
-												title="Sync account"
-												aria-label="Sync account"
+												title={t('calendar_page.accounts.sync_account')}
+												aria-label={t('calendar_page.accounts.sync_account')}
 												disabled={isSyncingAccount}
 											>
 												<RefreshCw size={13} className={cn(isSyncingAccount && 'animate-spin')} />
@@ -1051,8 +1055,8 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 												variant="ghost"
 												className="ui-surface-hover ui-hover-text-primary rounded p-1 ui-text-muted transition-colors"
 												onClick={() => navigate(`/settings/account?accountId=${account.id}`)}
-												title="Edit account"
-												aria-label="Edit account"
+												title={t('calendar_page.accounts.edit_account')}
+												aria-label={t('calendar_page.accounts.edit_account')}
 											>
 												<Settings size={13} />
 											</Button>
@@ -1069,7 +1073,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 							className="w-full justify-center rounded-md px-3 py-2 text-sm"
 							onClick={() => navigate('/add-account')}
 						>
-							Add account
+							{t('calendar_page.accounts.add_account')}
 						</Button>
 					)}
 							{draggingAccountId !== null && <SortableAccountEndDrop />}
@@ -1156,7 +1160,11 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 								: new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 7),
 						)
 					}
-					aria-label={calendarViewMode === 'month' ? 'Previous month' : 'Previous week'}
+					aria-label={
+						calendarViewMode === 'month'
+							? t('calendar_page.toolbar.previous_month')
+							: t('calendar_page.toolbar.previous_week')
+					}
 				>
 					<ChevronLeft size={16} />
 				</Button>
@@ -1176,7 +1184,11 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 								: new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 7),
 						)
 					}
-					aria-label={calendarViewMode === 'month' ? 'Next month' : 'Next week'}
+					aria-label={
+						calendarViewMode === 'month'
+							? t('calendar_page.toolbar.next_month')
+							: t('calendar_page.toolbar.next_week')
+					}
 				>
 					<ChevronRight size={16} />
 				</Button>
@@ -1187,7 +1199,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 				className="inline-flex h-10 items-center rounded-md px-3 text-sm"
 				onClick={() => setVisibleMonth(calendarViewMode === 'month' ? startOfMonth(new Date()) : new Date())}
 			>
-				Today
+				{t('calendar_page.toolbar.today')}
 			</Button>
 			<div className="inline-flex items-center overflow-hidden rounded-md border ui-border-default ui-surface-card">
 				<Button
@@ -1200,7 +1212,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 					)}
 					onClick={() => setCalendarViewMode('month')}
 				>
-					Month
+					{t('calendar_page.toolbar.month')}
 				</Button>
 				<Button
 					type="button"
@@ -1213,7 +1225,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 					onClick={() => setCalendarViewMode('week')}
 				>
 					<CalendarDays size={12} />
-					Week
+					{t('calendar_page.toolbar.week')}
 				</Button>
 			</div>
 			<Button
@@ -1221,10 +1233,16 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 				variant={hideSharedEvents ? 'secondary' : 'outline'}
 				className="inline-flex h-10 items-center rounded-md px-3 text-sm"
 				onClick={() => setHideSharedEvents((current) => !current)}
-				title={hideSharedEvents ? 'Show shared events' : 'Hide shared events'}
+				title={
+					hideSharedEvents
+						? t('calendar_page.toolbar.show_shared_events')
+						: t('calendar_page.toolbar.hide_shared_events')
+				}
 				aria-pressed={hideSharedEvents}
 			>
-				{hideSharedEvents ? 'Shared hidden' : 'Hide shared'}
+				{hideSharedEvents
+					? t('calendar_page.toolbar.shared_hidden')
+					: t('calendar_page.toolbar.hide_shared')}
 			</Button>
 			<Button
 				type="button"
@@ -1232,11 +1250,11 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 				variant="default"
 				className="ml-auto inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-medium disabled:opacity-60"
 				onClick={() => setShowAddEventModal(true)}
-				title="Add event"
-				aria-label="Add event"
+				title={t('calendar_page.toolbar.add_event')}
+				aria-label={t('calendar_page.toolbar.add_event')}
 			>
 				<Plus size={14} />
-				Add event
+				{t('calendar_page.toolbar.add_event')}
 			</Button>
 		</div>
 	);
@@ -1250,9 +1268,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 				menubar={calendarToolbar}
 				showMenuBar
 				contentClassName="p-0 overflow-hidden"
-				statusText={
-					syncing && syncStatusText.toLowerCase().includes('ready') ? statusSyncing() : syncStatusText
-				}
+				statusText={syncing ? statusSyncing() : syncStatusText}
 				statusBusy={syncing || loading}
 			>
 				<div className="flex h-full min-h-full min-w-0 flex-col">
@@ -1275,7 +1291,15 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 											)}
 										>
 											<div className="border-r ui-border-default px-1 py-2 text-center text-[10px] font-semibold uppercase tracking-wide ui-text-muted"></div>
-											{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+											{[
+												t('calendar_page.weekday.mon'),
+												t('calendar_page.weekday.tue'),
+												t('calendar_page.weekday.wed'),
+												t('calendar_page.weekday.thu'),
+												t('calendar_page.weekday.fri'),
+												t('calendar_page.weekday.sat'),
+												t('calendar_page.weekday.sun'),
+											].map((day) => (
 												<div
 													key={day}
 													className="border-r ui-border-default px-2 py-2 text-[11px] font-semibold uppercase tracking-wide ui-text-secondary last:border-r-0"
@@ -1353,12 +1377,12 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 																				onClick={() => setSelectedEvent(event)}
 																				title={
 																					visuals.ownerLabel
-																						? `${event.summary || '(No title)'} — ${visuals.ownerLabel}`
-																						: event.summary || '(No title)'
+																						? `${event.summary || t('calendar_page.placeholder.no_title')} — ${visuals.ownerLabel}`
+																						: event.summary || t('calendar_page.placeholder.no_title')
 																				}
 																			>
 																				{formatEventTime(event.starts_at)}{' '}
-																				{event.summary || '(No title)'}
+																				{event.summary || t('calendar_page.placeholder.no_title')}
 																				{visuals.ownerShortLabel
 																					? ` · ${visuals.ownerShortLabel}`
 																					: ''}
@@ -1367,7 +1391,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 																	})}
 																	{dayEvents.length > 3 && (
 																		<p className="ui-text-muted px-1 text-xs">
-																			+{dayEvents.length - 3} more
+																			{t('calendar_page.more_events', {count: dayEvents.length - 3})}
 																		</p>
 																	)}
 																</div>
@@ -1388,7 +1412,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 											)}
 										>
 											<div className="border-r ui-border-default px-2 py-2 text-xs font-semibold ui-text-secondary">
-												Time
+												{t('calendar_page.label.time')}
 											</div>
 											{weekDays.map((day) => {
 												const key = toDateKey(day);
@@ -1526,12 +1550,12 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 																		onClick={() => setSelectedEvent(layout.event)}
 																		title={
 																			visuals.ownerLabel
-																				? `${layout.event.summary || '(No title)'} — ${visuals.ownerLabel}`
-																				: layout.event.summary || '(No title)'
+																				? `${layout.event.summary || t('calendar_page.placeholder.no_title')} — ${visuals.ownerLabel}`
+																				: layout.event.summary || t('calendar_page.placeholder.no_title')
 																		}
 																	>
 																		<span className="block truncate font-medium">
-																			{layout.event.summary || '(No title)'}
+																			{layout.event.summary || t('calendar_page.placeholder.no_title')}
 																		</span>
 																		<span className="block truncate opacity-80">
 																			{formatEventTime(layout.event.starts_at)} -{' '}
@@ -1572,7 +1596,9 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 							setDayContextMenu(null);
 						}}
 					>
-						View all events ({(eventsByDay.get(dayContextMenu.dayKey) ?? []).length})
+						{t('calendar_page.context.view_all_events', {
+							count: (eventsByDay.get(dayContextMenu.dayKey) ?? []).length,
+						})}
 					</ContextMenuItem>
 					<ContextMenuItem
 						type="button"
@@ -1581,21 +1607,23 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 							setDayContextMenu(null);
 						}}
 					>
-						New event on this day
+						{t('calendar_page.context.new_event_on_day')}
 					</ContextMenuItem>
 				</ContextMenu>
 			)}
 
 			{selectedEvent && (
 				<Modal open onClose={() => setSelectedEvent(null)} backdropClassName="z-50" contentClassName="max-w-lg">
-					<h3 className="ui-text-primary text-base font-semibold">{selectedEvent.summary || '(No title)'}</h3>
+					<h3 className="ui-text-primary text-base font-semibold">
+						{selectedEvent.summary || t('calendar_page.placeholder.no_title')}
+					</h3>
 					<p className="ui-text-secondary mt-2 text-sm">
 						{formatSystemDateTime(selectedEvent.starts_at, systemLocale)} -{' '}
 						{formatSystemDateTime(selectedEvent.ends_at, systemLocale)}
 					</p>
 					{getEventVisuals(selectedEvent).ownerLabel && (
 						<p className="ui-text-secondary mt-2 text-sm">
-							Owner: {getEventVisuals(selectedEvent).ownerLabel}
+							{t('calendar_page.label.owner')}: {getEventVisuals(selectedEvent).ownerLabel}
 						</p>
 					)}
 					{selectedEvent.location && (
@@ -1607,7 +1635,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 						</p>
 					)}
 					{isReadOnlySharedEvent(selectedEvent) && (
-						<p className="ui-text-muted mt-3 text-xs">Shared events are read-only (no edit or delete).</p>
+						<p className="ui-text-muted mt-3 text-xs">{t('calendar_page.shared_read_only_hint')}</p>
 					)}
 					<div className="mt-4 flex justify-end gap-2">
 						{!isReadOnlySharedEvent(selectedEvent) && (
@@ -1622,7 +1650,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 									}}
 								>
 									<Pencil size={14} />
-									Edit
+									{t('calendar_page.action.edit')}
 								</Button>
 								<Button
 									type="button"
@@ -1633,7 +1661,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 									}}
 								>
 									<Trash2 size={14} />
-									Delete
+									{t('calendar_page.action.delete')}
 								</Button>
 							</>
 						)}
@@ -1643,7 +1671,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 							className="rounded-md px-3 py-2 text-sm"
 							onClick={() => setSelectedEvent(null)}
 						>
-							Close
+							{t('calendar_page.action.close')}
 						</Button>
 					</div>
 				</Modal>
@@ -1656,10 +1684,12 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 					backdropClassName="z-50"
 					contentClassName="max-w-2xl"
 				>
-					<h3 className="ui-text-primary text-base font-semibold">Events on {selectedDayForModal}</h3>
+					<h3 className="ui-text-primary text-base font-semibold">
+						{t('calendar_page.day_modal.events_on', {day: selectedDayForModal})}
+					</h3>
 					<div className="mt-3">
 						{selectedDayEvents.length === 0 && (
-							<p className="ui-text-muted text-sm">No events on this day.</p>
+							<p className="ui-text-muted text-sm">{t('calendar_page.day_modal.no_events')}</p>
 						)}
 						{selectedDayEvents.length > 0 && (
 							<ul className="space-y-2">
@@ -1675,14 +1705,14 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 											}}
 										>
 											<p className="ui-text-primary text-sm font-medium">
-												{formatEventTime(event.starts_at)} {event.summary || '(No title)'}
+												{formatEventTime(event.starts_at)} {event.summary || t('calendar_page.placeholder.no_title')}
 											</p>
 											{event.location && (
 												<p className="ui-text-muted mt-0.5 text-xs">{event.location}</p>
 											)}
 											{getEventVisuals(event).ownerLabel && (
 												<p className="ui-text-muted mt-0.5 text-xs">
-													Owner: {getEventVisuals(event).ownerLabel}
+													{t('calendar_page.label.owner')}: {getEventVisuals(event).ownerLabel}
 												</p>
 											)}
 										</Button>
@@ -1701,7 +1731,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 								setSelectedDayForModal(null);
 							}}
 						>
-							New event on this day
+							{t('calendar_page.context.new_event_on_day')}
 						</Button>
 						<Button
 							type="button"
@@ -1709,7 +1739,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 							className="rounded-md px-3 py-2 text-sm"
 							onClick={() => setSelectedDayForModal(null)}
 						>
-							Close
+							{t('calendar_page.action.close')}
 						</Button>
 					</div>
 				</Modal>
@@ -1729,31 +1759,31 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 						}}
 					>
 						<ModalHeader className="ui-border-default border-b pb-3">
-							<ModalTitle className="text-base">Edit Event</ModalTitle>
+							<ModalTitle className="text-base">{t('calendar_page.modal.edit_event.title')}</ModalTitle>
 							<Button
 								type="button"
 								variant="ghost"
 								size="icon"
 								className="h-8 w-8 rounded-md"
 								onClick={() => setShowEditEventModal(false)}
-								title="Close"
-								aria-label="Close edit event modal"
+								title={t('calendar_page.action.close')}
+								aria-label={t('calendar_page.modal.edit_event.close_aria')}
 							>
 								<X size={14} />
 							</Button>
 						</ModalHeader>
 						<div className="mt-4 grid gap-3 md:grid-cols-2">
 							<label className="block text-sm md:col-span-2">
-								<span className="ui-text-secondary mb-1 block font-medium">Title</span>
+								<span className="ui-text-secondary mb-1 block font-medium">{t('calendar_page.field.title')}</span>
 								<FormInput
 									type="text"
 									value={editEventTitle}
 									onChange={(event) => setEditEventTitle(event.target.value)}
-									placeholder="Team sync"
+									placeholder={t('calendar_page.placeholder.team_sync')}
 								/>
 							</label>
 							<div className="block text-sm">
-								<span className="ui-text-secondary mb-1 block font-medium">Start</span>
+								<span className="ui-text-secondary mb-1 block font-medium">{t('calendar_page.field.start')}</span>
 								<div className="w-full">
 									<FormDateTimeInput
 										value={composeLocalDateTimeValue(editEventStartDate, editEventStartTime)}
@@ -1769,7 +1799,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 								</div>
 							</div>
 							<div className="block text-sm">
-								<span className="ui-text-secondary mb-1 block font-medium">End</span>
+								<span className="ui-text-secondary mb-1 block font-medium">{t('calendar_page.field.end')}</span>
 								<div className="w-full">
 									<FormDateTimeInput
 										value={composeLocalDateTimeValue(editEventEndDate, editEventEndTime)}
@@ -1785,16 +1815,16 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 								</div>
 							</div>
 							<label className="block text-sm md:col-span-2">
-								<span className="ui-text-secondary mb-1 block font-medium">Location</span>
+								<span className="ui-text-secondary mb-1 block font-medium">{t('calendar_page.field.location')}</span>
 								<FormInput
 									type="text"
 									value={editEventLocation}
 									onChange={(event) => setEditEventLocation(event.target.value)}
-									placeholder="Conference Room"
+									placeholder={t('calendar_page.placeholder.conference_room')}
 								/>
 							</label>
 							<label className="block text-sm md:col-span-2">
-								<span className="ui-text-secondary mb-1 block font-medium">Description</span>
+								<span className="ui-text-secondary mb-1 block font-medium">{t('calendar_page.field.description')}</span>
 								<FormTextarea
 									value={editEventDescription}
 									onChange={(event) => setEditEventDescription(event.target.value)}
@@ -1809,7 +1839,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 								className="rounded-md px-3 py-2 text-sm"
 								onClick={() => setShowEditEventModal(false)}
 							>
-								Cancel
+								{t('calendar_page.action.cancel')}
 							</Button>
 							<Button
 								type="submit"
@@ -1817,7 +1847,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 								className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
 								disabled={savingEditEvent}
 							>
-								{savingEditEvent ? 'Saving...' : 'Save Changes'}
+								{savingEditEvent ? t('calendar_page.status.saving') : t('calendar_page.action.save_changes')}
 							</Button>
 						</div>
 					</form>
@@ -1826,9 +1856,11 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 
 			{eventToDelete && (
 				<Modal open onClose={() => setEventToDelete(null)} backdropClassName="z-50" contentClassName="max-w-md">
-					<h3 className="ui-text-primary text-base font-semibold">Delete event?</h3>
+					<h3 className="ui-text-primary text-base font-semibold">{t('calendar_page.delete_modal.title')}</h3>
 					<p className="ui-text-secondary mt-2 text-sm">
-						This will remove "{eventToDelete.summary || '(No title)'}" from your calendar.
+						{t('calendar_page.delete_modal.message', {
+							title: eventToDelete.summary || t('calendar_page.placeholder.no_title'),
+						})}
 					</p>
 					<div className="mt-4 flex justify-end gap-2">
 						<Button
@@ -1837,7 +1869,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 							className="rounded-md px-3 py-2 text-sm"
 							onClick={() => setEventToDelete(null)}
 						>
-							Cancel
+							{t('calendar_page.action.cancel')}
 						</Button>
 						<Button
 							type="button"
@@ -1845,7 +1877,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 							onClick={() => void onDeleteEvent()}
 							disabled={deletingEvent}
 						>
-							{deletingEvent ? 'Deleting...' : 'Delete'}
+							{deletingEvent ? t('calendar_page.status.deleting') : t('calendar_page.action.delete')}
 						</Button>
 					</div>
 				</Modal>
@@ -1865,31 +1897,31 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 						}}
 					>
 						<ModalHeader className="ui-border-default border-b pb-3">
-							<ModalTitle className="text-base">Add Event</ModalTitle>
+							<ModalTitle className="text-base">{t('calendar_page.modal.add_event.title')}</ModalTitle>
 							<Button
 								type="button"
 								variant="ghost"
 								size="icon"
 								className="h-8 w-8 rounded-md"
 								onClick={() => setShowAddEventModal(false)}
-								title="Close"
-								aria-label="Close add event modal"
+								title={t('calendar_page.action.close')}
+								aria-label={t('calendar_page.modal.add_event.close_aria')}
 							>
 								<X size={14} />
 							</Button>
 						</ModalHeader>
 						<div className="mt-4 grid gap-3 md:grid-cols-2">
 							<label className="block text-sm md:col-span-2">
-								<span className="ui-text-secondary mb-1 block font-medium">Title</span>
+								<span className="ui-text-secondary mb-1 block font-medium">{t('calendar_page.field.title')}</span>
 								<FormInput
 									type="text"
 									value={eventTitle}
 									onChange={(event) => setEventTitle(event.target.value)}
-									placeholder="Team sync"
+									placeholder={t('calendar_page.placeholder.team_sync')}
 								/>
 							</label>
 							<div className="block text-sm">
-								<span className="ui-text-secondary mb-1 block font-medium">Start</span>
+								<span className="ui-text-secondary mb-1 block font-medium">{t('calendar_page.field.start')}</span>
 								<div className="w-full">
 									<FormDateTimeInput
 										value={composeLocalDateTimeValue(eventStartDate, eventStartTime)}
@@ -1905,7 +1937,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 								</div>
 							</div>
 							<div className="block text-sm">
-								<span className="ui-text-secondary mb-1 block font-medium">End</span>
+								<span className="ui-text-secondary mb-1 block font-medium">{t('calendar_page.field.end')}</span>
 								<div className="w-full">
 									<FormDateTimeInput
 										value={composeLocalDateTimeValue(eventEndDate, eventEndTime)}
@@ -1921,16 +1953,16 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 								</div>
 							</div>
 							<label className="block text-sm md:col-span-2">
-								<span className="ui-text-secondary mb-1 block font-medium">Location</span>
+								<span className="ui-text-secondary mb-1 block font-medium">{t('calendar_page.field.location')}</span>
 								<FormInput
 									type="text"
 									value={eventLocation}
 									onChange={(event) => setEventLocation(event.target.value)}
-									placeholder="Conference Room"
+									placeholder={t('calendar_page.placeholder.conference_room')}
 								/>
 							</label>
 							<label className="block text-sm md:col-span-2">
-								<span className="ui-text-secondary mb-1 block font-medium">Description</span>
+								<span className="ui-text-secondary mb-1 block font-medium">{t('calendar_page.field.description')}</span>
 								<FormTextarea
 									value={eventDescription}
 									onChange={(event) => setEventDescription(event.target.value)}
@@ -1945,7 +1977,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 								className="rounded-md px-3 py-2 text-sm"
 								onClick={() => setShowAddEventModal(false)}
 							>
-								Cancel
+								{t('calendar_page.action.cancel')}
 							</Button>
 							<Button
 								type="submit"
@@ -1953,7 +1985,7 @@ export default function CalendarPage({accountId: selectedAccountId, accounts, on
 								className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
 								disabled={savingEvent}
 							>
-								{savingEvent ? 'Saving...' : 'Save Event'}
+								{savingEvent ? t('calendar_page.status.saving') : t('calendar_page.action.save_event')}
 							</Button>
 						</div>
 					</form>

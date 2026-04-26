@@ -1,0 +1,413 @@
+{
+	"compose": {
+		"window_title": "Compose Email",
+		"title": "Compose",
+		"new_message": "New message",
+		"words_count": "{{count}} words",
+		"draft_chip": "Draft",
+		"close": "Close",
+		"send": "Send",
+		"attach": "Attach",
+		"remove": "Remove",
+		"cc_bcc": "Cc/Bcc",
+		"hide_cc_bcc": "Hide Cc/Bcc",
+		"no_accounts": "No accounts",
+		"dropzone_hint": "Drop files to attach. Drop on editor body to insert images inline.",
+		"field": {
+			"from": "From",
+			"to": "To",
+			"cc": "Cc",
+			"bcc": "Bcc",
+			"subject": "Subject"
+		},
+		"placeholder": {
+			"recipient": "recipient@example.com",
+			"optional": "optional",
+			"subject": "Add a subject",
+			"body": "Write your message..."
+		},
+		"status": {
+			"sending": "Sending...",
+			"sending_prefix": "Sending",
+			"send_failed_prefix": "Send failed:",
+			"draft_save_failed": "Draft save failed: {{error}}",
+			"draft_saved": "Draft saved",
+			"queueing_send": "Queueing send...",
+			"queue_send_failed": "Queue send failed: {{error}}"
+		},
+		"error": {
+			"invalid_address": "Invalid address: {{address}}",
+			"select_sender_first": "Select a sender account first.",
+			"at_least_one_recipient": "At least one recipient is required."
+		},
+		"quoted": {
+			"included_notice": "Quoted message will be included in this reply/forward.",
+			"preview": "Preview quote",
+			"modal_aria": "Quoted message preview",
+			"modal_title": "Quoted message preview",
+			"iframe_title": "quoted-message-preview",
+			"no_content": "No quoted content available."
+		},
+		"recipient": {
+			"remove_aria": "Remove {{recipient}}"
+		},
+		"attachment": {
+			"default_name": "attachment",
+			"remove": "Remove attachment",
+			"remove_aria": "Remove {{filename}}"
+		},
+		"cloud": {
+			"add_file": "Add file from cloud",
+			"modal_aria": "Add file from cloud",
+			"modal_title": "Add file from cloud",
+			"no_accounts": "No cloud accounts",
+			"go_to_root": "Go to root",
+			"root": "Root",
+			"up": "Up",
+			"refresh": "Refresh",
+			"loading_files": "Loading cloud files...",
+			"add_account_hint": "Add a cloud account in Cloud to attach files.",
+			"no_files_in_folder": "No files in this folder.",
+			"folder": "Folder",
+			"table": {
+				"name": "Name",
+				"type": "Type",
+				"size": "Size",
+				"modified": "Modified",
+				"created": "Created",
+				"action": "Action"
+			},
+			"provider": {
+				"cloud": "Cloud"
+			},
+			"status": {
+				"refreshing_files": "Refreshing cloud files...",
+				"browser_failed": "Cloud browser failed: {{error}}",
+				"load_accounts_failed": "Failed to load cloud accounts: {{error}}",
+				"attachment_failed": "Cloud attachment failed: {{error}}"
+			}
+		}
+	},
+	"mail_page": {
+		"placeholder": {
+			"no_subject": "(No subject)",
+			"message": "Message",
+			"attachment": "Attachment {{index}}",
+			"loading_message_body": "Loading message body..."
+		},
+		"subject_prefix": {
+			"reply": "Re:",
+			"forward": "Fwd:"
+		},
+		"action": {
+			"message_actions": "Message actions",
+			"back": "Back",
+			"reply": "Reply",
+			"reply_all": "Reply all",
+			"forward": "Forward",
+			"edit_draft": "Edit draft",
+			"view_source": "View source",
+			"junk": "Junk",
+			"not_junk": "Not junk",
+			"delete": "Delete",
+			"open": "Open",
+			"save": "Save",
+			"save_as": "Save As..."
+		},
+		"error": {
+			"select_account_first": "Select an account first",
+			"folder_path_required": "Folder path is required",
+			"system_folders_not_deletable": "System folders cannot be deleted"
+		},
+		"confirm": {
+			"delete_email": "Delete email \"{{subject}}\"?",
+			"delete_folder": "Delete folder \"{{folder}}\"?",
+			"delete_selected_emails": "Delete {{count}} selected emails?"
+		},
+		"status": {
+			"ready": "Ready",
+			"syncing_older_messages_background": "Syncing older messages in background...",
+			"syncing_older_messages": "Syncing older messages...",
+			"syncing_move_server": "Syncing move to server...",
+			"move_synced": "Move synced",
+			"move_failed": "Move failed",
+			"prefixed_error": "{{prefix}}: {{error}}",
+			"no_junk_folder": "No Junk folder found for this account.",
+			"no_inbox_folder": "No Inbox folder found for this account.",
+			"message_already_in_junk": "Message is already in Junk.",
+			"message_not_in_junk": "Message is not in Junk.",
+			"action_updated_locally_syncing": "{{action}} updated locally. Syncing server in background...",
+			"action_synced": "{{action}} synced",
+			"action_sync_failed": "{{action}} sync failed",
+			"deleted_local_syncing": "Deleted {{count}} locally. Syncing server in background...",
+			"delete_sync_failed": "Delete sync failed: {{error}}",
+			"attachment_failed": "Attachment failed: {{error}}",
+			"could_not_determine_sender": "Could not determine sender address for allowlist.",
+			"allowlist_update_failed": "Failed to update allowlist: {{error}}",
+			"folder_refreshed": "Folder refreshed: {{folder}}",
+			"refreshing_folder": "Refreshing folder {{folder}}...",
+			"folder_refresh_failed": "Folder refresh failed: {{error}}",
+			"creating_folder": "Creating folder...",
+			"folder_created": "Folder created: {{folder}}",
+			"create_folder_failed": "Create folder failed: {{error}}",
+			"reorder_failed": "Reorder failed: {{error}}",
+			"deleting_folder": "Deleting folder {{folder}}...",
+			"deleted_folder": "Deleted folder: {{folder}}",
+			"delete_folder_failed": "Delete folder failed: {{error}}",
+			"flag_updated_locally_syncing": "Flag updated locally. Syncing server in background...",
+			"flag_synced": "Flag synced",
+			"flag_sync_failed": "Flag sync failed: {{error}}",
+			"tag_update_failed": "Tag update failed: {{error}}",
+			"archived_locally_syncing": "Archived locally. Syncing server in background...",
+			"archive_synced": "Archive synced",
+			"archive_sync_failed": "Archive sync failed: {{error}}",
+			"moved_locally_syncing": "Moved {{count}} locally. Syncing server in background...",
+			"move_sync_failed": "Move sync failed: {{error}}",
+			"folder_settings_saved": "Folder settings saved",
+			"folder_settings_failed": "Folder settings failed: {{error}}"
+		},
+		"notification": {
+			"attachment_action_title": "{{action}} attachment",
+			"attachment_action_progress": "{{action}}ing {{name}}...",
+			"preparing_attachment": "Preparing attachment...",
+			"opening_file": "Opening file...",
+			"saving_file": "Saving file...",
+			"attachment_opened": "{{name}} opened.",
+			"attachment_saved": "{{name}} saved."
+		}
+	},
+	"mail_components": {
+		"common": {
+			"cancel": "Cancel",
+			"close": "Close",
+			"save": "Save",
+			"saving": "Saving...",
+			"create": "Create",
+			"creating": "Creating...",
+			"delete": "Delete",
+			"clear": "Clear"
+		},
+		"titlebar": {
+			"back": "Back",
+			"forward": "Forward",
+			"compose": "Compose",
+			"open_calendar": "Open calendar",
+			"open_contacts": "Open contacts",
+			"calendar": "Calendar",
+			"contacts": "Contacts",
+			"search_mail": "Search mail",
+			"app_settings": "App settings",
+			"debug_console": "Debug console",
+			"about": "About"
+		},
+		"badge": {
+			"unread_count": "{{count}} unread"
+		},
+		"sidebar": {
+			"unread_in_account": "{{count}} unread in account",
+			"collapse_account_folders": "Collapse account folders",
+			"expand_account_folders": "Expand account folders",
+			"synchronizing_folders": "Synchronizing folders..."
+		},
+		"table_column": {
+			"subject": "Subject",
+			"from": "From",
+			"to": "To",
+			"recipient": "Recipient",
+			"date": "Date",
+			"read_status": "Read status",
+			"starred": "Starred",
+			"tag": "Tag",
+			"account": "Account",
+			"location": "Location",
+			"size": "Size"
+		},
+		"drag_overlay": {
+			"moving_email": "Moving email",
+			"moving_emails": "Moving {{count}} emails"
+		},
+		"folder_color": {
+			"default": "Default",
+			"sky": "Sky",
+			"emerald": "Emerald",
+			"amber": "Amber",
+			"rose": "Rose",
+			"violet": "Violet",
+			"cyan": "Cyan",
+			"lime": "Lime",
+			"indigo": "Indigo",
+			"slate": "Slate"
+		},
+		"folder_type": {
+			"auto_detect": "Auto detect",
+			"inbox": "Inbox",
+			"sent": "Sent",
+			"drafts": "Drafts",
+			"archive": "Archive",
+			"junk": "Junk",
+			"trash": "Trash"
+		},
+		"tag": {
+			"important": "Important",
+			"work": "Work",
+			"personal": "Personal",
+			"todo": "To Do",
+			"later": "Later"
+		},
+		"table_columns": {
+			"title": "Table Columns",
+			"reset": "Reset Columns"
+		},
+		"create_folder": {
+			"title": "Create Folder",
+			"folder_path": "Folder path",
+			"folder_path_required": "Folder path is required",
+			"folder_type": "Folder type",
+			"folder_color": "Folder color",
+			"set_folder_color": "Set folder color {{label}}"
+		},
+		"edit_folder": {
+			"title": "Edit Folder",
+			"close_aria": "Close edit folder modal",
+			"display_name": "Display name",
+			"folder_type": "Folder type",
+			"folder_color": "Folder color"
+		},
+		"message_source": {
+			"aria_label": "Message source",
+			"title": "Message source",
+			"loading": "Loading message source...",
+			"failed": "Failed to load source: {{error}}",
+			"no_source": "(No source available)"
+		},
+		"message_body": {
+			"loading": "Loading message body...",
+			"empty_body": "No body content available for this message.",
+			"remote_blocked": "Remote content blocked for privacy.",
+			"load_once": "Load once",
+			"always_allow_sender": "Always allow sender",
+			"attachment": "Attachment",
+			"file": "FILE"
+		},
+		"context": {
+			"create_folder": "Create Folder",
+			"edit_account_settings": "Edit Account Settings",
+			"open_in_new_window": "Open in new window",
+			"mark_as_unread": "Mark as unread",
+			"mark_as_read": "Mark as read",
+			"remove_star": "Remove star",
+			"star_message": "Star message",
+			"tag": "Tag",
+			"on": "On",
+			"clear_tag": "Clear tag",
+			"archive": "Archive",
+			"mark_as_not_junk": "Mark as not junk",
+			"mark_as_junk": "Mark as junk",
+			"move_to": "Move to",
+			"open_folder": "Open Folder",
+			"edit_folder_settings": "Edit Folder Settings",
+			"refresh_folder": "Refresh Folder",
+			"sync_account": "Sync Account",
+			"delete_folder": "Delete Folder"
+		},
+		"header": {
+			"no_recipients": "No recipients yet",
+			"unknown_sender": "Unknown sender",
+			"contact_exists": "Contact already exists for {{email}}.",
+			"contact_added": "Added {{email}} to contacts.",
+			"add_contact_failed": "Failed to add contact: {{error}}",
+			"action_mark_read": "mark read",
+			"action_star": "star",
+			"filter_name": "From {{email}} ({{action}})",
+			"filter_created": "Created filter for {{email}}: {{action}}.",
+			"create_filter_failed": "Failed to create filter: {{error}}",
+			"custom_filter_unavailable": "Custom filter is not available in this view.",
+			"message": "Message",
+			"starred": "Starred",
+			"read": "Read",
+			"unread": "Unread",
+			"attachments_count": "{{count}} attachments",
+			"verify_sender": "Verify sender",
+			"no_subject": "(No subject)",
+			"sender_actions": "Sender actions",
+			"add_contact": "Add contact",
+			"auto_read_sender": "Auto-read sender",
+			"auto_star_sender": "Auto-star sender",
+			"custom_filter": "Custom filter...",
+			"hide_message_details": "Hide message details",
+			"show_message_details": "Show message details",
+			"details_from_name": "From name",
+			"details_from_address": "From address",
+			"details_to": "To",
+			"details_date": "Date",
+			"details_message_id": "Message-ID",
+			"details_in_reply_to": "In-Reply-To",
+			"details_references": "References",
+			"details_size": "Size",
+			"details_size_bytes": "{{size}} bytes"
+		},
+		"list": {
+			"search_mail": "Search mail",
+			"selected_count": "{{count}} selected",
+			"mark_read": "Mark read",
+			"mark_unread": "Mark unread",
+			"no_subject": "(No subject)"
+		},
+		"search": {
+			"all_accounts": "All accounts",
+			"placeholder": "Search sender, subject, or content across all accounts...",
+			"clear_search": "Clear search",
+			"searching_all_accounts": "Searching all accounts and folders",
+			"searching_account": "Searching {{account}}",
+			"basic": "Basic",
+			"advanced": "Advanced",
+			"esc": "Esc",
+			"from_placeholder": "From address/name",
+			"subject_placeholder": "Subject",
+			"to_placeholder": "To address",
+			"all_folders": "All folders",
+			"read_status_all": "Read status: all",
+			"read_only": "Read only",
+			"unread_only": "Unread only",
+			"star_all": "Star: all",
+			"starred_only": "Starred only",
+			"unstarred_only": "Unstarred only",
+			"any_date": "Any date",
+			"last_7_days": "Last 7 days",
+			"last_30_days": "Last 30 days",
+			"last_12_months": "Last 12 months",
+			"min_size_kb": "Min size (KB)",
+			"max_size_kb": "Max size (KB)",
+			"reset": "Reset",
+			"type_to_search": "Type to search emails across all accounts.",
+			"searching": "Searching...",
+			"no_matches": "No matching emails found.",
+			"account_fallback": "Account {{accountId}}",
+			"unknown_folder": "Unknown folder"
+		},
+		"table": {
+			"no_messages": "No messages in this folder yet.",
+			"loading_more": "Loading more messages...",
+			"load_more": "Load more",
+			"end_of_list": "End of list"
+		}
+	},
+	"mail": {
+		"error": {
+			"invalid_field": "Invalid {{field}}",
+			"invalid_tag": "Invalid tag",
+			"invalid_attachment_index": "Invalid attachmentIndex",
+			"invalid_attachment_action": "Invalid attachment action",
+			"message_not_found": "Message {{messageId}} not found",
+			"no_archive_folder": "No archive folder available for this account."
+		},
+		"attachment": {
+			"title": "Attachment",
+			"save_title": "Save attachment",
+			"choose_action_detail": "Choose how to continue with this attachment.",
+			"open": "Open",
+			"save_as": "Save As...",
+			"cancel": "Cancel"
+		}
+	}
+}

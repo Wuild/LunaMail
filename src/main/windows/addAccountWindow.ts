@@ -9,6 +9,7 @@ import {
 	createAppWindow,
 	createFramelessAppWindow,
 } from './windowFactory';
+import {__} from '@llamamail/app/i18n/main';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -43,7 +44,7 @@ export function openAddAccountWindow(): void {
 		minimizable: false,
 		maximizable: false,
 		resizable: true,
-		title: 'Add Account',
+		title: __('app.title.add_account'),
 		webPreferences: buildSecureWebPreferences({preloadPath}),
 	});
 	addAccountWin.setMaximizable(false);

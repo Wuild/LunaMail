@@ -11,6 +11,7 @@ import {ipcClient} from '@renderer/lib/ipcClient';
 import llamaArt from '@resource/llama.png';
 import {useThemePreference} from '@renderer/hooks/useAppTheme';
 import {useForm} from '@renderer/hooks/useForm';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type ThemeOptionValue = 'light' | 'dark' | 'system';
 type OnboardingFormValues = {
@@ -21,22 +22,23 @@ type OnboardingFormValues = {
 	autoUpdateEnabled: boolean;
 };
 
-const THEME_OPTION_META: Record<ThemeOptionValue, {icon: React.ReactNode; subtitle: string}> = {
+const THEME_OPTION_META: Record<ThemeOptionValue, {icon: React.ReactNode; subtitleKey: string}> = {
 	light: {
 		icon: <Sun size={15} />,
-		subtitle: 'Bright workspace',
+		subtitleKey: 'theme.light_subtitle',
 	},
 	dark: {
 		icon: <Moon size={15} />,
-		subtitle: 'Low-light comfort',
+		subtitleKey: 'theme.dark_subtitle',
 	},
 	system: {
 		icon: <MonitorCog size={15} />,
-		subtitle: 'Follow OS setting',
+		subtitleKey: 'theme.system_subtitle',
 	},
 };
 
 export default function OnboardingPage() {
+	const {t} = useI18n();
 	const navigate = useNavigate();
 	const defaults = useMemo(() => createDefaultAppSettings(), []);
 	const allowedThemeValues = useMemo(() => new Set(APP_THEME_OPTIONS.map((option) => option.value)), []);
@@ -52,9 +54,10 @@ export default function OnboardingPage() {
 		},
 		validate: (values) => {
 			const errors: Partial<Record<keyof OnboardingFormValues, string>> = {};
-			if (!allowedLanguageValues.has(values.language)) errors.language = 'Select a valid language.';
-			if (!allowedThemeValues.has(values.theme)) errors.theme = 'Select a valid theme.';
-			if (!allowedMailViewValues.has(values.mailView)) errors.mailView = 'Select a valid mail layout.';
+			if (!allowedLanguageValues.has(values.language)) errors.language = t('onboarding.errors.invalid_language');
+			if (!allowedThemeValues.has(values.theme)) errors.theme = t('onboarding.errors.invalid_theme');
+			if (!allowedMailViewValues.has(values.mailView))
+				errors.mailView = t('onboarding.errors.invalid_mail_layout');
 			return errors;
 		},
 		submit: async (values, {ipc}) => {
@@ -94,7 +97,14 @@ export default function OnboardingPage() {
 		return () => {
 			active = false;
 		};
-	}, [defaults.autoUpdateEnabled, defaults.language, defaults.mailView, defaults.minimizeToTray, defaults.theme, setFormValues]);
+	}, [
+		defaults.autoUpdateEnabled,
+		defaults.language,
+		defaults.mailView,
+		defaults.minimizeToTray,
+		defaults.theme,
+		setFormValues,
+	]);
 
 	return (
 		<div className="workspace-content h-full w-full overflow-hidden">
@@ -132,15 +142,13 @@ export default function OnboardingPage() {
 									}}
 								>
 									<Sparkles size={14} />
-									Setup wizard
+									{t('onboarding.badge')}
 								</div>
 								<div className="mt-4 w-full max-w-[300px]">
 									<h1 className="text-3xl font-semibold leading-tight md:text-[2rem]">
-										Welcome to LlamaMail
+										{t('onboarding.title')}
 									</h1>
-									<p className="mt-2 text-sm text-inverse opacity-80">
-										Set your workspace preferences in under a minute.
-									</p>
+									<p className="mt-2 text-sm text-inverse opacity-80">{t('onboarding.subtitle')}</p>
 									<ul className="mt-6 space-y-3 text-left text-sm text-inverse opacity-90">
 										<li className="flex items-center gap-2.5">
 											<span
@@ -149,7 +157,7 @@ export default function OnboardingPage() {
 											>
 												<Check size={12} />
 											</span>
-											Theme, language, and message layout
+											{t('onboarding.item_theme_language_layout')}
 										</li>
 										<li className="flex items-center gap-2.5">
 											<span
@@ -158,7 +166,7 @@ export default function OnboardingPage() {
 											>
 												<Check size={12} />
 											</span>
-											Startup and update behavior
+											{t('onboarding.item_startup_and_updates')}
 										</li>
 										<li className="flex items-center gap-2.5">
 											<span
@@ -167,7 +175,7 @@ export default function OnboardingPage() {
 											>
 												<Check size={12} />
 											</span>
-											Use the app with or without an account
+											{t('onboarding.item_use_without_account')}
 										</li>
 									</ul>
 								</div>
@@ -186,10 +194,10 @@ export default function OnboardingPage() {
 								<div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3">
 									<div>
 										<p className="ui-text-muted text-xs font-semibold uppercase tracking-wide">
-											Quick setup
+											{t('onboarding.quick_setup')}
 										</p>
 										<h2 className="ui-text-primary mt-1 text-2xl font-semibold">
-											Personalize your setup
+											{t('onboarding.personalize_setup')}
 										</h2>
 									</div>
 								</div>
@@ -198,7 +206,7 @@ export default function OnboardingPage() {
 								<div className="mx-auto w-full max-w-4xl space-y-5">
 									<section className="panel rounded-xl p-4 md:p-5">
 										<h3 className="ui-text-primary text-sm font-semibold uppercase tracking-wide">
-											Theme
+											{t('onboarding.theme')}
 										</h3>
 										<div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
 											{APP_THEME_OPTIONS.map((option) => {
@@ -217,12 +225,16 @@ export default function OnboardingPage() {
 															<span className="mt-0.5">{meta.icon}</span>
 															<span className="min-w-0">
 																<span className="block text-sm font-semibold">
-																	{option.label}
+																	{option.value === 'light'
+																		? t('settings.layout.theme_light')
+																		: option.value === 'dark'
+																			? t('settings.layout.theme_dark')
+																			: t('settings.layout.theme_system')}
 																</span>
 																<span
 																	className={`${selected ? 'text-inverse/80' : 'ui-text-secondary'} block text-xs`}
 																>
-																	{meta.subtitle}
+																	{t(meta.subtitleKey)}
 																</span>
 															</span>
 														</span>
@@ -235,31 +247,35 @@ export default function OnboardingPage() {
 										<label className="block text-sm">
 											<span className="ui-text-secondary mb-1.5 inline-flex items-center gap-1.5 font-medium">
 												<Globe2 size={14} />
-												Language
+												{t('settings.application.language')}
 											</span>
 											<FormSelect
 												value={form.values.language}
-												onChange={(event) => form.setFieldValue('language', parseAppLanguage(event.target.value))}
+												onChange={(event) =>
+													form.setFieldValue('language', parseAppLanguage(event.target.value))
+												}
 											>
-												{APP_LANGUAGE_OPTIONS.map((option) => (
-													<option key={option.value} value={option.value}>
-														{option.label}
-													</option>
-												))}
+												<option value="system">{t('language.system')}</option>
+												<option value="en-US">{t('language.en_us')}</option>
+												<option value="sv-SE">{t('language.sv_se')}</option>
 											</FormSelect>
 										</label>
 										<label className="block text-sm">
 											<span className="ui-text-secondary mb-1.5 inline-flex items-center gap-1.5 font-medium">
 												<LayoutTemplate size={14} />
-												Mail layout
+												{t('onboarding.mail_layout')}
 											</span>
 											<FormSelect
 												value={form.values.mailView}
-												onChange={(event) => form.setFieldValue('mailView', event.target.value as MailView)}
+												onChange={(event) =>
+													form.setFieldValue('mailView', event.target.value as MailView)
+												}
 											>
 												{MAIL_VIEW_OPTIONS.map((option) => (
 													<option key={option.value} value={option.value}>
-														{option.label}
+														{option.value === 'side-list'
+															? t('onboarding.mail_layout_side_list')
+															: t('onboarding.mail_layout_top_table')}
 													</option>
 												))}
 											</FormSelect>
@@ -269,38 +285,40 @@ export default function OnboardingPage() {
 										<label className="ui-border-default flex items-start justify-between rounded-lg border px-3 py-3 text-sm">
 											<span className="pr-4">
 												<span className="ui-text-primary block font-medium">
-													Minimize to tray
+													{t('settings.application.minimize_to_tray')}
 												</span>
 												<span className="ui-text-secondary block text-xs">
-													Keep LlamaMail running in the background.
+													{t('onboarding.minimize_to_tray_description')}
 												</span>
 											</span>
 											<FormCheckbox
 												checked={form.values.minimizeToTray}
-												onChange={(event) => form.setFieldValue('minimizeToTray', event.target.checked)}
+												onChange={(event) =>
+													form.setFieldValue('minimizeToTray', event.target.checked)
+												}
 											/>
 										</label>
 										<label className="ui-border-default flex items-start justify-between rounded-lg border px-3 py-3 text-sm">
 											<span className="pr-4">
 												<span className="ui-text-primary block font-medium">
-													Enable auto updates
+													{t('onboarding.enable_auto_updates')}
 												</span>
 												<span className="ui-text-secondary block text-xs">
-													Download and apply updates automatically.
+													{t('onboarding.enable_auto_updates_description')}
 												</span>
 											</span>
 											<FormCheckbox
 												checked={form.values.autoUpdateEnabled}
-												onChange={(event) => form.setFieldValue('autoUpdateEnabled', event.target.checked)}
+												onChange={(event) =>
+													form.setFieldValue('autoUpdateEnabled', event.target.checked)
+												}
 											/>
 										</label>
 									</section>
 									{form.formError && (
 										<p className="notice-danger rounded-lg px-4 py-2 text-sm">{form.formError}</p>
 									)}
-									<p className="ui-text-muted text-xs">
-										You can change any of these options later in Settings.
-									</p>
+									<p className="ui-text-muted text-xs">{t('onboarding.change_later_in_settings')}</p>
 								</div>
 							</main>
 							<footer className="app-footer flex shrink-0 items-center justify-end px-6 py-4 md:px-8">
@@ -313,7 +331,9 @@ export default function OnboardingPage() {
 										disabled={form.isSubmitting}
 										onClick={() => void form.submit()}
 									>
-										{form.isSubmitting ? 'Saving...' : 'Save and continue'}
+										{form.isSubmitting
+											? t('settings.status.saving')
+											: t('onboarding.save_and_continue')}
 									</Button>
 								</div>
 							</footer>

@@ -5,6 +5,7 @@ import {FormInput, FormSelect} from '@llamamail/ui/form';
 import {Modal, ModalBody, ModalDescription, ModalFooter, ModalHeader, ModalTitle} from '@llamamail/ui/modal';
 import {cn} from '@llamamail/ui/utils';
 import {X} from '@llamamail/ui/icon';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type Option = {
 	value: string;
@@ -45,13 +46,14 @@ export default function FolderEditModal({
 	onTypeChange,
 	onColorChange,
 }: FolderEditModalProps) {
+	const {t} = useI18n();
 	if (!editor) return null;
 
 	return (
 		<Modal open onClose={onClose} contentClassName="max-w-md rounded-2xl p-5">
 			<ModalHeader className="ui-border-default border-b pb-3">
 				<div className="min-w-0 flex-1">
-					<ModalTitle className="text-lg">Edit Folder</ModalTitle>
+					<ModalTitle className="text-lg">{t('mail_components.edit_folder.title')}</ModalTitle>
 					<ModalDescription className="ui-text-muted mt-1 text-xs">{editor.folder.path}</ModalDescription>
 				</div>
 				<Button
@@ -60,8 +62,8 @@ export default function FolderEditModal({
 					size="icon"
 					className="h-8 w-8 rounded-md"
 					onClick={onClose}
-					title="Close"
-					aria-label="Close edit folder modal"
+					title={t('mail_components.common.close')}
+					aria-label={t('mail_components.edit_folder.close_aria')}
 				>
 					<X size={14} />
 				</Button>
@@ -69,12 +71,16 @@ export default function FolderEditModal({
 
 			<ModalBody className="space-y-3">
 				<label className="block text-sm">
-					<span className="ui-text-secondary mb-1 block font-medium">Display name</span>
+					<span className="ui-text-secondary mb-1 block font-medium">
+						{t('mail_components.edit_folder.display_name')}
+					</span>
 					<FormInput value={editor.customName} onChange={(event) => onCustomNameChange(event.target.value)} />
 				</label>
 
 				<label className="block text-sm">
-					<span className="ui-text-secondary mb-1 block font-medium">Folder type</span>
+					<span className="ui-text-secondary mb-1 block font-medium">
+						{t('mail_components.edit_folder.folder_type')}
+					</span>
 					<FormSelect value={editor.type} onChange={(event) => onTypeChange(event.target.value)}>
 						{typeOptions.map((option) => (
 							<option key={option.value} value={option.value}>
@@ -85,7 +91,9 @@ export default function FolderEditModal({
 				</label>
 
 				<label className="block text-sm">
-					<span className="ui-text-secondary mb-1 block font-medium">Folder color</span>
+					<span className="ui-text-secondary mb-1 block font-medium">
+						{t('mail_components.edit_folder.folder_color')}
+					</span>
 					<div className="swatch-grid grid grid-cols-4 gap-2 rounded-md p-2">
 						{colorOptions.map((option) => (
 							<Button
@@ -97,7 +105,7 @@ export default function FolderEditModal({
 									editor.color === option.value && 'is-selected',
 								)}
 								title={option.label}
-								aria-label={`Set folder color ${option.label}`}
+								aria-label={t('mail_components.create_folder.set_folder_color', {label: option.label})}
 							>
 								<span
 									className={cn(
@@ -116,10 +124,10 @@ export default function FolderEditModal({
 
 			<ModalFooter className="mt-5">
 				<Button type="button" variant="outline" size="sm" onClick={onClose} disabled={saving}>
-					Cancel
+					{t('mail_components.common.cancel')}
 				</Button>
 				<Button type="button" variant="default" size="sm" onClick={onSave} disabled={saving}>
-					{saving ? 'Saving...' : 'Save'}
+					{saving ? t('mail_components.common.saving') : t('mail_components.common.save')}
 				</Button>
 			</ModalFooter>
 		</Modal>

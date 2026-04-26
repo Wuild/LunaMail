@@ -69,6 +69,7 @@ import {
 	writePersistedStorageUsage,
 } from '../cloudFilesHelpers';
 import CloudSortableHeaderCell from '../CloudSortableHeaderCell';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type CloudTableSortDirection = 'asc' | 'desc';
 
@@ -100,6 +101,7 @@ function resolveCloudBaseUrlForSave(baseUrl: string): string | null {
 }
 
 export default function CloudFilesPage() {
+	const {t} = useI18n();
 	const navigate = useNavigate();
 	const {create: createNotification, update: updateNotification} = useNotification();
 	const {sidebarWidth, onResizeStart} = useResizableSidebar({
@@ -280,7 +282,7 @@ export default function CloudFilesPage() {
 					comparison = a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
 					break;
 				case 'type':
-					comparison = (a.isFolder ? 'Folder' : 'File').localeCompare(b.isFolder ? 'Folder' : 'File');
+					comparison = Number(a.isFolder) - Number(b.isFolder);
 					break;
 				case 'size':
 					comparison = (a.size ?? -1) - (b.size ?? -1);
@@ -546,11 +548,11 @@ export default function CloudFilesPage() {
 				})
 				.catch((error: any) => {
 					if (!active) return;
-					const message = String(error?.message || error || 'Unknown error');
+					const message = String(error?.message || error || t('cloud_page.error.unknown'));
 					if (isOAuthCloudProvider(selectedAccount.provider) && isCloudAuthErrorMessage(message)) {
 						queueOAuthReconnectPrompt(
 							selectedAccount,
-							`Storage check paused: ${message}. Reconnect this account to resume sync.`,
+							t('cloud_page.status.storage_check_paused', {message}),
 						);
 					}
 					setStorageUsage(null);
@@ -589,12 +591,12 @@ export default function CloudFilesPage() {
 		}
 		if (pausedOAuthAccountIds.has(selectedAccount.id)) {
 			setLoading(false);
-			setStatus(`Sync paused for ${selectedAccount.name}. Reconnect this account to resume sync.`);
+			setStatus(t('cloud_page.status.sync_paused_reconnect', {name: selectedAccount.name}));
 			return;
 		}
 		let active = true;
 		setLoading(true);
-		setStatus('Loading cloud files...');
+		setStatus(t('cloud_page.status.loading_cloud_files'));
 		void ipcClient
 			.listCloudItems(selectedAccount.id, currentNavEntry.token)
 			.then((result) => {
@@ -602,17 +604,17 @@ export default function CloudFilesPage() {
 				setItems(result.items);
 				setFilesCache((prev) => ({...prev, [key]: result.items}));
 				writePersistedFolderCache(selectedAccount.id, currentNavEntry.token, result.items);
-				setStatus(`Loaded ${result.items.length} items.`);
+				setStatus(t('cloud_page.status.loaded_items', {count: result.items.length}));
 				setPendingFolderToken(null);
 			})
 			.catch((error: any) => {
 				if (!active) return;
 				if (!persistedCached) setItems([]);
-				const message = String(error?.message || error || 'Unknown error');
+				const message = String(error?.message || error || t('cloud_page.error.unknown'));
 				if (selectedAccount && isOAuthCloudProvider(selectedAccount.provider) && isCloudAuthErrorMessage(message)) {
-					queueOAuthReconnectPrompt(selectedAccount, `Load failed: ${message}. Sync paused until this account is reconnected.`);
+					queueOAuthReconnectPrompt(selectedAccount, t('cloud_page.status.load_failed_paused', {message}));
 				} else {
-					setStatus(`Load failed: ${message}`);
+					setStatus(t('cloud_page.status.load_failed', {message}));
 				}
 				setPendingFolderToken(null);
 			})
@@ -947,7 +949,7 @@ export default function CloudFilesPage() {
 		setMovingItems(true);
 		setMutating(true);
 		setDragOverTargetToken(null);
-		setStatus(`Moving ${movableItems.length} item${movableItems.length === 1 ? '' : 's'}...`);
+		setStatus(t('cloud_page.status.moving_items', {count: movableItems.length}));
 		try {
 			await Promise.all(
 				movableItems.map((item) => ipcClient.moveCloudItem(selectedAccount.id, item.path, targetParentToken)),
@@ -968,10 +970,10 @@ export default function CloudFilesPage() {
 			setSelectedItemIds(new Set());
 			lastSelectedItemIdRef.current = null;
 			setDetailsItemId((prev) => (prev && movedIds.has(prev) ? null : prev));
-			setStatus(`Moved ${movableItems.length} item${movableItems.length === 1 ? '' : 's'}.`);
+			setStatus(t('cloud_page.status.moved_items', {count: movableItems.length}));
 			setReloadKey((value) => value + 1);
 		} catch (error: any) {
-			setStatus(`Move failed: ${error?.message || String(error)}`);
+			setStatus(t('cloud_page.status.move_failed', {error: error?.message || String(error)}));
 		} finally {
 			setMutating(false);
 			setMovingItems(false);
@@ -1012,13 +1014,13 @@ export default function CloudFilesPage() {
 		const trimmed = String(folderName || '').trim();
 		if (!trimmed) return;
 		setMutating(true);
-		setStatus('Creating folder...');
+		setStatus(t('cloud_page.status.creating_folder'));
 		try {
 			await ipcClient.createCloudFolder(selectedAccount.id, current?.token ?? null, trimmed);
-			setStatus(`Folder "${trimmed}" created.`);
+			setStatus(t('cloud_page.status.folder_created', {name: trimmed}));
 			setReloadKey((value) => value + 1);
 		} catch (error: any) {
-			setStatus(`Create folder failed: ${error?.message || String(error)}`);
+			setStatus(t('cloud_page.status.create_folder_failed', {error: error?.message || String(error)}));
 		} finally {
 			setMutating(false);
 		}
@@ -1028,17 +1030,17 @@ export default function CloudFilesPage() {
 		if (!selectedAccount || mutating) return;
 		const current = currentNavEntry;
 		setMutating(true);
-		setStatus('Uploading files...');
+		setStatus(t('cloud_page.status.uploading_files'));
 		try {
 			const result = await ipcClient.uploadCloudFiles(selectedAccount.id, current?.token ?? null);
 			if (!result.uploaded) {
-				setStatus('Upload cancelled.');
+				setStatus(t('cloud_page.status.upload_cancelled'));
 				return;
 			}
-			setStatus(`Uploaded ${result.uploaded} file${result.uploaded === 1 ? '' : 's'}.`);
+			setStatus(t('cloud_page.status.uploaded_files', {count: result.uploaded}));
 			setReloadKey((value) => value + 1);
 		} catch (error: any) {
-			setStatus(`Upload failed: ${error?.message || String(error)}`);
+			setStatus(t('cloud_page.status.upload_failed', {error: error?.message || String(error)}));
 		} finally {
 			setMutating(false);
 		}
@@ -1046,20 +1048,20 @@ export default function CloudFilesPage() {
 
 	async function onDeleteItem(item: CloudItem): Promise<void> {
 		if (!selectedAccount || mutating || deletingItemId !== null) return;
-		const label = item.isFolder ? 'folder' : 'file';
-		if (!window.confirm(`Delete ${label} "${item.name}"?`)) return;
+		const label = item.isFolder ? t('cloud_page.table.folder_lc') : t('cloud_page.table.file_lc');
+		if (!window.confirm(t('cloud_page.confirm.delete_item', {label, name: item.name}))) return;
 		const totalDeleteSteps = 4;
 		setDeletingItemId(item.id);
 		setRowMenu(null);
 		const notificationId = createNotification({
-			title: `Deleting ${item.name}`,
-			message: 'Removing item from list...',
+			title: t('cloud_page.notification.deleting_title', {name: item.name}),
+			message: t('cloud_page.notification.removing_item'),
 			progress: Math.round((1 / totalDeleteSteps) * 100),
 			busy: true,
 			tone: 'info',
 			autoCloseMs: null,
 		});
-		setStatus(`Deleting ${label}...`);
+		setStatus(t('cloud_page.status.deleting_label', {label}));
 		try {
 			const accountId = selectedAccount.id;
 			const folderToken = currentNavEntry?.token ?? 'root';
@@ -1077,13 +1079,13 @@ export default function CloudFilesPage() {
 				clearPersistedDeletedFolderCaches(selectedAccount.id, item);
 			}
 			updateNotification(notificationId, {
-				message: 'Sending delete request...',
+				message: t('cloud_page.notification.sending_delete_request'),
 				progress: Math.round((2 / totalDeleteSteps) * 100),
 			});
 			await ipcClient.deleteCloudItem(selectedAccount.id, item.path);
 			let stillExists;
 			updateNotification(notificationId, {
-				message: 'Checking remote status...',
+				message: t('cloud_page.notification.checking_remote_status'),
 				progress: Math.round((3 / totalDeleteSteps) * 100),
 			});
 			try {
@@ -1093,7 +1095,7 @@ export default function CloudFilesPage() {
 				stillExists = false;
 			}
 			updateNotification(notificationId, {
-				message: 'Refreshing folder...',
+				message: t('cloud_page.notification.refreshing_folder'),
 				progress: Math.round((4 / totalDeleteSteps) * 100),
 			});
 			const refreshed = await ipcClient.listCloudItems(accountId, folderToken);
@@ -1101,12 +1103,14 @@ export default function CloudFilesPage() {
 			const refreshedCacheKey = `${accountId}:${folderToken}`;
 			setFilesCache((prev) => ({...prev, [refreshedCacheKey]: refreshed.items}));
 			writePersistedFolderCache(accountId, folderToken, refreshed.items);
-			setStatus(
-				stillExists ? `Delete requested for ${item.name}; sync is still in progress.` : `${item.name} deleted.`,
-			);
+			setStatus(stillExists
+				? t('cloud_page.status.delete_requested_syncing_name', {name: item.name})
+				: t('cloud_page.status.item_deleted', {name: item.name}));
 			setDetailsItemId((prev) => (prev === item.id ? null : prev));
 			updateNotification(notificationId, {
-				message: stillExists ? 'Delete requested; sync is still in progress.' : 'Delete complete.',
+				message: stillExists
+					? t('cloud_page.notification.delete_requested_syncing')
+					: t('cloud_page.notification.delete_complete'),
 				busy: false,
 				progress: 100,
 				tone: stillExists ? 'info' : 'success',
@@ -1114,9 +1118,9 @@ export default function CloudFilesPage() {
 			});
 			setReloadKey((value) => value + 1);
 		} catch (error: any) {
-			setStatus(`Delete failed: ${error?.message || String(error)}`);
+			setStatus(t('cloud_page.status.delete_failed', {error: error?.message || String(error)}));
 			updateNotification(notificationId, {
-				message: `Delete failed: ${error?.message || String(error)}`,
+				message: t('cloud_page.status.delete_failed', {error: error?.message || String(error)}),
 				busy: false,
 				progress: 100,
 				tone: 'danger',
@@ -1133,7 +1137,7 @@ export default function CloudFilesPage() {
 		const actionItemId = item.id;
 		setActiveFileActionId(actionItemId);
 		setRowMenu(null);
-		setStatus(`Opening ${item.name}...`);
+		setStatus(t('cloud_page.status.opening_label', {label: item.name}));
 		let finished = false;
 		const clearActiveAction = () => {
 			setActiveFileActionId((prev) => (prev === actionItemId ? null : prev));
@@ -1141,15 +1145,15 @@ export default function CloudFilesPage() {
 		const fallbackTimer = window.setTimeout(() => {
 			if (finished) return;
 			clearActiveAction();
-			setStatus(`Opening ${item.name} in external app...`);
+			setStatus(t('cloud_page.status.opening_external_app', {name: item.name}));
 		}, 4500);
 		try {
 			await ipcClient.openCloudItem(selectedAccount.id, item.path, item.name, 'open');
 			finished = true;
-			setStatus(`Opened ${item.name}.`);
+			setStatus(t('cloud_page.status.opened_name', {name: item.name}));
 		} catch (error: any) {
 			finished = true;
-			setStatus(`Open failed: ${error?.message || String(error)}`);
+			setStatus(t('cloud_page.status.open_failed', {error: error?.message || String(error)}));
 		} finally {
 			window.clearTimeout(fallbackTimer);
 			clearActiveAction();
@@ -1160,16 +1164,16 @@ export default function CloudFilesPage() {
 		if (!selectedAccount || item.isFolder || mutating) return;
 		setActiveFileActionId(item.id);
 		setRowMenu(null);
-		setStatus(`Downloading ${item.name}...`);
+		setStatus(t('cloud_page.status.downloading_name', {name: item.name}));
 		try {
 			const result = await ipcClient.openCloudItem(selectedAccount.id, item.path, item.name, 'save');
 			if (!result.ok || result.action === 'cancelled') {
-				setStatus('Download cancelled.');
+				setStatus(t('cloud_page.status.download_cancelled'));
 				return;
 			}
-			setStatus(`Saved ${item.name}.`);
+			setStatus(t('cloud_page.status.saved_name', {name: item.name}));
 		} catch (error: any) {
-			setStatus(`Download failed: ${error?.message || String(error)}`);
+			setStatus(t('cloud_page.status.download_failed', {error: error?.message || String(error)}));
 		} finally {
 			setActiveFileActionId(null);
 		}
@@ -1178,24 +1182,25 @@ export default function CloudFilesPage() {
 	async function onShareItem(item: CloudItem): Promise<void> {
 		if (!selectedAccount) return;
 		setRowMenu(null);
-		setStatus(`Generating share link for ${item.name}...`);
+		setStatus(t('cloud_page.status.generating_share_link', {name: item.name}));
 		try {
 			const result = await ipcClient.createCloudShareLink(selectedAccount.id, item.path);
 			setShareModal({name: item.name, url: result.url});
-			setStatus('Share link ready.');
+			setStatus(t('cloud_page.status.share_link_ready'));
 		} catch (error: any) {
-			setStatus(`Share failed: ${error?.message || String(error)}`);
+			setStatus(t('cloud_page.status.share_failed', {error: error?.message || String(error)}));
 		}
 	}
 
 	async function onAddCloudAccount(): Promise<void> {
 		if (adding) return;
 		setAdding(true);
-		setStatus('Adding cloud account...');
+		setStatus(t('cloud_page.status.adding_account'));
 		try {
 			if (draft.provider === 'google-drive' || draft.provider === 'onedrive') {
-				const providerLabel = draft.provider === 'google-drive' ? 'Google Drive' : 'OneDrive';
-				setStatus(`Opening ${providerLabel} OAuth...`);
+				const providerLabel =
+					draft.provider === 'google-drive' ? t('cloud_page.provider.google_drive') : t('cloud_page.provider.onedrive');
+				setStatus(t('cloud_page.status.opening_oauth', {provider: providerLabel}));
 				const linked = await ipcClient.linkCloudOAuth(draft.provider, {});
 				setShowAddModal(false);
 				setDraft({
@@ -1205,7 +1210,7 @@ export default function CloudFilesPage() {
 					user: '',
 					secret: '',
 				});
-				setStatus(`${providerLabel} account connected: ${linked.name}.`);
+				setStatus(t('cloud_page.status.account_connected', {provider: providerLabel, name: linked.name}));
 				return;
 			}
 
@@ -1225,9 +1230,9 @@ export default function CloudFilesPage() {
 				user: '',
 				secret: '',
 			});
-			setStatus('Cloud account added.');
+			setStatus(t('cloud_page.status.account_added'));
 		} catch (error: any) {
-			setStatus(`Add failed: ${error?.message || String(error)}`);
+			setStatus(t('cloud_page.status.add_failed', {error: error?.message || String(error)}));
 		} finally {
 			setAdding(false);
 		}
@@ -1246,15 +1251,15 @@ export default function CloudFilesPage() {
 
 	async function onDeleteAccount(account: PublicCloudAccount): Promise<void> {
 		if (deleting) return;
-		if (!window.confirm(`Delete cloud account "${account.name}"?`)) return;
+		if (!window.confirm(t('cloud_page.confirm.delete_account', {name: account.name}))) return;
 		setDeleting(true);
 		setAccountMenu(null);
-		setStatus('Deleting cloud account...');
+		setStatus(t('cloud_page.status.deleting_account'));
 		try {
 			await ipcClient.deleteCloudAccount(account.id);
-			setStatus('Cloud account deleted.');
+			setStatus(t('cloud_page.status.account_deleted'));
 		} catch (error: any) {
-			setStatus(`Delete failed: ${error?.message || String(error)}`);
+			setStatus(t('cloud_page.status.delete_failed', {error: error?.message || String(error)}));
 		} finally {
 			setDeleting(false);
 		}
@@ -1269,7 +1274,7 @@ export default function CloudFilesPage() {
 			return next;
 		});
 		setAccountMenu(null);
-		setStatus(`Refreshing ${account.name}...`);
+		setStatus(t('cloud_page.status.refreshing_name', {name: account.name}));
 		navigateToAccount(account, true);
 	}
 
@@ -1278,10 +1283,10 @@ export default function CloudFilesPage() {
 		setRelinkingAccountId(account.id);
 		setAccountMenu(null);
 		const providerLabel = providerLabels[account.provider];
-		setStatus(`Opening ${providerLabel} sign-in...`);
+		setStatus(t('cloud_page.status.opening_signin', {provider: providerLabel}));
 		try {
 			await ipcClient.relinkCloudOAuth(account.id, {});
-			setStatus(`${providerLabel} account reconnected.`);
+			setStatus(t('cloud_page.status.account_reconnected', {provider: providerLabel}));
 			setPausedOAuthAccountIds((prev) => {
 				if (!prev.has(account.id)) return prev;
 				const next = new Set(prev);
@@ -1293,7 +1298,7 @@ export default function CloudFilesPage() {
 			}
 			return true;
 		} catch (error: any) {
-			setStatus(`Reconnect failed: ${error?.message || String(error)}`);
+			setStatus(t('cloud_page.status.reconnect_failed', {error: error?.message || String(error)}));
 			return false;
 		} finally {
 			setRelinkingAccountId(null);
@@ -1316,7 +1321,7 @@ export default function CloudFilesPage() {
 	async function onSaveEditedAccount(): Promise<void> {
 		if (!editDraft || savingEdit) return;
 		setSavingEdit(true);
-		setStatus('Saving cloud account...');
+		setStatus(t('cloud_page.status.saving_account'));
 		try {
 			const payload: UpdateCloudAccountPayload = {
 				name: editDraft.name.trim(),
@@ -1333,9 +1338,9 @@ export default function CloudFilesPage() {
 			if (selectedAccount?.id === editDraft.id) {
 				setReloadKey((value) => value + 1);
 			}
-			setStatus('Cloud account updated.');
+			setStatus(t('cloud_page.status.account_updated'));
 		} catch (error: any) {
-			setStatus(`Update failed: ${error?.message || String(error)}`);
+			setStatus(t('cloud_page.status.update_failed', {error: error?.message || String(error)}));
 		} finally {
 			setSavingEdit(false);
 		}
@@ -1352,7 +1357,7 @@ export default function CloudFilesPage() {
 	const isOAuthProviderDraft = draft.provider === 'google-drive' || draft.provider === 'onedrive';
 	const editRequiresWebDavBaseUrlFields = editDraft?.provider === 'nextcloud' || editDraft?.provider === 'webdav';
 	const editRequiresWebDavAuthFields = editDraft?.provider === 'nextcloud' || editDraft?.provider === 'webdav';
-	const secretLabel = 'Password / app token';
+	const secretLabel = t('cloud_page.field.secret_password');
 	const canSubmitAddDraft = isOAuthProviderDraft
 		? true
 		: draft.name.trim().length > 0 && draft.secret.trim().length > 0;
@@ -1375,7 +1380,7 @@ export default function CloudFilesPage() {
 		navigate(buildCloudRoute(accountId, [{token: option.token, label: option.label}]));
 		setPendingFolderToken(option.token);
 		setItems([]);
-		setStatus(`Opening ${option.label}...`);
+		setStatus(t('cloud_page.status.opening_label', {label: option.label}));
 		setLoading(true);
 	}
 
@@ -1383,12 +1388,12 @@ export default function CloudFilesPage() {
 		<div className="flex min-w-0 items-center justify-between gap-3">
 			<div className="min-w-0">
 				<h1 className="ui-text-primary truncate text-sm font-semibold">
-					{selectedAccount ? selectedAccount.name : 'Cloud Files'}
+					{selectedAccount ? selectedAccount.name : t('cloud_page.title')}
 				</h1>
 				<p className="ui-text-muted truncate text-xs">
 					{selectedAccount
-						? `${storageLoading ? 'Loading storage...' : formatStorageUsage(storageUsage)}`
-						: 'Add an account to browse cloud files.'}
+						? `${storageLoading ? t('cloud_page.status.loading_storage') : formatStorageUsage(storageUsage)}`
+						: t('cloud_page.empty.add_account_to_browse')}
 				</p>
 				{selectedAccount && (
 					<div className="progress-track mt-1 h-1.5 w-52 overflow-hidden rounded-full">
@@ -1402,7 +1407,7 @@ export default function CloudFilesPage() {
 			<div className="flex items-center gap-2">
 				{selectedItemIds.size > 0 && (
 					<>
-						<span className="ui-text-muted text-xs">{selectedItemIds.size} selected</span>
+						<span className="ui-text-muted text-xs">{t('cloud_page.selection.selected_count', {count: selectedItemIds.size})}</span>
 						<Button
 							type="button"
 							variant="ghost"
@@ -1412,7 +1417,7 @@ export default function CloudFilesPage() {
 								lastSelectedItemIdRef.current = null;
 							}}
 						>
-							Clear
+							{t('cloud_page.action.clear')}
 						</Button>
 					</>
 				)}
@@ -1427,7 +1432,7 @@ export default function CloudFilesPage() {
 					}}
 				>
 					<FolderPlus size={14} />
-					New Folder
+					{t('cloud_page.action.new_folder')}
 				</Button>
 				<Button
 					type="button"
@@ -1437,7 +1442,7 @@ export default function CloudFilesPage() {
 					onClick={() => void onUploadFiles()}
 				>
 					<Upload size={14} />
-					Upload
+					{t('cloud_page.action.upload')}
 				</Button>
 			</div>
 		</div>
@@ -1446,19 +1451,19 @@ export default function CloudFilesPage() {
 	const sidebar = (
 		<aside className="sidebar flex h-full min-h-0 flex-col">
 			<div className="flex items-center justify-between border-b ui-border-default p-3">
-				<h2 className="ui-text-primary text-sm font-semibold">Cloud Accounts</h2>
+				<h2 className="ui-text-primary text-sm font-semibold">{t('cloud_page.accounts.title')}</h2>
 				<Button
 					type="button"
 					variant="outline"
 					className="inline-flex h-8 w-8 items-center justify-center rounded-md"
 					onClick={() => setShowAddModal(true)}
-					title="Add cloud account"
+					title={t('cloud_page.accounts.add')}
 				>
 					<Plus size={15} />
 				</Button>
 			</div>
 			<div className="min-h-0 flex-1 overflow-auto p-2">
-				{accounts.length === 0 && <p className="ui-text-muted px-2 py-3 text-sm">No cloud accounts yet.</p>}
+				{accounts.length === 0 && <p className="ui-text-muted px-2 py-3 text-sm">{t('cloud_page.accounts.none')}</p>}
 				{accounts.map((account) => {
 					const active = account.id === selectedAccountId;
 					const rootTrail = buildRootTrail(account.provider);
@@ -1517,7 +1522,7 @@ export default function CloudFilesPage() {
 											type="button"
 											variant="ghost"
 											className="ui-surface-hover ui-hover-text-primary rounded p-1 ui-text-muted transition-colors"
-											title="Refresh account"
+											title={t('cloud_page.accounts.refresh')}
 											disabled={refreshingAccountIds.has(account.id)}
 											onClick={(event) => {
 												event.preventDefault();
@@ -1536,7 +1541,7 @@ export default function CloudFilesPage() {
 											type="button"
 											variant="ghost"
 											className="ui-surface-hover ui-hover-text-primary rounded p-1 ui-text-muted transition-colors"
-											title="Account actions"
+											title={t('cloud_page.accounts.actions')}
 											onClick={(event) => {
 												event.preventDefault();
 												event.stopPropagation();
@@ -1556,8 +1561,8 @@ export default function CloudFilesPage() {
 												event.stopPropagation();
 												toggleAccountExpanded(account.id);
 											}}
-											title={isExpanded ? 'Collapse drives' : 'Expand drives'}
-											aria-label={isExpanded ? 'Collapse drives' : 'Expand drives'}
+											title={isExpanded ? t('cloud_page.accounts.collapse_drives') : t('cloud_page.accounts.expand_drives')}
+											aria-label={isExpanded ? t('cloud_page.accounts.collapse_drives') : t('cloud_page.accounts.expand_drives')}
 											aria-expanded={isExpanded}
 										>
 											<ChevronRight
@@ -1605,7 +1610,7 @@ export default function CloudFilesPage() {
 				sidebar={sidebar}
 				sidebarWidth={sidebarWidth}
 				onSidebarResizeStart={onResizeStart}
-				statusText={status || (loading ? 'Loading...' : 'Ready')}
+				statusText={status || (loading ? t('cloud_page.status.loading') : t('cloud_page.status.ready'))}
 				statusBusy={loading || mutating || movingItems || activeFileActionId !== null || deletingItemId !== null}
 				showStatusBar
 				showFooter={false}
@@ -1635,18 +1640,18 @@ export default function CloudFilesPage() {
 					<div className="min-h-0 flex-1 overflow-hidden">
 					{!selectedAccount && (
 						<div className="ui-text-muted flex h-full min-h-60 items-center justify-center text-sm">
-							Add a cloud account to start browsing files.
+							{t('cloud_page.empty.add_account_to_browse')}
 						</div>
 					)}
 					{selectedAccount && loading && Boolean(pendingFolderToken) && (
 						<div className="ui-text-muted flex h-full min-h-60 flex-col items-center justify-center gap-2 text-sm">
 							<Loader2 size={18} className="animate-spin" />
-							<span>Loading folder...</span>
+							<span>{t('cloud_page.status.loading_folder')}</span>
 						</div>
 					)}
 					{selectedAccount && !pendingFolderToken && items.length === 0 && !loading && (
 						<div className="ui-text-muted flex h-full min-h-60 flex-col items-center justify-center gap-3 text-sm">
-							<span>No files</span>
+							<span>{t('cloud_page.empty.no_files')}</span>
 							<Link
 								to={buildCloudLink(
 									selectedAccount.id,
@@ -1655,12 +1660,12 @@ export default function CloudFilesPage() {
 								onClick={() => {
 									setPendingFolderToken('__parent__');
 									setItems([]);
-									setStatus('Opening folder...');
+									setStatus(t('cloud_page.status.opening_folder'));
 									setLoading(true);
 								}}
 								className="link-primary rounded px-2 py-1"
 							>
-								Go back
+								{t('cloud_page.action.go_back')}
 							</Link>
 						</div>
 					)}
@@ -1738,8 +1743,8 @@ export default function CloudFilesPage() {
 													type="button"
 													variant="ghost"
 													className="ui-surface-hover ui-hover-text-primary inline-flex h-6 w-6 items-center justify-center rounded-md ui-text-muted transition-colors"
-													title="Table column options"
-													aria-label="Table column options"
+													title={t('cloud_page.table.column_options')}
+													aria-label={t('cloud_page.table.column_options')}
 													onClick={(event) => {
 														const rect = event.currentTarget.getBoundingClientRect();
 														openTableHeadMenuAt(rect.right - 8, rect.bottom + 6);
@@ -1778,7 +1783,7 @@ export default function CloudFilesPage() {
 																	onClick={() => {
 																		setPendingFolderToken('__parent__');
 																		setItems([]);
-																		setStatus('Opening parent folder...');
+																		setStatus(t('cloud_page.status.opening_parent_folder'));
 																		setLoading(true);
 																	}}
 																	className="flex min-w-0 items-center gap-2 ui-text-primary hover:underline"
@@ -1810,7 +1815,7 @@ export default function CloudFilesPage() {
 																className="ui-text-muted px-3 py-2 text-xs"
 																style={{width: columnWidths.type}}
 															>
-																Folder
+																{t('cloud_page.table.folder')}
 															</td>
 														);
 													}
@@ -1846,7 +1851,7 @@ export default function CloudFilesPage() {
 														</td>
 													);
 												})}
-												<td className="ui-text-muted px-2 py-2 text-right text-xs">Parent</td>
+												<td className="ui-text-muted px-2 py-2 text-right text-xs">{t('cloud_page.table.parent')}</td>
 											</tr>
 										)}
 										{sortedItems.map((item) => (
@@ -1894,7 +1899,7 @@ export default function CloudFilesPage() {
 																		onClick={() => {
 																			setPendingFolderToken(item.path);
 																			setItems([]);
-																			setStatus(`Opening ${item.name}...`);
+																			setStatus(t('cloud_page.status.opening_label', {label: item.name}));
 																			setLoading(true);
 																		}}
 																		className="flex w-full min-w-0 items-center gap-2 ui-text-primary hover:underline"
@@ -1930,7 +1935,7 @@ export default function CloudFilesPage() {
 																className="ui-text-muted px-3 py-2 text-xs"
 																style={{width: columnWidths.type}}
 															>
-																{item.isFolder ? 'Folder' : 'File'}
+																{item.isFolder ? t('cloud_page.table.folder') : t('cloud_page.table.file')}
 															</td>
 														);
 													}
@@ -1971,8 +1976,8 @@ export default function CloudFilesPage() {
 														type="button"
 														variant="outline"
 														className="inline-flex h-7 w-7 items-center justify-center rounded-md disabled:opacity-50"
-														title="Actions"
-														aria-label={`Actions for ${item.name}`}
+														title={t('cloud_page.action.actions')}
+														aria-label={t('cloud_page.action.actions_for', {name: item.name})}
 														onClick={(event) => {
 															const rect = event.currentTarget.getBoundingClientRect();
 															setRowMenu({x: rect.right - 8, y: rect.bottom + 6, item});
@@ -2010,7 +2015,7 @@ export default function CloudFilesPage() {
 										type="button"
 										variant="ghost"
 										className="h-7 w-7 rounded-md"
-										title="Close details"
+										title={t('cloud_page.action.close_details')}
 										onClick={() => setDetailsItemId(null)}
 									>
 										<X size={14} />
@@ -2019,28 +2024,28 @@ export default function CloudFilesPage() {
 								<div className="min-h-0 flex-1 space-y-3 overflow-auto px-4 py-3 text-xs">
 									<div className="space-y-2">
 										<div className="flex justify-between gap-2">
-											<span className="ui-text-muted">Type</span>
-											<span className="ui-text-primary">File</span>
+											<span className="ui-text-muted">{t('cloud_page.field.type')}</span>
+											<span className="ui-text-primary">{t('cloud_page.table.file')}</span>
 										</div>
 										<div className="flex justify-between gap-2">
-											<span className="ui-text-muted">Size</span>
+											<span className="ui-text-muted">{t('cloud_page.field.size')}</span>
 											<span className="ui-text-primary">{formatBytes(detailsItem.size ?? 0)}</span>
 										</div>
 										<div className="flex justify-between gap-2">
-											<span className="ui-text-muted">Modified</span>
+											<span className="ui-text-muted">{t('cloud_page.field.modified')}</span>
 											<span className="ui-text-primary">
 												{formatSystemDateTime(detailsItem.modifiedAt) || '-'}
 											</span>
 										</div>
 										<div className="flex justify-between gap-2">
-											<span className="ui-text-muted">Created</span>
+											<span className="ui-text-muted">{t('cloud_page.field.created')}</span>
 											<span className="ui-text-primary">
 												{formatSystemDateTime(detailsItem.createdAt) || '-'}
 											</span>
 										</div>
 									</div>
 									<div className="rounded-md border ui-border-default p-2">
-										<div className="ui-text-muted mb-1">Path</div>
+										<div className="ui-text-muted mb-1">{t('cloud_page.field.path')}</div>
 										<div className="ui-text-secondary break-all">{detailsItem.path}</div>
 									</div>
 								</div>
@@ -2054,7 +2059,7 @@ export default function CloudFilesPage() {
 											onClick={() => void onViewItem(detailsItem)}
 											leftIcon={<Eye size={14} />}
 										>
-											<span className="ml-0.5">Open</span>
+											<span className="ml-0.5">{t('cloud_page.action.open')}</span>
 										</Button>
 										<Button
 											type="button"
@@ -2064,7 +2069,7 @@ export default function CloudFilesPage() {
 											onClick={() => void onDownloadItem(detailsItem)}
 											leftIcon={<Download size={14} />}
 										>
-											<span className="ml-0.5">Download</span>
+											<span className="ml-0.5">{t('cloud_page.action.download')}</span>
 										</Button>
 										<Button
 											type="button"
@@ -2074,7 +2079,7 @@ export default function CloudFilesPage() {
 											onClick={() => void onShareItem(detailsItem)}
 											leftIcon={<Share2 size={14} />}
 										>
-											<span className="ml-0.5">Share</span>
+											<span className="ml-0.5">{t('cloud_page.action.share')}</span>
 										</Button>
 										<Button
 											type="button"
@@ -2091,7 +2096,7 @@ export default function CloudFilesPage() {
 											}
 										>
 											<span className="ml-0.5">
-												{deletingItemId === detailsItem.id ? 'Deleting...' : 'Delete'}
+												{deletingItemId === detailsItem.id ? t('cloud_page.status.deleting') : t('cloud_page.action.delete')}
 											</span>
 										</Button>
 									</div>
@@ -2115,17 +2120,17 @@ export default function CloudFilesPage() {
 						<>
 							<ContextMenuItem type="button" onClick={() => void onViewItem(rowMenu.item)}>
 								<Eye size={14} />
-								View
+								{t('cloud_page.action.view')}
 							</ContextMenuItem>
 							<ContextMenuItem type="button" onClick={() => void onDownloadItem(rowMenu.item)}>
 								<Download size={14} />
-								Download
+								{t('cloud_page.action.download')}
 							</ContextMenuItem>
 						</>
 					)}
 					<ContextMenuItem type="button" onClick={() => void onShareItem(rowMenu.item)}>
 						<Share2 size={14} />
-						Share
+						{t('cloud_page.action.share')}
 					</ContextMenuItem>
 					<ContextMenuItem
 						type="button"
@@ -2134,13 +2139,13 @@ export default function CloudFilesPage() {
 						onClick={() => void onDeleteItem(rowMenu.item)}
 						disabled={deletingItemId !== null}
 					>
-						{deletingItemId === rowMenu.item.id ? (
-							<Loader2 size={14} className="animate-spin" />
-						) : (
-							<Trash2 size={14} />
-						)}
-						{deletingItemId !== null ? 'Deleting...' : 'Delete'}
-					</ContextMenuItem>
+								{deletingItemId === rowMenu.item.id ? (
+									<Loader2 size={14} className="animate-spin" />
+								) : (
+									<Trash2 size={14} />
+								)}
+								{deletingItemId === rowMenu.item.id ? t('cloud_page.status.deleting') : t('cloud_page.action.delete')}
+							</ContextMenuItem>
 				</ContextMenu>
 			)}
 
@@ -2154,7 +2159,7 @@ export default function CloudFilesPage() {
 					onRequestClose={() => setTableHeadMenu(null)}
 					onClick={(event) => event.stopPropagation()}
 				>
-					<ContextMenuLabel>Table Columns</ContextMenuLabel>
+					<ContextMenuLabel>{t('cloud_page.table.columns')}</ContextMenuLabel>
 					{CLOUD_TABLE_COLUMN_OPTIONS.map((column) => {
 						const checked = tableColumns.includes(column.key);
 						return (
@@ -2176,7 +2181,7 @@ export default function CloudFilesPage() {
 					})}
 					<ContextMenuSeparator />
 					<ContextMenuItem type="button" onClick={() => resetTableColumns()}>
-						Reset Columns
+						{t('cloud_page.table.reset_columns')}
 					</ContextMenuItem>
 				</ContextMenu>
 			)}
@@ -2198,13 +2203,13 @@ export default function CloudFilesPage() {
 							setAccountMenu(null);
 						}}
 					>
-						Open
+						{t('cloud_page.action.open')}
 					</ContextMenuItem>
 					<ContextMenuItem type="button" onClick={() => onOpenAccountInNewWindow(accountMenu.account)}>
-						Open in new window
+						{t('cloud_page.action.open_in_new_window')}
 					</ContextMenuItem>
 					<ContextMenuItem type="button" onClick={() => void onRefreshAccount(accountMenu.account)}>
-						Refresh
+						{t('cloud_page.action.refresh')}
 					</ContextMenuItem>
 					{isOAuthCloudProvider(accountMenu.account.provider) && (
 						<ContextMenuItem
@@ -2217,14 +2222,14 @@ export default function CloudFilesPage() {
 							) : (
 								<Cloud size={14} />
 							)}
-							{relinkingAccountId === accountMenu.account.id ? 'Reconnecting...' : 'Reconnect account'}
+							{relinkingAccountId === accountMenu.account.id ? t('cloud_page.status.reconnecting') : t('cloud_page.action.reconnect_account')}
 						</ContextMenuItem>
 					)}
 					<ContextMenuItem type="button" onClick={() => onOpenAccountSettings(accountMenu.account)}>
-						Edit account
+						{t('cloud_page.action.edit_account')}
 					</ContextMenuItem>
 					<ContextMenuItem type="button" danger onClick={() => void onDeleteAccount(accountMenu.account)}>
-						Delete account
+						{t('cloud_page.action.delete_account')}
 					</ContextMenuItem>
 					</ContextMenu>
 				)}
@@ -2238,50 +2243,50 @@ export default function CloudFilesPage() {
 				>
 					<div className="mb-3 flex items-start justify-between">
 						<div>
-							<h3 className="ui-text-primary text-base font-semibold">Add Cloud Account</h3>
+							<h3 className="ui-text-primary text-base font-semibold">{t('cloud_page.modal.add_account.title')}</h3>
 							<p className="ui-text-muted mt-1 text-xs">
-								Connect WebDAV directly, or use OAuth for Google Drive/OneDrive.
+								{t('cloud_page.modal.add_account.subtitle')}
 							</p>
 						</div>
 						<Cloud size={18} className="icon-muted" />
 					</div>
 					<div className="space-y-3">
 						<Field
-							label="Provider"
+							label={t('cloud_page.field.provider')}
 							as="select"
 							value={draft.provider}
 							onChange={(next) => setDraft((prev) => ({...prev, provider: next as CloudProvider}))}
 							options={[
-								{value: 'nextcloud', label: 'Nextcloud (WebDAV)'},
-								{value: 'webdav', label: 'Generic WebDAV'},
-								{value: 'google-drive', label: 'Google Drive (OAuth)'},
-								{value: 'onedrive', label: 'OneDrive (OAuth)'},
+								{value: 'nextcloud', label: t('cloud_page.provider.nextcloud_webdav')},
+								{value: 'webdav', label: t('cloud_page.provider.generic_webdav')},
+								{value: 'google-drive', label: t('cloud_page.provider.google_drive_oauth')},
+								{value: 'onedrive', label: t('cloud_page.provider.onedrive_oauth')},
 							]}
 						/>
 						{!isOAuthProviderDraft && (
 							<Field
-								label="Account name"
+								label={t('cloud_page.field.account_name')}
 								value={draft.name}
 								onChange={(next) => setDraft((prev) => ({...prev, name: next}))}
-								placeholder="Personal Drive"
+								placeholder={t('cloud_page.placeholder.personal_drive')}
 							/>
 						)}
 						{requiresWebDavBaseUrlFields && (
 							<>
 								<Field
-									label="WebDAV URL"
+									label={t('cloud_page.field.webdav_url')}
 									value={draft.base_url || ''}
 									onChange={(next) => setDraft((prev) => ({...prev, base_url: next}))}
-									placeholder="https://cloud.example.com/remote.php/dav/files/username/"
+									placeholder={t('cloud_page.placeholder.webdav_url')}
 								/>
 							</>
 						)}
 						{requiresWebDavAuthFields && (
 							<Field
-								label="Username"
+								label={t('cloud_page.field.username')}
 								value={draft.user || ''}
 								onChange={(next) => setDraft((prev) => ({...prev, user: next}))}
-								placeholder="username"
+								placeholder={t('cloud_page.placeholder.username')}
 							/>
 						)}
 						{requiresWebDavAuthFields && (
@@ -2289,19 +2294,19 @@ export default function CloudFilesPage() {
 								label={secretLabel}
 								value={draft.secret}
 								onChange={(next) => setDraft((prev) => ({...prev, secret: next}))}
-								placeholder="App password"
+								placeholder={t('cloud_page.placeholder.app_password')}
 								type="password"
 							/>
 						)}
 						{isOAuthProviderDraft && (
 							<p className="ui-text-muted rounded-md border border-dashed p-3 text-xs">
-								This will open a browser window for OAuth sign-in.
+								{t('cloud_page.modal.add_account.oauth_hint')}
 							</p>
 						)}
 						{adding && isOAuthProviderDraft && (
 							<div className="ui-text-secondary flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
 								<Loader2 size={14} className="animate-spin" />
-								<span>Waiting for OAuth in your browser. Finish sign-in to continue.</span>
+								<span>{t('cloud_page.modal.add_account.oauth_waiting')}</span>
 							</div>
 						)}
 					</div>
@@ -2312,7 +2317,7 @@ export default function CloudFilesPage() {
 							className="rounded-md px-3 py-2 text-sm"
 							onClick={() => setShowAddModal(false)}
 						>
-							Cancel
+							{t('cloud_page.action.cancel')}
 						</Button>
 						<Button
 							type="button"
@@ -2323,7 +2328,11 @@ export default function CloudFilesPage() {
 								void onAddCloudAccount();
 							}}
 						>
-							{adding ? 'Adding...' : isOAuthProviderDraft ? 'Connect with OAuth' : 'Add Cloud Account'}
+							{adding
+								? t('cloud_page.status.adding')
+								: isOAuthProviderDraft
+									? t('cloud_page.action.connect_oauth')
+									: t('cloud_page.modal.add_account.title')}
 						</Button>
 					</div>
 				</Modal>
@@ -2340,30 +2349,30 @@ export default function CloudFilesPage() {
 				>
 					<div className="mb-3 flex items-start justify-between">
 						<div>
-							<h3 className="ui-text-primary text-base font-semibold">Edit Cloud Account</h3>
+							<h3 className="ui-text-primary text-base font-semibold">{t('cloud_page.modal.edit_account.title')}</h3>
 							<p className="ui-text-muted mt-1 text-xs">
-								Update account details. Leave secret empty to keep current one.
+								{t('cloud_page.modal.edit_account.subtitle')}
 							</p>
 						</div>
 						<Settings size={18} className="icon-muted" />
 					</div>
 					<div className="space-y-3">
 						<Field
-							label="Provider"
+							label={t('cloud_page.field.provider')}
 							as="select"
 							value={editDraft.provider}
 							onChange={() => undefined}
 							options={[{value: editDraft.provider, label: providerLabels[editDraft.provider]}]}
 						/>
 						<Field
-							label="Account name"
+							label={t('cloud_page.field.account_name')}
 							value={editDraft.name}
 							onChange={(next) => setEditDraft((prev) => (prev ? {...prev, name: next} : prev))}
-							placeholder="Personal Drive"
+							placeholder={t('cloud_page.placeholder.personal_drive')}
 						/>
 						{editRequiresWebDavBaseUrlFields && (
 							<Field
-								label="WebDAV URL"
+								label={t('cloud_page.field.webdav_url')}
 								value={editDraft.base_url}
 								onChange={(next) =>
 									setEditDraft((prev) =>
@@ -2375,12 +2384,12 @@ export default function CloudFilesPage() {
 											: prev,
 									)
 								}
-								placeholder="https://cloud.example.com/remote.php/dav/files/username/"
+								placeholder={t('cloud_page.placeholder.webdav_url')}
 							/>
 						)}
 						{editRequiresWebDavAuthFields && (
 							<Field
-								label="Username"
+								label={t('cloud_page.field.username')}
 								value={editDraft.user}
 								onChange={(next) =>
 									setEditDraft((prev) =>
@@ -2392,14 +2401,14 @@ export default function CloudFilesPage() {
 											: prev,
 									)
 								}
-								placeholder="username"
+								placeholder={t('cloud_page.placeholder.username')}
 							/>
 						)}
 						<Field
-							label="Secret (optional)"
+							label={t('cloud_page.field.secret_optional')}
 							value={editDraft.secret}
 							onChange={(next) => setEditDraft((prev) => (prev ? {...prev, secret: next} : prev))}
-							placeholder="Leave empty to keep unchanged"
+							placeholder={t('cloud_page.placeholder.leave_secret_unchanged')}
 							type="password"
 						/>
 					</div>
@@ -2413,7 +2422,7 @@ export default function CloudFilesPage() {
 								setEditDraft(null);
 							}}
 						>
-							Cancel
+							{t('cloud_page.action.cancel')}
 						</Button>
 						<Button
 							type="button"
@@ -2422,7 +2431,7 @@ export default function CloudFilesPage() {
 							disabled={savingEdit || !editDraft.name.trim()}
 							onClick={() => void onSaveEditedAccount()}
 						>
-							{savingEdit ? 'Saving...' : 'Save'}
+							{savingEdit ? t('cloud_page.status.saving') : t('cloud_page.action.save')}
 						</Button>
 					</div>
 				</Modal>
@@ -2437,13 +2446,13 @@ export default function CloudFilesPage() {
 					backdropClassName="z-[1000] backdrop-blur-[1px]"
 					contentClassName="max-w-md p-4"
 				>
-					<h3 className="ui-text-primary text-base font-semibold">Create Folder</h3>
+					<h3 className="ui-text-primary text-base font-semibold">{t('cloud_page.modal.create_folder.title')}</h3>
 					<div className="mt-3">
 						<Field
-							label="Folder name"
+							label={t('cloud_page.field.folder_name')}
 							value={newFolderName}
 							onChange={setNewFolderName}
-							placeholder="New folder"
+							placeholder={t('cloud_page.placeholder.new_folder')}
 						/>
 					</div>
 					<div className="mt-4 flex items-center justify-between gap-2">
@@ -2456,7 +2465,7 @@ export default function CloudFilesPage() {
 								setNewFolderName('');
 							}}
 						>
-							Cancel
+							{t('cloud_page.action.cancel')}
 						</Button>
 						<Button
 							type="button"
@@ -2470,7 +2479,7 @@ export default function CloudFilesPage() {
 								void onCreateFolder(targetName);
 							}}
 						>
-							Create
+							{t('cloud_page.action.create')}
 						</Button>
 					</div>
 				</Modal>
@@ -2484,7 +2493,7 @@ export default function CloudFilesPage() {
 				>
 					<div className="mb-3 flex items-start justify-between gap-3">
 						<div>
-							<h3 className="ui-text-primary text-base font-semibold">Share Link</h3>
+							<h3 className="ui-text-primary text-base font-semibold">{t('cloud_page.modal.share_link.title')}</h3>
 							<p className="ui-text-muted mt-1 text-xs">{shareModal.name}</p>
 						</div>
 					</div>
@@ -2498,7 +2507,7 @@ export default function CloudFilesPage() {
 							className="rounded-md px-3 py-2 text-sm"
 							onClick={() => setShareModal(null)}
 						>
-							Close
+							{t('cloud_page.action.close')}
 						</Button>
 						<Button
 							type="button"
@@ -2508,14 +2517,14 @@ export default function CloudFilesPage() {
 								void navigator.clipboard
 									.writeText(shareModal.url)
 									.then(() => {
-										setStatus('Share link copied to clipboard.');
+										setStatus(t('cloud_page.status.share_copied'));
 									})
 									.catch((error: any) => {
-										setStatus(`Copy failed: ${error?.message || String(error)}`);
+										setStatus(t('cloud_page.status.copy_failed', {error: error?.message || String(error)}));
 									});
 							}}
 						>
-							Copy link
+							{t('cloud_page.action.copy_link')}
 						</Button>
 					</div>
 				</Modal>

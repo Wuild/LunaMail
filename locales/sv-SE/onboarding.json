@@ -1,0 +1,146 @@
+{
+	"onboarding": {
+		"errors": {
+			"invalid_language": "Välj ett giltigt språk.",
+			"invalid_theme": "Välj ett giltigt tema.",
+			"invalid_mail_layout": "Välj en giltig e-postlayout."
+		},
+		"badge": "Installationsguide",
+		"title": "Välkommen till LlamaMail",
+		"subtitle": "Ställ in dina arbetsyteinställningar på under en minut.",
+		"item_theme_language_layout": "Tema, språk och meddelandelayout",
+		"item_startup_and_updates": "Uppstart och uppdateringsbeteende",
+		"item_use_without_account": "Använd appen med eller utan konto",
+		"quick_setup": "Snabbkonfiguration",
+		"personalize_setup": "Anpassa din konfiguration",
+		"theme": "Tema",
+		"mail_layout": "E-postlayout",
+		"mail_layout_side_list": "Sidolista",
+		"mail_layout_top_table": "Topp-tabell",
+		"minimize_to_tray_description": "Behåll LlamaMail igång i bakgrunden.",
+		"enable_auto_updates": "Aktivera automatiska uppdateringar",
+		"enable_auto_updates_description": "Ladda ner och installera uppdateringar automatiskt.",
+		"change_later_in_settings": "Du kan ändra alla dessa alternativ senare i Inställningar.",
+		"save_and_continue": "Spara och fortsätt"
+	},
+	"add_account": {
+		"badge": "Kontoinställning",
+		"step": {
+			"provider_title": "Leverantör",
+			"provider_subtitle": "Välj kontotyp",
+			"signin_title": "Logga in",
+			"signin_subtitle": "Ange uppgifter eller anslut med OAuth",
+			"advanced_title": "Avancerad konfiguration",
+			"advanced_subtitle": "Manuell värd/port/säkerhet för anpassade konton",
+			"progress": "Steg {{step}} av 3"
+		},
+		"hero": {
+			"connect_another": "Anslut en annan brevlåda",
+			"connect_first": "Anslut din första brevlåda",
+			"subtitle": "Vi autodetekterar inställningar, verifierar autentisering och sparar allt säkert.",
+			"bullet_autodiscover": "Snabb autodiscover",
+			"bullet_manual_fallback": "Manuell reservväg vid behov",
+			"bullet_verify_before_save": "IMAP/SMTP-verifiering före sparning"
+		},
+		"provider": {
+			"choose_title": "Välj din leverantör",
+			"choose_subtitle": "Välj först leverantör. Vi anpassar inloggningen automatiskt.",
+			"none_enabled": "Inga aktiverade leverantörer är tillgängliga.",
+			"signin_badge": "{{provider}}-inloggning",
+			"provider_fallback": "Leverantör",
+			"custom_description": "Använd autodiscover och manuell serverkonfiguration vid behov.",
+			"google_description": "Anslut ett Google-konto.",
+			"microsoft_description": "Anslut ett Microsoft-konto.",
+			"icloud_description": "Använd din Apple ID-e-post och ett appspecifikt lösenord.",
+			"generic_description": "Anslut {{provider}}."
+		},
+		"credentials": {
+			"oauth_title": "Logga in med din leverantör",
+			"password_title": "Ange kontouppgifter",
+			"oauth_subtitle": "Vi öppnar webbläsaren, verifierar åtkomst och lägger till kontot.",
+			"password_subtitle": "Vi autodetekterar kontot, verifierar IMAP/SMTP och lägger till kontot."
+		},
+		"oauth": {
+			"secure_signin_title": "Säker webbläsarinloggning",
+			"secure_signin_subtitle": "Klicka på Anslut och lägg till konto för att öppna leverantörens inloggningssida.",
+			"waiting_title": "Väntar på autentisering...",
+			"waiting_subtitle": "Slutför inloggningen i webbläsaren för att fortsätta."
+		},
+		"advanced_setup": {
+			"title": "Avancerad manuell konfiguration",
+			"subtitle": "Anpassad autodiscover misslyckades. Konfigurera värd, port och säkerhet manuellt."
+		},
+		"advanced_credentials": {
+			"title": "Avancerade inloggningsuppgifter",
+			"description": "Ange ett globalt användarnamn och valfria protokollspecifika åsidosättningar. Tomma protokollfält använder det globala värdet."
+		},
+		"modules": {
+			"title": "Inkludera moduler",
+			"description": "Välj var kontot ska visas och synkas.",
+			"email": "E-post",
+			"contacts": "Kontakter",
+			"calendar": "Kalender"
+		},
+		"field": {
+			"name_optional": "Namn (valfritt)",
+			"email": "E-post",
+			"password": "Lösenord",
+			"app_password": "Applösenord",
+			"global_username_optional": "Globalt användarnamn (valfritt)",
+			"imap_username_optional": "IMAP-användarnamn (valfritt)",
+			"imap_password_optional": "IMAP-lösenord (valfritt)",
+			"smtp_username_optional": "SMTP-användarnamn (valfritt)",
+			"smtp_password_optional": "SMTP-lösenord (valfritt)",
+			"carddav_username_optional": "CardDAV-användarnamn (valfritt)",
+			"carddav_password_optional": "CardDAV-lösenord (valfritt)",
+			"caldav_username_optional": "CalDAV-användarnamn (valfritt)",
+			"caldav_password_optional": "CalDAV-lösenord (valfritt)"
+		},
+		"placeholder": {
+			"display_name": "Ditt visningsnamn",
+			"email": "du@domän.se",
+			"defaults_to_email": "Standard till e-postadress",
+			"defaults_to_global_username": "Standard till globalt användarnamn",
+			"defaults_to_step_password": "Standard till lösenord från steg 1"
+		},
+		"action": {
+			"continue": "Fortsätt",
+			"waiting_authentication": "Väntar på autentisering...",
+			"connect_and_add": "Anslut och lägg till konto",
+			"adding_account": "Lägger till konto...",
+			"verify_and_add": "Verifiera och lägg till konto",
+			"verifying": "Verifierar...",
+			"cancel": "Avbryt",
+			"back": "Tillbaka"
+		},
+		"success": {
+			"account_added": "Konto tillagt",
+			"waiting_for_browser_signin": "Väntar på webbläsarinloggning..."
+		},
+		"error": {
+			"select_module": "Välj minst en modul.",
+			"enter_email": "Ange din e-postadress.",
+			"email_required": "E-post krävs.",
+			"imap_smtp_required": "IMAP- och SMTP-inställningar krävs.",
+			"imap_verification_failed": "IMAP-verifiering misslyckades.",
+			"smtp_verification_failed": "SMTP-verifiering misslyckades.",
+			"oauth_google_microsoft_only": "OAuth-inloggning stöds för närvarande endast för Google och Microsoft.",
+			"oauth_provider_not_configured": "OAuth-konfiguration för leverantör '{{provider}}' är ännu inte klar.",
+			"provider_signin_missing_email": "Leverantörsinloggning returnerade ingen e-postadress.",
+			"provider_auto_config_failed_use_custom": "Denna leverantör kunde inte konfigureras automatiskt. Använd anpassad leverantör för manuell konfiguration.",
+			"autodiscover_incomplete_manual": "Autodiscover returnerade inte fullständiga inställningar. Konfigurera värd, port och säkerhet manuellt.",
+			"verify_discovered_custom": "Kunde inte verifiera upptäckta inställningar: {{message}}. Granska värd, port och säkerhet manuellt.",
+			"verify_discovered": "Kunde inte verifiera upptäckta inställningar: {{message}}",
+			"autodiscover_failed": "Kunde inte köra autodiscover: {{message}}",
+			"verify_settings_failed": "Kunde inte verifiera inställningar: {{message}}",
+			"provider_not_enabled": "Leverantör '{{provider}}' är inte aktiverad i denna build.",
+			"enter_username_app_password": "Ange användarnamn och applösenord, eller ange protokollspecifika uppgifter under Avancerade inställningar.",
+			"enter_username_password": "Ange användarnamn och lösenord, eller ange protokollspecifika uppgifter under Avancerade inställningar.",
+			"auth": {
+				"oauth_preferred": "Denna leverantör kräver vanligtvis OAuth-inloggning (2FA/passkeys stöds) eller applösenord. Direkt lösenordsinloggning kan vara blockerad.",
+				"app_password_failed": "Autentisering med appspecifikt lösenord misslyckades. Kontrollera kontots e-post/användarnamn och skapa ett nytt applösenord, försök sedan igen.",
+				"app_password_required": "Denna leverantör kräver vanligtvis appspecifikt lösenord för IMAP/SMTP. Skapa ett i leverantörens säkerhetsinställningar och försök igen."
+			}
+		}
+	}
+}

@@ -10,6 +10,7 @@ import {
 	createFramelessAppWindow,
 } from './windowFactory';
 import {loadWindowState} from './windowState';
+import {__} from '@llamamail/app/i18n/main';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -72,7 +73,7 @@ export function openComposeWindow(parentWindow?: BrowserWindow, draft?: ComposeD
 		minHeight: COMPOSE_WINDOW_MIN_HEIGHT,
 		minimizable: true,
 		maximizable: true,
-		title: 'Compose Email',
+		title: __('app.title.compose_email'),
 		webPreferences: buildSecureWebPreferences({
 			preloadPath,
 			spellcheck: true,

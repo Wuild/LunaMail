@@ -3,6 +3,7 @@ import type {ProgressInfo, UpdateDownloadedEvent, UpdateInfo} from 'electron-upd
 import electronUpdater from 'electron-updater';
 import {createAppLogger} from '@main/debug/debugLog';
 import type {AutoUpdateState} from '@llamamail/app/ipcTypes';
+import {__} from '@llamamail/app/i18n/main';
 
 export type {AutoUpdatePhase, AutoUpdateState} from '@llamamail/app/ipcTypes';
 
@@ -17,7 +18,7 @@ const updateState: AutoUpdateState = {
 	percent: null,
 	transferred: null,
 	total: null,
-	message: 'Auto-update is disabled in development mode.',
+	message: __('updater.state.disabled_dev_mode'),
 };
 
 let initialized = false;
@@ -52,7 +53,7 @@ export function initAutoUpdater(onState: (state: AutoUpdateState) => void): void
 		setState({
 			enabled: false,
 			phase: 'disabled',
-			message: 'Auto-update is available only in packaged builds.',
+			message: __('updater.state.packaged_only'),
 		});
 		return;
 	}
@@ -65,7 +66,7 @@ export function initAutoUpdater(onState: (state: AutoUpdateState) => void): void
 		logger.info('Checking for updates');
 		setState({
 			phase: 'checking',
-			message: 'Checking for updates...',
+			message: __('updater.state.checking'),
 			percent: null,
 			transferred: null,
 			total: null,
@@ -77,7 +78,7 @@ export function initAutoUpdater(onState: (state: AutoUpdateState) => void): void
 		setState({
 			phase: 'available',
 			latestVersion: info.version,
-			message: `Version ${info.version} is available.`,
+			message: __('updater.state.available_version', {version: info.version}),
 		});
 	});
 
@@ -86,7 +87,7 @@ export function initAutoUpdater(onState: (state: AutoUpdateState) => void): void
 		setState({
 			phase: 'not-available',
 			latestVersion: null,
-			message: 'You are up to date.',
+			message: __('updater.state.up_to_date'),
 		});
 	});
 
@@ -106,7 +107,7 @@ export function initAutoUpdater(onState: (state: AutoUpdateState) => void): void
 			percent: progress.percent,
 			transferred: progress.transferred,
 			total: progress.total,
-			message: `Downloading update (${Math.round(progress.percent)}%)...`,
+			message: __('updater.state.downloading_percent', {percent: Math.round(progress.percent)}),
 		});
 	});
 
@@ -117,7 +118,7 @@ export function initAutoUpdater(onState: (state: AutoUpdateState) => void): void
 			downloadedVersion: event.version,
 			latestVersion: event.version,
 			percent: 100,
-			message: `Version ${event.version} downloaded. Restart to install.`,
+			message: __('updater.state.downloaded_restart', {version: event.version}),
 		});
 	});
 
@@ -143,7 +144,7 @@ export function setAutoUpdateEnabled(enabled: boolean): void {
 		setState({
 			enabled: false,
 			phase: 'disabled',
-			message: 'Auto-update is available only in packaged builds.',
+			message: __('updater.state.packaged_only'),
 		});
 		return;
 	}
@@ -156,7 +157,7 @@ export function setAutoUpdateEnabled(enabled: boolean): void {
 			percent: null,
 			transferred: null,
 			total: null,
-			message: 'Auto-update is disabled in settings.',
+			message: __('updater.state.disabled_settings'),
 		});
 		return;
 	}
@@ -178,7 +179,7 @@ export async function checkForUpdates(): Promise<AutoUpdateState> {
 		setState({
 			enabled: false,
 			phase: 'disabled',
-			message: 'Auto-update is available only in packaged builds.',
+			message: __('updater.state.packaged_only'),
 		});
 		return getAutoUpdateState();
 	}
@@ -186,7 +187,7 @@ export async function checkForUpdates(): Promise<AutoUpdateState> {
 		setState({
 			enabled: false,
 			phase: 'disabled',
-			message: 'Auto-update is disabled in settings.',
+			message: __('updater.state.disabled_settings'),
 		});
 		return getAutoUpdateState();
 	}
@@ -211,7 +212,7 @@ export async function downloadUpdate(): Promise<AutoUpdateState> {
 		setState({
 			enabled: false,
 			phase: 'disabled',
-			message: 'Auto-update is available only in packaged builds.',
+			message: __('updater.state.packaged_only'),
 		});
 		return getAutoUpdateState();
 	}
@@ -219,7 +220,7 @@ export async function downloadUpdate(): Promise<AutoUpdateState> {
 		setState({
 			enabled: false,
 			phase: 'disabled',
-			message: 'Auto-update is disabled in settings.',
+			message: __('updater.state.disabled_settings'),
 		});
 		return getAutoUpdateState();
 	}
@@ -227,7 +228,7 @@ export async function downloadUpdate(): Promise<AutoUpdateState> {
 	try {
 		setState({
 			phase: 'downloading',
-			message: 'Starting update download...',
+			message: __('updater.state.starting_download'),
 		});
 		lastProgressBucket = -1;
 		await runWithTransientRetry('download', () => autoUpdater.downloadUpdate());
@@ -254,7 +255,7 @@ export async function runStartupUpdateFlow(): Promise<'proceed' | 'installing'> 
 		setState({
 			enabled: false,
 			phase: 'disabled',
-			message: 'Development build detected. Skipping update check.',
+			message: __('updater.state.dev_build_skip'),
 		});
 		return 'proceed';
 	}
@@ -262,7 +263,7 @@ export async function runStartupUpdateFlow(): Promise<'proceed' | 'installing'> 
 		setState({
 			enabled: false,
 			phase: 'disabled',
-			message: 'Auto-update is disabled in settings.',
+			message: __('updater.state.disabled_settings'),
 		});
 		return 'proceed';
 	}
@@ -278,7 +279,7 @@ export async function runStartupUpdateFlow(): Promise<'proceed' | 'installing'> 
 	if (afterDownload.phase === 'downloaded') {
 		logger.warn('Startup flow installing downloaded update version=%s', afterDownload.downloadedVersion ?? '');
 		setState({
-			message: 'Installing update and restarting...',
+			message: __('updater.state.installing_restart'),
 		});
 		await new Promise((resolve) => setTimeout(resolve, 900));
 		quitAndInstallUpdate();
@@ -295,7 +296,7 @@ async function runWithTransientRetry<T>(operation: 'check' | 'download', fn: () 
 		if (!isTransientGatewayError(error)) throw error;
 		logger.warn('Transient update %s error detected, retrying once', operation);
 		setState({
-			message: `Update ${operation} failed with 502. Retrying...`,
+			message: __('updater.error.transient_retry', {operation}),
 		});
 		await new Promise((resolve) => setTimeout(resolve, TRANSIENT_RETRY_DELAY_MS));
 		return await fn();
@@ -308,15 +309,15 @@ function isTransientGatewayError(error: unknown): boolean {
 }
 
 function getUpdateErrorMessage(error: unknown, operation: 'check' | 'download'): string {
-	const base = String((error as any)?.message || error || `Update ${operation} failed.`);
+	const base = String((error as any)?.message || error || __('updater.error.operation_failed', {operation}));
 	if (isNotFoundAssetError(error)) {
-		return 'Update asset not found (404). Release files and latest.yml filename do not match.';
+		return __('updater.error.asset_not_found');
 	}
 	if (!isTransientGatewayError(error)) return base;
 	if (operation === 'download') {
-		return 'Update server returned 502 (Bad Gateway). Please retry in a moment.';
+		return __('updater.error.download_502');
 	}
-	return 'Update check failed with 502 (Bad Gateway). Please try again shortly.';
+	return __('updater.error.check_502');
 }
 
 function isNotFoundAssetError(error: unknown): boolean {

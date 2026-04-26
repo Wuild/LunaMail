@@ -4,6 +4,7 @@ import {Link} from 'react-router-dom';
 import {RefreshCw, Settings} from '@llamamail/ui/icon';
 import NewEmailBadge from './NewEmailBadge';
 import {cn} from '@llamamail/ui/utils';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type FolderItemRowProps = {
 	to?: string;
@@ -38,6 +39,7 @@ export default function FolderItemRow({
 	onClick,
 	onContextMenu,
 }: FolderItemRowProps) {
+	const {t} = useI18n();
 	return (
 		<div
 			className={cn(
@@ -93,8 +95,8 @@ export default function FolderItemRow({
 								event.stopPropagation();
 								onRefreshFolder();
 							}}
-							title="Refresh folder"
-							aria-label="Refresh folder"
+							title={t('mail_components.context.refresh_folder')}
+							aria-label={t('mail_components.context.refresh_folder')}
 							disabled={refreshing}
 						>
 							<RefreshCw size={13} className={cn(refreshing && 'animate-spin')} />
@@ -108,8 +110,8 @@ export default function FolderItemRow({
 								event.stopPropagation();
 								onEditFolder();
 							}}
-							title="Edit folder"
-							aria-label="Edit folder"
+							title={t('mail_components.context.edit_folder_settings')}
+							aria-label={t('mail_components.context.edit_folder_settings')}
 						>
 							<Settings size={13} />
 						</Button>

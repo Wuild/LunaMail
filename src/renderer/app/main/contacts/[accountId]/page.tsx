@@ -47,6 +47,7 @@ import {
 	sortAccountsByOrder,
 } from '../../email/mailAccountOrder';
 import {Container} from '@llamamail/ui';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type ContactsPageProps = {
 	accountId: number | null;
@@ -111,6 +112,7 @@ function SortableAccountEndDrop() {
 }
 
 export default function ContactsPage({accountId: selectedAccountId, accounts, onSelectAccount}: ContactsPageProps) {
+	const {t} = useI18n();
 	const navigate = useNavigate();
 	const {accountId: routeAccountIdParam} = useParams<{accountId?: string}>();
 	const routeAccountId = React.useMemo(() => {
@@ -155,7 +157,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 	const [savingEditContact, setSavingEditContact] = useState(false);
 	const [syncing, setSyncing] = useState(false);
 	const [syncingAccountId, setSyncingAccountId] = useState<number | null>(null);
-	const [syncStatusText, setSyncStatusText] = useState<string>('Contacts ready');
+	const [syncStatusText, setSyncStatusText] = useState<string>(t('contacts_page.status.ready'));
 	const [contactError, setContactError] = useState<string | null>(null);
 	const [accountOrder, setAccountOrder] = useState<number[]>(() =>
 		readPersistedAccountOrder(CONTACTS_ACCOUNT_ORDER_STORAGE_KEY),
@@ -273,7 +275,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 		let active = true;
 		const loadSequence = ++loadSequenceRef.current;
 		const load = async () => {
-			setSyncStatusText('Contacts ready');
+			setSyncStatusText(t('contacts_page.status.ready'));
 			setLoading(true);
 			setContactError(null);
 			try {
@@ -297,7 +299,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 				)
 					return;
 				setContacts(rows);
-				setSyncStatusText('Contacts ready');
+				setSyncStatusText(t('contacts_page.status.ready'));
 			} finally {
 				if (active && loadSequence === loadSequenceRef.current) setLoading(false);
 			}
@@ -357,12 +359,12 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 		const phones = normalizeContactValues(newContactPhones);
 		const email = emails[0] || '';
 		if (!email) {
-			setAddContactFormError('Enter at least one valid email address.');
+			setAddContactFormError(t('contacts_page.error.enter_valid_email'));
 			return;
 		}
 		setAddingContact(true);
 		setAddContactFormError(null);
-		setAddContactFormStatus('Saving contact...');
+		setAddContactFormStatus(t('contacts_page.status.saving_contact'));
 		setContactError(null);
 		try {
 			const created = await selectedAccount.contacts.add({
@@ -385,14 +387,14 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 			setNewContactOrganization('');
 			setNewContactTitle('');
 			setNewContactNote('');
-			setAddContactFormStatus('Contact saved.');
+			setAddContactFormStatus(t('contacts_page.status.contact_saved'));
 			setShowAddContactModal(false);
 			await loadContacts(effectiveAccountId, query, nextBookId);
 			const createdLabel =
 				String(created?.full_name || '').trim() ||
 				String(created?.email || '').trim() ||
-				'Contact';
-			setSyncStatusText(`${createdLabel} added`);
+				t('contacts_page.placeholder.contact');
+			setSyncStatusText(t('contacts_page.status.contact_added', {name: createdLabel}));
 		} catch (error: any) {
 			const message = handleContactsError(error, effectiveAccountId);
 			setAddContactFormError(message);
@@ -407,7 +409,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 		if (!effectiveAccountId) return;
 		const target = contacts.find((row) => row.id === contactId);
 		const label = target?.full_name?.trim() || target?.email || `#${contactId}`;
-		const confirmed = window.confirm(`Delete contact "${label}"?`);
+		const confirmed = window.confirm(t('contacts_page.confirm.delete_contact', {name: label}));
 		if (!confirmed) return;
 		setContactError(null);
 		try {
@@ -472,7 +474,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 			setShowAddAddressBookModal(false);
 			setNewAddressBookName('');
 			await loadContacts(effectiveAccountId, query, added.id);
-			setSyncStatusText(`Address book "${added.name}" created`);
+			setSyncStatusText(t('contacts_page.status.address_book_created', {name: added.name}));
 		} catch (error: any) {
 			setContactError(handleContactsError(error, effectiveAccountId));
 		} finally {
@@ -490,9 +492,9 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 				addressBookId: exportBookMode === 'selected' ? selectedBookId : null,
 			});
 			if (result.canceled) {
-				setSyncStatusText('Export cancelled');
+				setSyncStatusText(t('contacts_page.status.export_cancelled'));
 			} else {
-				setSyncStatusText(`Exported ${result.count} contacts`);
+				setSyncStatusText(t('contacts_page.status.exported_contacts', {count: result.count}));
 				setShowExportContactsModal(false);
 			}
 		} catch (error: any) {
@@ -507,10 +509,10 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 		const targetBook = addressBooks.find((book) => book.id === selectedBookId);
 		if (!targetBook) return;
 		if (targetBook.source !== 'local') {
-			setContactError('Only local address books can be deleted.');
+			setContactError(t('contacts_page.error.delete_local_only'));
 			return;
 		}
-		const shouldDelete = window.confirm(`Delete address book "${targetBook.name}"?`);
+		const shouldDelete = window.confirm(t('contacts_page.confirm.delete_address_book', {name: targetBook.name}));
 		if (!shouldDelete) return;
 		setContactError(null);
 		try {
@@ -550,7 +552,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 				await loadContacts(syncAccountId, query, effectiveBookId);
 			}
 			if (syncSequence !== syncSequenceRef.current || activeAccountIdRef.current !== syncAccountId) return;
-			setSyncStatusText('Contacts synced');
+			setSyncStatusText(t('contacts_page.status.synced'));
 		} catch (error: any) {
 			if (syncSequence !== syncSequenceRef.current || activeAccountIdRef.current !== syncAccountId) return;
 			const message = handleContactsError(error, effectiveAccountId);
@@ -618,7 +620,9 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 	const accountSidebar = (
 		<aside className="sidebar flex h-full min-h-0 shrink-0 flex-col">
 			<ScrollArea className="min-h-0 flex-1 px-3 py-3">
-				<p className="ui-text-muted px-2 pb-2 text-xs font-semibold uppercase tracking-wide">Accounts</p>
+				<p className="ui-text-muted px-2 pb-2 text-xs font-semibold uppercase tracking-wide">
+					{t('contacts_page.accounts.title')}
+				</p>
 				<DndContext
 					sensors={accountSensors}
 					collisionDetection={closestCenter}
@@ -686,8 +690,8 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 												variant="ghost"
 												className="ui-surface-hover ui-hover-text-primary rounded p-1 ui-text-muted transition-colors"
 												onClick={() => void onManualSync(account.id)}
-												title="Sync account"
-												aria-label="Sync account"
+												title={t('contacts_page.accounts.sync_account')}
+												aria-label={t('contacts_page.accounts.sync_account')}
 												disabled={isSyncingAccount}
 											>
 												<RefreshCw size={13} className={cn(isSyncingAccount && 'animate-spin')} />
@@ -697,8 +701,8 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 												variant="ghost"
 												className="ui-surface-hover ui-hover-text-primary rounded p-1 ui-text-muted transition-colors"
 												onClick={() => navigate(`/settings/account?accountId=${account.id}`)}
-												title="Edit account"
-												aria-label="Edit account"
+												title={t('contacts_page.accounts.edit_account')}
+												aria-label={t('contacts_page.accounts.edit_account')}
 											>
 												<Settings size={13} />
 											</Button>
@@ -715,7 +719,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 							className="w-full justify-center rounded-md px-3 py-2 text-sm"
 							onClick={() => navigate('/add-account')}
 						>
-							Add account
+							{t('contacts_page.accounts.add_account')}
 						</Button>
 					)}
 							{draggingAccountId !== null && <SortableAccountEndDrop />}
@@ -761,7 +765,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 				className="h-10 min-w-52 shrink-0 rounded-md px-3 text-sm disabled:opacity-60"
 				disabled={!effectiveAccountId}
 			>
-				<option value="">All address books</option>
+				<option value="">{t('contacts_page.address_book.all')}</option>
 				{addressBooks.map((book) => (
 					<option key={book.id} value={book.id}>
 						{book.name}
@@ -774,8 +778,8 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 				className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md disabled:opacity-60"
 				disabled={!effectiveAccountId}
 				onClick={() => setShowAddAddressBookModal(true)}
-				title="Create address book"
-				aria-label="Create address book"
+				title={t('contacts_page.address_book.create')}
+				aria-label={t('contacts_page.address_book.create')}
 			>
 				<BookPlus size={14} />
 			</Button>
@@ -789,8 +793,8 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 					addressBooks.find((book) => book.id === selectedBookId)?.source !== 'local'
 				}
 				onClick={() => void onDeleteSelectedAddressBook()}
-				title="Delete address book"
-				aria-label="Delete address book"
+				title={t('contacts_page.address_book.delete')}
+				aria-label={t('contacts_page.address_book.delete')}
 			>
 				<Trash2 size={14} />
 			</Button>
@@ -801,11 +805,11 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 					className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium disabled:opacity-60"
 					onClick={() => setShowAddContactModal(true)}
 					disabled={!effectiveAccountId}
-					title="Add contact"
-					aria-label="Add contact"
+					title={t('contacts_page.contact.add')}
+					aria-label={t('contacts_page.contact.add')}
 				>
 					<Plus size={14} />
-					Add contact
+					{t('contacts_page.contact.add')}
 				</Button>
 				<Button
 					type="button"
@@ -813,11 +817,11 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 					className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium disabled:opacity-60"
 					onClick={() => setShowExportContactsModal(true)}
 					disabled={!effectiveAccountId}
-					title="Export contacts"
-					aria-label="Export contacts"
+					title={t('contacts_page.export.title')}
+					aria-label={t('contacts_page.export.title')}
 				>
 					<Download size={14} />
-					Export
+					{t('contacts_page.export.action')}
 				</Button>
 			</div>
 		</div>
@@ -832,7 +836,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 			onSidebarResizeStart={onResizeStart}
 			menubar={contactsToolbar}
 			showMenuBar
-			statusText={syncing && syncStatusText.toLowerCase().includes('ready') ? statusSyncing() : syncStatusText}
+			statusText={syncing ? statusSyncing() : syncStatusText}
 			statusBusy={syncing}
 			contentClassName={"p-0"}
 		>
@@ -846,13 +850,13 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 								type="text"
 								value={query}
 								onChange={(event) => setQuery(event.target.value)}
-								placeholder="Search contacts..."
+								placeholder={t('contacts_page.search.placeholder')}
 								disabled={!effectiveAccountId}
 							/>
 						</div>
-						{loading && <p className="ui-text-muted text-sm">Loading contacts...</p>}
+						{loading && <p className="ui-text-muted text-sm">{t('contacts_page.search.loading')}</p>}
 						{!loading && contacts.length === 0 && (
-							<p className="ui-text-muted text-sm">No contacts found.</p>
+							<p className="ui-text-muted text-sm">{t('contacts_page.search.no_contacts')}</p>
 						)}
 						{!loading && contacts.length > 0 && (
 							<Card size={'empty'}>
@@ -885,16 +889,16 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 																	variant="ghost"
 																	className="h-auto min-h-0 p-0 text-left"
 																	onClick={() => openEditContact(contact)}
-																	title="View contact"
+																	title={t('contacts_page.contact.view')}
 																>
 																	<p className="ui-text-primary text-sm font-medium">
-																		{contact.full_name || '(No name)'}
+																		{contact.full_name || t('contacts_page.placeholder.no_name')}
 																	</p>
 																</Button>
 																<p className="ui-text-secondary mt-0.5 text-xs">
 																	{preview.primaryEmail}
 																	{preview.extraEmails > 0
-																		? ` (+${preview.extraEmails} more)`
+																		? t('contacts_page.contact.extra_emails', {count: preview.extraEmails})
 																		: ''}
 																</p>
 																{(preview.primaryPhone ||
@@ -913,35 +917,35 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 															</div>
 														</div>
 														<div className="flex items-center gap-2">
-															<Button
-																type="button"
-																variant="outline"
-																className="rounded-md px-2 py-1 text-xs disabled:opacity-50"
-																onClick={() => openEditContact(contact)}
-																disabled={!canModifyContactSource(contact.source)}
-																title={
-																	canModifyContactSource(contact.source)
-																		? 'Edit contact'
-																		: 'This contact source is read-only'
-																}
-															>
-																<Pencil size={12} className="mr-1 inline-block" />
-																Edit
-															</Button>
+																<Button
+																	type="button"
+																	variant="outline"
+																	className="rounded-md px-2 py-1 text-xs disabled:opacity-50"
+																	onClick={() => openEditContact(contact)}
+																	disabled={!canModifyContactSource(contact.source)}
+																	title={
+																		canModifyContactSource(contact.source)
+																			? t('contacts_page.contact.edit')
+																			: t('contacts_page.contact.read_only')
+																	}
+																>
+																	<Pencil size={12} className="mr-1 inline-block" />
+																	{t('contacts_page.contact.edit')}
+																</Button>
 															<Button
 																type="button"
 																variant="danger"
 																className="rounded-md px-2 py-1 text-xs disabled:opacity-50"
 																onClick={() => void onDeleteContact(contact.id)}
 																disabled={!canModifyContactSource(contact.source)}
-																title={
-																	canModifyContactSource(contact.source)
-																		? 'Delete contact'
-																		: 'This contact source is read-only'
-																}
-															>
-																Delete
-															</Button>
+																	title={
+																		canModifyContactSource(contact.source)
+																			? t('contacts_page.contact.delete')
+																			: t('contacts_page.contact.read_only')
+																	}
+																>
+																	{t('contacts_page.contact.delete')}
+																</Button>
 														</div>
 													</div>
 												);
@@ -974,8 +978,10 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 					>
 						<ModalHeader className="ui-border-default border-b pb-3">
 							<div className="min-w-0 flex-1">
-								<ModalTitle className="text-base">Add Contact</ModalTitle>
-								<p className="ui-text-muted mt-1 text-xs">Create a contact for the selected account.</p>
+								<ModalTitle className="text-base">{t('contacts_page.modal.add_contact.title')}</ModalTitle>
+								<p className="ui-text-muted mt-1 text-xs">
+									{t('contacts_page.modal.add_contact.subtitle')}
+								</p>
 							</div>
 							<Button
 								type="button"
@@ -987,8 +993,8 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 									setAddContactFormError(null);
 									setAddContactFormStatus(null);
 								}}
-								title="Close"
-								aria-label="Close add contact modal"
+								title={t('contacts_page.action.close')}
+								aria-label={t('contacts_page.modal.add_contact.close_aria')}
 							>
 								<X size={14} />
 							</Button>
@@ -996,60 +1002,72 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 						<div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
 							<div className="space-y-3">
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">Full name</span>
+									<span className="ui-text-secondary mb-1 block font-medium">
+										{t('contacts_page.field.full_name')}
+									</span>
 									<FormInput
 										type="text"
 										value={newContactName}
 										onChange={(event) => setNewContactName(event.target.value)}
-										placeholder="Jane Doe"
+										placeholder={t('contacts_page.placeholder.full_name')}
 									/>
 								</label>
 								<DynamicContactFieldList
-									label="Emails"
-									valueLabel="Email"
+									label={t('contacts_page.field.emails')}
+									valueLabel={t('contacts_page.field.email')}
 									type="email"
-									placeholder="jane@domain.com"
+									placeholder={t('contacts_page.placeholder.email')}
 									values={newContactEmails}
 									onChange={setNewContactEmails}
+									addLabel={t('contacts_page.action.add')}
+									removeLabel={t('contacts_page.action.remove')}
 									requiredFirst
 								/>
 								<DynamicContactFieldList
-									label="Phone numbers"
-									valueLabel="Phone"
+									label={t('contacts_page.field.phone_numbers')}
+									valueLabel={t('contacts_page.field.phone')}
 									type="text"
-									placeholder="+46 70 123 45 67"
+									placeholder={t('contacts_page.placeholder.phone')}
 									values={newContactPhones}
 									onChange={setNewContactPhones}
+									addLabel={t('contacts_page.action.add')}
+									removeLabel={t('contacts_page.action.remove')}
 								/>
 							</div>
 							<div className="space-y-3">
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">Organization</span>
+									<span className="ui-text-secondary mb-1 block font-medium">
+										{t('contacts_page.field.organization')}
+									</span>
 									<FormInput
 										type="text"
 										value={newContactOrganization}
 										onChange={(event) => setNewContactOrganization(event.target.value)}
-										placeholder="Acme Inc."
+										placeholder={t('contacts_page.placeholder.organization')}
 									/>
 								</label>
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">Title</span>
+									<span className="ui-text-secondary mb-1 block font-medium">
+										{t('contacts_page.field.title')}
+									</span>
 									<FormInput
 										type="text"
 										value={newContactTitle}
 										onChange={(event) => setNewContactTitle(event.target.value)}
-										placeholder="Sales Manager"
+										placeholder={t('contacts_page.placeholder.title')}
 									/>
 								</label>
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">Address book</span>
+									<span className="ui-text-secondary mb-1 block font-medium">
+										{t('contacts_page.field.address_book')}
+									</span>
 									<FormSelect
 										value={selectedBookId ?? ''}
 										onChange={(event) =>
 											setSelectedBookId(event.target.value ? Number(event.target.value) : null)
 										}
 									>
-										<option value="">No address book</option>
+										<option value="">{t('contacts_page.address_book.none')}</option>
 										{addressBooks.map((book) => (
 											<option key={book.id} value={book.id}>
 												{book.name}
@@ -1058,7 +1076,9 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 									</FormSelect>
 								</label>
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">Notes</span>
+									<span className="ui-text-secondary mb-1 block font-medium">
+										{t('contacts_page.field.notes')}
+									</span>
 									<FormTextarea
 										value={newContactNote}
 										onChange={(event) => setNewContactNote(event.target.value)}
@@ -1085,7 +1105,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 								}}
 								disabled={addingContact}
 							>
-								Cancel
+								{t('contacts_page.action.cancel')}
 							</Button>
 							<Button
 								type="submit"
@@ -1093,7 +1113,9 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 								className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
 								disabled={addingContact || !normalizeContactValues(newContactEmails).length}
 							>
-								{addingContact ? 'Saving...' : 'Save Contact'}
+								{addingContact
+									? t('contacts_page.status.saving')
+									: t('contacts_page.action.save_contact')}
 							</Button>
 						</div>
 					</form>
@@ -1114,15 +1136,19 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 						}}
 					>
 						<ModalHeader className="ui-border-default border-b pb-3">
-							<ModalTitle className="text-base">{canSaveEditedContact ? 'Edit Contact' : 'View Contact'}</ModalTitle>
+							<ModalTitle className="text-base">
+								{canSaveEditedContact
+									? t('contacts_page.modal.edit_contact.title')
+									: t('contacts_page.modal.view_contact.title')}
+							</ModalTitle>
 							<Button
 								type="button"
 								variant="ghost"
 								size="icon"
 								className="h-8 w-8 rounded-md"
 								onClick={() => setEditingContact(null)}
-								title="Close"
-								aria-label="Close edit contact modal"
+								title={t('contacts_page.action.close')}
+								aria-label={t('contacts_page.modal.edit_contact.close_aria')}
 							>
 								<X size={14} />
 							</Button>
@@ -1130,34 +1156,42 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 						<div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
 							<div className="space-y-3">
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">Full name</span>
+									<span className="ui-text-secondary mb-1 block font-medium">
+										{t('contacts_page.field.full_name')}
+									</span>
 									<FormInput
 										type="text"
 										value={editContactName}
 										onChange={(event) => setEditContactName(event.target.value)}
-										placeholder="Jane Doe"
+										placeholder={t('contacts_page.placeholder.full_name')}
 									/>
 								</label>
 								<DynamicContactFieldList
-									label="Emails"
-									valueLabel="Email"
+									label={t('contacts_page.field.emails')}
+									valueLabel={t('contacts_page.field.email')}
 									type="email"
-									placeholder="jane@domain.com"
+									placeholder={t('contacts_page.placeholder.email')}
 									values={editContactEmails}
 									onChange={setEditContactEmails}
+									addLabel={t('contacts_page.action.add')}
+									removeLabel={t('contacts_page.action.remove')}
 									requiredFirst
 								/>
 								<DynamicContactFieldList
-									label="Phone numbers"
-									valueLabel="Phone"
+									label={t('contacts_page.field.phone_numbers')}
+									valueLabel={t('contacts_page.field.phone')}
 									type="text"
 									values={editContactPhones}
 									onChange={setEditContactPhones}
+									addLabel={t('contacts_page.action.add')}
+									removeLabel={t('contacts_page.action.remove')}
 								/>
 							</div>
 							<div className="space-y-3">
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">Organization</span>
+									<span className="ui-text-secondary mb-1 block font-medium">
+										{t('contacts_page.field.organization')}
+									</span>
 									<FormInput
 										type="text"
 										value={editContactOrganization}
@@ -1165,7 +1199,9 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 									/>
 								</label>
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">Title</span>
+									<span className="ui-text-secondary mb-1 block font-medium">
+										{t('contacts_page.field.title')}
+									</span>
 									<FormInput
 										type="text"
 										value={editContactTitle}
@@ -1173,7 +1209,9 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 									/>
 								</label>
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">Address book</span>
+									<span className="ui-text-secondary mb-1 block font-medium">
+										{t('contacts_page.field.address_book')}
+									</span>
 									<FormSelect
 										value={editContactBookId ?? ''}
 										onChange={(event) =>
@@ -1181,7 +1219,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 										}
 										disabled={!isEditingLocalContact}
 									>
-										<option value="">No address book</option>
+										<option value="">{t('contacts_page.address_book.none')}</option>
 										{addressBooks.map((book) => (
 											<option key={book.id} value={book.id}>
 												{book.name}
@@ -1190,7 +1228,9 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 									</FormSelect>
 								</label>
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1 block font-medium">Notes</span>
+									<span className="ui-text-secondary mb-1 block font-medium">
+										{t('contacts_page.field.notes')}
+									</span>
 									<FormTextarea
 										value={editContactNote}
 										onChange={(event) => setEditContactNote(event.target.value)}
@@ -1206,7 +1246,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 								className="rounded-md px-3 py-2 text-sm"
 								onClick={() => setEditingContact(null)}
 							>
-								Cancel
+								{t('contacts_page.action.cancel')}
 							</Button>
 							<Button
 								type="submit"
@@ -1218,7 +1258,11 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 									!normalizeContactValues(editContactEmails).length
 								}
 							>
-								{savingEditContact ? 'Saving...' : canSaveEditedContact ? 'Save changes' : 'Read-only source'}
+								{savingEditContact
+									? t('contacts_page.status.saving')
+									: canSaveEditedContact
+										? t('contacts_page.action.save_changes')
+										: t('contacts_page.contact.read_only_source')}
 							</Button>
 						</div>
 					</form>
@@ -1240,9 +1284,9 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 					>
 						<ModalHeader className="ui-border-default border-b pb-3">
 							<div className="min-w-0 flex-1">
-								<ModalTitle className="text-base">Create Address Book</ModalTitle>
+								<ModalTitle className="text-base">{t('contacts_page.modal.create_address_book.title')}</ModalTitle>
 								<p className="ui-text-muted mt-1 text-xs">
-									Local address books can be used to organize manual contacts.
+									{t('contacts_page.modal.create_address_book.subtitle')}
 								</p>
 							</div>
 							<Button
@@ -1251,19 +1295,21 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 								size="icon"
 								className="h-8 w-8 rounded-md"
 								onClick={() => setShowAddAddressBookModal(false)}
-								title="Close"
-								aria-label="Close create address book modal"
+								title={t('contacts_page.action.close')}
+								aria-label={t('contacts_page.modal.create_address_book.close_aria')}
 							>
 								<X size={14} />
 							</Button>
 						</ModalHeader>
 						<label className="mt-4 block text-sm">
-							<span className="ui-text-secondary mb-1 block font-medium">Name</span>
+							<span className="ui-text-secondary mb-1 block font-medium">
+								{t('contacts_page.field.name')}
+							</span>
 							<FormInput
 								type="text"
 								value={newAddressBookName}
 								onChange={(event) => setNewAddressBookName(event.target.value)}
-								placeholder="Personal"
+								placeholder={t('contacts_page.placeholder.address_book_name')}
 								required
 							/>
 						</label>
@@ -1274,7 +1320,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 								className="rounded-md px-3 py-2 text-sm"
 								onClick={() => setShowAddAddressBookModal(false)}
 							>
-								Cancel
+								{t('contacts_page.action.cancel')}
 							</Button>
 							<Button
 								type="submit"
@@ -1282,7 +1328,9 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 								className="rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
 								disabled={addingAddressBook || !newAddressBookName.trim()}
 							>
-								{addingAddressBook ? 'Creating...' : 'Create'}
+								{addingAddressBook
+									? t('contacts_page.status.creating')
+									: t('contacts_page.action.create')}
 							</Button>
 						</div>
 					</form>
@@ -1297,40 +1345,44 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 					contentClassName="max-w-md"
 				>
 					<ModalHeader className="ui-border-default border-b pb-3">
-						<ModalTitle className="text-base">Export Contacts</ModalTitle>
+						<ModalTitle className="text-base">{t('contacts_page.modal.export_contacts.title')}</ModalTitle>
 						<Button
 							type="button"
 							variant="ghost"
 							size="icon"
 							className="h-8 w-8 rounded-md"
 							onClick={() => setShowExportContactsModal(false)}
-							title="Close"
-							aria-label="Close export contacts modal"
+							title={t('contacts_page.action.close')}
+							aria-label={t('contacts_page.modal.export_contacts.close_aria')}
 						>
 							<X size={14} />
 						</Button>
 					</ModalHeader>
 					<div className="mt-4 space-y-3">
 						<label className="block text-sm">
-							<span className="ui-text-secondary mb-1 block font-medium">Format</span>
+							<span className="ui-text-secondary mb-1 block font-medium">
+								{t('contacts_page.export.format')}
+							</span>
 							<FormSelect
 								value={exportFormat}
 								onChange={(event) => setExportFormat(event.target.value === 'vcf' ? 'vcf' : 'csv')}
 							>
-								<option value="csv">CSV (.csv)</option>
-								<option value="vcf">vCard (.vcf)</option>
+								<option value="csv">{t('contacts_page.export.format_csv')}</option>
+								<option value="vcf">{t('contacts_page.export.format_vcard')}</option>
 							</FormSelect>
 						</label>
 						<label className="block text-sm">
-							<span className="ui-text-secondary mb-1 block font-medium">Scope</span>
+							<span className="ui-text-secondary mb-1 block font-medium">
+								{t('contacts_page.export.scope')}
+							</span>
 							<FormSelect
 								value={exportBookMode}
 								onChange={(event) =>
 									setExportBookMode(event.target.value === 'all' ? 'all' : 'selected')
 								}
 							>
-								<option value="selected">Current book</option>
-								<option value="all">All books</option>
+								<option value="selected">{t('contacts_page.export.scope_selected')}</option>
+								<option value="all">{t('contacts_page.export.scope_all')}</option>
 							</FormSelect>
 						</label>
 					</div>
@@ -1341,7 +1393,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 							className="rounded-md px-3 py-2 text-sm"
 							onClick={() => setShowExportContactsModal(false)}
 						>
-							Cancel
+							{t('contacts_page.action.cancel')}
 						</Button>
 						<Button
 							type="button"
@@ -1351,7 +1403,7 @@ export default function ContactsPage({accountId: selectedAccountId, accounts, on
 							disabled={exportingContacts}
 						>
 							<Download size={14} />
-							{exportingContacts ? 'Exporting...' : 'Export'}
+							{exportingContacts ? t('contacts_page.status.exporting') : t('contacts_page.export.action')}
 						</Button>
 					</div>
 				</Modal>
@@ -1480,6 +1532,8 @@ function DynamicContactFieldList({
 	onChange,
 	type,
 	placeholder,
+	addLabel,
+	removeLabel,
 	requiredFirst = false,
 }: {
 	label: string;
@@ -1488,6 +1542,8 @@ function DynamicContactFieldList({
 	onChange: (next: string[]) => void;
 	type: 'text' | 'email';
 	placeholder?: string;
+	addLabel: string;
+	removeLabel: string;
 	requiredFirst?: boolean;
 }) {
 	const safeValues = values.length ? values : [''];
@@ -1501,7 +1557,7 @@ function DynamicContactFieldList({
 					className="rounded-md px-2 py-1 text-xs"
 					onClick={() => onChange([...safeValues, ''])}
 				>
-					Add {valueLabel.toLowerCase()}
+					{addLabel} {valueLabel.toLowerCase()}
 				</Button>
 			</div>
 			<div className="space-y-2">
@@ -1526,8 +1582,8 @@ function DynamicContactFieldList({
 							className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 disabled:opacity-40"
 							disabled={safeValues.length === 1}
 							onClick={() => onChange(safeValues.filter((_, valueIndex) => valueIndex !== index))}
-							title={`Remove ${valueLabel.toLowerCase()}`}
-							aria-label={`Remove ${valueLabel.toLowerCase()}`}
+							title={`${removeLabel} ${valueLabel.toLowerCase()}`}
+							aria-label={`${removeLabel} ${valueLabel.toLowerCase()}`}
 						>
 							<X size={14} />
 						</Button>

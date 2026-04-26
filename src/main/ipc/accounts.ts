@@ -24,12 +24,7 @@ import {
 	updateFolderSettings,
 } from '@main/db/repositories/mailRepo';
 import {autodiscover, autodiscoverBasic} from '@main/mail/autodiscover';
-import {
-	deleteMailFilter,
-	listMailFilters,
-	runMailFiltersForMessages,
-	upsertMailFilter,
-} from '@main/mail/filterRules';
+import {deleteMailFilter, listMailFilters, runMailFiltersForMessages, upsertMailFilter} from '@main/mail/filterRules';
 import {resolveImapSecurity} from '@main/mail/security';
 import {
 	createServerFolder,
@@ -80,6 +75,7 @@ import {
 	isAccountEmailModuleEnabled,
 } from '@llamamail/app/accountModules';
 import {appEventHandler, AppEvent} from '@llamamail/app/appEventHandler';
+import {__} from '@llamamail/app/i18n/main';
 import {getAppSettingsSync} from '@main/settings/store';
 import {
 	broadcastAccountSyncStatus,
@@ -312,13 +308,17 @@ export function registerAccountIpc(): void {
 		autodiscoverBasic,
 		verifyConnection,
 		testAccountServiceConnection: async (accountId, payload) => {
-			const service = String(payload?.service || '').trim().toLowerCase();
-			const mode = String(payload?.mode || 'authentication').trim().toLowerCase();
+			const service = String(payload?.service || '')
+				.trim()
+				.toLowerCase();
+			const mode = String(payload?.mode || 'authentication')
+				.trim()
+				.toLowerCase();
 			if (service !== 'imap' && service !== 'smtp') {
-				throw new Error('Invalid service. Expected "imap" or "smtp".');
+				throw new Error(__('accounts.error.invalid_service'));
 			}
 			if (mode !== 'connection' && mode !== 'authentication') {
-				throw new Error('Invalid mode. Expected "connection" or "authentication".');
+				throw new Error(__('accounts.error.invalid_mode'));
 			}
 			const hostOverride = String(payload?.host || '').trim() || null;
 			const userOverride = String(payload?.user || '').trim() || null;
@@ -329,9 +329,13 @@ export function registerAccountIpc(): void {
 			if (service === 'imap') {
 				const credentials = await getAccountSyncCredentials(accountId);
 				const host = hostOverride || credentials.imap_host;
-				const port = Number.isFinite(portOverride) && portOverride > 0 ? Math.round(portOverride) : credentials.imap_port;
+				const port =
+					Number.isFinite(portOverride) && portOverride > 0
+						? Math.round(portOverride)
+						: credentials.imap_port;
 				const secure = secureOverride === null ? Number(credentials.imap_secure ?? 1) > 0 : secureOverride;
-				const user = userOverride || String(credentials.imap_user || credentials.user || credentials.email || '').trim();
+				const user =
+					userOverride || String(credentials.imap_user || credentials.user || credentials.email || '').trim();
 				const password =
 					mode === 'authentication'
 						? passwordOverride ||
@@ -353,9 +357,11 @@ export function registerAccountIpc(): void {
 
 			const credentials = await getAccountSendCredentials(accountId);
 			const host = hostOverride || credentials.smtp_host;
-			const port = Number.isFinite(portOverride) && portOverride > 0 ? Math.round(portOverride) : credentials.smtp_port;
+			const port =
+				Number.isFinite(portOverride) && portOverride > 0 ? Math.round(portOverride) : credentials.smtp_port;
 			const secure = secureOverride === null ? Number(credentials.smtp_secure ?? 1) > 0 : secureOverride;
-			const user = userOverride || String(credentials.smtp_user || credentials.user || credentials.email || '').trim();
+			const user =
+				userOverride || String(credentials.smtp_user || credentials.user || credentials.email || '').trim();
 			const password =
 				mode === 'authentication'
 					? passwordOverride ||
@@ -687,7 +693,7 @@ async function runSyncAndBroadcast(
 	}
 	const blockedReason = blockedSyncAccounts.get(accountId);
 	if (blockedReason) {
-		const error = `Sync paused for this account: ${blockedReason}. Update account settings or restart app.`;
+		const error = __('accounts.sync.paused_for_account', {reason: blockedReason});
 		broadcastSync({accountId, status: 'error', error, source, syncError: normalizeProviderSyncError(error)});
 		appEventHandler.emit(AppEvent.AccountSyncFailed, {
 			accountId,
@@ -788,26 +794,26 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 					: {
 							state: 'skipped',
 							reason: emailsEnabled
-								? 'Email sync was not requested.'
-								: 'Email sync is disabled for this account.',
+								? __('accounts.sync.email_not_requested')
+								: __('accounts.sync.email_disabled_for_account'),
 						},
 				contacts: shouldSyncContacts
-					? {state: 'skipped', reason: 'Contacts sync was not executed.'}
+					? {state: 'skipped', reason: __('accounts.sync.contacts_not_executed')}
 					: {
 							state: 'skipped',
 							reason: contactsEnabled
-								? 'Contacts sync was not requested.'
-								: 'Contacts sync is disabled for this account.',
+								? __('accounts.sync.contacts_not_requested')
+								: __('accounts.sync.contacts_disabled_for_account'),
 						},
 				calendar: shouldSyncCalendar
-					? {state: 'skipped', reason: 'Calendar sync was not executed.'}
+					? {state: 'skipped', reason: __('accounts.sync.calendar_not_executed')}
 					: {
 							state: 'skipped',
 							reason: calendarEnabled
-								? 'Calendar sync was not requested.'
-								: 'Calendar sync is disabled for this account.',
+								? __('accounts.sync.calendar_not_requested')
+								: __('accounts.sync.calendar_disabled_for_account'),
 						},
-				files: {state: 'skipped', reason: 'Files sync is not implemented.'},
+				files: {state: 'skipped', reason: __('accounts.sync.files_not_implemented')},
 			};
 			if (shouldSyncEmails) {
 				const emailSyncService = await providerManager.resolveEmailSyncServiceForAccount(accountId);
@@ -824,7 +830,9 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 							message?: unknown;
 						};
 						const source = String(entry.source || '').trim();
-						const level = String(entry.level || '').trim().toLowerCase();
+						const level = String(entry.level || '')
+							.trim()
+							.toLowerCase();
 						if (
 							(source !== 'imap' &&
 								source !== 'smtp' &&
@@ -899,8 +907,8 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 					contacts: {
 						state: 'skipped',
 						reason: contactsEnabled
-							? 'Contacts sync was not requested.'
-							: 'Contacts sync is disabled for this account.',
+							? __('accounts.sync.contacts_not_requested')
+							: __('accounts.sync.contacts_disabled_for_account'),
 					},
 				};
 			}
@@ -910,47 +918,40 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 					calendar: {
 						state: 'skipped',
 						reason: calendarEnabled
-							? 'Calendar sync was not requested.'
-							: 'Calendar sync is disabled for this account.',
+							? __('accounts.sync.calendar_not_requested')
+							: __('accounts.sync.calendar_disabled_for_account'),
 					},
 				};
 			}
 			const contactsDavSummary = contactsAncillarySummary.dav;
 			const calendarDavSummary = calendarAncillarySummary.dav;
-			const discoveredSummary =
-				contactsDavSummary?.discovered ??
-				calendarDavSummary?.discovered ??
-				undefined;
+			const discoveredSummary = contactsDavSummary?.discovered ?? calendarDavSummary?.discovered ?? undefined;
 			const davSummary: DavSyncSummary | undefined = discoveredSummary
 				? {
 						accountId: discoveredSummary.accountId,
 						discovered: discoveredSummary,
-						contacts:
-							contactsDavSummary?.contacts ??
-							{
-								upserted: 0,
-								removed: 0,
-								books: 0,
-							},
-						events:
-							calendarDavSummary?.events ??
-							{
-								upserted: 0,
-								removed: 0,
-								calendars: 0,
-							},
+						contacts: contactsDavSummary?.contacts ?? {
+							upserted: 0,
+							removed: 0,
+							books: 0,
+						},
+						events: calendarDavSummary?.events ?? {
+							upserted: 0,
+							removed: 0,
+							calendars: 0,
+						},
 					}
 				: undefined;
 			if (shouldSyncContacts) {
 				moduleStatus.contacts = contactsAncillarySummary.moduleStatus?.contacts ?? {
 					state: 'skipped',
-					reason: 'Contacts sync was not executed.',
+					reason: __('accounts.sync.contacts_not_executed'),
 				};
 			}
 			if (shouldSyncCalendar) {
 				moduleStatus.calendar = calendarAncillarySummary.moduleStatus?.calendar ?? {
 					state: 'skipped',
-					reason: 'Calendar sync was not executed.',
+					reason: __('accounts.sync.calendar_not_executed'),
 				};
 			}
 			moduleStatus.files =
@@ -1027,7 +1028,7 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 					return;
 				}
 				if (error instanceof ProviderManagerError) {
-					const providerError = `Sync unavailable: ${message}`;
+					const providerError = __('accounts.sync.unavailable', {message});
 					broadcastSync({
 						accountId,
 						status: 'error',
@@ -1056,7 +1057,7 @@ async function runSyncLoop(accountId: number, state: AccountSyncState): Promise<
 					broadcastSync({
 						accountId,
 						status: 'error',
-						error: `Sync paused: ${message}. Password or authentication may have changed. Update account settings or restart app.`,
+						error: __('accounts.sync.paused_credentials', {message}),
 						source,
 						syncError: normalizedError,
 					});
@@ -1120,8 +1121,7 @@ async function maybeDisableEmailSyncForMailboxlessMicrosoftAccount(
 	if (!account || !isAccountEmailModuleEnabled(account)) return null;
 
 	if (!isAccountContactsModuleEnabled(account) && !isAccountCalendarModuleEnabled(account)) {
-		const syncMessage =
-			'Microsoft login succeeded, but this account has no Exchange mailbox. Sync was disabled for this account.';
+		const syncMessage = __('accounts.sync.microsoft_no_mailbox_sync_disabled');
 		blockedSyncAccounts.set(account.id, syncMessage);
 		stopIdleWatcher(account.id);
 		broadcastSync({
@@ -1164,11 +1164,10 @@ async function maybeDisableEmailSyncForMailboxlessMicrosoftAccount(
 		user: account.user,
 	});
 
-	blockedSyncAccounts.set(account.id, 'Microsoft sign-in succeeded, but this account has no Exchange mailbox.');
+	blockedSyncAccounts.set(account.id, __('accounts.sync.microsoft_no_mailbox_signin_succeeded'));
 	stopIdleWatcher(account.id);
 	broadcastToAllWindows('account-updated', updated);
-	const syncMessage =
-		'Email sync was turned off automatically: Microsoft sign-in succeeded, but this account has no Exchange mailbox.';
+	const syncMessage = __('accounts.sync.microsoft_email_sync_turned_off');
 	broadcastSync({
 		accountId: account.id,
 		status: 'error',
@@ -1195,13 +1194,25 @@ async function syncAccountAncillaryInWorker(
 	const effectiveCalendarEnabled = accountCalendarEnabled && requestedCalendarEnabled;
 	const carddavLogger = createMailDebugLogger('carddav', `sync:${accountId}`);
 	const caldavLogger = createMailDebugLogger('caldav', `sync:${accountId}`);
-	const authMethod = String(account?.auth_method || '').trim().toLowerCase() || 'unknown';
-	const provider = String(account?.provider || '').trim().toLowerCase() || 'none';
-	const oauthProvider = String(account?.oauth_provider || '').trim().toLowerCase() || 'none';
+	const authMethod =
+		String(account?.auth_method || '')
+			.trim()
+			.toLowerCase() || 'unknown';
+	const provider =
+		String(account?.provider || '')
+			.trim()
+			.toLowerCase() || 'none';
+	const oauthProvider =
+		String(account?.oauth_provider || '')
+			.trim()
+			.toLowerCase() || 'none';
 	let driverKey = 'unknown';
 	try {
 		const driver = await providerManager.resolveDriverForAccount(accountId);
-		driverKey = String(driver.key() || '').trim().toLowerCase() || 'unknown';
+		driverKey =
+			String(driver.key() || '')
+				.trim()
+				.toLowerCase() || 'unknown';
 	} catch {
 		// Keep unknown driver key when provider resolution fails; sync path below will report actual failure.
 	}
@@ -1233,14 +1244,14 @@ async function syncAccountAncillaryInWorker(
 				contacts: {
 					state: 'skipped',
 					reason: accountContactsEnabled
-						? 'Contacts sync was not requested.'
-						: 'Contacts sync is disabled for this account.',
+						? __('accounts.sync.contacts_not_requested')
+						: __('accounts.sync.contacts_disabled_for_account'),
 				},
 				calendar: {
 					state: 'skipped',
 					reason: accountCalendarEnabled
-						? 'Calendar sync was not requested.'
-						: 'Calendar sync is disabled for this account.',
+						? __('accounts.sync.calendar_not_requested')
+						: __('accounts.sync.calendar_disabled_for_account'),
 				},
 			},
 		};
@@ -1299,7 +1310,7 @@ async function syncAccountAncillaryInWorker(
 				return;
 			}
 			if (data.type === 'error') {
-				finish(() => reject(new Error(data.error || 'Ancillary sync worker failed')));
+				finish(() => reject(new Error(data.error || __('accounts.error.ancillary_worker_failed'))));
 			}
 		});
 
@@ -1310,10 +1321,10 @@ async function syncAccountAncillaryInWorker(
 		worker.on('exit', (code) => {
 			if (settled) return;
 			if (code === 0) {
-				finish(() => reject(new Error('Ancillary sync worker exited without result')));
+				finish(() => reject(new Error(__('accounts.error.ancillary_worker_no_result'))));
 				return;
 			}
-			finish(() => reject(new Error(`Ancillary sync worker exited with code ${code}`)));
+			finish(() => reject(new Error(__('accounts.error.ancillary_worker_exit_code', {code}))));
 		});
 	});
 }
@@ -1358,7 +1369,7 @@ function formatAncillarySyncFailure(result: ProviderAncillarySyncResult): string
 	const reasons = (preferredReasons.length > 0 ? preferredReasons : fallbackReasons).filter(
 		(reason, index, all) => all.indexOf(reason) === index,
 	);
-	return reasons.join(' ').trim() || 'DAV sync was not executed.';
+	return reasons.join(' ').trim() || __('accounts.sync.dav_not_executed');
 }
 
 function broadcastSync(payload: any) {
@@ -1473,13 +1484,13 @@ async function connectIdleWatcher(state: IdleWatcherState): Promise<void> {
 		const account = await driver.resolveSyncCredentials(state.accountId);
 		if (state.stopped) return;
 
-			const probeClient = new ImapFlow({
-				host: account.imap_host,
-				port: account.imap_port,
-				...resolveImapSecurity(account.imap_secure),
-				auth: driver.resolveImapAuth(account),
-				logger: createMailDebugLogger('imap', `idle-probe:${state.accountId}`),
-			});
+		const probeClient = new ImapFlow({
+			host: account.imap_host,
+			port: account.imap_port,
+			...resolveImapSecurity(account.imap_secure),
+			auth: driver.resolveImapAuth(account),
+			logger: createMailDebugLogger('imap', `idle-probe:${state.accountId}`),
+		});
 		let mailboxes: any[] = [];
 		try {
 			await probeClient.connect();
@@ -1556,13 +1567,13 @@ async function connectFolderIdleWatcher(state: IdleWatcherState, folder: FolderI
 		}
 		const account = await driver.resolveSyncCredentials(state.accountId);
 		if (state.stopped) return;
-			const client = new ImapFlow({
-				host: account.imap_host,
-				port: account.imap_port,
-				...resolveImapSecurity(account.imap_secure),
-				auth: driver.resolveImapAuth(account),
-				logger: createMailDebugLogger('imap', `idle:${state.accountId}:${folder.mailboxPath}`),
-			});
+		const client = new ImapFlow({
+			host: account.imap_host,
+			port: account.imap_port,
+			...resolveImapSecurity(account.imap_secure),
+			auth: driver.resolveImapAuth(account),
+			logger: createMailDebugLogger('imap', `idle:${state.accountId}:${folder.mailboxPath}`),
+		});
 
 		client.on('exists', () => {
 			if (state.stopped) return;

@@ -14,6 +14,7 @@ import {
 } from './validation';
 import type {DavSyncOptions} from '@llamamail/app/ipcTypes';
 import {appEventHandler, AppEvent} from '@llamamail/app/appEventHandler';
+import {__} from '@llamamail/app/i18n/main';
 
 type ExportContactsPayload = {
 	format: 'csv' | 'vcf';
@@ -205,9 +206,12 @@ export function registerDavIpc(deps: DavIpcDeps): void {
 		const defaultName = `contacts-${new Date().toISOString().slice(0, 10)}.${format}`;
 		const parentWindow = BrowserWindow.fromWebContents(event.sender);
 		const dialogOptions = {
-			title: 'Export Contacts',
+			title: __('dav.export_contacts.title'),
 			defaultPath: path.join(os.homedir(), defaultName),
-			filters: format === 'vcf' ? [{name: 'vCard', extensions: ['vcf']}] : [{name: 'CSV', extensions: ['csv']}],
+			filters:
+				format === 'vcf'
+					? [{name: __('dav.export_contacts.filter_vcard'), extensions: ['vcf']}]
+					: [{name: __('dav.export_contacts.filter_csv'), extensions: ['csv']}],
 		};
 		const save = parentWindow
 			? await dialog.showSaveDialog(parentWindow, dialogOptions)

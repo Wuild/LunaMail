@@ -8,6 +8,7 @@ import {
 	updateOauthContactForAccount,
 } from './oauthContactsRuntime';
 import type {DavSyncOptions} from '@llamamail/app/ipcTypes';
+import {__} from '@llamamail/app/i18n/main';
 import type {ModuleLogger} from './runtimeContracts';
 
 type DavSyncDependencies = {
@@ -41,7 +42,7 @@ type DavSyncDependencies = {
 };
 
 const notConfigured = () => {
-	throw new Error('DAV sync runtime dependencies are not configured.');
+	throw new Error(__('dav.sync.error.runtime_dependencies_not_configured'));
 };
 
 let getAccountSyncCredentials: DavSyncDependencies['getAccountSyncCredentials'] = notConfigured as any;
@@ -201,7 +202,7 @@ export async function discoverDavPreview(payload: DavDiscoveryPreviewPayload): P
 		imapHost: String(payload.imapHost || '').trim(),
 	};
 	if (!baseCreds.email || !baseCreds.user || !baseCreds.password || !baseCreds.imapHost) {
-		throw new Error('Missing DAV preview credentials');
+		throw new Error(__('dav.sync.error.missing_preview_credentials'));
 	}
 	const carddavCreds: DavCredentials = {
 		...baseCreds,
@@ -221,7 +222,11 @@ export async function discoverDavPreview(payload: DavDiscoveryPreviewPayload): P
 		carddavCreds.email,
 		carddavCreds.imapHost,
 	);
-	caldavLogger.debug('Starting CalDAV preview discovery email=%s imapHost=%s', caldavCreds.email, caldavCreds.imapHost);
+	caldavLogger.debug(
+		'Starting CalDAV preview discovery email=%s imapHost=%s',
+		caldavCreds.email,
+		caldavCreds.imapHost,
+	);
 
 	const carddavUrl = await discoverHomeUrl(carddavCreds, null, 'carddav', 'addressbook-home-set', carddavLogger);
 	const caldavUrl = await discoverHomeUrl(caldavCreds, null, 'caldav', 'calendar-home-set', caldavLogger);
@@ -255,7 +260,7 @@ export async function syncDav(accountId: number, options?: DavSyncOptions | null
 	}
 	const accountCreds = await getAccountSyncCredentials(accountId);
 	if (accountCreds.auth_method === 'oauth2') {
-		throw new Error('DAV sync does not support OAuth accounts. Use provider ancillary sync service instead.');
+		throw new Error(__('dav.sync.error.oauth_not_supported_use_ancillary'));
 	}
 	const saved = getDavSettings(accountId);
 	const discovered =
@@ -302,7 +307,7 @@ export async function syncDav(accountId: number, options?: DavSyncOptions | null
 			accountId,
 			books.length > 0
 				? books.map((book) => ({remoteUrl: book.url, name: book.name ?? null}))
-				: [{remoteUrl: discovered.carddavUrl, name: 'Contacts'}],
+				: [{remoteUrl: discovered.carddavUrl, name: __('dav.sync.contacts_default_address_book')}],
 		);
 		const contacts = await pullContacts(carddavCreds, sourceBooks, carddavLogger);
 		const persisted = upsertContacts(
@@ -458,7 +463,7 @@ export async function editContact(
 	},
 ) {
 	const current = getContactById(contactId);
-	if (!current) throw new Error('Contact not found.');
+	if (!current) throw new Error(__('dav.sync.error.contact_not_found'));
 	if (current.source.startsWith('local:')) {
 		return updateLocalContact(contactId, payload);
 	}
@@ -467,7 +472,7 @@ export async function editContact(
 			await updateOauthContactForAccount(current, payload);
 			return updateExternalContact(contactId, payload);
 		}
-		throw new Error('This contact source is read-only.');
+		throw new Error(__('dav.sync.error.contact_source_read_only'));
 	}
 
 	return await editCardDavContact(current, payload);
@@ -484,7 +489,7 @@ export async function removeContact(contactId: number) {
 			await deleteOauthContactForAccount(current);
 			return deleteContactById(contactId);
 		}
-		throw new Error('This contact source is read-only.');
+		throw new Error(__('dav.sync.error.contact_source_read_only'));
 	}
 	return await removeCardDavContact(current);
 }
@@ -590,10 +595,10 @@ async function editGoogleCalendarEvent(
 	},
 ) {
 	const oauthContext = await resolveOauthContactContext(current.account_id, 'google');
-	if (!oauthContext) throw new Error('Google OAuth session missing for calendar update. Reconnect this account.');
+	if (!oauthContext) throw new Error(__('dav.sync.error.google_oauth_session_missing_calendar_update'));
 	const calendarId = parseGoogleCalendarId(current.calendar_url, current.raw_ics);
 	const eventId = parseGoogleEventId(current.uid, current.raw_ics);
-	if (!eventId) throw new Error('Google event id is missing. Please sync calendar and try again.');
+	if (!eventId) throw new Error(__('dav.sync.error.google_event_id_missing_sync_calendar'));
 	const metadata = parseGoogleCalendarMetadata(current.raw_ics);
 	const updated = await googleCalendarRuntime.update(oauthContext.accessToken, {
 		calendarId,
@@ -640,10 +645,10 @@ async function removeGoogleCalendarEvent(current: {
 	};
 
 	const oauthContext = await resolveOauthContactContext(current.account_id, 'google');
-	if (!oauthContext) throw new Error('Google OAuth session missing for calendar deletion. Reconnect this account.');
+	if (!oauthContext) throw new Error(__('dav.sync.error.google_oauth_session_missing_calendar_delete'));
 	const calendarId = parseGoogleCalendarId(current.calendar_url, current.raw_ics);
 	const eventId = parseGoogleEventId(current.uid, current.raw_ics);
-	if (!eventId) throw new Error('Google event id is missing. Please sync calendar and try again.');
+	if (!eventId) throw new Error(__('dav.sync.error.google_event_id_missing_sync_calendar'));
 	try {
 		await googleCalendarRuntime.delete(oauthContext.accessToken, {
 			calendarId,
@@ -671,7 +676,9 @@ export async function addCalendarEvent(
 		return await createGoogleCalendarEvent(accountId, payload, oauthContext.accessToken);
 	}
 	if (oauthContext?.provider) {
-		throw new Error(`Calendar editing via ${oauthContext.provider} OAuth is not supported yet.`);
+		throw new Error(
+			__('dav.sync.error.calendar_edit_oauth_provider_not_supported', {provider: oauthContext.provider}),
+		);
 	}
 	return createCalDavEvent(accountId, payload);
 }
@@ -687,7 +694,7 @@ export async function editCalendarEvent(
 	},
 ) {
 	const current = getCalendarEventById(eventId);
-	if (!current) throw new Error('Calendar event not found.');
+	if (!current) throw new Error(__('dav.sync.error.calendar_event_not_found'));
 	if (current.source === 'local') {
 		return updateLocalCalendarEvent(eventId, payload);
 	}
@@ -695,7 +702,7 @@ export async function editCalendarEvent(
 		return await editGoogleCalendarEvent(current, payload);
 	}
 	if (current.source !== 'caldav') {
-		throw new Error('This calendar source is read-only.');
+		throw new Error(__('dav.sync.error.calendar_source_read_only'));
 	}
 	return editCalDavEvent(current, payload);
 }
@@ -710,7 +717,7 @@ export async function removeCalendarEvent(eventId: number) {
 		return await removeGoogleCalendarEvent(current);
 	}
 	if (current.source !== 'caldav') {
-		throw new Error('This calendar source is read-only.');
+		throw new Error(__('dav.sync.error.calendar_source_read_only'));
 	}
 	return removeCalDavEvent(current);
 }
@@ -719,10 +726,7 @@ async function resolveCredentials(accountId: number, protocol: DavProtocol): Pro
 	const creds = await getAccountSyncCredentials(accountId);
 	if (creds.auth_method === 'oauth2') {
 		const providerLabel = creds.oauth_provider ? `${creds.oauth_provider}` : 'selected provider';
-		throw new Error(
-			`Calendar and contacts sync via ${providerLabel} OAuth is not supported yet. ` +
-				`Use account/app password DAV credentials for now, or report this on GitHub: https://github.com/wuild/LlamaMail/issues`,
-		);
+		throw new Error(__('dav.sync.error.oauth_dav_credentials_required', {providerLabel}));
 	}
 	const protocolUser =
 		protocol === 'carddav'
@@ -733,7 +737,7 @@ async function resolveCredentials(accountId: number, protocol: DavProtocol): Pro
 			? String(creds.carddav_password || creds.password || '').trim()
 			: String(creds.caldav_password || creds.password || '').trim();
 	if (!protocolUser || !protocolPassword) {
-		throw new Error(`${protocol.toUpperCase()} sync requires username and password credentials.`);
+		throw new Error(__('dav.sync.error.protocol_requires_user_password', {protocol: protocol.toUpperCase()}));
 	}
 	return {
 		email: creds.email,
@@ -900,7 +904,7 @@ async function resolveHomeFromEntry(
 	const baseUrl = probe.url || entryUrl;
 	logger?.debug('Probe %s -> status=%d resolved=%s', entryUrl, probe.status, baseUrl);
 	if (isWellKnownCandidate(entryUrl) && probe.url === entryUrl && probe.status >= 400) {
-		throw new Error(`Well-known endpoint unavailable (${probe.status})`);
+		throw new Error(__('dav.sync.error.well_known_endpoint_unavailable', {status: probe.status}));
 	}
 
 	const body = `<?xml version="1.0" encoding="utf-8" ?>
@@ -1162,7 +1166,7 @@ async function davRequest(
 	});
 	if (!response.ok && response.status !== 207) {
 		logger?.error('DAV request failed method=%s status=%d url=%s', method, response.status, url);
-		throw new Error(`DAV ${method} failed (${response.status}) for ${url}`);
+		throw new Error(__('dav.sync.error.dav_request_failed', {method, status: response.status, url}));
 	}
 	logger?.debug('DAV request ok method=%s status=%d depth=%s url=%s', method, response.status, depth, url);
 	return await response.text();
@@ -1184,7 +1188,7 @@ async function putCardDavContact(creds: DavCredentials, url: string, vcard: stri
 		body: vcard,
 	});
 	if (!response.ok && response.status !== 201 && response.status !== 204) {
-		throw new Error(`CardDAV PUT failed (${response.status}) for ${url}`);
+		throw new Error(__('dav.sync.error.carddav_put_failed', {status: response.status, url}));
 	}
 	const etag = response.headers.get('etag');
 	return etag ? etag.trim() : null;
@@ -1210,7 +1214,7 @@ async function putCalDavEvent(
 		body: ics,
 	});
 	if (!response.ok && response.status !== 201 && response.status !== 204) {
-		throw new Error(`CalDAV PUT failed (${response.status}) for ${url}`);
+		throw new Error(__('dav.sync.error.caldav_put_failed', {status: response.status, url}));
 	}
 	const nextEtag = response.headers.get('etag');
 	return nextEtag ? nextEtag.trim() : null;
@@ -1230,7 +1234,7 @@ async function deleteCardDavContact(creds: DavCredentials, url: string, etag?: s
 	});
 	if (response.status === 404) return;
 	if (!response.ok && response.status !== 204) {
-		throw new Error(`CardDAV DELETE failed (${response.status}) for ${url}`);
+		throw new Error(__('dav.sync.error.carddav_delete_failed', {status: response.status, url}));
 	}
 }
 
@@ -1248,7 +1252,7 @@ async function deleteCalDavEvent(creds: DavCredentials, url: string, etag?: stri
 	});
 	if (response.status === 404) return;
 	if (!response.ok && response.status !== 204) {
-		throw new Error(`CalDAV DELETE failed (${response.status}) for ${url}`);
+		throw new Error(__('dav.sync.error.caldav_delete_failed', {status: response.status, url}));
 	}
 }
 
@@ -1383,7 +1387,7 @@ async function editCardDavContact(
 			}
 		: await discoverDav(current.account_id);
 	if (!discovered.carddavUrl) {
-		throw new Error('No CardDAV endpoint discovered for this account.');
+		throw new Error(__('dav.sync.error.no_carddav_endpoint_for_account'));
 	}
 
 	const creds = await resolveCredentials(current.account_id, 'carddav');
@@ -1406,7 +1410,7 @@ async function editCardDavContact(
 	);
 	const cardUrl = existingCardUrlByUid || existingCardUrlByCurrentEmail || existingCardUrlByNextEmail;
 	if (!cardUrl) {
-		throw new Error('Could not locate remote CardDAV contact to update. Please sync contacts and try again.');
+		throw new Error(__('dav.sync.error.remote_carddav_contact_not_found_sync_contacts'));
 	}
 
 	const cardBody = buildVCard({
@@ -1450,7 +1454,7 @@ async function removeCardDavContact(current: {
 			}
 		: await discoverDav(current.account_id);
 	if (!discovered.carddavUrl) {
-		throw new Error('No CardDAV endpoint discovered for this account.');
+		throw new Error(__('dav.sync.error.no_carddav_endpoint_for_account'));
 	}
 
 	const creds = await resolveCredentials(current.account_id, 'carddav');
@@ -1502,13 +1506,13 @@ async function createCalDavEvent(
 	const startsAt = String(payload.startsAt || '').trim();
 	const endsAt = String(payload.endsAt || '').trim();
 	if (!startsAt || Number.isNaN(Date.parse(startsAt))) {
-		throw new Error('Event start date/time is required.');
+		throw new Error(__('dav.sync.error.event_start_required'));
 	}
 	if (!endsAt || Number.isNaN(Date.parse(endsAt))) {
-		throw new Error('Event end date/time is required.');
+		throw new Error(__('dav.sync.error.event_end_required'));
 	}
 	if (Date.parse(endsAt) < Date.parse(startsAt)) {
-		throw new Error('Event end must be after start.');
+		throw new Error(__('dav.sync.error.event_end_after_start'));
 	}
 
 	const creds = await resolveCredentials(accountId, 'caldav');
@@ -1573,19 +1577,19 @@ async function editCalDavEvent(
 			}
 		: await discoverDav(current.account_id);
 	if (!discovered.caldavUrl) {
-		throw new Error('No CalDAV endpoint discovered for this account.');
+		throw new Error(__('dav.sync.error.no_caldav_endpoint_for_account'));
 	}
 
 	const startsAt = String(payload.startsAt || '').trim();
 	const endsAt = String(payload.endsAt || '').trim();
 	if (!startsAt || Number.isNaN(Date.parse(startsAt))) {
-		throw new Error('Event start date/time is required.');
+		throw new Error(__('dav.sync.error.event_start_required'));
 	}
 	if (!endsAt || Number.isNaN(Date.parse(endsAt))) {
-		throw new Error('Event end date/time is required.');
+		throw new Error(__('dav.sync.error.event_end_required'));
 	}
 	if (Date.parse(endsAt) < Date.parse(startsAt)) {
-		throw new Error('Event end must be after start.');
+		throw new Error(__('dav.sync.error.event_end_after_start'));
 	}
 
 	const creds = await resolveCredentials(current.account_id, 'caldav');
@@ -1593,7 +1597,7 @@ async function editCalDavEvent(
 	const sourceCalendars = calendars.length > 0 ? calendars : [discovered.caldavUrl];
 	const eventUrl = await findCalDavEventUrl(creds, sourceCalendars, current.uid, logger);
 	if (!eventUrl) {
-		throw new Error('Could not locate remote CalDAV event to update. Please sync calendar and try again.');
+		throw new Error(__('dav.sync.error.remote_caldav_event_not_found_sync_calendar'));
 	}
 
 	const summary = payload.summary === undefined ? current.summary : payload.summary;
@@ -1632,7 +1636,7 @@ async function removeCalDavEvent(current: {id: number; account_id: number; uid: 
 			}
 		: await discoverDav(current.account_id);
 	if (!discovered.caldavUrl) {
-		throw new Error('No CalDAV endpoint discovered for this account.');
+		throw new Error(__('dav.sync.error.no_caldav_endpoint_for_account'));
 	}
 
 	const creds = await resolveCredentials(current.account_id, 'caldav');
@@ -2105,13 +2109,13 @@ function buildCalDavEventIcs(payload: {
 	const startsAt = new Date(payload.startsAt);
 	const endsAt = new Date(payload.endsAt);
 	if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-		throw new Error('Invalid event date/time.');
+		throw new Error(__('dav.sync.error.invalid_event_datetime'));
 	}
 	const now = new Date();
 	const dtStamp = toCalDavDate(now);
 	const dtStart = toCalDavDate(startsAt);
 	const dtEnd = toCalDavDate(endsAt);
-	const summary = toIcsText(payload.summary) || 'Untitled Event';
+	const summary = toIcsText(payload.summary) || __('dav.sync.untitled_event');
 	const description = toIcsText(payload.description);
 	const location = toIcsText(payload.location);
 	const lines = [

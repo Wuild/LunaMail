@@ -9,6 +9,7 @@ import {
 	createAppWindow,
 	createFramelessAppWindow,
 } from './windowFactory';
+import {__} from '@llamamail/app/i18n/main';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -38,7 +39,7 @@ export function openDebugWindow(): void {
 		minWidth: 760,
 		minHeight: 560,
 		maximizable: true,
-		title: 'Debug Console',
+		title: __('app.title.debug_console'),
 		webPreferences: buildSecureWebPreferences({preloadPath}),
 	});
 	attachWindowShortcuts(debugWin, {closeOnEscape: true});

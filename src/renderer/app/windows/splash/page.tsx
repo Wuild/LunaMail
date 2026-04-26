@@ -4,8 +4,10 @@ import llamaLogo from '@resource/llamarun.png';
 import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {SPLASH_BOOT_AUTO_UPDATE_STATE} from '@renderer/lib/autoUpdateState';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 export default function SplashScreenPage() {
+	const {t} = useI18n();
 	const [state, setState] = useState<AutoUpdateState>(SPLASH_BOOT_AUTO_UPDATE_STATE);
 
 	useEffect(() => {
@@ -19,7 +21,7 @@ export default function SplashScreenPage() {
 		setState(next);
 	});
 
-	const progressText = getProgressText(state);
+	const progressText = getProgressText(state, t);
 	const isDownloading = state.phase === 'downloading';
 
 	return (
@@ -46,17 +48,17 @@ export default function SplashScreenPage() {
 	);
 }
 
-function getProgressText(state: AutoUpdateState): string {
+function getProgressText(state: AutoUpdateState, t: (key: string, params?: Record<string, string | number>) => string): string {
 	if (state.phase === 'downloading') {
-		return `Downloading update ${Math.round(state.percent ?? 0)}%`;
+		return t('splash.progress.downloading_update_percent', {percent: Math.round(state.percent ?? 0)});
 	}
-	if (state.phase === 'checking') return 'Checking for updates';
-	if (state.phase === 'available') return 'Update found';
-	if (state.phase === 'downloaded') return 'Download complete';
-	if (state.phase === 'not-available') return 'You are up to date';
-	if (state.phase === 'disabled') return 'Updater disabled';
-	if (state.phase === 'error') return 'Update failed, continuing startup';
-	return state.message || 'Preparing application';
+	if (state.phase === 'checking') return t('splash.progress.checking_for_updates');
+	if (state.phase === 'available') return t('splash.progress.update_found');
+	if (state.phase === 'downloaded') return t('splash.progress.download_complete');
+	if (state.phase === 'not-available') return t('splash.progress.up_to_date');
+	if (state.phase === 'disabled') return t('splash.progress.updater_disabled');
+	if (state.phase === 'error') return t('splash.progress.update_failed_continuing');
+	return state.message || t('splash.progress.preparing_application');
 }
 
 function resolveProgress(state: AutoUpdateState): number {

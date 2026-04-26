@@ -1,0 +1,209 @@
+{
+	"cloud_page": {
+		"title": "Cloud Files",
+		"accounts": {
+			"title": "Cloud Accounts",
+			"add": "Add cloud account",
+			"none": "No cloud accounts yet.",
+			"refresh": "Refresh account",
+			"actions": "Account actions",
+			"collapse_drives": "Collapse drives",
+			"expand_drives": "Expand drives"
+		},
+		"selection": {
+			"selected_count": "{{count}} selected"
+		},
+		"action": {
+			"clear": "Clear",
+			"new_folder": "New Folder",
+			"upload": "Upload",
+			"go_back": "Go back",
+			"actions": "Actions",
+			"actions_for": "Actions for {{name}}",
+			"close_details": "Close details",
+			"open": "Open",
+			"download": "Download",
+			"share": "Share",
+			"delete": "Delete",
+			"view": "View",
+			"open_in_new_window": "Open in new window",
+			"refresh": "Refresh",
+			"reconnect_account": "Reconnect account",
+			"edit_account": "Edit account",
+			"delete_account": "Delete account",
+			"cancel": "Cancel",
+			"connect_oauth": "Connect with OAuth",
+			"save": "Save",
+			"create": "Create",
+			"close": "Close",
+			"copy_link": "Copy link"
+		},
+		"table": {
+			"column_options": "Table column options",
+			"columns": "Table Columns",
+			"reset_columns": "Reset Columns",
+			"folder": "Folder",
+			"file": "File",
+			"folder_lc": "folder",
+			"file_lc": "file",
+			"parent": "Parent"
+		},
+		"field": {
+			"type": "Type",
+			"size": "Size",
+			"modified": "Modified",
+			"created": "Created",
+			"path": "Path",
+			"provider": "Provider",
+			"account_name": "Account name",
+			"webdav_url": "WebDAV URL",
+			"username": "Username",
+			"secret_password": "Password / app token",
+			"secret_optional": "Secret (optional)",
+			"folder_name": "Folder name"
+		},
+		"placeholder": {
+			"personal_drive": "Personal Drive",
+			"webdav_url": "https://cloud.example.com/remote.php/dav/files/username/",
+			"username": "username",
+			"app_password": "App password",
+			"leave_secret_unchanged": "Leave empty to keep unchanged",
+			"new_folder": "New folder"
+		},
+		"provider": {
+			"nextcloud_webdav": "Nextcloud (WebDAV)",
+			"generic_webdav": "Generic WebDAV",
+			"google_drive_oauth": "Google Drive (OAuth)",
+			"onedrive_oauth": "OneDrive (OAuth)",
+			"google_drive": "Google Drive",
+			"onedrive": "OneDrive"
+		},
+		"modal": {
+			"add_account": {
+				"title": "Add Cloud Account",
+				"subtitle": "Connect WebDAV directly, or use OAuth for Google Drive/OneDrive.",
+				"oauth_hint": "This will open a browser window for OAuth sign-in.",
+				"oauth_waiting": "Waiting for OAuth in your browser. Finish sign-in to continue."
+			},
+			"edit_account": {
+				"title": "Edit Cloud Account",
+				"subtitle": "Update account details. Leave secret empty to keep current one."
+			},
+			"create_folder": {
+				"title": "Create Folder"
+			},
+			"share_link": {
+				"title": "Share Link"
+			}
+		},
+		"empty": {
+			"add_account_to_browse": "Add an account to browse cloud files.",
+			"no_files": "No files"
+		},
+		"confirm": {
+			"delete_item": "Delete {{label}} \"{{name}}\"?",
+			"delete_account": "Delete cloud account \"{{name}}\"?"
+		},
+		"notification": {
+			"deleting_title": "Deleting {{name}}",
+			"removing_item": "Removing item from list...",
+			"sending_delete_request": "Sending delete request...",
+			"checking_remote_status": "Checking remote status...",
+			"refreshing_folder": "Refreshing folder...",
+			"delete_requested_syncing": "Delete requested; sync is still in progress.",
+			"delete_complete": "Delete complete."
+		},
+		"status": {
+			"ready": "Ready",
+			"loading": "Loading...",
+			"loading_storage": "Loading storage...",
+			"loading_cloud_files": "Loading cloud files...",
+			"loading_folder": "Loading folder...",
+			"loaded_items": "Loaded {{count}} items.",
+			"sync_paused_reconnect": "Sync paused for {{name}}. Reconnect this account to resume sync.",
+			"storage_check_paused": "Storage check paused: {{message}}. Reconnect this account to resume sync.",
+			"load_failed_paused": "Load failed: {{message}}. Sync paused until this account is reconnected.",
+			"load_failed": "Load failed: {{message}}",
+			"opening_label": "Opening {{label}}...",
+			"moving_items": "Moving {{count}} items...",
+			"moved_items": "Moved {{count}} items.",
+			"move_failed": "Move failed: {{error}}",
+			"creating_folder": "Creating folder...",
+			"folder_created": "Folder \"{{name}}\" created.",
+			"create_folder_failed": "Create folder failed: {{error}}",
+			"uploading_files": "Uploading files...",
+			"upload_cancelled": "Upload cancelled.",
+			"uploaded_files": "Uploaded {{count}} files.",
+			"upload_failed": "Upload failed: {{error}}",
+			"deleting_label": "Deleting {{label}}...",
+			"item_deleted": "{{name}} deleted.",
+			"delete_requested_syncing_name": "Delete requested for {{name}}; sync is still in progress.",
+			"delete_failed": "Delete failed: {{error}}",
+			"opening_external_app": "Opening {{name}} in external app...",
+			"opened_name": "Opened {{name}}.",
+			"open_failed": "Open failed: {{error}}",
+			"downloading_name": "Downloading {{name}}...",
+			"download_cancelled": "Download cancelled.",
+			"saved_name": "Saved {{name}}.",
+			"download_failed": "Download failed: {{error}}",
+			"generating_share_link": "Generating share link for {{name}}...",
+			"share_link_ready": "Share link ready.",
+			"share_failed": "Share failed: {{error}}",
+			"adding_account": "Adding cloud account...",
+			"opening_oauth": "Opening {{provider}} OAuth...",
+			"account_connected": "{{provider}} account connected: {{name}}.",
+			"account_added": "Cloud account added.",
+			"add_failed": "Add failed: {{error}}",
+			"deleting_account": "Deleting cloud account...",
+			"account_deleted": "Cloud account deleted.",
+			"refreshing_name": "Refreshing {{name}}...",
+			"opening_signin": "Opening {{provider}} sign-in...",
+			"account_reconnected": "{{provider}} account reconnected.",
+			"reconnect_failed": "Reconnect failed: {{error}}",
+			"saving_account": "Saving cloud account...",
+			"account_updated": "Cloud account updated.",
+			"update_failed": "Update failed: {{error}}",
+			"share_copied": "Share link copied to clipboard.",
+			"copy_failed": "Copy failed: {{error}}",
+			"adding": "Adding...",
+			"saving": "Saving...",
+			"deleting": "Deleting...",
+			"reconnecting": "Reconnecting...",
+			"opening_folder": "Opening folder...",
+			"opening_parent_folder": "Opening parent folder..."
+		},
+		"error": {
+			"unknown": "Unknown error"
+		}
+	},
+	"cloud": {
+		"default_item_name": "cloud-item",
+		"default_attachment_name": "cloud-attachment",
+		"file_type_label": "cloud file",
+		"dialog": {
+			"upload_title": "Upload files to cloud",
+			"save_title": "Save cloud file"
+		},
+		"error": {
+			"oauth_linking_supported_providers": "OAuth linking is only supported for Google Drive and OneDrive.",
+			"oauth_relinking_supported_providers": "OAuth relinking is only supported for Google Drive and OneDrive accounts.",
+			"google_token_exchange_failed": "Google OAuth token exchange failed ({{status}}).",
+			"google_no_access_token": "Google OAuth response did not include an access token.",
+			"onedrive_token_exchange_failed": "OneDrive OAuth token exchange failed ({{status}}).",
+			"onedrive_no_access_token": "OneDrive OAuth response did not include an access token.",
+			"oauth_callback_no_code": "OAuth callback did not return a code.",
+			"oauth_callback_missing_code": "OAuth callback did not include a code.",
+			"oauth_state_mismatch": "OAuth state mismatch.",
+			"oauth_authorization_failed": "OAuth authorization failed.",
+			"oauth_login_timed_out": "OAuth login timed out. Please try again.",
+			"oauth_listener_start_failed": "Could not start OAuth callback listener."
+		},
+		"http": {
+			"not_found": "Not found",
+			"state_mismatch_close_tab": "State mismatch. You can close this tab.",
+			"authentication_failed_close_tab": "Authentication failed. You can close this tab.",
+			"missing_authorization_code_close_tab": "Missing authorization code. You can close this tab.",
+			"account_linked_close_tab": "{{app}} account linked successfully. You can close this tab."
+		}
+	}
+}

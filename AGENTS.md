@@ -459,7 +459,6 @@ Use this as the default process for all future development work.
 
 Run these locally for refactors/features:
 
-- `npm run check:architecture`
 - `npm run test:unit`
 - `npm run build`
 
@@ -472,7 +471,7 @@ Also update:
 - Unit tests live under `src/tests/` and should target extracted pure logic first.
 - Integration contract tests should validate preload ↔ main IPC channel parity and critical event wiring.
 - Keep `.github/pull_request_template.md` requirements satisfied.
-- Keep `.github/workflows/quality.yml` green (architecture checks, unit tests, build).
+- Keep `.github/workflows/quality.yml` green (unit tests, i18n checks, build).
 
 ---
 

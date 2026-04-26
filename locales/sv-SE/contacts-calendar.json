@@ -1,0 +1,204 @@
+{
+	"contacts_page": {
+		"status": {
+			"ready": "Kontakter klara",
+			"saving_contact": "Sparar kontakt...",
+			"contact_saved": "Kontakt sparad.",
+			"contact_added": "{{name}} tillagd",
+			"address_book_created": "Adressbok \"{{name}}\" skapad",
+			"export_cancelled": "Export avbruten",
+			"exported_contacts": "Exporterade {{count}} kontakter",
+			"synced": "Kontakter synkade",
+			"saving": "Sparar...",
+			"creating": "Skapar...",
+			"exporting": "Exporterar..."
+		},
+		"error": {
+			"enter_valid_email": "Ange minst en giltig e-postadress.",
+			"delete_local_only": "Endast lokala adressböcker kan tas bort."
+		},
+		"confirm": {
+			"delete_contact": "Ta bort kontakt \"{{name}}\"?",
+			"delete_address_book": "Ta bort adressbok \"{{name}}\"?"
+		},
+		"placeholder": {
+			"contact": "Kontakt",
+			"no_name": "(Inget namn)",
+			"full_name": "Jane Doe",
+			"email": "jane@domain.com",
+			"phone": "+46 70 123 45 67",
+			"organization": "Acme Inc.",
+			"title": "Sales Manager",
+			"address_book_name": "Personal"
+		},
+		"accounts": {
+			"title": "Konton",
+			"sync_account": "Synka konto",
+			"edit_account": "Redigera konto",
+			"add_account": "Lägg till konto"
+		},
+		"address_book": {
+			"all": "Alla adressböcker",
+			"create": "Skapa adressbok",
+			"delete": "Ta bort adressbok",
+			"none": "Ingen adressbok"
+		},
+		"contact": {
+			"add": "Lägg till kontakt",
+			"view": "Visa kontakt",
+			"edit": "Redigera kontakt",
+			"delete": "Ta bort kontakt",
+			"read_only": "Denna kontaktkälla är skrivskyddad",
+			"read_only_source": "Skrivskyddad källa",
+			"extra_emails": " (+{{count}} till)"
+		},
+		"export": {
+			"title": "Exportera kontakter",
+			"action": "Exportera",
+			"format": "Filformat",
+			"format_csv": "CSV (.csv)",
+			"format_vcard": "vCard (.vcf)",
+			"scope": "Omfattning",
+			"scope_selected": "Nuvarande bok",
+			"scope_all": "Alla böcker"
+		},
+		"search": {
+			"placeholder": "Sök kontakter...",
+			"loading": "Laddar kontakter...",
+			"no_contacts": "Inga kontakter hittades."
+		},
+		"modal": {
+			"add_contact": {
+				"title": "Lägg till kontakt",
+				"subtitle": "Skapa en kontakt för valt konto.",
+				"close_aria": "Stäng modal för att lägga till kontakt"
+			},
+			"edit_contact": {
+				"title": "Redigera kontakt",
+				"close_aria": "Stäng modal för redigera kontakt"
+			},
+			"view_contact": {
+				"title": "Visa kontakt"
+			},
+			"create_address_book": {
+				"title": "Skapa adressbok",
+				"subtitle": "Lokala adressböcker kan användas för att organisera manuella kontakter.",
+				"close_aria": "Stäng modal för skapa adressbok"
+			},
+			"export_contacts": {
+				"title": "Exportera kontakter",
+				"close_aria": "Stäng modal för exportera kontakter"
+			}
+		},
+		"action": {
+			"close": "Stäng",
+			"cancel": "Avbryt",
+			"save_contact": "Spara kontakt",
+			"save_changes": "Spara ändringar",
+			"create": "Skapa",
+			"add": "Lägg till",
+			"remove": "Ta bort"
+		},
+		"field": {
+			"full_name": "Fullständigt namn",
+			"emails": "E-postadresser",
+			"email": "E-post",
+			"phone_numbers": "Telefonnummer",
+			"phone": "Telefon",
+			"organization": "Organisation",
+			"title": "Titel",
+			"address_book": "Adressbok",
+			"notes": "Anteckningar",
+			"name": "Namn"
+		}
+	},
+	"calendar_page": {
+		"status": {
+			"ready": "Kalender klar",
+			"synced": "Kalender synkad",
+			"saving": "Sparar...",
+			"deleting": "Tar bort..."
+		},
+		"error": {
+			"invalid_start_end": "Ange ett giltigt start- och slutdatum/en tid.",
+			"shared_read_only": "Delade händelser är skrivskyddade i LunaMail."
+		},
+		"accounts": {
+			"title": "Konton",
+			"sync_account": "Synka konto",
+			"edit_account": "Redigera konto",
+			"add_account": "Lägg till konto"
+		},
+		"toolbar": {
+			"previous_month": "Föregående månad",
+			"previous_week": "Föregående vecka",
+			"next_month": "Nästa månad",
+			"next_week": "Nästa vecka",
+			"today": "Idag",
+			"month": "Månad",
+			"week": "Vecka",
+			"show_shared_events": "Visa delade händelser",
+			"hide_shared_events": "Dölj delade händelser",
+			"shared_hidden": "Delade dolda",
+			"hide_shared": "Dölj delade",
+			"add_event": "Lägg till händelse"
+		},
+		"weekday": {
+			"mon": "Mån",
+			"tue": "Tis",
+			"wed": "Ons",
+			"thu": "Tor",
+			"fri": "Fre",
+			"sat": "Lör",
+			"sun": "Sön"
+		},
+		"placeholder": {
+			"no_title": "(Ingen titel)",
+			"team_sync": "Teamsynk",
+			"conference_room": "Konferensrum"
+		},
+		"more_events": "+{{count}} till",
+		"label": {
+			"time": "Tid",
+			"owner": "Ägare"
+		},
+		"context": {
+			"view_all_events": "Visa alla händelser ({{count}})",
+			"new_event_on_day": "Ny händelse denna dag"
+		},
+		"shared_read_only_hint": "Delade händelser är skrivskyddade (ingen redigering eller borttagning).",
+		"action": {
+			"edit": "Redigera",
+			"delete": "Ta bort",
+			"close": "Stäng",
+			"cancel": "Avbryt",
+			"save_changes": "Spara ändringar",
+			"save_event": "Spara händelse"
+		},
+		"day_modal": {
+			"events_on": "Händelser {{day}}",
+			"no_events": "Inga händelser denna dag."
+		},
+		"modal": {
+			"edit_event": {
+				"title": "Redigera händelse",
+				"close_aria": "Stäng modal för redigera händelse"
+			},
+			"add_event": {
+				"title": "Lägg till händelse",
+				"close_aria": "Stäng modal för lägg till händelse"
+			}
+		},
+		"field": {
+			"title": "Titel",
+			"start": "Starttid",
+			"end": "Slut",
+			"location": "Plats",
+			"description": "Beskrivning"
+		},
+		"delete_modal": {
+			"title": "Ta bort händelse?",
+			"message": "Detta tar bort \"{{title}}\" från din kalender."
+		}
+	}
+}

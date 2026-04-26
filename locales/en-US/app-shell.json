@@ -1,0 +1,242 @@
+{
+	"app": {
+		"title": {
+			"mail": "Mail",
+			"contacts": "Contacts",
+			"calendar": "Calendar",
+			"cloud": "Cloud",
+			"settings": "Settings",
+			"debug": "Debug",
+			"about": "About",
+			"onboarding": "Onboarding",
+			"compose_email": "Compose Email",
+			"message": "Message",
+			"add_account": "Add Account",
+			"debug_console": "Debug Console"
+		},
+		"update": {
+			"available": "Update available",
+			"ready_to_install": "Update ready to install",
+			"open_status": "Open update status"
+		}
+	},
+	"main": {
+		"send": {
+			"sending_title": "Sending email",
+			"send_failed_title": "Send failed",
+			"queued_message": "Queued email for background send...",
+			"sending_message": "Sending email...",
+			"sent_message": "Email sent."
+		},
+		"sync": {
+			"unknown_error": "Unknown sync error",
+			"authentication_failed": "Authentication failed",
+			"rate_limited": "Rate limited",
+			"sync_timeout": "Sync timeout",
+			"sync_failed": "Sync failed",
+			"reconnect_required": "Reconnect required."
+		},
+		"update": {
+			"downloaded_ready": "An update has been downloaded and is ready to install.",
+			"downloading": "A new update is downloading in the background.",
+			"available": "A new update is available.",
+			"open_settings": "Open update settings"
+		},
+		"restart": {
+			"hardware_acceleration": "Hardware acceleration",
+			"native_titlebar": "Native titlebar",
+			"required_apply": "Restart is required to apply: {{items}}.",
+			"restarting": "Restarting...",
+			"restart_now": "Restart now"
+		},
+		"dismiss": "Dismiss",
+		"dismiss_notification": "Dismiss notification",
+		"context": {
+			"open": "Open {{label}}",
+			"open_debug_new_window": "Open Debug In New Window"
+		},
+		"context_menu": {
+			"add_to_dictionary": "Add to Dictionary",
+			"undo": "Undo",
+			"redo": "Redo",
+			"cut": "Cut",
+			"copy": "Copy",
+			"paste": "Paste",
+			"select_all": "Select All",
+			"copy_image": "Copy Image",
+			"open_image": "Open Image",
+			"copy_image_address": "Copy Image Address",
+			"open_link": "Open Link",
+			"copy_link_address": "Copy Link Address"
+		},
+		"quick_actions": {
+			"open_app": "Open App",
+			"open_compose_window": "Open a compose window",
+			"open_mail": "Open mail",
+			"open_contacts": "Open contacts",
+			"open_calendar": "Open calendar",
+			"open_cloud_files": "Open cloud files"
+		},
+		"dialog": {
+			"discard_unsaved_changes": "Discard unsaved changes?",
+			"unsaved_changes_detail": "This window has unsaved changes. Leaving will discard them.",
+			"discard_changes": "Discard Changes",
+			"cancel": "Cancel"
+		},
+		"link_warning": {
+			"sender_not_allowlisted": "Sender is not allowlisted for direct link opens",
+			"targets_executable_file_type": "Targets executable file type: {{ext}}",
+			"includes_embedded_credentials": "Includes embedded credentials in URL",
+			"url_unusual_or_malformed": "URL format is unusual or malformed",
+			"potentially_unsafe_link": "Potentially unsafe link",
+			"open_anyway": "Open anyway"
+		},
+		"demo": {
+			"sync_failed_message": "Demo Account: Mailbox sync failed (timeout while fetching folder state).",
+			"auth_failed_message": "Demo Account: Invalid credentials. Password or authentication may have changed."
+		},
+		"reconnect": {
+			"title": "Reconnect Account",
+			"needs_sign_in": "{{account}} needs a new sign-in before this action can continue.",
+			"why_happen": "Why this can happen",
+			"why_happen_body": "Access can expire or be revoked, your approved scopes may have changed, or the provider requires periodic re-authentication for security.",
+			"later": "Later",
+			"connecting": "Connecting...",
+			"action": "Reconnect",
+			"failed": "Reconnect failed: {{error}}"
+		},
+		"tray": {
+			"menu": {
+				"show_app": "Show {{appName}}",
+				"compose_email": "Compose Email",
+				"mail": "Mail",
+				"contacts": "Contacts",
+				"calendar": "Calendar",
+				"cloud": "Cloud",
+				"settings": "Settings",
+				"about": "About",
+				"quit": "Quit"
+			},
+			"tooltip": {
+				"unread_count": "{{appName}} ({{count}} unread)"
+			}
+		}
+	},
+	"status": {
+		"error": {
+			"unknown": "unknown error"
+		},
+		"no_account_selected": "No account selected.",
+		"syncing": "Syncing...",
+		"syncing_mailbox": "Syncing mailbox...",
+		"sync_started_for": "Sync started for {{email}}...",
+		"sync_failed": "Sync failed: {{error}}",
+		"auto_sync_failed": "Auto-sync failed: {{error}}",
+		"synced_messages": "Synced {{count}} messages",
+		"synced_mailbox_dav": "Synced mailbox + DAV ({{contacts}} contacts, {{events}} events)",
+		"sync_complete_messages": "Sync complete: {{count}} messages",
+		"sync_complete_dav": "Sync complete: {{contacts}} contacts, {{events}} events",
+		"synced_partial": "Synced {{count}} messages (partial)",
+		"synced_partial_failed": "Synced {{count}} messages (partial: {{failed}} failed)",
+		"module": {
+			"mailbox": "mailbox",
+			"contacts": "contacts",
+			"calendar": "calendar",
+			"files": "files"
+		}
+	},
+	"notifications": {
+		"new_email_received": "New email received",
+		"new_emails_received": "{{count}} new emails",
+		"mailbox_synced_with_unread": "Mailbox synced with new unread messages.",
+		"you_have_new_unread": "You have new unread messages.",
+		"dev_notification_fallback_title": "LlamaMail developer notification",
+		"dev_notification_no_message": "No message found in first account/folder.",
+		"unknown_sender": "Unknown sender",
+		"sound_test_title": "LlamaMail sound test",
+		"sound_test_body": "Testing notification sound"
+	},
+	"errors": {
+		"unknown_error": "Unknown error",
+		"database_init_failed": "Database initialization failed: {{error}}",
+		"renderer_unexpected": "Unexpected renderer error",
+		"unhandled_promise_rejection": "Unhandled promise rejection"
+	},
+	"language": {
+		"system": "System default",
+		"en_us": "English (US)",
+		"sv_se": "Swedish (Sweden)"
+	},
+	"theme": {
+		"light_subtitle": "Bright workspace",
+		"dark_subtitle": "Low-light comfort",
+		"system_subtitle": "Follow OS setting"
+	},
+	"window_controls": {
+		"minimize": "Minimize",
+		"maximize": "Maximize",
+		"restore": "Restore",
+		"close": "Close"
+	},
+	"splash": {
+		"progress": {
+			"downloading_update_percent": "Downloading update {{percent}}%",
+			"checking_for_updates": "Checking for updates",
+			"update_found": "Update found",
+			"download_complete": "Download complete",
+			"up_to_date": "You are up to date",
+			"updater_disabled": "Updater disabled",
+			"update_failed_continuing": "Update failed, continuing startup",
+			"preparing_application": "Preparing application"
+		}
+	},
+	"help": {
+		"unknown_version": "unknown",
+		"hero": {
+			"title": "Meet LlamaMail",
+			"subtitle": "A fast, offline-first desktop mail app built for focus: multi-account inboxes, quick local search, and safe system boundaries by design."
+		},
+		"version_chip": "Version {{version}}",
+		"view_project": "View Project",
+		"mascot_alt": "LlamaMail mascot",
+		"snapshot": {
+			"title": "Project Snapshot",
+			"app_version_label": "App version:",
+			"source_label": "Source:"
+		},
+		"patreon": {
+			"aria": "Support LlamaMail on Patreon",
+			"title": "Support on Patreon",
+			"label": "Patreon"
+		}
+	},
+	"debug": {
+		"console": {
+			"title": "Debug Console",
+			"subtitle": "Live runtime events with simple source and level filters.",
+			"auto_scroll": "Auto-scroll",
+			"clear": "Clear",
+			"close": "Close",
+			"sources": "Sources",
+			"levels": "Levels",
+			"no_events": "No debug events yet.",
+			"no_events_filtered": "No events match current filters."
+		},
+		"source": {
+			"imap": "IMAP",
+			"smtp": "SMTP",
+			"carddav": "CardDav",
+			"caldav": "CalDav",
+			"cloud": "Cloud",
+			"app": "App"
+		},
+		"level": {
+			"trace": "Trace",
+			"debug": "Debug",
+			"info": "Info",
+			"warn": "Warn",
+			"error": "Error",
+			"fatal": "Fatal"
+		}
+	}
+}

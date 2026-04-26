@@ -5,6 +5,7 @@ import {clampToViewport} from '@renderer/lib/format';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {ChevronDown, Filter, MailCheck, MailOpen, Paperclip, Star, Tag, UserPlus} from '@llamamail/ui/icon';
 import {useEffect, useMemo, useRef, useState} from 'react';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type MessageHeaderModel = {
 	account_id?: number | null;
@@ -49,6 +50,7 @@ export function MessageHeaderCard({
 	onQuickActionStatus,
 	onOpenCustomFilter,
 }: MessageHeaderCardProps) {
+	const {t} = useI18n();
 	const senderName = String(message.from_name || '').trim();
 	const senderEmail = useMemo(() => {
 		const raw = String(message.from_address || '').trim();
@@ -64,10 +66,12 @@ export function MessageHeaderCard({
 		/^<draft\./i.test(String(message.message_id || '')) ||
 		normalizedFolderLabel.includes('draft') ||
 		normalizedFolderLabel.includes('sent');
-	const recipientPrimary = recipientRaw || 'No recipients yet';
+	const recipientPrimary = recipientRaw || t('mail_components.header.no_recipients');
 	const accountId = Number(message.account_id);
 	const hasAccountId = Number.isInteger(accountId) && accountId > 0;
-	const senderPrimary = isOutgoingMessageContext ? recipientPrimary : senderName || senderEmail || 'Unknown sender';
+	const senderPrimary = isOutgoingMessageContext
+		? recipientPrimary
+		: senderName || senderEmail || t('mail_components.header.unknown_sender');
 	const senderSecondary =
 		isOutgoingMessageContext ? null : senderName && senderEmail ? senderEmail : null;
 	const [senderMenu, setSenderMenu] = useState<{x: number; y: number} | null>(null);
@@ -152,16 +156,16 @@ export function MessageHeaderCard({
 						.toLowerCase() === senderEmail.toLowerCase(),
 			);
 			if (alreadyExists) {
-				reportStatus(`Contact already exists for ${senderEmail}.`, 'success');
+				reportStatus(t('mail_components.header.contact_exists', {email: senderEmail}), 'success');
 				return;
 			}
 			await ipcClient.addContact(accountId, {
 				fullName: senderName || null,
 				email: senderEmail,
 			});
-			reportStatus(`Added ${senderEmail} to contacts.`, 'success');
+			reportStatus(t('mail_components.header.contact_added', {email: senderEmail}), 'success');
 		} catch (error: any) {
-			reportStatus(`Failed to add contact: ${error?.message || String(error)}`, 'error');
+			reportStatus(t('mail_components.header.add_contact_failed', {error: error?.message || String(error)}), 'error');
 		} finally {
 			setActionBusy(false);
 		}
@@ -171,8 +175,9 @@ export function MessageHeaderCard({
 		if (!canRunSenderActions || actionBusy) return;
 		setActionBusy(true);
 		setSenderMenu(null);
-		const actionLabel = actionType === 'mark_read' ? 'mark read' : 'star';
-		const filterName = `From ${senderEmail} (${actionLabel})`;
+		const actionLabel =
+			actionType === 'mark_read' ? t('mail_components.header.action_mark_read') : t('mail_components.header.action_star');
+		const filterName = t('mail_components.header.filter_name', {email: senderEmail, action: actionLabel});
 		try {
 			await ipcClient.saveMailFilter(accountId, {
 				name: filterName,
@@ -183,9 +188,9 @@ export function MessageHeaderCard({
 				conditions: [{field: 'from', operator: 'contains', value: senderEmail}],
 				actions: [{type: actionType, value: ''}],
 			});
-			reportStatus(`Created filter for ${senderEmail}: ${actionLabel}.`, 'success');
+			reportStatus(t('mail_components.header.filter_created', {email: senderEmail, action: actionLabel}), 'success');
 		} catch (error: any) {
-			reportStatus(`Failed to create filter: ${error?.message || String(error)}`, 'error');
+			reportStatus(t('mail_components.header.create_filter_failed', {error: error?.message || String(error)}), 'error');
 		} finally {
 			setActionBusy(false);
 		}
@@ -195,7 +200,7 @@ export function MessageHeaderCard({
 		if (!canRunSenderActions || actionBusy) return;
 		setSenderMenu(null);
 		if (!onOpenCustomFilter) {
-			reportStatus('Custom filter is not available in this view.', 'error');
+			reportStatus(t('mail_components.header.custom_filter_unavailable'), 'error');
 			return;
 		}
 		onOpenCustomFilter({
@@ -222,17 +227,17 @@ export function MessageHeaderCard({
 				<div className="min-w-0 flex-1">
 					<div className="mb-2 flex flex-wrap items-center gap-1.5">
 						<span className="badge-muted inline-flex h-5 items-center rounded-md px-2 text-[11px] font-medium">
-							{folderLabel || 'Message'}
+							{folderLabel || t('mail_components.header.message')}
 						</span>
 						{Boolean(message.is_flagged) && (
 							<span className="chip-warning inline-flex h-5 items-center gap-1 rounded-md px-2 text-[11px] font-medium">
 								<Star size={11} className="fill-current" />
-								Starred
+								{t('mail_components.header.starred')}
 							</span>
 						)}
 						<span className="inline-flex h-5 items-center gap-1 rounded-md border ui-border-default ui-surface-card px-2 text-[11px] font-medium ui-text-secondary">
 							<MailOpen size={11} />
-							{message.is_read ? 'Read' : 'Unread'}
+							{message.is_read ? t('mail_components.header.read') : t('mail_components.header.unread')}
 						</span>
 						{Boolean(tagLabel) && (
 							<span className="chip-info inline-flex h-5 items-center gap-1 rounded-md px-2 text-[11px] font-medium">
@@ -243,18 +248,17 @@ export function MessageHeaderCard({
 						{attachmentsCount > 0 && (
 							<span className="inline-flex h-5 items-center gap-1 rounded-md border ui-border-default ui-surface-card px-2 text-[11px] font-medium ui-text-secondary">
 								<Paperclip size={11} />
-								{attachmentsCount} attachment
-								{attachmentsCount > 1 ? 's' : ''}
+								{t('mail_components.header.attachments_count', {count: attachmentsCount})}
 							</span>
 						)}
 						{spoofHints.length > 0 && (
 							<span className="chip-warning inline-flex h-5 items-center rounded-md px-2 text-[11px] font-medium">
-								Verify sender
+								{t('mail_components.header.verify_sender')}
 							</span>
 						)}
 					</div>
 					<h2 className="ui-text-primary truncate text-xl font-semibold tracking-tight">
-						{message.subject || '(No subject)'}
+						{message.subject || t('mail_components.header.no_subject')}
 					</h2>
 				</div>
 			</div>
@@ -277,7 +281,7 @@ export function MessageHeaderCard({
 							}
 							openSenderMenu();
 						}}
-						title={canRunSenderActions ? 'Sender actions' : undefined}
+						title={canRunSenderActions ? t('mail_components.header.sender_actions') : undefined}
 					>
 						<div className="flex min-w-0 flex-1 items-center gap-3">
 							{avatarSrc && (
@@ -324,7 +328,7 @@ export function MessageHeaderCard({
 								onClick={() => void onAddSenderAsContact()}
 							>
 								<UserPlus size={14} />
-								<span>Add contact</span>
+								<span>{t('mail_components.header.add_contact')}</span>
 							</ContextMenuItem>
 							<ContextMenuSeparator />
 						</>
@@ -334,19 +338,19 @@ export function MessageHeaderCard({
 						onClick={() => void onCreateSenderFilter('mark_read')}
 					>
 						<MailCheck size={14} />
-						<span>Auto-read sender</span>
+						<span>{t('mail_components.header.auto_read_sender')}</span>
 					</ContextMenuItem>
 					<ContextMenuItem
 						disabled={!canRunSenderActions || actionBusy}
 						onClick={() => void onCreateSenderFilter('star')}
 					>
 						<Star size={14} />
-						<span>Auto-star sender</span>
+						<span>{t('mail_components.header.auto_star_sender')}</span>
 					</ContextMenuItem>
 					<ContextMenuSeparator />
 					<ContextMenuItem disabled={!canRunSenderActions || actionBusy} onClick={onCreateCustomFilter}>
 						<Filter size={14} />
-						<span>Custom filter...</span>
+						<span>{t('mail_components.header.custom_filter')}</span>
 					</ContextMenuItem>
 				</ContextMenu>
 			)}
@@ -355,34 +359,44 @@ export function MessageHeaderCard({
 				className="mt-2 inline-flex h-7 items-center rounded-md px-2 text-[11px]"
 				onClick={onToggleMessageDetails}
 			>
-				{showMessageDetails ? 'Hide message details' : 'Show message details'}
+				{showMessageDetails
+					? t('mail_components.header.hide_message_details')
+					: t('mail_components.header.show_message_details')}
 			</Button>
 			{showMessageDetails && (
 				<div className="panel-muted mt-3 rounded-md border ui-border-default p-3 text-xs ui-text-secondary">
 					<div>
-						<span className="font-medium">From name:</span> {message.from_name || '-'}
+						<span className="font-medium">{t('mail_components.header.details_from_name')}:</span>{' '}
+						{message.from_name || '-'}
 					</div>
 					<div>
-						<span className="font-medium">From address:</span> {message.from_address || '-'}
+						<span className="font-medium">{t('mail_components.header.details_from_address')}:</span>{' '}
+						{message.from_address || '-'}
 					</div>
 					<div>
-						<span className="font-medium">To:</span> {message.to_address || '-'}
+						<span className="font-medium">{t('mail_components.header.details_to')}:</span> {message.to_address || '-'}
 					</div>
 					<div>
-						<span className="font-medium">Date:</span> {formatSystemDateTime(message.date, dateLocale)}
+						<span className="font-medium">{t('mail_components.header.details_date')}:</span>{' '}
+						{formatSystemDateTime(message.date, dateLocale)}
 					</div>
 					<div>
-						<span className="font-medium">Message-ID:</span> {message.message_id || '-'}
+						<span className="font-medium">{t('mail_components.header.details_message_id')}:</span>{' '}
+						{message.message_id || '-'}
 					</div>
 					<div>
-						<span className="font-medium">In-Reply-To:</span> {message.in_reply_to || '-'}
+						<span className="font-medium">{t('mail_components.header.details_in_reply_to')}:</span>{' '}
+						{message.in_reply_to || '-'}
 					</div>
 					<div>
-						<span className="font-medium">References:</span> {message.references_text || '-'}
+						<span className="font-medium">{t('mail_components.header.details_references')}:</span>{' '}
+						{message.references_text || '-'}
 					</div>
 					<div>
-						<span className="font-medium">Size:</span>{' '}
-						{message.size ? `${message.size.toLocaleString()} bytes` : '-'}
+						<span className="font-medium">{t('mail_components.header.details_size')}:</span>{' '}
+						{message.size
+							? t('mail_components.header.details_size_bytes', {size: message.size.toLocaleString()})
+							: '-'}
 					</div>
 					{spoofHints.map((hint) => (
 						<div key={hint} className="notice-warning mt-1 rounded border px-2 py-1">

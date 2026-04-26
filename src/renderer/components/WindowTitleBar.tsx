@@ -8,6 +8,7 @@ import {useAppSettings} from '@renderer/hooks/ipc/useAppSettings';
 import {DEFAULT_APP_SETTINGS} from '@llamamail/app/defaults';
 import {APP_NAME} from '@llamamail/app/appConfig';
 import {useAutoUpdateState} from '@renderer/hooks/ipc/useAutoUpdateState';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 interface WindowTitleBarProps {
 	title: string;
@@ -28,6 +29,7 @@ export default function WindowTitleBar({
 	showClose = true,
 	onRequestClose,
 }: WindowTitleBarProps) {
+	const {t} = useI18n();
 	const {appSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
 	const {isMaximized, capabilities, toggleMaximize, minimize, close} = useWindowControlsState();
 	const {appVersion} = useAutoUpdateState();
@@ -78,8 +80,8 @@ export default function WindowTitleBar({
 						type="button"
 						className="titlebar-button inline-flex h-7 w-7 items-center justify-center rounded"
 						onClick={() => void minimize()}
-						aria-label="Minimize"
-						title="Minimize"
+						aria-label={t('window_controls.minimize')}
+						title={t('window_controls.minimize')}
 					>
 						<Minus size={14} />
 					</Button>
@@ -89,8 +91,8 @@ export default function WindowTitleBar({
 						type="button"
 						className="titlebar-button inline-flex h-7 w-7 items-center justify-center rounded"
 						onClick={() => void toggleMaximize()}
-						aria-label={isMaximized ? 'Restore' : 'Maximize'}
-						title={isMaximized ? 'Restore' : 'Maximize'}
+						aria-label={isMaximized ? t('window_controls.restore') : t('window_controls.maximize')}
+						title={isMaximized ? t('window_controls.restore') : t('window_controls.maximize')}
 					>
 						{isMaximized ? <Copy size={13} /> : <Square size={13} />}
 					</Button>
@@ -103,8 +105,8 @@ export default function WindowTitleBar({
 							if (onRequestClose && !onRequestClose()) return;
 							void close();
 						}}
-						aria-label="Close"
-						title="Close"
+						aria-label={t('window_controls.close')}
+						title={t('window_controls.close')}
 					>
 						<X size={14} />
 					</Button>

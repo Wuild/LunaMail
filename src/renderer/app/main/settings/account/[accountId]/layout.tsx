@@ -6,6 +6,7 @@ import {useRouteAccountId} from './accountRouteHelpers';
 import {useAccountSettingsRoute, type UseAccountSettingsRouteResult} from './useAccountSettingsRoute';
 import type {AccountPanelSection} from '@renderer/app/main/settings/settingsTypes';
 import {Card} from '@llamamail/ui/card';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type AccountSectionItem = {
 	id: AccountPanelSection;
@@ -24,6 +25,7 @@ function resolveAccountSection(pathname: string): AccountPanelSection {
 }
 
 export default function SettingsAccountLayout() {
+	const {t} = useI18n();
 	const location = useLocation();
 	const accountId = useRouteAccountId();
 	const controller = useAccountSettingsRoute(accountId ?? 0, resolveAccountSection(location.pathname));
@@ -45,37 +47,38 @@ export default function SettingsAccountLayout() {
 	const accountSections: AccountSectionItem[] = [
 		{
 			id: 'identity',
-			label: 'Profile',
-			description: 'Sender identity, reply address, and signature.',
+			label: t('settings.account_layout.section.profile'),
+			description: t('settings.account_layout.section.profile_description'),
 		},
 		{
 			id: 'email',
-			label: 'Email',
-			description: 'Enable email sync and manage IMAP/SMTP.',
+			label: t('settings.account_layout.section.email'),
+			description: t('settings.account_layout.section.email_description'),
 		},
 		{
 			id: 'carddav',
-			label: 'Contacts',
-			description: 'Enable contacts sync and manage CardDAV.',
+			label: t('settings.account_layout.section.contacts'),
+			description: t('settings.account_layout.section.contacts_description'),
 		},
 		{
 			id: 'caldav',
-			label: 'Calendar',
-			description: 'Enable calendar sync and manage CalDAV.',
+			label: t('settings.account_layout.section.calendar'),
+			description: t('settings.account_layout.section.calendar_description'),
 		},
 		{
 			id: 'filters',
-			label: 'Rules',
-			description: 'Automate incoming mail actions.',
+			label: t('settings.account_layout.section.rules'),
+			description: t('settings.account_layout.section.rules_description'),
 		},
 	];
 
-	const accountDisplayName = editor?.display_name?.trim() || editor?.email || `Account ${accountId}`;
+	const accountDisplayName =
+		editor?.display_name?.trim() || editor?.email || t('settings.account_layout.account_fallback', {accountId});
 	const accountSecondaryLabel = editor?.display_name?.trim() ? editor.email : null;
 
 	return (
 		<div className="h-full min-h-0 w-full">
-			{!editor && <div className="ui-text-muted text-sm">Select an account.</div>}
+			{!editor && <div className="ui-text-muted text-sm">{t('settings.account_layout.select_account')}</div>}
 			{editor && (
 				<div className="flex h-full flex-col">
 					<WorkspaceLayout
@@ -86,7 +89,7 @@ export default function SettingsAccountLayout() {
 						sidebar={
 							<aside className="sidebar h-full min-h-0 p-3">
 								<p className="px-2 pb-2 ui-text-muted text-xs font-semibold uppercase tracking-wide">
-									Account Settings
+									{t('settings.account_layout.sidebar_title')}
 								</p>
 								<Card variant="outline" size="sm" className="mb-3">
 									<p className="ui-text-primary truncate text-sm font-semibold">{accountDisplayName}</p>
@@ -124,7 +127,7 @@ export default function SettingsAccountLayout() {
 							<header className="mb-4">
 								<h1 className="ui-text-primary text-xl font-semibold">{accountDisplayName}</h1>
 								<p className="ui-text-muted mt-1 text-sm">
-									Manage account identity, connectivity, sync behavior, and mail rules.
+									{t('settings.account_layout.header_description')}
 								</p>
 							</header>
 							<Outlet context={controller satisfies UseAccountSettingsRouteResult} />
@@ -146,7 +149,9 @@ export default function SettingsAccountLayout() {
 									disabled={!editor || deletingAccount}
 									className="rounded-md font-medium"
 								>
-									{deletingAccount ? 'Deleting...' : 'Delete Account'}
+									{deletingAccount
+										? t('settings.account_layout.deleting')
+										: t('settings.account_layout.delete_account')}
 								</Button>
 								<Button
 									type="button"
@@ -156,7 +161,7 @@ export default function SettingsAccountLayout() {
 									disabled={!editor || savingAccount}
 									className="rounded-md font-medium"
 								>
-									{savingAccount ? 'Saving...' : 'Save'}
+									{savingAccount ? t('settings.account_layout.saving') : t('settings.account_layout.save')}
 								</Button>
 							</div>
 						</div>

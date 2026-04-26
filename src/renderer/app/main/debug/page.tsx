@@ -7,26 +7,27 @@ import {Button} from '@llamamail/ui/button';
 import {useAppTheme} from '@renderer/hooks/useAppTheme';
 import {useIpcEvent} from '@renderer/hooks/ipc/useIpcEvent';
 import {ipcClient} from '@renderer/lib/ipcClient';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 const DEBUG_FILTER_SOURCES_STORAGE_KEY = 'llamamail.debug.filters.sources';
 const DEBUG_FILTER_LEVELS_STORAGE_KEY = 'llamamail.debug.filters.levels';
 
-const SOURCE_OPTIONS: Array<{value: DebugLogEntry['source']; label: string}> = [
-	{value: 'imap', label: 'IMAP'},
-	{value: 'smtp', label: 'SMTP'},
-	{value: 'carddav', label: 'CardDav'},
-	{value: 'caldav', label: 'CalDav'},
-	{value: 'cloud', label: 'Cloud'},
-	{value: 'app', label: 'App'},
+const SOURCE_OPTIONS: Array<{value: DebugLogEntry['source']; labelKey: string}> = [
+	{value: 'imap', labelKey: 'debug.source.imap'},
+	{value: 'smtp', labelKey: 'debug.source.smtp'},
+	{value: 'carddav', labelKey: 'debug.source.carddav'},
+	{value: 'caldav', labelKey: 'debug.source.caldav'},
+	{value: 'cloud', labelKey: 'debug.source.cloud'},
+	{value: 'app', labelKey: 'debug.source.app'},
 ];
 
-const LEVEL_OPTIONS: Array<{value: DebugLogEntry['level']; label: string}> = [
-	{value: 'trace', label: 'Trace'},
-	{value: 'debug', label: 'Debug'},
-	{value: 'info', label: 'Info'},
-	{value: 'warn', label: 'Warn'},
-	{value: 'error', label: 'Error'},
-	{value: 'fatal', label: 'Fatal'},
+const LEVEL_OPTIONS: Array<{value: DebugLogEntry['level']; labelKey: string}> = [
+	{value: 'trace', labelKey: 'debug.level.trace'},
+	{value: 'debug', labelKey: 'debug.level.debug'},
+	{value: 'info', labelKey: 'debug.level.info'},
+	{value: 'warn', labelKey: 'debug.level.warn'},
+	{value: 'error', labelKey: 'debug.level.error'},
+	{value: 'fatal', labelKey: 'debug.level.fatal'},
 ];
 
 type DebugPageProps = {
@@ -36,6 +37,7 @@ type DebugPageProps = {
 
 export default function DebugPage({showDebugNavItem, embedded = true}: DebugPageProps) {
 	useAppTheme();
+	const {t} = useI18n();
 	const [logs, setLogs] = useState<DebugLogEntry[]>([]);
 	const [autoScroll, setAutoScroll] = useState(true);
 	const [selectedSources, setSelectedSources] = useState<DebugLogEntry['source'][]>(() =>
@@ -198,10 +200,10 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
 								<div className="min-w-0">
 									<h1 className="ui-text-primary flex items-center gap-2 text-base font-semibold">
 										<TerminalSquare size={16} />
-										Debug Console
+										{t('debug.console.title')}
 									</h1>
 									<p className="debug-muted mt-1 text-xs">
-										Live runtime events with simple source and level filters.
+										{t('debug.console.subtitle')}
 									</p>
 								</div>
 								<div className="flex items-center gap-2">
@@ -213,7 +215,7 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
 												setAutoScroll(event.target.checked);
 											}}
 										/>
-										Auto-scroll
+										{t('debug.console.auto_scroll')}
 									</label>
 									<Button
 										type="button"
@@ -222,7 +224,7 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
 										leftIcon={<Trash2 size={14} />}
 										onClick={onClear}
 									>
-										Clear
+										{t('debug.console.clear')}
 									</Button>
 									{!embedded && (
 										<Button
@@ -232,7 +234,7 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
 											leftIcon={<X size={14} />}
 											onClick={() => window.close()}
 										>
-											Close
+											{t('debug.console.close')}
 										</Button>
 									)}
 								</div>
@@ -243,7 +245,7 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
 							<div className="flex flex-wrap items-center justify-between gap-3">
 								<div className="flex min-w-0 items-center gap-2">
 									<span className="debug-muted shrink-0 text-[11px] font-semibold uppercase tracking-wide">
-										Sources
+										{t('debug.console.sources')}
 									</span>
 									<div className="flex min-w-0 flex-wrap items-center gap-1">
 										{SOURCE_OPTIONS.map((option) => {
@@ -251,7 +253,7 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
 											return (
 												<ToolbarToggleButton
 													key={option.value}
-													label={option.label}
+													label={t(option.labelKey)}
 													active={active}
 													onClick={() => onToggleSource(option.value)}
 												/>
@@ -261,7 +263,7 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
 								</div>
 								<div className="flex min-w-0 items-center justify-end gap-2">
 									<span className="debug-muted shrink-0 text-[11px] font-semibold uppercase tracking-wide">
-										Levels
+										{t('debug.console.levels')}
 									</span>
 									<div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
 										{LEVEL_OPTIONS.map((option) => {
@@ -269,7 +271,7 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
 											return (
 												<ToolbarToggleButton
 													key={option.value}
-													label={option.label}
+													label={t(option.labelKey)}
 													active={active}
 													onClick={() => onToggleLevel(option.value)}
 												/>
@@ -293,13 +295,13 @@ export default function DebugPage({showDebugNavItem, embedded = true}: DebugPage
 									{logs.length === 0 && (
 										<div className="debug-log-empty flex h-full min-h-[120px] items-center justify-center">
 											<Activity size={14} className="mr-2" />
-											No debug events yet.
+											{t('debug.console.no_events')}
 										</div>
 									)}
 									{logs.length > 0 && filteredLogs.length === 0 && (
 										<div className="debug-log-empty flex h-full min-h-[120px] items-center justify-center">
 											<Activity size={14} className="mr-2" />
-											No events match current filters.
+											{t('debug.console.no_events_filtered')}
 										</div>
 									)}
 									{filteredLogs.map((entry, index) => (

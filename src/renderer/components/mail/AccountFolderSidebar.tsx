@@ -28,6 +28,7 @@ import {cn} from '@llamamail/ui/utils';
 import FolderItemRow from './FolderItemRow';
 import NewEmailBadge from './NewEmailBadge';
 import {DND_ITEM} from '@renderer/lib/dndTypes';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type MailMessageDragItem = {
 	type: typeof DND_ITEM.MAIL_MESSAGE;
@@ -231,6 +232,7 @@ export default function AccountFolderSidebar({
 	getFolderIcon,
 	getFolderColorClass,
 }: AccountFolderSidebarProps) {
+	const {t} = useI18n();
 	const [draggingAccountId, setDraggingAccountId] = React.useState<number | null>(null);
 	const [dragOverlaySize, setDragOverlaySize] = React.useState<{width: number; height: number} | null>(null);
 	const [draggingFolder, setDraggingFolder] = React.useState<{
@@ -400,11 +402,11 @@ export default function AccountFolderSidebar({
 								type="button"
 								className="button-primary inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold shadow-sm transition-colors"
 								onClick={() => onOpenCompose(selectedAccountId)}
-								title="Compose"
-								aria-label="Compose"
+								title={t('mail_components.titlebar.compose')}
+								aria-label={t('mail_components.titlebar.compose')}
 							>
 								<PenSquare size={16} />
-								<span>Compose</span>
+								<span>{t('mail_components.titlebar.compose')}</span>
 							</Button>
 						</div>
 
@@ -415,7 +417,7 @@ export default function AccountFolderSidebar({
 								className="w-full justify-center rounded-lg px-3 py-2.5 text-sm"
 								onClick={onOpenAddAccount}
 							>
-								Add account
+								{t('contacts_page.accounts.add_account')}
 							</Button>
 						)}
 
@@ -533,8 +535,8 @@ export default function AccountFolderSidebar({
 																				event.stopPropagation();
 																				onSyncAccount(account.id);
 																			}}
-																			title="Sync account"
-																			aria-label="Sync account"
+																			title={t('mail_components.context.sync_account')}
+																			aria-label={t('mail_components.context.sync_account')}
 																			disabled={isSyncingAccount}
 																		>
 																			<RefreshCw
@@ -550,8 +552,8 @@ export default function AccountFolderSidebar({
 																				event.stopPropagation();
 																				onOpenAccountSettings(account.id);
 																			}}
-																			title="Edit account"
-																			aria-label="Edit account"
+																			title={t('mail_components.context.edit_account_settings')}
+																			aria-label={t('mail_components.context.edit_account_settings')}
 																		>
 																			<Settings size={13} />
 																		</Button>
@@ -559,7 +561,7 @@ export default function AccountFolderSidebar({
 																	{accountUnread > 0 && (
 																		<NewEmailBadge
 																			count={accountUnread}
-																			title={`${accountUnread} unread in account`}
+																			title={t('mail_components.sidebar.unread_in_account', {count: accountUnread})}
 																		/>
 																	)}
 																	<Button
@@ -572,13 +574,13 @@ export default function AccountFolderSidebar({
 																		}}
 																		title={
 																			isExpanded
-																				? 'Collapse account folders'
-																				: 'Expand account folders'
+																				? t('mail_components.sidebar.collapse_account_folders')
+																				: t('mail_components.sidebar.expand_account_folders')
 																		}
 																		aria-label={
 																			isExpanded
-																				? 'Collapse account folders'
-																				: 'Expand account folders'
+																				? t('mail_components.sidebar.collapse_account_folders')
+																				: t('mail_components.sidebar.expand_account_folders')
 																		}
 																		aria-expanded={isExpanded}
 																	>
@@ -598,7 +600,7 @@ export default function AccountFolderSidebar({
 																	{accountFolders.length === 0 ? (
 																		isSyncingAccount ? (
 																			<div className="ui-text-muted rounded-md px-2 py-1.5 text-xs">
-																				Synchronizing folders...
+																				{t('mail_components.sidebar.synchronizing_folders')}
 																			</div>
 																		) : null
 																	) : (

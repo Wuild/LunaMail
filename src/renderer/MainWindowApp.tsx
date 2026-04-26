@@ -17,6 +17,7 @@ import {MainWindowIpcBridge} from './app/MainWindowIpcBridge';
 import {useApp} from '@renderer/app/AppContext';
 import {useRuntimeStore} from '@renderer/store/runtimeStore';
 import {useNotificationStore} from '@renderer/store/notificationStore';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 import {
 	emitReconnectRequired,
 	isReconnectRequiredMessage,
@@ -38,6 +39,7 @@ export default function MainWindowApp() {
 }
 
 function MainWindowShell() {
+	const {t} = useI18n();
 	const {setShowNavRail} = useApp();
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -80,7 +82,7 @@ function MainWindowShell() {
 		const id = `send:${payload.jobId}`;
 		const clampedProgress = Math.max(0, Math.min(100, Math.round(payload.progress)));
 		const isFinal = payload.phase === 'sent' || payload.phase === 'failed';
-		const title = payload.phase === 'failed' ? 'Send failed' : 'Sending email';
+		const title = payload.phase === 'failed' ? t('main.send.send_failed_title') : t('main.send.sending_title');
 		createNotification({
 			id,
 			title,
@@ -100,19 +102,19 @@ function MainWindowShell() {
 			accounts.find((item) => item.id === payload.accountId)?.display_name?.trim() ||
 			accounts.find((item) => item.id === payload.accountId)?.email ||
 			`Account ${payload.accountId}`;
-		const errorText = String(payload.syncError?.message || payload.error || 'Unknown sync error').trim();
+		const errorText = String(payload.syncError?.message || payload.error || t('main.sync.unknown_error')).trim();
 		const category = payload.syncError?.category;
 		const isAuthFailure =
 			category === 'auth' ||
 			category === 'renewal' ||
 			/(authentication|auth|password|credential|login|invalid credentials)/i.test(errorText);
 		const title = isAuthFailure
-			? 'Authentication failed'
+			? t('main.sync.authentication_failed')
 			: category === 'rate_limit'
-				? 'Rate limited'
+				? t('main.sync.rate_limited')
 				: category === 'timeout'
-					? 'Sync timeout'
-					: 'Sync failed';
+					? t('main.sync.sync_timeout')
+					: t('main.sync.sync_failed');
 		createNotification({
 			id: `system:${isAuthFailure ? 'auth' : 'sync'}:${payload.accountId}:${errorText}`.slice(0, 160),
 			title,
@@ -160,7 +162,7 @@ function MainWindowShell() {
 			const normalized: ReconnectRequest = {
 				kind: detail.kind === 'cloud' ? 'cloud' : 'mail',
 				accountId: Number(detail.accountId),
-				reason: String(detail.reason || '').trim() || 'Reconnect required.',
+				reason: String(detail.reason || '').trim() || t('main.sync.reconnect_required'),
 			};
 			setReconnectQueue((prev) => {
 				const exists = prev.some((item) => item.kind === normalized.kind && item.accountId === normalized.accountId);
@@ -243,8 +245,8 @@ function MainWindowShell() {
 			const id = `send:${jobId}`;
 			createNotification({
 				id,
-				title: 'Sending email',
-				message: 'Queued email for background send...',
+				title: t('main.send.sending_title'),
+				message: t('main.send.queued_message'),
 				progress: 12,
 				busy: true,
 				tone: 'info',
@@ -253,8 +255,8 @@ function MainWindowShell() {
 			timers.push(
 				window.setTimeout(() => {
 					updateNotification(id, {
-						title: 'Sending email',
-						message: 'Sending email...',
+						title: t('main.send.sending_title'),
+						message: t('main.send.sending_message'),
 						progress: 62,
 						busy: true,
 						tone: 'info',
@@ -265,8 +267,8 @@ function MainWindowShell() {
 			timers.push(
 				window.setTimeout(() => {
 					updateNotification(id, {
-						title: 'Sending email',
-						message: 'Email sent successfully.',
+						title: t('main.send.sending_title'),
+						message: t('main.send.sent_message'),
 						progress: 100,
 						busy: false,
 						tone: 'success',
@@ -280,8 +282,8 @@ function MainWindowShell() {
 		const onPreviewSyncFailure = () => {
 			createNotification({
 				id: `system:preview-sync-failure-${Date.now().toString(36)}`,
-				title: 'Sync failed',
-				message: 'Demo Account: Mailbox sync failed (timeout while fetching folder state).',
+				title: t('main.sync.sync_failed'),
+				message: t('main.demo.sync_failed_message'),
 				progress: 100,
 				busy: false,
 				tone: 'danger',
@@ -293,8 +295,8 @@ function MainWindowShell() {
 			const accountId = accounts[0]?.id ?? 1;
 			createNotification({
 				id: `system:preview-auth-failure-${Date.now().toString(36)}`,
-				title: 'Authentication failed',
-				message: 'Demo Account: Invalid credentials. Password or authentication may have changed.',
+				title: t('main.sync.authentication_failed'),
+				message: t('main.demo.auth_failed_message'),
 				progress: 100,
 				busy: false,
 				tone: 'danger',
@@ -311,14 +313,14 @@ function MainWindowShell() {
 			window.removeEventListener('llamamail:preview-auth-failure', onPreviewAuthFailure);
 			for (const timer of timers) window.clearTimeout(timer);
 		};
-	}, [accounts, createNotification, updateNotification]);
+	}, [accounts, createNotification, t, updateNotification]);
 
 	useEffect(() => {
 		const onWindowError = (event: ErrorEvent) => {
 			pushGlobalError({
 				id: `renderer-window-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
 				source: 'renderer-window',
-				message: event.message || 'Unexpected renderer error',
+				message: event.message || t('errors.renderer_unexpected'),
 				detail: event.error?.stack || `${event.filename || ''}:${event.lineno || 0}:${event.colno || 0}`,
 				timestamp: new Date().toISOString(),
 				fatal: false,
@@ -326,7 +328,7 @@ function MainWindowShell() {
 		};
 		const onUnhandledRejection = (event: PromiseRejectionEvent) => {
 			const reason = event.reason;
-			const message = reason instanceof Error ? reason.message : String(reason ?? 'Unhandled promise rejection');
+			const message = reason instanceof Error ? reason.message : String(reason ?? t('errors.unhandled_promise_rejection'));
 			pushGlobalError({
 				id: `renderer-rejection-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
 				source: 'renderer-window',
@@ -342,7 +344,7 @@ function MainWindowShell() {
 			window.removeEventListener('error', onWindowError);
 			window.removeEventListener('unhandledrejection', onUnhandledRejection);
 		};
-	}, []);
+	}, [t]);
 
 	useEffect(() => {
 		if (globalErrors.length === 0) return;
@@ -436,7 +438,9 @@ function MainWindowShell() {
 			pushGlobalError({
 				id: `reconnect-failed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
 				source: 'renderer-window',
-				message: `Reconnect failed: ${String(error?.message || error || 'Unknown error')}`,
+				message: t('main.reconnect.failed', {
+					error: String(error?.message || error || t('errors.unknown_error')),
+				}),
 				detail: null,
 				timestamp: new Date().toISOString(),
 				fatal: false,
@@ -444,7 +448,7 @@ function MainWindowShell() {
 		} finally {
 			setReconnectBusyKey((current) => (current === queuedReconnectKey ? null : current));
 		}
-	}, [accounts, navigate, queuedReconnect, queuedReconnectKey]);
+	}, [accounts, navigate, queuedReconnect, queuedReconnectKey, t]);
 
 	const hideMainNavRail = location.pathname.startsWith('/onboarding') || location.pathname.startsWith('/add-account');
 
@@ -453,13 +457,13 @@ function MainWindowShell() {
 	const updateBannerText =
 		autoUpdateMessage ||
 		(autoUpdatePhase === 'downloaded'
-			? 'An update has been downloaded and is ready to install.'
+			? t('main.update.downloaded_ready')
 			: autoUpdatePhase === 'downloading'
-				? 'A new update is downloading in the background.'
-				: 'A new update is available.');
+				? t('main.update.downloading')
+				: t('main.update.available'));
 	const pendingRestartItems: string[] = [];
-	if (appSettings.pendingHardwareAcceleration !== null) pendingRestartItems.push('Hardware acceleration');
-	if (appSettings.pendingUseNativeTitleBar !== null) pendingRestartItems.push('Native titlebar');
+	if (appSettings.pendingHardwareAcceleration !== null) pendingRestartItems.push(t('main.restart.hardware_acceleration'));
+	if (appSettings.pendingUseNativeTitleBar !== null) pendingRestartItems.push(t('main.restart.native_titlebar'));
 	const hasRestartRequiredBanner = pendingRestartItems.length > 0;
 
 	const onRestartNow = useCallback(() => {
@@ -489,7 +493,7 @@ function MainWindowShell() {
 							className="notice-button-warning shrink-0 rounded-md px-2.5 py-1 text-xs font-semibold"
 							onClick={() => navigate('/settings/application')}
 						>
-							Open update settings
+							{t('main.update.open_settings')}
 						</Button>
 					</div>
 				</div>
@@ -510,7 +514,7 @@ function MainWindowShell() {
 									className="notice-button-danger shrink-0 rounded-md px-2 py-1 text-xs font-semibold"
 									onClick={() => dismissGlobalError(item.id)}
 								>
-									Dismiss
+									{t('main.dismiss')}
 								</Button>
 							</div>
 						))}
@@ -524,7 +528,7 @@ function MainWindowShell() {
 						<div className="notice-info shrink-0 border-b px-3 py-2">
 							<div className="flex w-full items-center justify-between gap-3">
 								<span className="text-sm font-medium">
-									Restart is required to apply: {pendingRestartItems.join(', ')}.
+									{t('main.restart.required_apply', {items: pendingRestartItems.join(', ')})}
 								</span>
 								<Button
 									type="button"
@@ -532,7 +536,7 @@ function MainWindowShell() {
 									onClick={onRestartNow}
 									disabled={restartBusy}
 								>
-									{restartBusy ? 'Restarting...' : 'Restart now'}
+									{restartBusy ? t('main.restart.restarting') : t('main.restart.restart_now')}
 								</Button>
 							</div>
 						</div>
@@ -587,7 +591,7 @@ function MainWindowShell() {
 												type="button"
 												className="menu-item inline-flex h-6 w-6 items-center justify-center rounded"
 												onClick={() => dismissNotification(item.id)}
-												aria-label="Dismiss notification"
+												aria-label={t('main.dismiss_notification')}
 											>
 												<X size={13} />
 											</Button>
@@ -623,16 +627,15 @@ function MainWindowShell() {
 					contentClassName="max-w-md p-4"
 				>
 					<div className="mb-3">
-						<h3 className="ui-text-primary text-base font-semibold">Reconnect Account</h3>
+						<h3 className="ui-text-primary text-base font-semibold">{t('main.reconnect.title')}</h3>
 						<p className="ui-text-muted mt-1 text-xs">
-							{queuedReconnectAccountLabel} needs a new sign-in before this action can continue.
+							{t('main.reconnect.needs_sign_in', {account: queuedReconnectAccountLabel})}
 						</p>
 						<p className="ui-text-muted mt-2 text-xs">{queuedReconnect.reason}</p>
 						<div className="ui-text-muted mt-3 rounded-md border border-[var(--theme-border)] bg-[var(--theme-bg-secondary)] p-2 text-xs">
-							<p className="ui-text-primary mb-1 font-medium">Why this can happen</p>
+							<p className="ui-text-primary mb-1 font-medium">{t('main.reconnect.why_happen')}</p>
 							<p>
-								Access can expire or be revoked, your approved scopes may have changed, or the provider requires
-								periodic re-authentication for security.
+								{t('main.reconnect.why_happen_body')}
 							</p>
 						</div>
 					</div>
@@ -644,7 +647,7 @@ function MainWindowShell() {
 							onClick={dismissReconnectPrompt}
 							disabled={reconnectBusyKey === queuedReconnectKey}
 						>
-							Later
+							{t('main.reconnect.later')}
 						</Button>
 						<Button
 							type="button"
@@ -653,7 +656,7 @@ function MainWindowShell() {
 							onClick={() => void onReconnectQueued()}
 							disabled={reconnectBusyKey === queuedReconnectKey}
 						>
-							{reconnectBusyKey === queuedReconnectKey ? 'Connecting...' : 'Reconnect'}
+							{reconnectBusyKey === queuedReconnectKey ? t('main.reconnect.connecting') : t('main.reconnect.action')}
 						</Button>
 					</div>
 				</Modal>
@@ -676,7 +679,7 @@ function MainWindowShell() {
 							setMainNavContextMenu(null);
 						}}
 					>
-						Open {mainNavContextMenu.label}
+						{t('main.context.open', {label: mainNavContextMenu.label})}
 					</ContextMenuItem>
 					{mainNavContextMenu.id === 'debug' && (
 						<ContextMenuItem
@@ -687,7 +690,7 @@ function MainWindowShell() {
 								setMainNavContextMenu(null);
 							}}
 						>
-							Open Debug In New Window
+							{t('main.context.open_debug_new_window')}
 						</ContextMenuItem>
 					)}
 				</ContextMenu>

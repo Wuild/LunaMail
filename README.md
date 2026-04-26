@@ -119,7 +119,6 @@ Additional packaging notes are in [docs/PACKAGING.md](./docs/PACKAGING.md).
 ## Quality Checks
 
 ```bash
-npm run check:architecture
 npm run test:unit
 npm run build
 ```

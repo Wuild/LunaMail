@@ -9,6 +9,7 @@ import {
 	createAppWindow,
 	createFramelessAppWindow,
 } from './windowFactory';
+import {__} from '@llamamail/app/i18n/main';
 
 const isDev = !app.isPackaged;
 const __filename = fileURLToPath(import.meta.url);
@@ -29,7 +30,7 @@ export function openMessageWindow(messageId?: number | null): void {
 		minWidth: 760,
 		minHeight: 560,
 		maximizable: true,
-		title: 'Message',
+		title: __('app.title.message'),
 		webPreferences: buildSecureWebPreferences({preloadPath}),
 	});
 	attachWindowShortcuts(messageWin, {closeOnEscape: true});

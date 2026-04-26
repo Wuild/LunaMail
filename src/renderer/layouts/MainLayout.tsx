@@ -31,12 +31,13 @@ import {
 	normalizeColumnWidth,
 	TABLE_COLUMN_OPTIONS,
 } from '@renderer/lib/mail/tableConfig';
-import {getTagDotClass, getTagLabel} from '@renderer/lib/mail/tagPresentation';
+import {getTagDotClass} from '@renderer/lib/mail/tagPresentation';
 import {useResizableSidebar} from '@renderer/hooks/useResizableSidebar';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {cn} from '@llamamail/ui/utils';
 import type {Workspace} from '@renderer/lib/workspace';
 import WorkspaceLayout from './WorkspaceLayout';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 interface MainLayoutProps {
 	children: React.ReactNode;
@@ -114,28 +115,9 @@ interface MainLayoutProps {
 	dateLocale?: string;
 }
 
-const FOLDER_COLOR_OPTIONS = [
-	{value: '', label: 'Default'},
-	{value: 'sky', label: 'Sky'},
-	{value: 'emerald', label: 'Emerald'},
-	{value: 'amber', label: 'Amber'},
-	{value: 'rose', label: 'Rose'},
-	{value: 'violet', label: 'Violet'},
-	{value: 'cyan', label: 'Cyan'},
-	{value: 'lime', label: 'Lime'},
-	{value: 'indigo', label: 'Indigo'},
-	{value: 'slate', label: 'Slate'},
-] as const;
+const FOLDER_COLOR_VALUES = ['', 'sky', 'emerald', 'amber', 'rose', 'violet', 'cyan', 'lime', 'indigo', 'slate'] as const;
 
-const FOLDER_TYPE_OPTIONS = [
-	{value: '', label: 'Auto detect'},
-	{value: 'inbox', label: 'Inbox'},
-	{value: 'sent', label: 'Sent'},
-	{value: 'drafts', label: 'Drafts'},
-	{value: 'archive', label: 'Archive'},
-	{value: 'junk', label: 'Junk'},
-	{value: 'trash', label: 'Trash'},
-] as const;
+const FOLDER_TYPE_VALUES = ['', 'inbox', 'sent', 'drafts', 'archive', 'junk', 'trash'] as const;
 
 const ACCOUNT_COLLAPSE_STORAGE_KEY = 'llamamail.accountCollapseState.v1';
 const MAIL_TABLE_COLUMNS_STORAGE_KEY = 'llamamail.mailTableColumns.v1';
@@ -148,12 +130,12 @@ const SIDE_LIST_SIDEBAR_WINDOW_FRACTION = 0.5;
 const SIDE_LIST_MIN_SIDEBAR_WIDTH_PX = 180;
 const TOP_TABLE_COMPACT_BREAKPOINT_PX = 860;
 
-const MESSAGE_TAG_OPTIONS: Array<{value: string; label: string; dotClass: string}> = [
-	{value: 'important', label: 'Important', dotClass: 'tag-dot-important'},
-	{value: 'work', label: 'Work', dotClass: 'tag-dot-work'},
-	{value: 'personal', label: 'Personal', dotClass: 'tag-dot-personal'},
-	{value: 'todo', label: 'To Do', dotClass: 'tag-dot-todo'},
-	{value: 'later', label: 'Later', dotClass: 'tag-dot-later'},
+const MESSAGE_TAG_VALUES: Array<{value: string; dotClass: string}> = [
+	{value: 'important', dotClass: 'tag-dot-important'},
+	{value: 'work', dotClass: 'tag-dot-work'},
+	{value: 'personal', dotClass: 'tag-dot-personal'},
+	{value: 'todo', dotClass: 'tag-dot-todo'},
+	{value: 'later', dotClass: 'tag-dot-later'},
 ];
 
 function isDraftFolderType(folder: FolderItem | null | undefined): boolean {
@@ -253,6 +235,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 	onUpdateFolderSettings,
 	dateLocale,
 }) => {
+	const {t} = useI18n();
 	const [menu, setMenu] = React.useState<
 		| {kind: 'message'; x: number; y: number; message: MessageItem}
 		| {kind: 'folder'; x: number; y: number; folder: FolderItem}
@@ -406,12 +389,56 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		[folders, selectedFolderPath],
 	);
 	const showRecipientsAsPrimary = isDraftFolderType(selectedFolder) || isSentFolderType(selectedFolder);
+	const formatColumnLabel = React.useCallback(
+		(column: MailTableColumnKey): string => {
+			if (column === 'subject') return t('mail_components.table_column.subject');
+			if (column === 'from')
+				return showRecipientsAsPrimary ? t('mail_components.table_column.to') : t('mail_components.table_column.from');
+			if (column === 'recipient') return t('mail_components.table_column.recipient');
+			if (column === 'date') return t('mail_components.table_column.date');
+			if (column === 'read_status') return t('mail_components.table_column.read_status');
+			if (column === 'flagged') return t('mail_components.table_column.starred');
+			if (column === 'tag') return t('mail_components.table_column.tag');
+			if (column === 'account') return t('mail_components.table_column.account');
+			if (column === 'location') return t('mail_components.table_column.location');
+			return t('mail_components.table_column.size');
+		},
+		[showRecipientsAsPrimary, t],
+	);
 	const tableColumnOptions = React.useMemo(
+		() => TABLE_COLUMN_OPTIONS.map((option) => ({...option, label: formatColumnLabel(option.key)})),
+		[formatColumnLabel],
+	);
+	const folderColorOptions = React.useMemo(
 		() =>
-			TABLE_COLUMN_OPTIONS.map((option) =>
-				option.key === 'from' ? {...option, label: showRecipientsAsPrimary ? 'To' : 'From'} : option,
-			),
-		[showRecipientsAsPrimary],
+			FOLDER_COLOR_VALUES.map((value) => ({
+				value,
+				label: value ? t(`mail_components.folder_color.${value}`) : t('mail_components.folder_color.default'),
+			})),
+		[t],
+	);
+	const folderTypeOptions = React.useMemo(
+		() =>
+			FOLDER_TYPE_VALUES.map((value) => ({
+				value,
+				label: value ? t(`mail_components.folder_type.${value}`) : t('mail_components.folder_type.auto_detect'),
+			})),
+		[t],
+	);
+	const messageTagOptions = React.useMemo(
+		() => MESSAGE_TAG_VALUES.map((item) => ({...item, label: t(`mail_components.tag.${item.value}`)})),
+		[t],
+	);
+	const getLocalizedTagLabel = React.useCallback(
+		(tag: string | null): string => {
+			const normalized = String(tag || '').trim().toLowerCase();
+			if (!normalized) return '';
+			if (normalized === 'important' || normalized === 'work' || normalized === 'personal' || normalized === 'todo' || normalized === 'later') {
+				return t(`mail_components.tag.${normalized}`);
+			}
+			return normalized;
+		},
+		[t],
 	);
 	const visibleTableColumns = React.useMemo(
 		() => tableColumns.filter((column) => TABLE_COLUMN_OPTIONS.some((item) => item.key === column)),
@@ -921,7 +948,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 		if (!createFolderModal || createFolderSaving) return;
 		const normalizedPath = createFolderModal.folderPath.trim();
 		if (!normalizedPath) {
-			setCreateFolderError('Folder path is required');
+			setCreateFolderError(t('mail_components.create_folder.folder_path_required'));
 			return;
 		}
 		setCreateFolderSaving(true);
@@ -1093,14 +1120,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 						)}
 					>
 						<div className="flex min-w-0 items-center gap-2">
-							{!message.is_read && (
-								<span
-									className="mail-list-unread-dot inline-flex h-2 w-2 shrink-0 rounded-full"
-									title="Unread"
-									aria-label="Unread"
-								/>
-							)}
-							<span className="truncate">{message.subject || '(No subject)'}</span>
+								{!message.is_read && (
+									<span
+										className="mail-list-unread-dot inline-flex h-2 w-2 shrink-0 rounded-full"
+										title={t('mail_components.header.unread')}
+										aria-label={t('mail_components.header.unread')}
+									/>
+								)}
+								<span className="truncate">{message.subject || t('mail_components.header.no_subject')}</span>
 							{getThreadCount(message) > 1 && (
 								<span className="mail-list-thread-count inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none">
 									{getThreadCount(message)}
@@ -1127,12 +1154,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 						{formatSystemDateTime(message.date, dateLocale)}
 					</td>
 				);
-			case 'read_status':
-				return (
-					<td key={`${message.id}-read-status`} className={cn(baseCell, 'ui-text-secondary')}>
-						{message.is_read ? 'Read' : 'Unread'}
-					</td>
-				);
+				case 'read_status':
+					return (
+						<td key={`${message.id}-read-status`} className={cn(baseCell, 'ui-text-secondary')}>
+							{message.is_read ? t('mail_components.header.read') : t('mail_components.header.unread')}
+						</td>
+					);
 			case 'flagged':
 				return (
 					<td key={`${message.id}-flagged`} className={cn(baseCell, 'ui-text-secondary')}>
@@ -1142,7 +1169,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 			case 'tag':
 				return (
 					<td key={`${message.id}-tag`} className={cn(baseCell, 'ui-text-secondary')}>
-						{renderTagCell((message as MessageItem & {tag?: string | null}).tag ?? null)}
+						{renderTagCell((message as MessageItem & {tag?: string | null}).tag ?? null, getLocalizedTagLabel)}
 					</td>
 				);
 			case 'account':
@@ -1187,7 +1214,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 					/>
 				}
 				showStatusBar
-				statusText={syncStatusText || 'Ready'}
+				statusText={syncStatusText || t('mail_page.status.ready')}
 				statusBusy={Boolean(syncInProgress)}
 				statusHintText={statusHintText || null}
 				contentClassName="min-h-0 flex-1 overflow-hidden p-0"
@@ -1273,7 +1300,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 							getThreadCount={getThreadCount}
 							formatMessageSender={formatPrimaryCounterparty}
 							getTagDotClass={getTagDotClass}
-							getTagLabel={getTagLabel}
+							getTagLabel={getLocalizedTagLabel}
 						>
 							{children}
 						</SideListMailPane>
@@ -1413,7 +1440,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				moveSubmenuOffsetY={moveSubmenuOffsetY}
 				moveTargetsProtected={moveTargetsProtected}
 				moveTargetsCustom={moveTargetsCustom}
-				messageTagOptions={MESSAGE_TAG_OPTIONS}
+				messageTagOptions={messageTagOptions}
 				selectedAccountId={selectedAccountId}
 				getTagDotClass={getTagDotClass}
 				getFolderColorClass={getFolderColorClass}
@@ -1462,8 +1489,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				editor={folderEditor}
 				saving={folderEditorSaving}
 				error={folderEditorError}
-				typeOptions={FOLDER_TYPE_OPTIONS.map((option) => ({...option}))}
-				colorOptions={FOLDER_COLOR_OPTIONS.map((option) => ({...option}))}
+				typeOptions={folderTypeOptions.map((option) => ({...option}))}
+				colorOptions={folderColorOptions.map((option) => ({...option}))}
 				getFolderSwatchClass={getFolderSwatchClass}
 				onClose={() => setFolderEditor(null)}
 				onSave={() => void saveFolderSettings()}
@@ -1477,8 +1504,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 				accountLabel={createFolderAccountLabel}
 				saving={createFolderSaving}
 				error={createFolderError}
-				typeOptions={FOLDER_TYPE_OPTIONS.map((option) => ({...option}))}
-				colorOptions={FOLDER_COLOR_OPTIONS.map((option) => ({...option}))}
+				typeOptions={folderTypeOptions.map((option) => ({...option}))}
+				colorOptions={folderColorOptions.map((option) => ({...option}))}
 				getFolderSwatchClass={getFolderSwatchClass}
 				onClose={() => setCreateFolderModal(null)}
 				onCreate={() => void createFolderFromModal()}
@@ -1492,8 +1519,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 	);
 };
 
-function renderTagCell(tag: string | null): React.ReactNode {
-	const label = getTagLabel(tag);
+function renderTagCell(tag: string | null, getLabel: (tag: string | null) => string): React.ReactNode {
+	const label = getLabel(tag);
 	if (!label) return '';
 	return (
 		<span className="mail-list-tag-chip inline-flex max-w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px]">

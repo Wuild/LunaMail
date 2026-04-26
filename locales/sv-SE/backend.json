@@ -1,0 +1,100 @@
+{
+	"compose": {
+		"background": {
+			"queued_email_background_send": "E-post köad för bakgrundsskick...",
+			"sending_email": "Skickar e-post...",
+			"email_sent_successfully": "E-post skickades.",
+			"background_send_failed": "Bakgrundsskick misslyckades."
+		}
+	},
+	"windows": {
+		"error": {
+			"invalid_route": "Ogiltig route"
+		},
+		"dialog": {
+			"select_attachments": "Välj bilagor"
+		}
+	},
+	"accounts": {
+		"error": {
+			"invalid_service": "Ogiltig tjänst. Förväntade \"imap\" eller \"smtp\".",
+			"invalid_mode": "Ogiltigt läge. Förväntade \"connection\" eller \"authentication\".",
+			"ancillary_worker_failed": "Bakgrundsarbetare för hjälpsynk misslyckades",
+			"ancillary_worker_no_result": "Bakgrundsarbetare för hjälpsynk avslutades utan resultat",
+			"ancillary_worker_exit_code": "Bakgrundsarbetare för hjälpsynk avslutades med kod {{code}}"
+		},
+		"sync": {
+			"paused_for_account": "Synk pausad för detta konto: {{reason}}. Uppdatera kontoinställningar eller starta om appen.",
+			"unavailable": "Synk inte tillgänglig: {{message}}",
+			"paused_credentials": "Synk pausad: {{message}}. Lösenord eller autentisering kan ha ändrats. Uppdatera kontoinställningar eller starta om appen.",
+			"dav_not_executed": "DAV-synk kördes inte.",
+			"email_not_requested": "E-postsynk begärdes inte.",
+			"email_disabled_for_account": "E-postsynk är inaktiverad för detta konto.",
+			"contacts_not_executed": "Kontaktsynk kördes inte.",
+			"microsoft_no_mailbox_sync_disabled": "Microsoft-inloggning lyckades, men kontot har ingen Exchange-brevlåda. Synk inaktiverades för detta konto.",
+			"microsoft_no_mailbox_signin_succeeded": "Microsoft-inloggning lyckades, men kontot har ingen Exchange-brevlåda.",
+			"microsoft_email_sync_turned_off": "E-postsynk stängdes av automatiskt: Microsoft-inloggning lyckades, men kontot har ingen Exchange-brevlåda.",
+			"contacts_not_requested": "Kontaktsynk begärdes inte.",
+			"contacts_disabled_for_account": "Kontaktsynk är inaktiverad för detta konto.",
+			"calendar_not_executed": "Kalendersynk kördes inte.",
+			"calendar_not_requested": "Kalendersynk begärdes inte.",
+			"calendar_disabled_for_account": "Kalendersynk är inaktiverad för detta konto.",
+			"files_not_implemented": "Filsynk är inte implementerad."
+		}
+	},
+	"dav": {
+		"export_contacts": {
+			"title": "Exportera kontakter",
+			"filter_vcard": "vCard",
+			"filter_csv": "CSV"
+		},
+		"sync": {
+			"contacts_default_address_book": "Kontakter",
+			"untitled_event": "Namnlös händelse",
+			"error": {
+				"runtime_dependencies_not_configured": "DAV-synkens runtime-beroenden är inte konfigurerade.",
+				"missing_preview_credentials": "Saknade DAV-förhandsvisningsuppgifter",
+				"oauth_not_supported_use_ancillary": "DAV-synk stöder inte OAuth-konton. Använd leverantörens hjälpsynktjänst i stället.",
+				"contact_not_found": "Kontakten hittades inte.",
+				"contact_source_read_only": "Denna kontaktkälla är skrivskyddad.",
+				"google_oauth_session_missing_calendar_update": "Google OAuth-session saknas för kalenderuppdatering. Återanslut detta konto.",
+				"google_event_id_missing_sync_calendar": "Google-händelse-ID saknas. Synka kalendern och försök igen.",
+				"google_oauth_session_missing_calendar_delete": "Google OAuth-session saknas för kalenderborttagning. Återanslut detta konto.",
+				"calendar_edit_oauth_provider_not_supported": "Kalenderredigering via {{provider}} OAuth stöds inte ännu.",
+				"calendar_event_not_found": "Kalenderhändelsen hittades inte.",
+				"calendar_source_read_only": "Denna kalenderkälla är skrivskyddad.",
+				"oauth_dav_credentials_required": "Kalender- och kontaktsynk via {{providerLabel}} OAuth stöds inte ännu. Använd konto-/applösenord för DAV tills vidare, eller rapportera detta på GitHub: https://github.com/wuild/LlamaMail/issues",
+				"protocol_requires_user_password": "{{protocol}}-synk kräver användarnamn och lösenord.",
+				"well_known_endpoint_unavailable": "Well-known-endpoint inte tillgänglig ({{status}})",
+				"dav_request_failed": "DAV {{method}} misslyckades ({{status}}) för {{url}}",
+				"carddav_put_failed": "CardDAV PUT misslyckades ({{status}}) för {{url}}",
+				"caldav_put_failed": "CalDAV PUT misslyckades ({{status}}) för {{url}}",
+				"carddav_delete_failed": "CardDAV DELETE misslyckades ({{status}}) för {{url}}",
+				"caldav_delete_failed": "CalDAV DELETE misslyckades ({{status}}) för {{url}}",
+				"no_carddav_endpoint_for_account": "Ingen CardDAV-endpoint hittades för detta konto.",
+				"remote_carddav_contact_not_found_sync_contacts": "Kunde inte hitta fjärrkontakt i CardDAV att uppdatera. Synka kontakter och försök igen.",
+				"event_start_required": "Startdatum/-tid för händelse krävs.",
+				"event_end_required": "Slutdatum/-tid för händelse krävs.",
+				"event_end_after_start": "Händelseslut måste vara efter start.",
+				"no_caldav_endpoint_for_account": "Ingen CalDAV-endpoint hittades för detta konto.",
+				"remote_caldav_event_not_found_sync_calendar": "Kunde inte hitta fjärrhändelse i CalDAV att uppdatera. Synka kalender och försök igen.",
+				"invalid_event_datetime": "Ogiltigt händelsedatum/-tid."
+			}
+		},
+		"oauth_contacts": {
+			"error": {
+				"dependencies_not_configured": "Runtime-beroenden för OAuth-kontakter är inte konfigurerade.",
+				"adapter_not_found": "OAuth-kontaktadapter hittades inte för leverantör: {{provider}}",
+				"google_contacts_permission_missing": "Google-kontaktbehörighet saknas. Återanslut kontot och ge åtkomst till Kontakter.",
+				"provider_mismatch": "OAuth-leverantör matchar inte. Förväntade {{expectedProvider}}, fick {{actualProvider}}.",
+				"oauth_access_token_missing": "OAuth-access-token saknas. Återanslut kontot.",
+				"microsoft_access_token_missing_after_refresh": "Microsoft Graph-access-token saknas efter uppdatering. Återanslut kontot.",
+				"valid_email_required": "En giltig e-postadress krävs.",
+				"provider_contact_not_cached": "Leverantörskontakt skapades på distans men kunde inte cachelagras lokalt.",
+				"unsupported_source": "OAuth-kontaktkälla stöds inte: {{source}}",
+				"session_missing_update": "OAuth-session saknas för uppdatering av leverantörskontakt. Återanslut kontot.",
+				"session_missing_delete": "OAuth-session saknas för borttagning av leverantörskontakt. Återanslut kontot."
+			}
+		}
+	}
+}

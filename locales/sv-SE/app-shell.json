@@ -1,0 +1,242 @@
+{
+	"app": {
+		"title": {
+			"mail": "E-post",
+			"contacts": "Kontakter",
+			"calendar": "Kalender",
+			"cloud": "Moln",
+			"settings": "Inställningar",
+			"debug": "Felsökning",
+			"about": "Om",
+			"onboarding": "Kom igång",
+			"compose_email": "Skriv e-post",
+			"message": "Meddelande",
+			"add_account": "Lägg till konto",
+			"debug_console": "Felsökningskonsol"
+		},
+		"update": {
+			"available": "Uppdatering tillgänglig",
+			"ready_to_install": "Uppdatering redo att installeras",
+			"open_status": "Öppna uppdateringsstatus"
+		}
+	},
+	"main": {
+		"send": {
+			"sending_title": "Skickar e-post",
+			"send_failed_title": "Skickning misslyckades",
+			"queued_message": "E-post köad för bakgrundsskick...",
+			"sending_message": "Skickar e-post...",
+			"sent_message": "E-post skickad."
+		},
+		"sync": {
+			"unknown_error": "Okänt synkfel",
+			"authentication_failed": "Autentisering misslyckades",
+			"rate_limited": "Hastighetsbegränsad",
+			"sync_timeout": "Tidsgräns för synk har gått ut",
+			"sync_failed": "Synk misslyckades",
+			"reconnect_required": "Återanslutning krävs."
+		},
+		"update": {
+			"downloaded_ready": "En uppdatering har laddats ner och är redo att installeras.",
+			"downloading": "En ny uppdatering laddas ner i bakgrunden.",
+			"available": "En ny uppdatering är tillgänglig.",
+			"open_settings": "Öppna uppdateringsinställningar"
+		},
+		"restart": {
+			"hardware_acceleration": "Hårdvaruacceleration",
+			"native_titlebar": "Inbyggd titelrad",
+			"required_apply": "Omstart krävs för att tillämpa: {{items}}.",
+			"restarting": "Startar om...",
+			"restart_now": "Starta om nu"
+		},
+		"dismiss": "Avfärda",
+		"dismiss_notification": "Avfärda notis",
+		"context": {
+			"open": "Öppna {{label}}",
+			"open_debug_new_window": "Öppna felsökning i nytt fönster"
+		},
+		"context_menu": {
+			"add_to_dictionary": "Lägg till i ordlista",
+			"undo": "Ångra",
+			"redo": "Gör om",
+			"cut": "Klipp ut",
+			"copy": "Kopiera",
+			"paste": "Klistra in",
+			"select_all": "Markera allt",
+			"copy_image": "Kopiera bild",
+			"open_image": "Öppna bild",
+			"copy_image_address": "Kopiera bildadress",
+			"open_link": "Öppna länk",
+			"copy_link_address": "Kopiera länkadress"
+		},
+		"quick_actions": {
+			"open_app": "Öppna appen",
+			"open_compose_window": "Öppna skrivfönster",
+			"open_mail": "Öppna e-post",
+			"open_contacts": "Öppna kontakter",
+			"open_calendar": "Öppna kalender",
+			"open_cloud_files": "Öppna molnfiler"
+		},
+		"dialog": {
+			"discard_unsaved_changes": "Förkasta osparade ändringar?",
+			"unsaved_changes_detail": "Det här fönstret har osparade ändringar. Om du lämnar fönstret försvinner de.",
+			"discard_changes": "Förkasta ändringar",
+			"cancel": "Avbryt"
+		},
+		"link_warning": {
+			"sender_not_allowlisted": "Avsändaren finns inte i tillåtelselistan för direktlänkar",
+			"targets_executable_file_type": "Målar mot körbar filtyp: {{ext}}",
+			"includes_embedded_credentials": "Innehåller inbäddade inloggningsuppgifter i URL",
+			"url_unusual_or_malformed": "URL-formatet är ovanligt eller felaktigt",
+			"potentially_unsafe_link": "Potentiellt osäker länk",
+			"open_anyway": "Öppna ändå"
+		},
+		"demo": {
+			"sync_failed_message": "Demokonto: Synk av brevlåda misslyckades (timeout vid hämtning av mappstatus).",
+			"auth_failed_message": "Demokonto: Ogiltiga inloggningsuppgifter. Lösenord eller autentisering kan ha ändrats."
+		},
+		"reconnect": {
+			"title": "Återanslut konto",
+			"needs_sign_in": "{{account}} behöver en ny inloggning innan denna åtgärd kan fortsätta.",
+			"why_happen": "Varför detta kan hända",
+			"why_happen_body": "Åtkomst kan löpa ut eller återkallas, dina godkända behörigheter kan ha ändrats, eller så kräver leverantören periodisk återautentisering av säkerhetsskäl.",
+			"later": "Senare",
+			"connecting": "Ansluter...",
+			"action": "Återanslut",
+			"failed": "Återanslutning misslyckades: {{error}}"
+		},
+		"tray": {
+			"menu": {
+				"show_app": "Visa {{appName}}",
+				"compose_email": "Skriv e-post",
+				"mail": "E-post",
+				"contacts": "Kontakter",
+				"calendar": "Kalender",
+				"cloud": "Moln",
+				"settings": "Inställningar",
+				"about": "Om",
+				"quit": "Avsluta"
+			},
+			"tooltip": {
+				"unread_count": "{{appName}} ({{count}} olästa)"
+			}
+		}
+	},
+	"status": {
+		"error": {
+			"unknown": "okänt fel"
+		},
+		"no_account_selected": "Inget konto valt.",
+		"syncing": "Synkar...",
+		"syncing_mailbox": "Synkar brevlåda...",
+		"sync_started_for": "Synk startad för {{email}}...",
+		"sync_failed": "Synk misslyckades: {{error}}",
+		"auto_sync_failed": "Automatisk synk misslyckades: {{error}}",
+		"synced_messages": "Synkade {{count}} meddelanden",
+		"synced_mailbox_dav": "Synkade brevlåda + DAV ({{contacts}} kontakter, {{events}} händelser)",
+		"sync_complete_messages": "Synk klar: {{count}} meddelanden",
+		"sync_complete_dav": "Synk klar: {{contacts}} kontakter, {{events}} händelser",
+		"synced_partial": "Synkade {{count}} meddelanden (delvis)",
+		"synced_partial_failed": "Synkade {{count}} meddelanden (delvis: {{failed}} misslyckades)",
+		"module": {
+			"mailbox": "brevlåda",
+			"contacts": "kontakter",
+			"calendar": "kalender",
+			"files": "filer"
+		}
+	},
+	"notifications": {
+		"new_email_received": "Nytt e-postmeddelande mottaget",
+		"new_emails_received": "{{count}} nya e-postmeddelanden",
+		"mailbox_synced_with_unread": "Brevlåda synkad med nya olästa meddelanden.",
+		"you_have_new_unread": "Du har nya olästa meddelanden.",
+		"dev_notification_fallback_title": "LlamaMail-utvecklarnotis",
+		"dev_notification_no_message": "Inget meddelande hittades i första konto/mapp.",
+		"unknown_sender": "Okänd avsändare",
+		"sound_test_title": "LlamaMail ljudtest",
+		"sound_test_body": "Testar notisljud"
+	},
+	"errors": {
+		"unknown_error": "Okänt fel",
+		"database_init_failed": "Databasinitiering misslyckades: {{error}}",
+		"renderer_unexpected": "Oväntat renderingsfel",
+		"unhandled_promise_rejection": "Ohanterad Promise-rejektion"
+	},
+	"language": {
+		"system": "Systemstandard",
+		"en_us": "Engelska (USA)",
+		"sv_se": "Svenska (Sverige)"
+	},
+	"theme": {
+		"light_subtitle": "Ljus arbetsyta",
+		"dark_subtitle": "Bekvämt i mörker",
+		"system_subtitle": "Följ operativsystemets inställning"
+	},
+	"window_controls": {
+		"minimize": "Minimera",
+		"maximize": "Maximera",
+		"restore": "Återställ",
+		"close": "Stäng"
+	},
+	"splash": {
+		"progress": {
+			"downloading_update_percent": "Laddar ner uppdatering {{percent}}%",
+			"checking_for_updates": "Söker efter uppdateringar",
+			"update_found": "Uppdatering hittad",
+			"download_complete": "Nedladdning klar",
+			"up_to_date": "Du har senaste versionen",
+			"updater_disabled": "Uppdateraren är inaktiverad",
+			"update_failed_continuing": "Uppdatering misslyckades, fortsätter uppstart",
+			"preparing_application": "Förbereder programmet"
+		}
+	},
+	"help": {
+		"unknown_version": "okänd",
+		"hero": {
+			"title": "Möt LlamaMail",
+			"subtitle": "En snabb, offline-first e-postapp för skrivbordet byggd för fokus: inkorgar för flera konton, snabb lokal sökning och säkra systemgränser."
+		},
+		"version_chip": "Version {{version}}",
+		"view_project": "Visa projekt",
+		"mascot_alt": "LlamaMail-maskot",
+		"snapshot": {
+			"title": "Projektöversikt",
+			"app_version_label": "Appversion:",
+			"source_label": "Källa:"
+		},
+		"patreon": {
+			"aria": "Stöd LlamaMail på Patreon",
+			"title": "Stöd på Patreon",
+			"label": "Patreon"
+		}
+	},
+	"debug": {
+		"console": {
+			"title": "Felsökningskonsol",
+			"subtitle": "Livehändelser vid körning med enkla filter för källa och nivå.",
+			"auto_scroll": "Automatisk rullning",
+			"clear": "Rensa",
+			"close": "Stäng",
+			"sources": "Källor",
+			"levels": "Nivåer",
+			"no_events": "Inga felsökningshändelser ännu.",
+			"no_events_filtered": "Inga händelser matchar nuvarande filter."
+		},
+		"source": {
+			"imap": "IMAP",
+			"smtp": "SMTP",
+			"carddav": "CardDav",
+			"caldav": "CalDav",
+			"cloud": "Moln",
+			"app": "App"
+		},
+		"level": {
+			"trace": "Spårning",
+			"debug": "Felsökning",
+			"info": "Information",
+			"warn": "Varning",
+			"error": "Fel",
+			"fatal": "Kritiskt"
+		}
+	}
+}

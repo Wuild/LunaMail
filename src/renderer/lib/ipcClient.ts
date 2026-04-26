@@ -55,6 +55,7 @@ import type {
 	WindowControlsCapabilities,
 	StartMailOAuthPayload,
 	OAuthSession,
+	I18nCatalogPayload,
 } from '@preload';
 
 const noopUnsubscribe = () => undefined;
@@ -101,6 +102,8 @@ export const ipcClient = {
 		window.electronAPI.onOpenMessageTarget?.(cb) ?? noopUnsubscribe,
 
 	getAppSettings: (): Promise<AppSettings> => window.electronAPI.getAppSettings(),
+	getI18nCatalog: (locale?: string | null): Promise<I18nCatalogPayload> =>
+		window.electronAPI.getI18nCatalog(locale ?? null),
 	onAppSettingsUpdated: (cb: (settings: AppSettings) => void): (() => void) =>
 		window.electronAPI.onAppSettingsUpdated?.(cb) ?? noopUnsubscribe,
 	onNativeThemeUpdated: (cb: (payload: {shouldUseDarkColors: boolean}) => void): (() => void) =>

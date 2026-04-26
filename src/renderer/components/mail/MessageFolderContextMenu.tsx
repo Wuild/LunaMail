@@ -21,6 +21,7 @@ import {
 	ContextMenuSeparator,
 	ContextMenuSubmenu,
 } from '@llamamail/ui/contextmenu';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type TagOption = {
 	value: string;
@@ -108,6 +109,7 @@ export default function MessageFolderContextMenu({
 	onSyncAccount,
 	onDeleteFolder,
 }: MessageFolderContextMenuProps) {
+	const {t} = useI18n();
 	if (!menu) return null;
 
 	return (
@@ -124,7 +126,7 @@ export default function MessageFolderContextMenu({
 			{menu.kind === 'message' && (
 				<>
 					<ContextItem
-						label="Open in new window"
+						label={t('mail_components.context.open_in_new_window')}
 						icon={<SquareArrowOutUpRight size={14} />}
 						onClick={() => {
 							onOpenMessageWindow(menu.message.id);
@@ -132,7 +134,7 @@ export default function MessageFolderContextMenu({
 						}}
 					/>
 					<ContextItem
-						label={menu.message.is_read ? 'Mark as unread' : 'Mark as read'}
+						label={menu.message.is_read ? t('mail_components.context.mark_as_unread') : t('mail_components.context.mark_as_read')}
 						icon={menu.message.is_read ? <Mail size={14} /> : <MailOpen size={14} />}
 						onClick={() => {
 							onMessageMarkReadToggle(menu.message);
@@ -140,7 +142,7 @@ export default function MessageFolderContextMenu({
 						}}
 					/>
 					<ContextItem
-						label={menu.message.is_flagged ? 'Remove star' : 'Star message'}
+						label={menu.message.is_flagged ? t('mail_components.context.remove_star') : t('mail_components.context.star_message')}
 						icon={<Star size={14} />}
 						onClick={() => {
 							onMessageFlagToggle(menu.message);
@@ -158,7 +160,7 @@ export default function MessageFolderContextMenu({
 										),
 									)}
 								/>
-								Tag
+								{t('mail_components.context.tag')}
 							</span>
 							<ChevronRight size={14} />
 						</ContextMenuItem>
@@ -188,7 +190,7 @@ export default function MessageFolderContextMenu({
 										{tag.label}
 									</span>
 									{((menu.message as MessageItem & {tag?: string | null}).tag || '') ===
-										tag.value && <span className="text-success text-xs">On</span>}
+										tag.value && <span className="text-success text-xs">{t('mail_components.context.on')}</span>}
 								</ContextMenuItem>
 							))}
 							<ContextMenuSeparator />
@@ -199,12 +201,12 @@ export default function MessageFolderContextMenu({
 									onClose();
 								}}
 							>
-								Clear tag
+								{t('mail_components.context.clear_tag')}
 							</ContextMenuItem>
 						</ContextMenuSubmenu>
 					</ContextMenuAnchor>
 					<ContextItem
-						label="Archive"
+						label={t('mail_components.context.archive')}
 						icon={<Archive size={14} />}
 						onClick={() => {
 							onMessageArchive(menu.message);
@@ -212,7 +214,7 @@ export default function MessageFolderContextMenu({
 						}}
 					/>
 					<ContextItem
-						label={isMessageInJunkFolder(menu.message) ? 'Mark as not junk' : 'Mark as junk'}
+						label={isMessageInJunkFolder(menu.message) ? t('mail_components.context.mark_as_not_junk') : t('mail_components.context.mark_as_junk')}
 						icon={<Mail size={14} />}
 						onClick={() => {
 							if (isMessageInJunkFolder(menu.message)) {
@@ -233,7 +235,7 @@ export default function MessageFolderContextMenu({
 						>
 							<span className="flex items-center gap-2">
 								<Folder size={14} />
-								Move to
+								{t('mail_components.context.move_to')}
 							</span>
 							<ChevronRight size={14} />
 						</ContextMenuItem>
@@ -283,7 +285,7 @@ export default function MessageFolderContextMenu({
 					</ContextMenuAnchor>
 					<ContextMenuSeparator />
 					<ContextItem
-						label="Delete"
+						label={t('mail_components.common.delete')}
 						icon={<Trash2 size={14} />}
 						danger
 						onClick={() => {
@@ -296,7 +298,7 @@ export default function MessageFolderContextMenu({
 			{menu.kind === 'folder' && (
 				<>
 					<ContextItem
-						label="Open Folder"
+						label={t('mail_components.context.open_folder')}
 						icon={<Folder size={14} />}
 						onClick={() => {
 							if (menu.folder.account_id !== selectedAccountId) {
@@ -307,7 +309,7 @@ export default function MessageFolderContextMenu({
 						}}
 					/>
 					<ContextItem
-						label="Edit Folder Settings"
+						label={t('mail_components.context.edit_folder_settings')}
 						icon={<Settings size={14} />}
 						onClick={() => {
 							onOpenFolderSettings({
@@ -320,7 +322,7 @@ export default function MessageFolderContextMenu({
 						}}
 					/>
 					<ContextItem
-						label="Refresh Folder"
+						label={t('mail_components.context.refresh_folder')}
 						icon={<RefreshCw size={14} />}
 						onClick={() => {
 							onRefreshFolder(menu.folder);
@@ -328,7 +330,7 @@ export default function MessageFolderContextMenu({
 						}}
 					/>
 					<ContextItem
-						label="Sync Account"
+						label={t('mail_components.context.sync_account')}
 						icon={<RefreshCw size={14} />}
 						onClick={() => {
 							onSyncAccount(menu.folder.account_id);
@@ -340,7 +342,7 @@ export default function MessageFolderContextMenu({
 							<ContextMenuSeparator />
 
 							<ContextItem
-								label="Delete Folder"
+								label={t('mail_components.context.delete_folder')}
 								icon={<Trash2 size={14} />}
 								danger
 								onClick={() => {

@@ -21,6 +21,7 @@ import {useAppSettings} from '@renderer/hooks/ipc/useAppSettings';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import NavRailItem from './NavRailItem';
 import {ContextMenu, ContextMenuItem} from '@llamamail/ui/contextmenu';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 export type TopNavItemId = AppSettings['navRailOrder'][number];
 export type TopNavItemDef = {
@@ -107,6 +108,7 @@ function TopNavEndDrop() {
 }
 
 export default function MainNavRail() {
+	const {t} = useI18n();
 	const navigate = useNavigate();
 	const {totalUnreadCount} = useAccounts();
 	const {appSettings, setAppSettings} = useAppSettings(DEFAULT_APP_SETTINGS);
@@ -145,13 +147,19 @@ export default function MainNavRail() {
 
 	const topNavItems = useMemo<TopNavItemDef[]>(() => {
 		const all: Record<TopNavItemId, TopNavItemDef> = {
-			email: {id: 'email', to: '/email', label: 'Mail', icon: <Mail size={18} />, badgeCount: totalUnreadCount},
-			contacts: {id: 'contacts', to: '/contacts', label: 'Contacts', icon: <Users size={18} />},
-			calendar: {id: 'calendar', to: '/calendar', label: 'Calendar', icon: <CalendarDays size={18} />},
-			cloud: {id: 'cloud', to: '/cloud', label: 'Cloud', icon: <Cloud size={18} />},
+			email: {
+				id: 'email',
+				to: '/email',
+				label: t('app.title.mail'),
+				icon: <Mail size={18} />,
+				badgeCount: totalUnreadCount,
+			},
+			contacts: {id: 'contacts', to: '/contacts', label: t('app.title.contacts'), icon: <Users size={18} />},
+			calendar: {id: 'calendar', to: '/calendar', label: t('app.title.calendar'), icon: <CalendarDays size={18} />},
+			cloud: {id: 'cloud', to: '/cloud', label: t('app.title.cloud'), icon: <Cloud size={18} />},
 		};
 		return topNavOrder.map((id) => all[id]).filter(Boolean);
-	}, [topNavOrder, totalUnreadCount]);
+	}, [t, topNavOrder, totalUnreadCount]);
 
 	const draggingTopNavItem = useMemo(
 		() =>
@@ -296,7 +304,7 @@ export default function MainNavRail() {
 						onContextMenu={(event) =>
 							openMainNavContextMenu(event, {
 								id: 'settings',
-								label: 'Settings',
+								label: t('app.title.settings'),
 								to: '/settings/application',
 							})
 						}
@@ -304,7 +312,7 @@ export default function MainNavRail() {
 						<NavRailItem
 							to="/settings/application"
 							icon={<Settings size={16} />}
-							label="Settings"
+							label={t('app.title.settings')}
 							activePathPrefixes={['/settings']}
 						/>
 					</div>
@@ -313,24 +321,24 @@ export default function MainNavRail() {
 							onContextMenu={(event) =>
 								openMainNavContextMenu(event, {
 									id: 'debug',
-									label: 'Debug',
+									label: t('app.title.debug'),
 									to: '/debug',
 								})
 							}
 						>
-							<NavRailItem to="/debug" icon={<Bug size={16} />} label="Debug" />
+							<NavRailItem to="/debug" icon={<Bug size={16} />} label={t('app.title.debug')} />
 						</div>
 					)}
 					<div
 						onContextMenu={(event) =>
 							openMainNavContextMenu(event, {
 								id: 'about',
-								label: 'About',
+								label: t('app.title.about'),
 								to: '/about',
 							})
 						}
 					>
-						<NavRailItem to="/about" icon={<CircleHelp size={16} />} label="About" />
+						<NavRailItem to="/about" icon={<CircleHelp size={16} />} label={t('app.title.about')} />
 					</div>
 				</div>
 			</aside>
@@ -352,7 +360,7 @@ export default function MainNavRail() {
 							setMainNavContextMenu(null);
 						}}
 					>
-						Open {mainNavContextMenu.label}
+						{t('main.context.open', {label: mainNavContextMenu.label})}
 					</ContextMenuItem>
 					{mainNavContextMenu.id === 'debug' && (
 						<ContextMenuItem
@@ -363,7 +371,7 @@ export default function MainNavRail() {
 								setMainNavContextMenu(null);
 							}}
 						>
-							Open Debug In New Window
+							{t('main.context.open_debug_new_window')}
 						</ContextMenuItem>
 					)}
 				</ContextMenu>

@@ -11,8 +11,10 @@ import {
 } from '@llamamail/app/settingsRules';
 import {ACCOUNT_CALENDAR_SYNC_INTERVAL_OPTIONS} from '@llamamail/app/settingsOptions';
 import type {UseAccountSettingsRouteResult} from '../useAccountSettingsRoute';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 export default function SettingsAccountCalDavPage() {
+	const {t} = useI18n();
 	const {editor, setEditor} = useOutletContext<UseAccountSettingsRouteResult>();
 	const [detectedUrl, setDetectedUrl] = useState<string | null>(null);
 	const [discovering, setDiscovering] = useState(false);
@@ -61,9 +63,9 @@ export default function SettingsAccountCalDavPage() {
 			<Card
 				header={
 					<div>
-						<h2 className="ui-text-primary text-base font-semibold">Calendar Module</h2>
+						<h2 className="ui-text-primary text-base font-semibold">{t('settings.account_calendar.module_title')}</h2>
 						<p className="mt-1 ui-text-muted text-sm">
-							Enable calendar sync and configure calendar credentials for this account.
+							{t('settings.account_calendar.module_description')}
 						</p>
 					</div>
 				}
@@ -71,8 +73,8 @@ export default function SettingsAccountCalDavPage() {
 				<div className="space-y-3">
 					<label className="ui-border-default flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-sm">
 						<div>
-							<span className="ui-text-secondary">Enable Calendar</span>
-							<p className="ui-text-muted mt-1 text-xs">Disable to pause CalDAV calendar sync jobs.</p>
+							<span className="ui-text-secondary">{t('settings.account_calendar.enable_calendar')}</span>
+							<p className="ui-text-muted mt-1 text-xs">{t('settings.account_calendar.enable_calendar_description')}</p>
 						</div>
 						<FormCheckbox
 							checked={!!editor.sync_calendar}
@@ -84,7 +86,7 @@ export default function SettingsAccountCalDavPage() {
 						/>
 					</label>
 					<label className="block text-sm md:max-w-xs">
-						<Label>Calendar sync interval</Label>
+						<Label>{t('settings.account_calendar.sync_interval')}</Label>
 						<FormSelect
 							value={String(
 								normalizeAccountCalendarSyncIntervalMinutes(
@@ -108,7 +110,9 @@ export default function SettingsAccountCalDavPage() {
 						>
 							{ACCOUNT_CALENDAR_SYNC_INTERVAL_OPTIONS.map((minutes) => (
 								<option key={minutes} value={minutes}>
-									Every {minutes} minute{minutes === 1 ? '' : 's'}
+									{minutes === 1
+										? t('settings.account_calendar.every_minute', {minutes})
+										: t('settings.account_calendar.every_minutes', {minutes})}
 								</option>
 							))}
 						</FormSelect>
@@ -119,7 +123,7 @@ export default function SettingsAccountCalDavPage() {
 			{isManagedOAuthProvider ? (
 				<Card>
 					<p className="ui-text-muted text-sm">
-						CalDAV endpoint and credentials are managed by your provider OAuth integration.
+						{t('settings.account_calendar.oauth_managed')}
 					</p>
 				</Card>
 			) : (
@@ -127,35 +131,40 @@ export default function SettingsAccountCalDavPage() {
 					header={
 						<div className="flex items-center justify-between gap-3">
 							<div>
-								<h3 className="ui-text-primary text-sm font-semibold">Calendar Connection</h3>
-								<p className="ui-text-muted mt-1 text-xs">Detected endpoint and override credentials.</p>
+								<h3 className="ui-text-primary text-sm font-semibold">{t('settings.account_calendar.connection_title')}</h3>
+								<p className="ui-text-muted mt-1 text-xs">{t('settings.account_calendar.connection_subtitle')}</p>
 							</div>
 							<Button type="button" variant="secondary" size="sm" onClick={() => void detectUrl()} disabled={discovering}>
-								{discovering ? 'Detecting...' : 'Detect URL'}
+								{discovering ? t('settings.account_calendar.detecting') : t('settings.account_calendar.detect_url')}
 							</Button>
 						</div>
 					}
 				>
 					<div className="space-y-3">
 						<label className="block text-sm">
-							<span className="ui-text-secondary mb-1 block font-medium">Detected URL</span>
-							<FormInput value={detectedUrl || ''} readOnly placeholder="Not detected yet" variant="subtle" />
+							<span className="ui-text-secondary mb-1 block font-medium">{t('settings.account_calendar.detected_url')}</span>
+							<FormInput
+								value={detectedUrl || ''}
+								readOnly
+								placeholder={t('settings.account_calendar.not_detected_yet')}
+								variant="subtle"
+							/>
 						</label>
 						<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 							<Field
-								label="CalDAV Username"
+								label={t('settings.account_calendar.caldav_username')}
 								value={editor.caldav_user || ''}
 								onChange={(value) => setEditor((prev) => (prev ? {...prev, caldav_user: value} : prev))}
-								placeholder="Defaults to account username"
+								placeholder={t('settings.account_calendar.defaults_to_account_username')}
 							/>
 							<Field
 								type="password"
-								label="CalDAV Password"
+								label={t('settings.account_calendar.caldav_password')}
 								value={editor.caldav_password || ''}
 								onChange={(value) =>
 									setEditor((prev) => (prev ? {...prev, caldav_password: value} : prev))
 								}
-								placeholder="Defaults to account password"
+								placeholder={t('settings.account_calendar.defaults_to_account_password')}
 							/>
 						</div>
 					</div>

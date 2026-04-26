@@ -2,6 +2,7 @@ import React from 'react';
 import {Mail} from '@llamamail/ui/icon';
 import {useDragLayer} from 'react-dnd';
 import {DND_ITEM} from '@renderer/lib/dndTypes';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type MailDragItem = {
 	type: typeof DND_ITEM.MAIL_MESSAGE;
@@ -11,6 +12,7 @@ type MailDragItem = {
 };
 
 export default function MailDragOverlay() {
+	const {t} = useI18n();
 	const {isDragging, itemType, item, offset} = useDragLayer((monitor) => ({
 		isDragging: monitor.isDragging(),
 		itemType: monitor.getItemType(),
@@ -21,7 +23,11 @@ export default function MailDragOverlay() {
 	if (!isDragging || itemType !== DND_ITEM.MAIL_MESSAGE || !item || !offset) return null;
 
 	const count = Array.isArray(item.messageIds) ? item.messageIds.length : 1;
-	const subject = item.subject || (count > 1 ? `Moving ${count} emails` : 'Moving email');
+	const subject =
+		item.subject ||
+		(count > 1
+			? t('mail_components.drag_overlay.moving_emails', {count})
+			: t('mail_components.drag_overlay.moving_email'));
 	const from = item.from || null;
 
 	return (

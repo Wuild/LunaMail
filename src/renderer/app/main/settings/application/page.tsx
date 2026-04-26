@@ -8,12 +8,13 @@ import {describeUpdatePhase} from '../mailFilterHelpers';
 import {Button} from '@llamamail/ui/button';
 import {FormCheckbox, FormSelect} from '@llamamail/ui/form';
 import {parseAppLanguage} from '@llamamail/app/settingsRules';
-import {APP_LANGUAGE_OPTIONS} from '@llamamail/app/settingsOptions';
 import {Card} from '@llamamail/ui/card';
 import {Label} from '@llamamail/ui';
 import {Container} from '@llamamail/ui/container';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 export default function SettingsApplicationPage() {
+	const {t} = useI18n();
 	const {appSettings: settings, setAppSettings: setSettings} = useIpcAppSettings(DEFAULT_APP_SETTINGS);
 	const {state: autoUpdateState, setState: setAutoUpdateState} = useAutoUpdateState();
 	const [appStatus, setAppStatus] = useState<string | null>(null);
@@ -40,16 +41,16 @@ export default function SettingsApplicationPage() {
 
 	async function applySettingsPatch(patch: Partial<AppSettings>): Promise<boolean> {
 		setSettings((prev: AppSettings) => ({...prev, ...patch}));
-		setAppStatus('Saving...');
+		setAppStatus(t('settings.status.saving'));
 		try {
 			const saved = await ipcClient.updateAppSettings(patch);
 			setSettings(saved);
-			setAppStatus('Settings saved.');
+			setAppStatus(t('settings.status.saved'));
 			return true;
 		} catch (e: any) {
 			const latest = await ipcClient.getAppSettings().catch(() => null);
 			if (latest) setSettings(latest);
-			setAppStatus(`Save failed: ${e?.message || String(e)}`);
+			setAppStatus(t('settings.status.save_failed', {error: e?.message || String(e)}));
 			return false;
 		}
 	}
@@ -60,28 +61,28 @@ export default function SettingsApplicationPage() {
 		if (!saved) return;
 		setAppStatus(
 			pendingValue === null
-				? 'Hardware acceleration restart change cleared.'
-				: 'Hardware acceleration change queued. Restart required to apply.',
+				? t('settings.status.hardware_accel_restart_change_cleared')
+				: t('settings.status.hardware_accel_change_queued'),
 		);
 	}
 
 	async function onSetDefaultEmailClient(): Promise<void> {
 		setDefaultEmailClientBusy(true);
-		setAppStatus('Requesting default email app...');
+		setAppStatus(t('settings.status.requesting_default_email_app'));
 		try {
 			const result = await ipcClient.setDefaultEmailClient();
 			setIsDefaultEmailClient(result.isDefault);
 			if (result.isDefault) {
-				setAppStatus('LlamaMail is now the default email app for mailto links.');
+				setAppStatus(t('settings.status.default_email_now_set'));
 				return;
 			}
 			if (result.ok) {
-				setAppStatus('Default email app request sent. Confirm the change in your system settings if prompted.');
+				setAppStatus(t('settings.status.default_email_request_sent'));
 				return;
 			}
-			setAppStatus(result.error || 'Could not set LlamaMail as default email app.');
+			setAppStatus(result.error || t('settings.status.default_email_could_not_set'));
 		} catch (e: any) {
-			setAppStatus(`Default app change failed: ${e?.message || String(e)}`);
+			setAppStatus(t('settings.status.default_email_change_failed', {error: e?.message || String(e)}));
 		} finally {
 			setDefaultEmailClientBusy(false);
 		}
@@ -120,184 +121,194 @@ export default function SettingsApplicationPage() {
 
 	return (
 		<Container>
-				<Card>
-					<div className="flex items-start justify-between gap-3">
-						<div className="min-w-0">
-							<p className="ui-text-secondary text-sm font-medium">Updates</p>
-							<p className="ui-text-muted mt-1 text-xs">
-								Current version: {autoUpdateState.currentVersion}
-							</p>
-							<p className="ui-text-muted mt-1 text-xs">
-								{autoUpdateState.message || describeUpdatePhase(autoUpdateState)}
-							</p>
-						</div>
-						<div className="flex shrink-0 items-center gap-2">
-							{autoUpdateState.phase === 'downloaded' ? (
-								<Button
-									type="button"
-									variant="success"
-									className="rounded-md px-3 py-2 text-sm font-medium"
-									onClick={() => void onInstallUpdate()}
-								>
-									Restart to Update
-								</Button>
-							) : autoUpdateState.phase === 'available' || autoUpdateState.phase === 'downloading' ? (
-								<Button
-									type="button"
-									className="button-primary rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
-									onClick={() => void onDownloadUpdate()}
-									disabled={updateActionBusy || autoUpdateState.phase === 'downloading'}
-								>
-									{autoUpdateState.phase === 'downloading'
-										? `Downloading${autoUpdateState.percent !== null ? ` ${Math.round(autoUpdateState.percent)}%` : '...'}`
-										: 'Download Update'}
-								</Button>
-							) : (
-								<Button
-									type="button"
-									className="button-secondary rounded-md px-3 py-2 text-sm disabled:opacity-50"
-									onClick={() => void onCheckForUpdates()}
-									disabled={updateActionBusy || !autoUpdateState.enabled}
-								>
-									Check for Updates
-								</Button>
-							)}
-						</div>
+			<Card>
+				<div className="flex items-start justify-between gap-3">
+					<div className="min-w-0">
+						<p className="ui-text-secondary text-sm font-medium">{t('settings.application.updates')}</p>
+						<p className="ui-text-muted mt-1 text-xs">
+							{t('settings.application.current_version', {version: autoUpdateState.currentVersion})}
+						</p>
+						<p className="ui-text-muted mt-1 text-xs">
+							{autoUpdateState.message || describeUpdatePhase(autoUpdateState)}
+						</p>
 					</div>
-					<label className="ui-border-default mt-3 flex w-full items-center justify-between rounded-md border px-3 py-2.5 text-sm">
-						<div className="pr-3">
-							<span className="ui-text-secondary">Auto update</span>
-							<p className="ui-text-muted mt-1 text-xs">
-								Automatically checks for new versions and prepares update downloads.
-							</p>
-						</div>
-						<FormCheckbox
-							checked={settings.autoUpdateEnabled}
-							onChange={(e) => void applySettingsPatch({autoUpdateEnabled: e.target.checked})}
-						/>
-					</label>
-				</Card>
-
-				<Card>
-					<div className="flex items-center justify-between gap-3">
-						<div className="min-w-0">
-							<p className="ui-text-secondary text-sm font-medium">Default Email App</p>
-							<p className="ui-text-muted mt-1 text-xs">
-								Use LlamaMail for `mailto:` links from browsers and other apps.
-							</p>
-							{isDefaultEmailClient === true && (
-								<p className="text-success mt-1 text-xs">
-									LlamaMail is already your default email app.
-								</p>
-							)}
-						</div>
-						{isDefaultEmailClient !== true && (
+					<div className="flex shrink-0 items-center gap-2">
+						{autoUpdateState.phase === 'downloaded' ? (
 							<Button
 								type="button"
-								className="button-secondary rounded-md px-3 py-2 text-sm disabled:opacity-60"
-								onClick={() => void onSetDefaultEmailClient()}
-								disabled={defaultEmailClientBusy}
+								variant="success"
+								className="rounded-md px-3 py-2 text-sm font-medium"
+								onClick={() => void onInstallUpdate()}
 							>
-								{defaultEmailClientBusy ? 'Setting...' : 'Set as default'}
+								{t('settings.application.restart_to_update')}
+							</Button>
+						) : autoUpdateState.phase === 'available' || autoUpdateState.phase === 'downloading' ? (
+							<Button
+								type="button"
+								className="button-primary rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
+								onClick={() => void onDownloadUpdate()}
+								disabled={updateActionBusy || autoUpdateState.phase === 'downloading'}
+							>
+								{autoUpdateState.phase === 'downloading'
+									? t('settings.application.downloading', {
+											suffix:
+												autoUpdateState.percent !== null
+													? ` ${Math.round(autoUpdateState.percent)}%`
+													: '...',
+										})
+									: t('settings.application.download_update')}
+							</Button>
+						) : (
+							<Button
+								type="button"
+								className="button-secondary rounded-md px-3 py-2 text-sm disabled:opacity-50"
+								onClick={() => void onCheckForUpdates()}
+								disabled={updateActionBusy || !autoUpdateState.enabled}
+							>
+								{t('settings.application.check_for_updates')}
 							</Button>
 						)}
 					</div>
-				</Card>
-
-				<Card title={'General'}>
-					<Label
-						label={'Language'}
-						subtitle={'Sets the app interface language for menus, labels, and settings.'}
-					>
-						<FormSelect
-							className="field-select h-10 w-full rounded-md px-3 text-sm"
-							value={settings.language}
-							onChange={(e) => void applySettingsPatch({language: parseAppLanguage(e.target.value)})}
-						>
-							{APP_LANGUAGE_OPTIONS.map((option) => (
-								<option key={option.value} value={option.value}>
-									{option.label}
-								</option>
-							))}
-						</FormSelect>
-					</Label>
-				</Card>
-
-				<Card title={'Window And Startup'}>
-					<label className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
-						<div className="pr-3">
-							<span className="ui-text-secondary">Minimize to tray</span>
-							<p className="ui-text-muted mt-1 text-xs">
-								Keeps LunaMail running in the background when minimized.
-							</p>
-						</div>
-						<FormCheckbox
-							checked={settings.minimizeToTray}
-							onChange={(e) => void applySettingsPatch({minimizeToTray: e.target.checked})}
-						/>
-					</label>
-					<label className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
-						<div className="pr-3">
-							<span className="ui-text-secondary">Show unread in titlebar</span>
-							<p className="ui-text-muted mt-1 text-xs">
-								Adds unread count to the window title when new mail is available.
-							</p>
-						</div>
-						<FormCheckbox
-							checked={settings.showUnreadInTitleBar}
-							onChange={(event) => void applySettingsPatch({showUnreadInTitleBar: event.target.checked})}
-						/>
-					</label>
-				</Card>
-
-				<Card title={'Composer And Notifications'}>
-					<label className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
-						<div className="pr-3">
-							<span className="ui-text-secondary">Spell check</span>
-							<p className="ui-text-muted mt-1 text-xs">
-								Highlights misspelled words in editors and compose fields.
-							</p>
-						</div>
-						<FormCheckbox
-							checked={settings.spellcheckEnabled}
-							onChange={(event) => void applySettingsPatch({spellcheckEnabled: event.target.checked})}
-						/>
-					</label>
-					<label className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
-						<div className="pr-3">
-							<span className="ui-text-secondary">Notification sound</span>
-							<p className="ui-text-muted mt-1 text-xs">
-								Plays an alert sound for new mail notifications.
-							</p>
-						</div>
-						<FormCheckbox
-							checked={settings.playNotificationSound}
-							onChange={(event) => void applySettingsPatch({playNotificationSound: event.target.checked})}
-						/>
-					</label>
-				</Card>
-
-				<Card title={'Performance'}>
-					<label className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
-						<div className="pr-3">
-							<span className="ui-text-secondary">Hardware acceleration</span>
-							<p className="ui-text-muted mt-1 text-xs">
-								Uses your GPU to render the app. Disable if you see flickering, blank windows, or driver
-								issues.
-							</p>
-						</div>
-						<FormCheckbox
-							checked={effectiveHardwareAcceleration}
-							onChange={(event) => void onHardwareAccelerationChange(event.target.checked)}
-						/>
-					</label>
-					{settings.pendingHardwareAcceleration !== null && (
-						<p className="notice-warning rounded-md px-2 py-1 text-xs">
-							Restart queued: will switch to{' '}
-							{settings.pendingHardwareAcceleration ? 'enabled' : 'disabled'}.
+				</div>
+				<label className="ui-border-default mt-3 flex w-full items-center justify-between rounded-md border px-3 py-2.5 text-sm">
+					<div className="pr-3">
+						<span className="ui-text-secondary">{t('settings.application.auto_update')}</span>
+						<p className="ui-text-muted mt-1 text-xs">
+							{t('settings.application.auto_update_description')}
 						</p>
+					</div>
+					<FormCheckbox
+						checked={settings.autoUpdateEnabled}
+						onChange={(e) => void applySettingsPatch({autoUpdateEnabled: e.target.checked})}
+					/>
+				</label>
+			</Card>
+
+			<Card>
+				<div className="flex items-center justify-between gap-3">
+					<div className="min-w-0">
+						<p className="ui-text-secondary text-sm font-medium">
+							{t('settings.application.default_email_app')}
+						</p>
+						<p className="ui-text-muted mt-1 text-xs">
+							{t('settings.application.default_email_description')}
+						</p>
+						{isDefaultEmailClient === true && (
+							<p className="text-success mt-1 text-xs">
+								{t('settings.application.default_email_already_set')}
+							</p>
+						)}
+					</div>
+					{isDefaultEmailClient !== true && (
+						<Button
+							type="button"
+							className="button-secondary rounded-md px-3 py-2 text-sm disabled:opacity-60"
+							onClick={() => void onSetDefaultEmailClient()}
+							disabled={defaultEmailClientBusy}
+						>
+							{defaultEmailClientBusy
+								? t('settings.application.setting_in_progress')
+								: t('settings.application.set_as_default')}
+						</Button>
 					)}
-				</Card>
+				</div>
+			</Card>
+
+			<Card title={t('settings.application.general')}>
+				<Label
+					label={t('settings.application.language')}
+					subtitle={t('settings.application.language_description')}
+				>
+					<FormSelect
+						className="field-select h-10 w-full rounded-md px-3 text-sm"
+						value={settings.language}
+						onChange={(e) => void applySettingsPatch({language: parseAppLanguage(e.target.value)})}
+					>
+						<option value="system">{t('language.system')}</option>
+						<option value="en-US">{t('language.en_us')}</option>
+						<option value="sv-SE">{t('language.sv_se')}</option>
+					</FormSelect>
+				</Label>
+			</Card>
+
+			<Card title={t('settings.application.window_and_startup')}>
+				<label className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
+					<div className="pr-3">
+						<span className="ui-text-secondary">{t('settings.application.minimize_to_tray')}</span>
+						<p className="ui-text-muted mt-1 text-xs">
+							{t('settings.application.minimize_to_tray_description')}
+						</p>
+					</div>
+					<FormCheckbox
+						checked={settings.minimizeToTray}
+						onChange={(e) => void applySettingsPatch({minimizeToTray: e.target.checked})}
+					/>
+				</label>
+				<label className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
+					<div className="pr-3">
+						<span className="ui-text-secondary">{t('settings.application.show_unread_in_titlebar')}</span>
+						<p className="ui-text-muted mt-1 text-xs">
+							{t('settings.application.show_unread_in_titlebar_description')}
+						</p>
+					</div>
+					<FormCheckbox
+						checked={settings.showUnreadInTitleBar}
+						onChange={(event) => void applySettingsPatch({showUnreadInTitleBar: event.target.checked})}
+					/>
+				</label>
+			</Card>
+
+			<Card title={t('settings.application.composer_and_notifications')}>
+				<label className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
+					<div className="pr-3">
+						<span className="ui-text-secondary">{t('settings.application.spell_check')}</span>
+						<p className="ui-text-muted mt-1 text-xs">
+							{t('settings.application.spell_check_description')}
+						</p>
+					</div>
+					<FormCheckbox
+						checked={settings.spellcheckEnabled}
+						onChange={(event) => void applySettingsPatch({spellcheckEnabled: event.target.checked})}
+					/>
+				</label>
+				<label className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
+					<div className="pr-3">
+						<span className="ui-text-secondary">{t('settings.application.notification_sound')}</span>
+						<p className="ui-text-muted mt-1 text-xs">
+							{t('settings.application.notification_sound_description')}
+						</p>
+					</div>
+					<FormCheckbox
+						checked={settings.playNotificationSound}
+						onChange={(event) => void applySettingsPatch({playNotificationSound: event.target.checked})}
+					/>
+				</label>
+			</Card>
+
+			<Card title={t('settings.application.performance')}>
+				<label className="ui-border-default flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
+					<div className="pr-3">
+						<span className="ui-text-secondary">{t('settings.application.hardware_acceleration')}</span>
+						<p className="ui-text-muted mt-1 text-xs">
+							{t('settings.application.hardware_acceleration_description')}
+						</p>
+					</div>
+					<FormCheckbox
+						checked={effectiveHardwareAcceleration}
+						onChange={(event) => void onHardwareAccelerationChange(event.target.checked)}
+					/>
+				</label>
+				{settings.pendingHardwareAcceleration !== null && (
+					<p className="notice-warning rounded-md px-2 py-1 text-xs">
+						{t('settings.application.restart_queued_switch', {
+							state: settings.pendingHardwareAcceleration
+								? t('settings.application.enabled')
+								: t('settings.application.disabled'),
+						})}
+					</p>
+				)}
+			</Card>
+			{appStatus && <p className="ui-text-muted text-xs">{appStatus}</p>}
 		</Container>
 	);
 }

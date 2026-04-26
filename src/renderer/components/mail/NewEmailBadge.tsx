@@ -1,5 +1,6 @@
 import React from 'react';
 import {cn} from '@llamamail/ui/utils';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 interface NewEmailBadgeProps {
 	count: number;
@@ -9,6 +10,7 @@ interface NewEmailBadgeProps {
 }
 
 export default function NewEmailBadge({count, className, title, max = 99}: NewEmailBadgeProps) {
+	const {t} = useI18n();
 	const normalized = Math.max(0, Math.floor(Number(count) || 0));
 	if (normalized <= 0) return null;
 
@@ -20,7 +22,7 @@ export default function NewEmailBadge({count, className, title, max = 99}: NewEm
 				className,
 			)}
 			title={title}
-			aria-label={`${normalized} unread`}
+			aria-label={t('mail_components.badge.unread_count', {count: normalized})}
 		>
 			{label}
 		</span>

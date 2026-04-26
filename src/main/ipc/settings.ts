@@ -2,7 +2,7 @@ import {app, BrowserWindow, ipcMain, Notification, shell} from 'electron';
 import {getAccounts} from '@main/db/repositories/accountsRepo';
 import {listFoldersByAccount, listMessagesByFolder} from '@main/db/repositories/mailRepo';
 import {createAppLogger} from '@main/debug/debugLog';
-import {APP_NAME} from '@llamamail/app/appConfig';
+import {__, getI18nCatalogPayload} from '@llamamail/app/i18n/main';
 import {type AppSettingsPatch, getAppSettings, updateAppSettings} from '@main/settings/store';
 import {resolveNotificationIconPath} from '@main/notifications/icon';
 
@@ -35,6 +35,11 @@ export function registerSettingsIpc(
 		return resolveSystemLocale();
 	});
 
+	ipcMain.handle('get-i18n-catalog', async (_event, locale?: string | null) => {
+		logger.debug('IPC get-i18n-catalog locale=%s', String(locale || ''));
+		return await getI18nCatalogPayload(locale);
+	});
+
 	ipcMain.handle(
 		'dev-show-notification',
 		async (
@@ -52,12 +57,12 @@ export function registerSettingsIpc(
 			const target = await resolveFirstMessageTarget();
 			const title = target?.subject
 				? `Test: ${target.subject}`
-				: String(payload?.title || `${APP_NAME} developer notification`).trim() ||
-					`${APP_NAME} developer notification`;
+				: String(payload?.title || __('notifications.dev_notification_fallback_title')).trim() ||
+					__('notifications.dev_notification_fallback_title');
 			const body = target
-				? `${target.from || 'Unknown sender'} -> ${target.accountEmail}`
-				: String(payload?.body || 'No message found in first account/folder.').trim() ||
-					'No message found in first account/folder.';
+				? `${target.from || __('notifications.unknown_sender')} -> ${target.accountEmail}`
+				: String(payload?.body || __('notifications.dev_notification_no_message')).trim() ||
+					__('notifications.dev_notification_no_message');
 			const route = target
 				? `/email/${target.accountId}/${target.folderId}/${target.messageId}`
 				: String(payload?.route || '/email').trim() || '/email';
@@ -107,8 +112,8 @@ export function registerSettingsIpc(
 		try {
 			if (Notification.isSupported()) {
 				const notification = new Notification({
-					title: `${APP_NAME} sound test`,
-					body: 'Testing notification sound',
+					title: __('notifications.sound_test_title'),
+					body: __('notifications.sound_test_body'),
 					silent: false,
 					...(notificationIconPath ? {icon: notificationIconPath} : {}),
 				});

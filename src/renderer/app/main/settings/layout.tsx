@@ -7,8 +7,10 @@ import {getAccountAvatarColorsForAccount, getAccountMonogram} from '@renderer/li
 import {cn} from '@llamamail/ui/utils';
 import {Plus} from '@llamamail/ui/icon';
 import {useMemo} from 'react';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 export default function SettingsLayout() {
+	const {t} = useI18n();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const {accounts} = useAccounts();
@@ -35,17 +37,17 @@ export default function SettingsLayout() {
 			{
 				id: 'primary',
 				items: [
-					{id: 'app', label: 'Application', to: '/settings/application'},
-					{id: 'layout', label: 'Appearance', to: '/settings/layout'},
-					{id: 'allowlist', label: 'Whitelist', to: '/settings/whitelist'},
-					{id: 'legal', label: 'Legal', to: '/settings/legal'},
-					{id: 'developer', label: 'Developer', to: '/settings/developer'},
+					{id: 'app', label: t('settings.sidebar.application'), to: '/settings/application'},
+					{id: 'layout', label: t('settings.sidebar.appearance'), to: '/settings/layout'},
+					{id: 'allowlist', label: t('settings.sidebar.whitelist'), to: '/settings/whitelist'},
+					{id: 'legal', label: t('settings.sidebar.legal'), to: '/settings/legal'},
+					{id: 'developer', label: t('settings.sidebar.developer'), to: '/settings/developer'},
 				],
 			},
 			{
 				id: 'accounts',
-				title: 'Accounts',
-				emptyLabel: 'No accounts available.',
+				title: t('settings.sidebar.accounts'),
+				emptyLabel: t('settings.sidebar.no_accounts_available'),
 				items: [
 					...accounts.map((account) => ({
 						id: `account:${account.id}`,
@@ -67,14 +69,14 @@ export default function SettingsLayout() {
 					})),
 					{
 						id: 'account:add',
-						label: 'Add account',
-						description: 'Open account setup',
+						label: t('settings.sidebar.add_account'),
+						description: t('settings.sidebar.open_account_setup'),
 						icon: <Plus size={15} />,
 					},
 				],
 			},
 		],
-		[accounts],
+		[accounts, t],
 	);
 
 	const onSidebarSelect = (itemId: string) => {

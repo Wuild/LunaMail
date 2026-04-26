@@ -15,6 +15,7 @@ import {isEditableTarget} from '@renderer/lib/dom';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import llamaArt from '@resource/llama.png';
 import {Card} from '@llamamail/ui/card';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type Service = {host: string; port: number; security: ServiceSecurityMode};
 type WizardStep = 1 | 2 | 3;
@@ -28,11 +29,7 @@ type VerifyResult = {
 	error?: string;
 };
 
-const stepMeta: Record<WizardStep, {title: string; subtitle: string}> = {
-	1: {title: 'Provider', subtitle: 'Choose account type'},
-	2: {title: 'Sign In', subtitle: 'Enter details or connect with OAuth'},
-	3: {title: 'Advanced Setup', subtitle: 'Manual host/port/security for custom accounts'},
-};
+type TranslateFn = (key: string, params?: Record<string, string | number | boolean | null | undefined>) => string;
 
 type SettingsAddAccountProps = {
 	embedded?: boolean;
@@ -48,6 +45,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 	onCancel,
 }) => {
 	useAppTheme();
+	const {t} = useI18n();
 
 	const [step, setStep] = useState<WizardStep>(1);
 	const [providerChoice, setProviderChoice] = useState<ProviderChoice | null>(null);
@@ -96,11 +94,19 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		return ordered.map((item) => ({
 			key: item.key,
 			title: item.label,
-			description: describeProviderDriver(item),
+			description: describeProviderDriver(item, t),
 			icon: getProviderIcon(item),
 			driver: item,
 		}));
-	}, [enabledProviderDrivers]);
+	}, [enabledProviderDrivers, t]);
+	const stepMeta = useMemo<Record<WizardStep, {title: string; subtitle: string}>>(
+		() => ({
+			1: {title: t('add_account.step.provider_title'), subtitle: t('add_account.step.provider_subtitle')},
+			2: {title: t('add_account.step.signin_title'), subtitle: t('add_account.step.signin_subtitle')},
+			3: {title: t('add_account.step.advanced_title'), subtitle: t('add_account.step.advanced_subtitle')},
+		}),
+		[t],
+	);
 	const selectedProviderDriver = useMemo(() => {
 		if (!providerChoice) return null;
 		return providerCatalogByKey.get(providerChoice) ?? null;
@@ -209,9 +215,9 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 			return null;
 		}
 		if (authMethod === 'app_password') {
-			return 'Enter a username and app password, or set protocol-specific credentials in Advanced settings.';
+			return t('add_account.error.enter_username_app_password');
 		}
-		return 'Enter a username and password, or set protocol-specific credentials in Advanced settings.';
+		return t('add_account.error.enter_username_password');
 	}
 
 	function renderAdvancedCredentials() {
@@ -219,70 +225,70 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		return (
 			<Card>
 				<div>
-					<p className="ui-text-primary text-sm font-semibold">Advanced credentials</p>
+					<p className="ui-text-primary text-sm font-semibold">{t('add_account.advanced_credentials.title')}</p>
 					<p className="ui-text-muted mt-1 text-xs">
-						Set a global username and optional per-protocol overrides. Empty per-protocol fields fall back to the global value.
+						{t('add_account.advanced_credentials.description')}
 					</p>
 				</div>
 				<div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
 					<Field
-						label="Global Username (optional)"
+						label={t('add_account.field.global_username_optional')}
 						value={username}
 						onChange={setUsername}
-						placeholder="Defaults to email address"
+						placeholder={t('add_account.placeholder.defaults_to_email')}
 					/>
 					<div />
 					<Field
-						label="IMAP Username (optional)"
+						label={t('add_account.field.imap_username_optional')}
 						value={imapUsername}
 						onChange={setImapUsername}
-						placeholder="Defaults to global username"
+						placeholder={t('add_account.placeholder.defaults_to_global_username')}
 					/>
 					<Field
 						type="password"
-						label="IMAP Password (optional)"
+						label={t('add_account.field.imap_password_optional')}
 						value={imapPassword}
 						onChange={setImapPassword}
-						placeholder="Defaults to step 1 password"
+						placeholder={t('add_account.placeholder.defaults_to_step_password')}
 					/>
 					<Field
-						label="SMTP Username (optional)"
+						label={t('add_account.field.smtp_username_optional')}
 						value={smtpUsername}
 						onChange={setSmtpUsername}
-						placeholder="Defaults to global username"
+						placeholder={t('add_account.placeholder.defaults_to_global_username')}
 					/>
 					<Field
 						type="password"
-						label="SMTP Password (optional)"
+						label={t('add_account.field.smtp_password_optional')}
 						value={smtpPassword}
 						onChange={setSmtpPassword}
-						placeholder="Defaults to step 1 password"
+						placeholder={t('add_account.placeholder.defaults_to_step_password')}
 					/>
 					<Field
-						label="CardDAV Username (optional)"
+						label={t('add_account.field.carddav_username_optional')}
 						value={carddavUsername}
 						onChange={setCarddavUsername}
-						placeholder="Defaults to global username"
+						placeholder={t('add_account.placeholder.defaults_to_global_username')}
 					/>
 					<Field
 						type="password"
-						label="CardDAV Password (optional)"
+						label={t('add_account.field.carddav_password_optional')}
 						value={carddavPassword}
 						onChange={setCarddavPassword}
-						placeholder="Defaults to step 1 password"
+						placeholder={t('add_account.placeholder.defaults_to_step_password')}
 					/>
 					<Field
-						label="CalDAV Username (optional)"
+						label={t('add_account.field.caldav_username_optional')}
 						value={caldavUsername}
 						onChange={setCaldavUsername}
-						placeholder="Defaults to global username"
+						placeholder={t('add_account.placeholder.defaults_to_global_username')}
 					/>
 					<Field
 						type="password"
-						label="CalDAV Password (optional)"
+						label={t('add_account.field.caldav_password_optional')}
 						value={caldavPassword}
 						onChange={setCaldavPassword}
-						placeholder="Defaults to step 1 password"
+						placeholder={t('add_account.placeholder.defaults_to_step_password')}
 					/>
 				</div>
 			</Card>
@@ -292,13 +298,13 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 	function renderModuleSelection() {
 		return (
 			<Card>
-				<p className="ui-text-primary text-sm font-semibold">Include modules</p>
+				<p className="ui-text-primary text-sm font-semibold">{t('add_account.modules.title')}</p>
 				<p className="ui-text-muted mt-1 text-xs">
-					Choose what this account should appear in and sync.
+					{t('add_account.modules.description')}
 				</p>
 				<div className="mt-3 space-y-2">
 					<label className="ui-text-secondary flex items-center justify-between gap-3 text-sm">
-						<span>Email</span>
+						<span>{t('add_account.modules.email')}</span>
 						<FormCheckbox
 							checked={syncEmails > 0}
 							disabled={!selectedProviderCapabilities.emails}
@@ -306,7 +312,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 						/>
 					</label>
 					<label className="ui-text-secondary flex items-center justify-between gap-3 text-sm">
-						<span>Contacts</span>
+						<span>{t('add_account.modules.contacts')}</span>
 						<FormCheckbox
 							checked={syncContacts > 0}
 							disabled={!selectedProviderCapabilities.contacts}
@@ -314,7 +320,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 						/>
 					</label>
 					<label className="ui-text-secondary flex items-center justify-between gap-3 text-sm">
-						<span>Calendar</span>
+						<span>{t('add_account.modules.calendar')}</span>
 						<FormCheckbox
 							checked={syncCalendar > 0}
 							disabled={!selectedProviderCapabilities.calendar}
@@ -324,7 +330,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 				</div>
 				{!canSaveModules && (
 					<p className="text-danger mt-3 text-xs">
-						Select at least one module.
+						{t('add_account.error.select_module')}
 					</p>
 				)}
 			</Card>
@@ -361,12 +367,12 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 	): Promise<void> {
 		const imapResult = await verifyService('imap', imapService, authMethod, session, userEmail);
 		if (!imapResult.ok) {
-			throw new Error(imapResult.error || 'IMAP verification failed.');
+			throw new Error(imapResult.error || t('add_account.error.imap_verification_failed'));
 		}
 
 		const smtpResult = await verifyService('smtp', smtpService, authMethod, session, userEmail);
 		if (!smtpResult.ok) {
-			throw new Error(smtpResult.error || 'SMTP verification failed.');
+			throw new Error(smtpResult.error || t('add_account.error.smtp_verification_failed'));
 		}
 	}
 
@@ -410,8 +416,8 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 			overrides?.displayName ??
 			(effectiveAuthMethod === 'oauth2' ? String(effectiveOAuthSession?.displayName || '').trim() || null : name.trim() || null);
 
-		if (!accountEmail) throw new Error('Email is required.');
-		if (!effectiveImap || !effectiveSmtp) throw new Error('IMAP and SMTP settings are required.');
+		if (!accountEmail) throw new Error(t('add_account.error.email_required'));
+		if (!effectiveImap || !effectiveSmtp) throw new Error(t('add_account.error.imap_smtp_required'));
 
 		const globalPassword = normalizeAuthPassword(password, effectiveAuthMethod, providerChoice, effectiveProvider, accountEmail);
 		const globalUser = resolveGlobalUsername(accountEmail);
@@ -455,7 +461,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 			sync_calendar: syncCalendar,
 		});
 
-		setSuccess('Account added successfully');
+		setSuccess(t('add_account.success.account_added'));
 		onCompleted?.();
 		if (!embedded) {
 			window.close();
@@ -465,7 +471,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 	async function onCredentialsNext() {
 		if (!canGoCredentialsNext || !providerChoice) return;
 		if (!canSaveModules) {
-			setError('Select at least one module.');
+			setError(t('add_account.error.select_module'));
 			return;
 		}
 
@@ -474,14 +480,14 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		if (isOAuthProvider) {
 			const oauthProvider = providerChoice === 'google' || providerChoice === 'microsoft' ? providerChoice : null;
 			if (!oauthProvider) {
-				setError('OAuth sign-in is currently supported for Google and Microsoft only.');
+				setError(t('add_account.error.oauth_google_microsoft_only'));
 				return;
 			}
 
 			const attemptId = beginOAuthAttempt();
 			setLoading(true);
 			try {
-				setSuccess('Waiting for browser sign-in...');
+				setSuccess(t('add_account.success.waiting_for_browser_signin'));
 				const session = await ipcClient.startMailOAuth({
 					provider: oauthProvider,
 					email: email.trim() || null,
@@ -490,12 +496,12 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 
 				const providerDiscover = buildProviderPresetDiscoverResult(oauthProvider);
 				if (!providerDiscover?.imap || !providerDiscover?.smtp) {
-					throw new Error(`Provider '${oauthProvider}' OAuth setup is not configured yet.`);
+					throw new Error(t('add_account.error.oauth_provider_not_configured', {provider: oauthProvider}));
 				}
 
 				const accountEmail = String(session.email || email).trim();
 				if (!accountEmail) {
-					throw new Error('Provider sign-in did not return an email address.');
+					throw new Error(t('add_account.error.provider_signin_missing_email'));
 				}
 				const discoveredImap: Service = {
 					host: providerDiscover.imap.host,
@@ -548,7 +554,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		try {
 			const accountEmail = email.trim();
 			if (!accountEmail) {
-				setError('Enter your email address.');
+				setError(t('add_account.error.enter_email'));
 				return;
 			}
 
@@ -580,7 +586,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 
 			if (!hasAutoSettings) {
 				if (providerChoice !== 'custom') {
-					setError('This provider could not be configured automatically. Use custom provider for manual setup.');
+					setError(t('add_account.error.provider_auto_config_failed_use_custom'));
 					return;
 				}
 				const [, domain] = accountEmail.split('@');
@@ -588,7 +594,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 				setSmtp({host: domain ? `smtp.${domain}` : '', port: 465, security: 'ssl'});
 				setPop3(null);
 				setStep(3);
-				setError('Autodiscover did not return complete settings. Configure host, port, and security manually.');
+				setError(t('add_account.error.autodiscover_incomplete_manual'));
 				return;
 			}
 
@@ -621,14 +627,14 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 				const message = verifyError?.message || String(verifyError);
 				if (providerChoice === 'custom') {
 					setStep(3);
-					setError(`Could not verify discovered settings: ${message}. Review host, port, and security manually.`);
+					setError(t('add_account.error.verify_discovered_custom', {message}));
 					return;
 				}
 				if (isCredentialErrorMessage(message)) {
-					setError(buildAuthFailureMessage(resolvedDiscovery.auth ?? null, message, nextAuthMethod));
+					setError(buildAuthFailureMessage(resolvedDiscovery.auth ?? null, message, t, nextAuthMethod));
 					return;
 				}
-				setError(`Could not verify discovered settings: ${message}`);
+				setError(t('add_account.error.verify_discovered', {message}));
 				return;
 			}
 
@@ -642,7 +648,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 				pop3: discoveredPop3,
 			});
 		} catch (e: any) {
-			setError(`Could not run autodiscover: ${e?.message || String(e)}`);
+			setError(t('add_account.error.autodiscover_failed', {message: e?.message || String(e)}));
 		} finally {
 			setLoading(false);
 		}
@@ -651,7 +657,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 	async function onVerifyManual() {
 		if (!imap || !smtp || !canVerifyManual) return;
 		if (!canSaveModules) {
-			setError('Select at least one module.');
+			setError(t('add_account.error.select_module'));
 			return;
 		}
 
@@ -660,7 +666,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		try {
 			const accountEmail = email.trim();
 			if (!accountEmail) {
-				setError('Enter your email address.');
+				setError(t('add_account.error.enter_email'));
 				return;
 			}
 			await verifyImapAndSmtp(imap, smtp, selectedAuthMethod, oauthSession, accountEmail);
@@ -677,10 +683,10 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 		} catch (e: any) {
 			const message = e?.message || String(e);
 			if (message === 'Wrong username or password.' || isCredentialErrorMessage(message)) {
-				setError(buildAuthFailureMessage(authCapabilities, message, selectedAuthMethod));
+				setError(buildAuthFailureMessage(authCapabilities, message, t, selectedAuthMethod));
 				return;
 			}
-			setError(`Could not verify settings: ${message}`);
+			setError(t('add_account.error.verify_settings_failed', {message}));
 		} finally {
 			setLoading(false);
 		}
@@ -700,7 +706,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 	function applyProviderChoice(choice: ProviderChoice): boolean {
 		const driver = providerCatalogByKey.get(choice);
 		if (choice !== 'custom' && (!driver || !driver.enabled)) {
-			setError(`Provider '${choice}' is not enabled in this build.`);
+			setError(t('add_account.error.provider_not_enabled', {provider: choice}));
 			return false;
 		}
 
@@ -746,20 +752,20 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 
 	const primaryActionLabel =
 		step === 1
-			? 'Continue'
+			? t('add_account.action.continue')
 			: step === 2
 				? isOAuthProvider
 					? loading
-						? 'Waiting For Authentication...'
-						: 'Connect And Add Account'
+						? t('add_account.action.waiting_authentication')
+						: t('add_account.action.connect_and_add')
 					: loading
-						? 'Adding Account...'
-						: 'Verify And Add Account'
+						? t('add_account.action.adding_account')
+						: t('add_account.action.verify_and_add')
 				: step === 3
 					? loading
-						? 'Verifying...'
-						: 'Verify And Add Account'
-					: 'Continue';
+						? t('add_account.action.verifying')
+						: t('add_account.action.verify_and_add')
+					: t('add_account.action.continue');
 
 	async function onPrimaryAction() {
 		if (step === 1) {
@@ -837,14 +843,14 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 								}}
 							>
 								<Sparkles size={14} />
-								Account setup
+								{t('add_account.badge')}
 							</div>
 							<div className="mt-4 w-full max-w-[300px]">
 								<h2 className="text-xl font-semibold">
-									{hasAccounts ? 'Connect another mailbox' : 'Connect your first mailbox'}
+									{hasAccounts ? t('add_account.hero.connect_another') : t('add_account.hero.connect_first')}
 								</h2>
 								<p className="mt-1 text-sm text-inverse opacity-80">
-									We will auto-detect settings, verify auth, and save everything securely.
+									{t('add_account.hero.subtitle')}
 								</p>
 								<ul className="mt-5 space-y-2.5 text-left text-sm text-inverse opacity-90">
 									<li className="flex items-center gap-2.5">
@@ -854,7 +860,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 										>
 											<Check size={12} />
 										</span>
-										Fast autodiscover
+										{t('add_account.hero.bullet_autodiscover')}
 									</li>
 									<li className="flex items-center gap-2.5">
 										<span
@@ -863,7 +869,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 										>
 											<Check size={12} />
 										</span>
-										Manual fallback when needed
+										{t('add_account.hero.bullet_manual_fallback')}
 									</li>
 									<li className="flex items-center gap-2.5">
 										<span
@@ -872,7 +878,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 										>
 											<Check size={12} />
 										</span>
-										IMAP/SMTP verification before save
+										{t('add_account.hero.bullet_verify_before_save')}
 									</li>
 								</ul>
 							</div>
@@ -897,7 +903,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 					>
 						<div className="ui-border-default shrink-0 border-b px-6 py-5 md:px-8 md:py-6">
 							<p className="ui-text-muted text-xs font-medium uppercase tracking-wide">
-								Step {step} of 3
+								{t('add_account.step.progress', {step})}
 							</p>
 							<h3 className="ui-text-primary mt-1 text-lg font-semibold">{stepMeta[step].title}</h3>
 							<div className="ui-surface-hover mt-3 h-1.5 w-full rounded-full">
@@ -915,10 +921,10 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 										<section className="space-y-5">
 											<header>
 												<h3 className="ui-text-primary text-2xl font-semibold">
-													Choose your provider
+													{t('add_account.provider.choose_title')}
 												</h3>
 												<p className="ui-text-muted mt-1 text-sm">
-													Select the provider first. We will adapt sign-in automatically.
+													{t('add_account.provider.choose_subtitle')}
 												</p>
 											</header>
 
@@ -936,7 +942,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 													))
 												) : (
 													<p className="ui-text-muted rounded-lg border border-dashed px-4 py-3 text-sm">
-														No enabled providers are available.
+														{t('add_account.provider.none_enabled')}
 													</p>
 												)}
 												</div>
@@ -950,27 +956,45 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 													<div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5">
 														{getProviderIcon(selectedProviderDriver, 20)}
 														<span className="ui-text-secondary text-xs font-semibold uppercase tracking-wide">
-															{selectedProviderDriver?.label || providerChoice || 'Provider'} sign-in
+															{t('add_account.provider.signin_badge', {
+																provider: selectedProviderDriver?.label || providerChoice || t('add_account.provider.provider_fallback'),
+															})}
 														</span>
 													</div>
 												)}
 												<h3 className="ui-text-primary text-2xl font-semibold">
-													{isOAuthProvider ? 'Sign in with your provider' : 'Enter account credentials'}
+													{isOAuthProvider
+														? t('add_account.credentials.oauth_title')
+														: t('add_account.credentials.password_title')}
 												</h3>
 												<p className="ui-text-muted mt-1 text-sm">
 													{isOAuthProvider
-														? 'We will open your browser, verify access, and add the account.'
-														: 'We will autodiscover your account, verify IMAP/SMTP, and add the account.'}
+														? t('add_account.credentials.oauth_subtitle')
+														: t('add_account.credentials.password_subtitle')}
 												</p>
 											</header>
 
 											<div className="space-y-4">
 												{!isOAuthProvider && (
 													<>
-														<Field label="Name (optional)" value={name} onChange={setName} placeholder="Your display name" />
-														<Field label="Email" value={email} onChange={setEmail} placeholder="you@domain.com" />
 														<Field
-															label={selectedAuthMethod === 'app_password' ? 'App Password' : 'Password'}
+															label={t('add_account.field.name_optional')}
+															value={name}
+															onChange={setName}
+															placeholder={t('add_account.placeholder.display_name')}
+														/>
+														<Field
+															label={t('add_account.field.email')}
+															value={email}
+															onChange={setEmail}
+															placeholder={t('add_account.placeholder.email')}
+														/>
+														<Field
+															label={
+																selectedAuthMethod === 'app_password'
+																	? t('add_account.field.app_password')
+																	: t('add_account.field.password')
+															}
 															value={password}
 															onChange={setPassword}
 															type="password"
@@ -982,9 +1006,9 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 													<div className="notice-info rounded-xl px-4 py-4 text-sm">
 														{!loading ? (
 															<>
-																<p className="font-semibold">Secure browser sign-in</p>
+																<p className="font-semibold">{t('add_account.oauth.secure_signin_title')}</p>
 																<p className="mt-1 text-xs opacity-90">
-																	Click Connect And Add Account to open your provider login page.
+																	{t('add_account.oauth.secure_signin_subtitle')}
 																</p>
 															</>
 														) : (
@@ -994,9 +1018,9 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 																	aria-hidden
 																/>
 																<div>
-																	<p className="font-semibold">Waiting for authentication...</p>
+																	<p className="font-semibold">{t('add_account.oauth.waiting_title')}</p>
 																	<p className="mt-1 text-xs opacity-90">
-																		Complete sign-in in your browser to continue.
+																		{t('add_account.oauth.waiting_subtitle')}
 																	</p>
 																</div>
 															</div>
@@ -1013,17 +1037,26 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 										<section className="space-y-5">
 											<header>
 												<h3 className="ui-text-primary text-2xl font-semibold">
-													Advanced manual setup
+													{t('add_account.advanced_setup.title')}
 												</h3>
 												<p className="ui-text-muted mt-1 text-sm">
-													Custom autodiscover failed. Configure host, port, and security manually.
+													{t('add_account.advanced_setup.subtitle')}
 												</p>
 											</header>
 
 											<div className="space-y-4">
-												<Field label="Email" value={email} onChange={setEmail} placeholder="you@domain.com" />
 												<Field
-													label={selectedAuthMethod === 'app_password' ? 'App Password' : 'Password'}
+													label={t('add_account.field.email')}
+													value={email}
+													onChange={setEmail}
+													placeholder={t('add_account.placeholder.email')}
+												/>
+												<Field
+													label={
+														selectedAuthMethod === 'app_password'
+															? t('add_account.field.app_password')
+															: t('add_account.field.password')
+													}
 													value={password}
 													onChange={setPassword}
 													type="password"
@@ -1032,7 +1065,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 
 											<div className="grid gap-4">
 												<ServiceSettingsCard
-													title="IMAP Incoming"
+													title={t('settings.account_email.imap_incoming')}
 													host={imap?.host ?? ''}
 													port={imap?.port ?? 0}
 													security={imap?.security ?? 'ssl'}
@@ -1045,7 +1078,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 													controlSize="lg"
 												/>
 												<ServiceSettingsCard
-													title="SMTP Outgoing"
+													title={t('settings.account_email.smtp_outgoing')}
 													host={smtp?.host ?? ''}
 													port={smtp?.port ?? 0}
 													security={smtp?.security ?? 'ssl'}
@@ -1086,7 +1119,7 @@ const SettingsAddAccount: React.FC<SettingsAddAccountProps> = ({
 								}}
 								className="button-secondary rounded-lg px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
 							>
-								{step === 1 && canClose ? 'Cancel' : 'Back'}
+								{step === 1 && canClose ? t('add_account.action.cancel') : t('add_account.action.back')}
 							</Button>
 
 							<Button
@@ -1202,17 +1235,18 @@ function isCredentialErrorMessage(message: string): boolean {
 function buildAuthFailureMessage(
 	auth: AuthCapabilities | null,
 	fallbackMessage: string,
+	t: TranslateFn,
 	selectedMethod?: SelectedAuthMethod,
 ): string {
 	if (!auth) return fallbackMessage;
 	if (auth.preferredMethod === 'oauth2') {
-		return 'This provider usually requires OAuth sign-in (2FA/passkeys supported) or an app password. Direct password login may be blocked.';
+		return t('add_account.error.auth.oauth_preferred');
 	}
 	if (auth.preferredMethod === 'app_password') {
 		if (selectedMethod === 'app_password') {
-			return 'App-specific password authentication failed. Check your account email/username and regenerate the app password, then retry.';
+			return t('add_account.error.auth.app_password_failed');
 		}
-		return 'This provider usually requires an app-specific password for IMAP/SMTP. Generate one in provider security settings and retry.';
+		return t('add_account.error.auth.app_password_required');
 	}
 	return fallbackMessage;
 }
@@ -1400,12 +1434,12 @@ function buildProviderPresetDiscoverResult(provider: string): DiscoverResult | n
 	return null;
 }
 
-function describeProviderDriver(driver: ProviderDriverCatalogItem): string {
-	if (driver.key === 'custom') return 'Use autodiscover and manual server setup when needed.';
-	if (driver.key === 'google') return 'Connect a Google account.';
-	if (driver.key === 'microsoft') return 'Connect a Microsoft account.';
-	if (driver.key === 'icloud') return 'Use your Apple ID email and an app-specific password.';
-	return `Connect ${driver.label}.`;
+function describeProviderDriver(driver: ProviderDriverCatalogItem, t: TranslateFn): string {
+	if (driver.key === 'custom') return t('add_account.provider.custom_description');
+	if (driver.key === 'google') return t('add_account.provider.google_description');
+	if (driver.key === 'microsoft') return t('add_account.provider.microsoft_description');
+	if (driver.key === 'icloud') return t('add_account.provider.icloud_description');
+	return t('add_account.provider.generic_description', {provider: driver.label});
 }
 
 function getProviderIcon(driver: ProviderDriverCatalogItem | null | undefined, size = 20): React.ReactNode {

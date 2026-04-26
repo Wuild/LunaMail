@@ -13,6 +13,7 @@ import {
 	type MailFilterModalState,
 	mapMailFilterToDraft,
 } from '@renderer/app/main/settings/mailFilterHelpers';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 const EMPTY_FOLDERS: any[] = [];
 
@@ -46,6 +47,7 @@ export function useAccountSettingsRoute(
 	accountId: number,
 	section: AccountPanelSection,
 ): UseAccountSettingsRouteResult {
+	const {t} = useI18n();
 	const navigate = useNavigate();
 	const {accounts} = useAccounts();
 	const accountHandle = useAccount(accountId);
@@ -149,11 +151,11 @@ export function useAccountSettingsRoute(
 		if (!editor || savingAccount) return;
 		const hasAnyModuleEnabled = !!editor.sync_emails || !!editor.sync_contacts || !!editor.sync_calendar;
 		if (!hasAnyModuleEnabled) {
-			setAccountStatus('Select at least one sync module (email, contacts, or calendar).');
+			setAccountStatus(t('settings.account_route.status.select_sync_module'));
 			return;
 		}
 		setSavingAccount(true);
-		setAccountStatus('Saving account...');
+		setAccountStatus(t('settings.account_route.status.saving_account'));
 		try {
 			const normalized: UpdateAccountPayload = {
 				...editor,
@@ -184,7 +186,7 @@ export function useAccountSettingsRoute(
 				sync_calendar: editor.sync_calendar ? 1 : 0,
 			};
 			await ipcClient.updateAccount(editor.id, normalized);
-			setAccountStatus('Account settings saved.');
+			setAccountStatus(t('settings.account_route.status.account_saved'));
 			setEditor((prev) =>
 				prev
 					? {
@@ -198,7 +200,7 @@ export function useAccountSettingsRoute(
 					: prev,
 			);
 		} catch (e: any) {
-			setAccountStatus(`Save failed: ${e?.message || String(e)}`);
+			setAccountStatus(t('settings.account_route.status.save_failed', {error: e?.message || String(e)}));
 		} finally {
 			setSavingAccount(false);
 		}
@@ -206,18 +208,16 @@ export function useAccountSettingsRoute(
 
 	async function onDeleteAccount() {
 		if (!editor || deletingAccount) return;
-		const confirmed = window.confirm(
-			`Delete account "${editor.email}"?\n\nThis removes all synced local data for this account.`,
-		);
+		const confirmed = window.confirm(t('settings.account_route.confirm.delete_account', {email: editor.email}));
 		if (!confirmed) return;
 		setDeletingAccount(true);
-		setAccountStatus('Deleting account...');
+		setAccountStatus(t('settings.account_route.status.deleting_account'));
 		try {
 			await ipcClient.deleteAccount(editor.id);
-			setAccountStatus('Account deleted.');
+			setAccountStatus(t('settings.account_route.status.account_deleted'));
 			navigate('/settings/application', {replace: true});
 		} catch (e: any) {
-			setAccountStatus(`Delete failed: ${e?.message || String(e)}`);
+			setAccountStatus(t('settings.account_route.status.delete_failed', {error: e?.message || String(e)}));
 		} finally {
 			setDeletingAccount(false);
 		}
@@ -277,33 +277,37 @@ export function useAccountSettingsRoute(
 		if (!mailFilterModal || mailFilterBusy) return;
 		const targetAccountId = selectedAccount?.id ?? editor?.id ?? accountId;
 		if (!targetAccountId || !Number.isFinite(targetAccountId) || targetAccountId <= 0) {
-			setAccountStatus('No valid account selected for this filter.');
+			setAccountStatus(t('settings.account_route.status.no_valid_account_for_filter'));
 			return;
 		}
 		const {mode, draft} = mailFilterModal;
 		const name = draft.name.trim();
 		if (!name) {
-			setAccountStatus('Filter name is required.');
+			setAccountStatus(t('settings.account_route.status.filter_name_required'));
 			return;
 		}
 		if (draft.match_mode !== 'all_messages' && draft.conditions.length === 0) {
-			setAccountStatus('Add at least one condition, or use "Match all messages".');
+			setAccountStatus(t('settings.account_route.status.add_condition_or_match_all'));
 			return;
 		}
 		if (draft.actions.length === 0) {
-			setAccountStatus('Add at least one action.');
+			setAccountStatus(t('settings.account_route.status.add_action'));
 			return;
 		}
 		const invalidMoveAction = draft.actions.some(
 			(action) => action.type === 'move_to_folder' && !action.value.trim(),
 		);
 		if (invalidMoveAction) {
-			setAccountStatus('Select a folder for every "Move to folder" action.');
+			setAccountStatus(t('settings.account_route.status.select_move_folder'));
 			return;
 		}
 
 		setMailFilterBusy(true);
-		setAccountStatus(mode === 'create' ? 'Creating filter...' : 'Saving filter...');
+		setAccountStatus(
+			mode === 'create'
+				? t('settings.account_route.status.creating_filter')
+				: t('settings.account_route.status.saving_filter'),
+		);
 		try {
 			await ipcClient.saveMailFilter(targetAccountId, {
 				id: draft.id ?? undefined,
@@ -324,9 +328,13 @@ export function useAccountSettingsRoute(
 			});
 			await mailFiltersQuery.refetch();
 			setMailFilterModal(null);
-			setAccountStatus(mode === 'create' ? 'Filter created.' : 'Filter saved.');
+			setAccountStatus(
+				mode === 'create'
+					? t('settings.account_route.status.filter_created')
+					: t('settings.account_route.status.filter_saved'),
+			);
 		} catch (e: any) {
-			setAccountStatus(`Filter save failed: ${e?.message || String(e)}`);
+			setAccountStatus(t('settings.account_route.status.filter_save_failed', {error: e?.message || String(e)}));
 		} finally {
 			setMailFilterBusy(false);
 		}
@@ -336,17 +344,17 @@ export function useAccountSettingsRoute(
 		const targetAccountId = selectedAccount?.id ?? editor?.id ?? accountId;
 		if (!targetAccountId || mailFilterBusy) return;
 		setMailFilterBusy(true);
-		setAccountStatus('Deleting filter...');
+		setAccountStatus(t('settings.account_route.status.deleting_filter'));
 		try {
 			const result = await ipcClient.deleteMailFilter(targetAccountId, filterId);
 			if (result.removed) {
 				await mailFiltersQuery.refetch();
-				setAccountStatus('Filter deleted.');
+				setAccountStatus(t('settings.account_route.status.filter_deleted'));
 			} else {
-				setAccountStatus('Filter was already removed.');
+				setAccountStatus(t('settings.account_route.status.filter_already_removed'));
 			}
 		} catch (e: any) {
-			setAccountStatus(`Filter delete failed: ${e?.message || String(e)}`);
+			setAccountStatus(t('settings.account_route.status.filter_delete_failed', {error: e?.message || String(e)}));
 		} finally {
 			setMailFilterBusy(false);
 		}
@@ -356,22 +364,27 @@ export function useAccountSettingsRoute(
 		const targetAccountId = selectedAccount?.id ?? editor?.id ?? accountId;
 		if (!targetAccountId) return;
 		if (mailFilterModal) {
-			setAccountStatus('Save the open filter first before running filters.');
+			setAccountStatus(t('settings.account_route.status.save_open_filter_first'));
 			return;
 		}
 		if (typeof filterId === 'number' && (!Number.isFinite(filterId) || filterId <= 0)) {
-			setAccountStatus('Save this filter before running it.');
+			setAccountStatus(t('settings.account_route.status.save_filter_before_run'));
 			return;
 		}
 		setRunningFilterId(filterId ?? -1);
-		setAccountStatus('Running filter...');
+		setAccountStatus(t('settings.account_route.status.running_filter'));
 		try {
 			const result = await ipcClient.runMailFilters(targetAccountId, {filterId});
 			setAccountStatus(
-				`Run complete. Processed ${result.processed}, matched ${result.matched}, actions ${result.actionsApplied}, errors ${result.errors}.`,
+				t('settings.account_route.status.run_complete', {
+					processed: result.processed,
+					matched: result.matched,
+					actions: result.actionsApplied,
+					errors: result.errors,
+				}),
 			);
 		} catch (e: any) {
-			setAccountStatus(`Filter run failed: ${e?.message || String(e)}`);
+			setAccountStatus(t('settings.account_route.status.filter_run_failed', {error: e?.message || String(e)}));
 		} finally {
 			setRunningFilterId(null);
 		}

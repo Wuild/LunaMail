@@ -7,9 +7,11 @@ import {Modal} from '@llamamail/ui/modal';
 import {isProtectedFolder} from '@renderer/features/mail/folders';
 import {getFolderColorClass, getFolderIcon} from '@renderer/lib/mail/folderPresentation';
 import {cn} from '@llamamail/ui/utils';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 import type {UseAccountSettingsRouteResult} from '../useAccountSettingsRoute';
 
 export default function SettingsAccountFiltersPage() {
+	const {t} = useI18n();
 	const {
 		editor,
 		mailFilters,
@@ -51,14 +53,14 @@ export default function SettingsAccountFiltersPage() {
 	const folderOptions = [
 		{
 			value: '',
-			label: 'Choose folder...',
+			label: t('settings.account_filters.choose_folder'),
 		},
 		...protectedFolders.map(toFolderOption),
 		...(protectedFolders.length > 0 && customFolders.length > 0
 			? [
 					{
 						value: '__folder-divider__',
-						label: 'Custom folders',
+						label: t('settings.account_filters.custom_folders'),
 						disabled: true,
 					},
 				]
@@ -68,7 +70,7 @@ export default function SettingsAccountFiltersPage() {
 			? [
 					{
 						value: '__no-folders__',
-						label: 'No folders available for this account yet',
+						label: t('settings.account_filters.no_folders_for_account'),
 						disabled: true,
 					},
 				]
@@ -81,9 +83,9 @@ export default function SettingsAccountFiltersPage() {
 				header={
 					<div className="flex items-start justify-between gap-3">
 						<div>
-							<h2 className="ui-text-primary text-base font-semibold">Rules</h2>
+							<h2 className="ui-text-primary text-base font-semibold">{t('settings.account_filters.title')}</h2>
 							<p className="mt-1 ui-text-muted text-sm">
-								Configure account-level rules that run on incoming mail or manually on demand.
+								{t('settings.account_filters.subtitle')}
 							</p>
 						</div>
 						<div className="flex items-center gap-2">
@@ -95,7 +97,9 @@ export default function SettingsAccountFiltersPage() {
 								disabled={runningFilterId !== null || mailFilterBusy || !!mailFilterModal}
 								className="rounded-md"
 							>
-								{runningFilterId === -1 ? 'Running...' : 'Run All'}
+								{runningFilterId === -1
+									? t('settings.account_filters.running')
+									: t('settings.account_filters.run_all')}
 							</Button>
 							<Button
 								type="button"
@@ -105,7 +109,7 @@ export default function SettingsAccountFiltersPage() {
 								disabled={mailFilterBusy || !!mailFilterModal}
 								className="rounded-md font-medium"
 							>
-								Add Rule
+								{t('settings.account_filters.add_rule')}
 							</Button>
 						</div>
 					</div>
@@ -114,7 +118,7 @@ export default function SettingsAccountFiltersPage() {
 				<div className="space-y-4">
 					{mailFilters.length === 0 && (
 						<div className="ui-border-default ui-text-muted rounded-md border border-dashed px-3 py-4 text-sm">
-							No rules yet.
+							{t('settings.account_filters.no_rules')}
 						</div>
 					)}
 					{mailFilters.map((filter) => (
@@ -129,21 +133,37 @@ export default function SettingsAccountFiltersPage() {
 												filter.enabled ? 'chip-success' : 'ui-surface-hover ui-text-secondary',
 											)}
 										>
-											{filter.enabled ? 'Enabled' : 'Disabled'}
+											{filter.enabled
+												? t('settings.account_filters.enabled')
+												: t('settings.account_filters.disabled')}
 										</span>
 										<span className="ui-surface-hover ui-text-secondary rounded px-2 py-0.5">
-											{filter.run_on_incoming ? 'Runs on new mail' : 'Manual only'}
+											{filter.run_on_incoming
+												? t('settings.account_filters.runs_on_new_mail')
+												: t('settings.account_filters.manual_only')}
 										</span>
 										<span className="ui-surface-hover ui-text-secondary rounded px-2 py-0.5">
-											Match: {filter.match_mode.replace('_', ' ')}
+											{t('settings.account_filters.match_badge', {
+												mode: t(`settings.account_filters.match_mode_badge.${filter.match_mode}`),
+											})}
 										</span>
 									</div>
 									<div className="mt-2 ui-text-muted text-xs">
 										{filter.match_mode === 'all_messages'
-											? 'Applies to all messages.'
-											: `${filter.conditions.length} condition${filter.conditions.length === 1 ? '' : 's'}`}
+											? t('settings.account_filters.applies_all_messages')
+											: filter.conditions.length === 1
+												? t('settings.account_filters.conditions_count_one', {
+													count: filter.conditions.length,
+												})
+												: t('settings.account_filters.conditions_count_other', {
+													count: filter.conditions.length,
+												})}
 										{' · '}
-										{filter.actions.length} action{filter.actions.length === 1 ? '' : 's'}
+										{filter.actions.length === 1
+											? t('settings.account_filters.actions_count_one', {count: filter.actions.length})
+											: t('settings.account_filters.actions_count_other', {
+												count: filter.actions.length,
+											})}
 									</div>
 								</div>
 							</div>
@@ -156,7 +176,7 @@ export default function SettingsAccountFiltersPage() {
 									disabled={mailFilterBusy || !!mailFilterModal}
 									className="rounded-md font-medium"
 								>
-									Edit
+									{t('settings.account_filters.edit')}
 								</Button>
 								<Button
 									type="button"
@@ -166,7 +186,9 @@ export default function SettingsAccountFiltersPage() {
 									disabled={runningFilterId !== null || mailFilterBusy || !!mailFilterModal}
 									className="rounded-md"
 								>
-									{runningFilterId === filter.id ? 'Running...' : 'Run Rule'}
+									{runningFilterId === filter.id
+										? t('settings.account_filters.running')
+										: t('settings.account_filters.run_rule')}
 								</Button>
 								<Button
 									type="button"
@@ -176,7 +198,7 @@ export default function SettingsAccountFiltersPage() {
 									disabled={mailFilterBusy}
 									className="rounded-md"
 								>
-									Delete
+									{t('settings.account_filters.delete')}
 								</Button>
 							</div>
 						</Card>
@@ -194,10 +216,12 @@ export default function SettingsAccountFiltersPage() {
 					<header className="ui-border-default flex items-start justify-between gap-3 border-b px-5 py-4">
 						<div className="min-w-0">
 							<h3 className="ui-text-primary text-lg font-semibold">
-								{mailFilterModal.mode === 'create' ? 'Create Rule' : 'Edit Rule'}
+								{mailFilterModal.mode === 'create'
+									? t('settings.account_filters.create_rule')
+									: t('settings.account_filters.edit_rule')}
 							</h3>
 							<p className="ui-text-muted mt-1 text-sm">
-								Configure matching rules and actions for this account.
+								{t('settings.account_filters.modal_subtitle')}
 							</p>
 						</div>
 						<Button
@@ -208,7 +232,7 @@ export default function SettingsAccountFiltersPage() {
 							onClick={() => setMailFilterModal(null)}
 							disabled={mailFilterBusy}
 						>
-							Close
+							{t('settings.account_filters.close')}
 						</Button>
 					</header>
 
@@ -216,7 +240,9 @@ export default function SettingsAccountFiltersPage() {
 						<section className="panel rounded-xl p-4">
 							<div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end">
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1.5 block font-medium">Filter name</span>
+									<span className="ui-text-secondary mb-1.5 block font-medium">
+										{t('settings.account_filters.filter_name')}
+									</span>
 									<FormInput
 										value={mailFilterModal.draft.name}
 										onChange={(e) =>
@@ -225,7 +251,7 @@ export default function SettingsAccountFiltersPage() {
 												name: e.target.value,
 											}))
 										}
-										placeholder="Example: Newsletters to folder"
+										placeholder={t('settings.account_filters.filter_name_placeholder')}
 									/>
 								</label>
 								<label className="ui-border-default inline-flex h-12 items-center gap-2 rounded-lg border px-3 text-sm ui-text-secondary">
@@ -238,7 +264,7 @@ export default function SettingsAccountFiltersPage() {
 											}))
 										}
 									/>
-									Enabled
+									{t('settings.account_filters.enabled')}
 								</label>
 								<label className="ui-border-default inline-flex h-12 items-center gap-2 rounded-lg border px-3 text-sm ui-text-secondary">
 									<FormCheckbox
@@ -250,7 +276,7 @@ export default function SettingsAccountFiltersPage() {
 											}))
 										}
 									/>
-									Getting new mail
+									{t('settings.account_filters.getting_new_mail')}
 								</label>
 							</div>
 						</section>
@@ -258,7 +284,9 @@ export default function SettingsAccountFiltersPage() {
 						<section className="panel rounded-xl p-4">
 							<div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-end">
 								<label className="block text-sm">
-									<span className="ui-text-secondary mb-1.5 block font-medium">Match mode</span>
+									<span className="ui-text-secondary mb-1.5 block font-medium">
+										{t('settings.account_filters.match_mode')}
+									</span>
 									<FormSelect
 										value={mailFilterModal.draft.match_mode}
 										onChange={(e) =>
@@ -268,9 +296,11 @@ export default function SettingsAccountFiltersPage() {
 											}))
 										}
 									>
-										<option value="all">Match all of the following</option>
-										<option value="any">Match any of the following</option>
-										<option value="all_messages">Match all messages</option>
+										<option value="all">{t('settings.account_filters.match_mode_option.all')}</option>
+										<option value="any">{t('settings.account_filters.match_mode_option.any')}</option>
+										<option value="all_messages">
+											{t('settings.account_filters.match_mode_option.all_messages')}
+										</option>
 									</FormSelect>
 								</label>
 								<label className="ui-border-default inline-flex h-12 items-center gap-2 rounded-lg border px-3 text-sm ui-text-secondary">
@@ -283,7 +313,7 @@ export default function SettingsAccountFiltersPage() {
 											}))
 										}
 									/>
-									Stop processing after this filter
+									{t('settings.account_filters.stop_processing')}
 								</label>
 							</div>
 						</section>
@@ -291,7 +321,9 @@ export default function SettingsAccountFiltersPage() {
 						{mailFilterModal.draft.match_mode !== 'all_messages' && (
 							<section className="panel rounded-xl p-4">
 								<div className="mb-3 flex items-center justify-between gap-2">
-									<p className="ui-text-primary text-sm font-semibold">Conditions</p>
+									<p className="ui-text-primary text-sm font-semibold">
+										{t('settings.account_filters.conditions_title')}
+									</p>
 									<Button
 										type="button"
 										variant="secondary"
@@ -311,7 +343,7 @@ export default function SettingsAccountFiltersPage() {
 											}))
 										}
 									>
-										Add condition
+										{t('settings.account_filters.add_condition')}
 									</Button>
 								</div>
 								<div className="space-y-2">
@@ -336,10 +368,10 @@ export default function SettingsAccountFiltersPage() {
 													}))
 												}
 											>
-												<option value="subject">Subject</option>
-												<option value="from">From</option>
-												<option value="to">To</option>
-												<option value="body">Body</option>
+												<option value="subject">{t('settings.account_filters.field.subject')}</option>
+												<option value="from">{t('settings.account_filters.field.from')}</option>
+												<option value="to">{t('settings.account_filters.field.to')}</option>
+												<option value="body">{t('settings.account_filters.field.body')}</option>
 											</FormSelect>
 											<FormSelect
 												value={condition.operator}
@@ -357,11 +389,15 @@ export default function SettingsAccountFiltersPage() {
 													}))
 												}
 											>
-												<option value="contains">contains</option>
-												<option value="not_contains">does not contain</option>
-												<option value="equals">is</option>
-												<option value="starts_with">starts with</option>
-												<option value="ends_with">ends with</option>
+												<option value="contains">{t('settings.account_filters.operator.contains')}</option>
+												<option value="not_contains">
+													{t('settings.account_filters.operator.not_contains')}
+												</option>
+												<option value="equals">{t('settings.account_filters.operator.equals')}</option>
+												<option value="starts_with">
+													{t('settings.account_filters.operator.starts_with')}
+												</option>
+												<option value="ends_with">{t('settings.account_filters.operator.ends_with')}</option>
 											</FormSelect>
 											<FormInput
 												type="text"
@@ -379,7 +415,7 @@ export default function SettingsAccountFiltersPage() {
 														),
 													}))
 												}
-												placeholder="Value"
+												placeholder={t('settings.account_filters.value')}
 											/>
 											<Button
 												type="button"
@@ -395,7 +431,7 @@ export default function SettingsAccountFiltersPage() {
 													}))
 												}
 											>
-												Remove
+												{t('settings.account_filters.remove')}
 											</Button>
 										</div>
 									))}
@@ -405,7 +441,9 @@ export default function SettingsAccountFiltersPage() {
 
 						<section className="panel rounded-xl p-4">
 							<div className="mb-3 flex items-center justify-between gap-2">
-								<p className="ui-text-primary text-sm font-semibold">Actions</p>
+								<p className="ui-text-primary text-sm font-semibold">
+									{t('settings.account_filters.actions_title')}
+								</p>
 								<Button
 									type="button"
 									variant="secondary"
@@ -418,7 +456,7 @@ export default function SettingsAccountFiltersPage() {
 										}))
 									}
 								>
-									Add action
+									{t('settings.account_filters.add_action')}
 								</Button>
 							</div>
 							<div className="space-y-2">
@@ -443,11 +481,15 @@ export default function SettingsAccountFiltersPage() {
 												}))
 											}
 										>
-											<option value="move_to_folder">Move to folder</option>
-											<option value="mark_read">Mark read</option>
-											<option value="mark_unread">Mark unread</option>
-											<option value="star">Star</option>
-											<option value="unstar">Unstar</option>
+											<option value="move_to_folder">
+												{t('settings.account_filters.action.move_to_folder')}
+											</option>
+											<option value="mark_read">{t('settings.account_filters.action.mark_read')}</option>
+											<option value="mark_unread">
+												{t('settings.account_filters.action.mark_unread')}
+											</option>
+											<option value="star">{t('settings.account_filters.action.star')}</option>
+											<option value="unstar">{t('settings.account_filters.action.unstar')}</option>
 										</FormSelect>
 										{action.type === 'move_to_folder' ? (
 											<FormSelect
@@ -475,7 +517,7 @@ export default function SettingsAccountFiltersPage() {
 															<span className="truncate">{option.label}</span>
 														</span>
 													) : (
-														<span className="truncate">Choose folder...</span>
+														<span className="truncate">{t('settings.account_filters.choose_folder')}</span>
 													)
 												}
 												renderOption={(option) => {
@@ -522,7 +564,7 @@ export default function SettingsAccountFiltersPage() {
 												}))
 											}
 										>
-											Remove
+											{t('settings.account_filters.remove')}
 										</Button>
 									</div>
 								))}
@@ -538,7 +580,7 @@ export default function SettingsAccountFiltersPage() {
 							onClick={() => setMailFilterModal(null)}
 							disabled={mailFilterBusy}
 						>
-							Cancel
+							{t('settings.account_filters.cancel')}
 						</Button>
 						<Button
 							type="button"
@@ -549,10 +591,10 @@ export default function SettingsAccountFiltersPage() {
 							className="rounded-md px-4 font-medium disabled:opacity-50"
 						>
 							{mailFilterBusy
-								? 'Saving...'
+								? t('settings.account_filters.saving')
 								: mailFilterModal.mode === 'create'
-									? 'Create Rule'
-									: 'Save Rule'}
+									? t('settings.account_filters.create_rule')
+									: t('settings.account_filters.save_rule')}
 						</Button>
 					</footer>
 				</Modal>

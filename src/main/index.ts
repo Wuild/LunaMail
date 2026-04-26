@@ -56,6 +56,8 @@ import {
 import {initTray, tray} from './windows/tray';
 import {APP_NAME, APP_PROTOCOL} from '@llamamail/app/appConfig';
 import {appEventHandler, AppEvent} from '@llamamail/app/appEventHandler';
+import {__, initMainI18n, setMainI18nLocale} from '@llamamail/app/i18n/main';
+import {resolveEffectiveLocale} from '@llamamail/app/i18n/types';
 
 const isDev = !app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
@@ -440,18 +442,18 @@ function configurePlatformQuickActions(): void {
 		const dockMenu = Menu.buildFromTemplate(
 			mainWindowActionsEnabled
 				? [
-						{label: 'Compose Email', click: () => openComposeQuickAction()},
+						{label: __('app.title.compose_email'), click: () => openComposeQuickAction()},
 						{type: 'separator'},
-						{label: 'Mail', click: () => navigateMainWindowToRoute('/email')},
-						{label: 'Contacts', click: () => navigateMainWindowToRoute('/contacts')},
-						{label: 'Calendar', click: () => navigateMainWindowToRoute('/calendar')},
-						{label: 'Cloud', click: () => navigateMainWindowToRoute('/cloud')},
+						{label: __('app.title.mail'), click: () => navigateMainWindowToRoute('/email')},
+						{label: __('app.title.contacts'), click: () => navigateMainWindowToRoute('/contacts')},
+						{label: __('app.title.calendar'), click: () => navigateMainWindowToRoute('/calendar')},
+						{label: __('app.title.cloud'), click: () => navigateMainWindowToRoute('/cloud')},
 						{type: 'separator'},
-						{label: 'Settings', click: () => navigateMainWindowToRoute('/settings/application')},
-						{label: 'Debug', click: () => navigateMainWindowToRoute('/debug')},
-						{label: 'About', click: () => navigateMainWindowToRoute('/about')},
+						{label: __('app.title.settings'), click: () => navigateMainWindowToRoute('/settings/application')},
+						{label: __('app.title.debug'), click: () => navigateMainWindowToRoute('/debug')},
+						{label: __('app.title.about'), click: () => navigateMainWindowToRoute('/about')},
 					]
-				: [{label: 'Open App', click: () => showMainWindow()}],
+				: [{label: __('main.quick_actions.open_app'), click: () => showMainWindow()}],
 		);
 		app.dock.setMenu(dockMenu);
 	}
@@ -465,36 +467,36 @@ function configurePlatformQuickActions(): void {
 					? [
 							{
 								type: 'task',
-								title: 'Compose Email',
-								description: 'Open a compose window',
+								title: __('app.title.compose_email'),
+								description: __('main.quick_actions.open_compose_window'),
 								program: jumpPath,
 								args: toMainProcessLaunchArgs(['--action=compose']).join(' '),
 							},
 							{
 								type: 'task',
-								title: 'Mail',
-								description: 'Open mail',
+								title: __('app.title.mail'),
+								description: __('main.quick_actions.open_mail'),
 								program: jumpPath,
 								args: toMainProcessLaunchArgs(['--route=/email']).join(' '),
 							},
 							{
 								type: 'task',
-								title: 'Contacts',
-								description: 'Open contacts',
+								title: __('app.title.contacts'),
+								description: __('main.quick_actions.open_contacts'),
 								program: jumpPath,
 								args: toMainProcessLaunchArgs(['--route=/contacts']).join(' '),
 							},
 							{
 								type: 'task',
-								title: 'Calendar',
-								description: 'Open calendar',
+								title: __('app.title.calendar'),
+								description: __('main.quick_actions.open_calendar'),
 								program: jumpPath,
 								args: toMainProcessLaunchArgs(['--route=/calendar']).join(' '),
 							},
 							{
 								type: 'task',
-								title: 'Cloud',
-								description: 'Open cloud files',
+								title: __('app.title.cloud'),
+								description: __('main.quick_actions.open_cloud_files'),
 								program: jumpPath,
 								args: toMainProcessLaunchArgs(['--route=/cloud']).join(' '),
 							},
@@ -731,9 +733,9 @@ function installExternalNavigationPolicy(): void {
 			const dialogOptions: Electron.MessageBoxSyncOptions = {
 				type: 'warning',
 				title: APP_NAME,
-				message: 'Discard unsaved changes?',
-				detail: 'This window has unsaved changes. Leaving will discard them.',
-				buttons: ['Discard Changes', 'Cancel'],
+				message: __('main.dialog.discard_unsaved_changes'),
+				detail: __('main.dialog.unsaved_changes_detail'),
+				buttons: [__('main.dialog.discard_changes'), __('main.dialog.cancel')],
 				defaultId: 1,
 				cancelId: 1,
 				noLink: true,
@@ -767,7 +769,7 @@ function installExternalNavigationPolicy(): void {
 				}
 				if (misspelledWord) {
 					suggestionItems.push({
-						label: 'Add to Dictionary',
+						label: __('main.context_menu.add_to_dictionary'),
 						click: () => {
 							contents.session.addWordToSpellCheckerDictionary(misspelledWord);
 						},
@@ -776,14 +778,14 @@ function installExternalNavigationPolicy(): void {
 				}
 				const nativeEditMenu = Menu.buildFromTemplate([
 					...suggestionItems,
-					{label: 'Undo', role: 'undo', enabled: Boolean(editFlags.canUndo)},
-					{label: 'Redo', role: 'redo', enabled: Boolean(editFlags.canRedo)},
+					{label: __('main.context_menu.undo'), role: 'undo', enabled: Boolean(editFlags.canUndo)},
+					{label: __('main.context_menu.redo'), role: 'redo', enabled: Boolean(editFlags.canRedo)},
 					{type: 'separator'},
-					{label: 'Cut', role: 'cut', enabled: Boolean(editFlags.canCut)},
-					{label: 'Copy', role: 'copy', enabled: Boolean(editFlags.canCopy)},
-					{label: 'Paste', role: 'paste', enabled: Boolean(editFlags.canPaste)},
+					{label: __('main.context_menu.cut'), role: 'cut', enabled: Boolean(editFlags.canCut)},
+					{label: __('main.context_menu.copy'), role: 'copy', enabled: Boolean(editFlags.canCopy)},
+					{label: __('main.context_menu.paste'), role: 'paste', enabled: Boolean(editFlags.canPaste)},
 					{type: 'separator'},
-					{label: 'Select All', role: 'selectAll'},
+					{label: __('main.context_menu.select_all'), role: 'selectAll'},
 				]);
 				const owner = BrowserWindow.fromWebContents(contents) ?? undefined;
 				if (owner) {
@@ -817,14 +819,14 @@ function installExternalNavigationPolicy(): void {
 
 			if (hasImage) {
 				template.push({
-					label: 'Copy Image',
+					label: __('main.context_menu.copy_image'),
 					click: () => {
 						contents.copyImageAt(params.x, params.y);
 					},
 				});
 				if (imageCanOpenExternally) {
 					template.push({
-						label: 'Open Image',
+						label: __('main.context_menu.open_image'),
 						click: () => {
 							void handleExternalUrl(imageUrl, owner);
 						},
@@ -832,7 +834,7 @@ function installExternalNavigationPolicy(): void {
 				}
 				if (imageHasAddress) {
 					template.push({
-						label: 'Copy Image Address',
+						label: __('main.context_menu.copy_image_address'),
 						click: () => {
 							clipboard.writeText(imageUrl);
 						},
@@ -843,13 +845,13 @@ function installExternalNavigationPolicy(): void {
 
 			if (isMailContentFrame && hasLink) {
 				template.push({
-					label: 'Open Link',
+					label: __('main.context_menu.open_link'),
 					click: () => {
 						void handleExternalUrl(linkUrl, owner);
 					},
 				});
 				template.push({
-					label: 'Copy Link Address',
+					label: __('main.context_menu.copy_link_address'),
 					click: () => {
 						clipboard.writeText(resolvedLinkUrl);
 					},
@@ -858,12 +860,12 @@ function installExternalNavigationPolicy(): void {
 			}
 
 			if (isMailContentFrame && hasSelection) {
-				template.push({label: 'Copy', role: 'copy'});
+				template.push({label: __('main.context_menu.copy'), role: 'copy'});
 				template.push({type: 'separator'});
 			}
 			if (isDebugConsolePage && hasSelection) {
-				template.push({label: 'Copy', role: 'copy'});
-				template.push({label: 'Select All', role: 'selectAll'});
+				template.push({label: __('main.context_menu.copy'), role: 'copy'});
+				template.push({label: __('main.context_menu.select_all'), role: 'selectAll'});
 				template.push({type: 'separator'});
 			}
 
@@ -922,7 +924,7 @@ async function handleExternalUrl(url: string, owner?: BrowserWindow): Promise<vo
 	const targetUrl = wrapped?.targetUrl ?? url;
 	const riskHints = assessExternalUrlRisk(targetUrl);
 	if (wrapped?.senderUntrusted) {
-		riskHints.unshift('Sender is not allowlisted for direct link opens');
+		riskHints.unshift(__('main.link_warning.sender_not_allowlisted'));
 	}
 	if (riskHints.length > 0) {
 		const confirmed = await confirmUnsafeUrlOpen(targetUrl, riskHints, owner);
@@ -950,14 +952,14 @@ function assessExternalUrlRisk(url: string): string[] {
 		const parsed = new URL(url);
 		const ext = path.extname(parsed.pathname || '').toLowerCase();
 		if (ext && UNSAFE_LINK_EXTENSIONS.has(ext)) {
-			hints.push(`Targets executable file type: ${ext}`);
+			hints.push(__('main.link_warning.targets_executable_file_type', {ext}));
 		}
 		if (parsed.username || parsed.password) {
-			hints.push('Includes embedded credentials in URL');
+			hints.push(__('main.link_warning.includes_embedded_credentials'));
 		}
 	} catch {
 		// Keep a generic warning for malformed/unexpected URLs.
-		hints.push('URL format is unusual or malformed');
+		hints.push(__('main.link_warning.url_unusual_or_malformed'));
 	}
 	return hints;
 }
@@ -980,9 +982,9 @@ async function confirmUnsafeUrlOpen(url: string, hints: string[], owner?: Browse
 	const dialogOptions: Electron.MessageBoxOptions = {
 		type: 'warning',
 		title: APP_NAME,
-		message: 'Potentially unsafe link',
+		message: __('main.link_warning.potentially_unsafe_link'),
 		detail,
-		buttons: ['Open anyway', 'Cancel'],
+		buttons: [__('main.link_warning.open_anyway'), __('main.dialog.cancel')],
 		defaultId: 1,
 		cancelId: 1,
 		noLink: true,
@@ -1115,6 +1117,7 @@ if (!gotSingleInstanceLock) {
 			tray.ensure();
 			let devStartupWatchdog: ReturnType<typeof setTimeout> | null = null;
 			let dbReady = true;
+			await initMainI18n(resolveEffectiveLocale(bootSettings.language, app.getLocale()));
 			if (isDev) {
 				devStartupWatchdog = setTimeout(() => {
 					console.warn('[main] Dev startup watchdog triggered; forcing main window show.');
@@ -1128,6 +1131,7 @@ if (!gotSingleInstanceLock) {
 			registerCloudIpc();
 			registerSettingsIpc(
 				(settings) => {
+					void setMainI18nLocale(resolveEffectiveLocale(settings.language, app.getLocale()));
 					applyRuntimeSettings();
 					void applyDemoMode(settings);
 				},
@@ -1151,12 +1155,13 @@ if (!gotSingleInstanceLock) {
 				logger.error('Database initialization failed: %s', detail || toErrorMessage(error));
 				emitGlobalError({
 					source: 'main-process',
-					message: `Database initialization failed: ${toErrorMessage(error)}`,
+					message: __('errors.database_init_failed', {error: toErrorMessage(error)}),
 					detail,
 					fatal: true,
 				});
 			}
 			const settings = await getAppSettings();
+			await initMainI18n(resolveEffectiveLocale(settings.language, app.getLocale()));
 			console.log('[main-startup] settings loaded');
 			if (dbReady) {
 				await applyDemoMode(settings);
@@ -1173,9 +1178,14 @@ if (!gotSingleInstanceLock) {
 				if (newMessages <= 0) return;
 				if (source === 'send') return;
 				if (!Notification.isSupported()) return;
-				const title = newMessages === 1 ? 'New email received' : `${newMessages} new emails`;
+				const title =
+					newMessages === 1
+						? __('notifications.new_email_received')
+						: __('notifications.new_emails_received', {count: newMessages});
 				const body =
-					source === 'startup' ? 'Mailbox synced with new unread messages.' : 'You have new unread messages.';
+					source === 'startup'
+						? __('notifications.mailbox_synced_with_unread')
+						: __('notifications.you_have_new_unread');
 				void (async () => {
 					try {
 						const senderAddress =

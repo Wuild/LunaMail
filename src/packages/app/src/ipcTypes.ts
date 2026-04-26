@@ -1,4 +1,4 @@
-export type AppLanguage = 'system' | 'en-US';
+export type AppLanguage = 'system' | 'en-US' | 'sv-SE';
 export type AppTheme = 'system' | 'light' | 'dark';
 export type MailView = 'side-list' | 'top-table';
 export type MailListSort = 'arrived_desc' | 'unread_then_arrived_desc';

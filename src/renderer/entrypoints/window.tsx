@@ -3,6 +3,7 @@ import {mountApp} from './mountApp';
 import {HashRouter, Navigate, type RouteObject, useRoutes} from 'react-router-dom';
 import AppLayout from '@renderer/app/layout';
 import {useAppTheme} from '@renderer/hooks/useAppTheme';
+import {bootstrapRendererI18n, primeRendererI18n} from '@renderer/lib/i18n';
 
 const MAIN_WINDOW_LOADER = () => import('@renderer/app/windows/main/page');
 const ADD_ACCOUNT_LOADER = () => import('@renderer/app/windows/add-account/page');
@@ -38,8 +39,14 @@ function WindowBootstrap(): React.ReactElement | null {
 	return <React.Suspense fallback={null}>{routes}</React.Suspense>;
 }
 
-mountApp(
-	<HashRouter>
-		<WindowBootstrap />
-	</HashRouter>,
-);
+async function bootstrap(): Promise<void> {
+	primeRendererI18n();
+	mountApp(
+		<HashRouter>
+			<WindowBootstrap />
+		</HashRouter>,
+	);
+	void bootstrapRendererI18n();
+}
+
+void bootstrap();

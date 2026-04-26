@@ -1,0 +1,146 @@
+{
+	"onboarding": {
+		"errors": {
+			"invalid_language": "Select a valid language.",
+			"invalid_theme": "Select a valid theme.",
+			"invalid_mail_layout": "Select a valid mail layout."
+		},
+		"badge": "Setup wizard",
+		"title": "Welcome to LlamaMail",
+		"subtitle": "Set your workspace preferences in under a minute.",
+		"item_theme_language_layout": "Theme, language, and message layout",
+		"item_startup_and_updates": "Startup and update behavior",
+		"item_use_without_account": "Use the app with or without an account",
+		"quick_setup": "Quick setup",
+		"personalize_setup": "Personalize your setup",
+		"theme": "Theme",
+		"mail_layout": "Mail layout",
+		"mail_layout_side_list": "Side List",
+		"mail_layout_top_table": "Top Table",
+		"minimize_to_tray_description": "Keep LlamaMail running in the background.",
+		"enable_auto_updates": "Enable auto updates",
+		"enable_auto_updates_description": "Download and apply updates automatically.",
+		"change_later_in_settings": "You can change any of these options later in Settings.",
+		"save_and_continue": "Save and continue"
+	},
+	"add_account": {
+		"badge": "Account setup",
+		"step": {
+			"provider_title": "Provider",
+			"provider_subtitle": "Choose account type",
+			"signin_title": "Sign In",
+			"signin_subtitle": "Enter details or connect with OAuth",
+			"advanced_title": "Advanced Setup",
+			"advanced_subtitle": "Manual host/port/security for custom accounts",
+			"progress": "Step {{step}} of 3"
+		},
+		"hero": {
+			"connect_another": "Connect another mailbox",
+			"connect_first": "Connect your first mailbox",
+			"subtitle": "We will auto-detect settings, verify auth, and save everything securely.",
+			"bullet_autodiscover": "Fast autodiscover",
+			"bullet_manual_fallback": "Manual fallback when needed",
+			"bullet_verify_before_save": "IMAP/SMTP verification before save"
+		},
+		"provider": {
+			"choose_title": "Choose your provider",
+			"choose_subtitle": "Select the provider first. We will adapt sign-in automatically.",
+			"none_enabled": "No enabled providers are available.",
+			"signin_badge": "{{provider}} sign-in",
+			"provider_fallback": "Provider",
+			"custom_description": "Use autodiscover and manual server setup when needed.",
+			"google_description": "Connect a Google account.",
+			"microsoft_description": "Connect a Microsoft account.",
+			"icloud_description": "Use your Apple ID email and an app-specific password.",
+			"generic_description": "Connect {{provider}}."
+		},
+		"credentials": {
+			"oauth_title": "Sign in with your provider",
+			"password_title": "Enter account credentials",
+			"oauth_subtitle": "We will open your browser, verify access, and add the account.",
+			"password_subtitle": "We will autodiscover your account, verify IMAP/SMTP, and add the account."
+		},
+		"oauth": {
+			"secure_signin_title": "Secure browser sign-in",
+			"secure_signin_subtitle": "Click Connect And Add Account to open your provider login page.",
+			"waiting_title": "Waiting for authentication...",
+			"waiting_subtitle": "Complete sign-in in your browser to continue."
+		},
+		"advanced_setup": {
+			"title": "Advanced manual setup",
+			"subtitle": "Custom autodiscover failed. Configure host, port, and security manually."
+		},
+		"advanced_credentials": {
+			"title": "Advanced credentials",
+			"description": "Set a global username and optional per-protocol overrides. Empty per-protocol fields fall back to the global value."
+		},
+		"modules": {
+			"title": "Include modules",
+			"description": "Choose what this account should appear in and sync.",
+			"email": "Email",
+			"contacts": "Contacts",
+			"calendar": "Calendar"
+		},
+		"field": {
+			"name_optional": "Name (optional)",
+			"email": "Email",
+			"password": "Password",
+			"app_password": "App Password",
+			"global_username_optional": "Global Username (optional)",
+			"imap_username_optional": "IMAP Username (optional)",
+			"imap_password_optional": "IMAP Password (optional)",
+			"smtp_username_optional": "SMTP Username (optional)",
+			"smtp_password_optional": "SMTP Password (optional)",
+			"carddav_username_optional": "CardDAV Username (optional)",
+			"carddav_password_optional": "CardDAV Password (optional)",
+			"caldav_username_optional": "CalDAV Username (optional)",
+			"caldav_password_optional": "CalDAV Password (optional)"
+		},
+		"placeholder": {
+			"display_name": "Your display name",
+			"email": "you@domain.com",
+			"defaults_to_email": "Defaults to email address",
+			"defaults_to_global_username": "Defaults to global username",
+			"defaults_to_step_password": "Defaults to step 1 password"
+		},
+		"action": {
+			"continue": "Continue",
+			"waiting_authentication": "Waiting For Authentication...",
+			"connect_and_add": "Connect And Add Account",
+			"adding_account": "Adding Account...",
+			"verify_and_add": "Verify And Add Account",
+			"verifying": "Verifying...",
+			"cancel": "Cancel",
+			"back": "Back"
+		},
+		"success": {
+			"account_added": "Account added successfully",
+			"waiting_for_browser_signin": "Waiting for browser sign-in..."
+		},
+		"error": {
+			"select_module": "Select at least one module.",
+			"enter_email": "Enter your email address.",
+			"email_required": "Email is required.",
+			"imap_smtp_required": "IMAP and SMTP settings are required.",
+			"imap_verification_failed": "IMAP verification failed.",
+			"smtp_verification_failed": "SMTP verification failed.",
+			"oauth_google_microsoft_only": "OAuth sign-in is currently supported for Google and Microsoft only.",
+			"oauth_provider_not_configured": "Provider '{{provider}}' OAuth setup is not configured yet.",
+			"provider_signin_missing_email": "Provider sign-in did not return an email address.",
+			"provider_auto_config_failed_use_custom": "This provider could not be configured automatically. Use custom provider for manual setup.",
+			"autodiscover_incomplete_manual": "Autodiscover did not return complete settings. Configure host, port, and security manually.",
+			"verify_discovered_custom": "Could not verify discovered settings: {{message}}. Review host, port, and security manually.",
+			"verify_discovered": "Could not verify discovered settings: {{message}}",
+			"autodiscover_failed": "Could not run autodiscover: {{message}}",
+			"verify_settings_failed": "Could not verify settings: {{message}}",
+			"provider_not_enabled": "Provider '{{provider}}' is not enabled in this build.",
+			"enter_username_app_password": "Enter a username and app password, or set protocol-specific credentials in Advanced settings.",
+			"enter_username_password": "Enter a username and password, or set protocol-specific credentials in Advanced settings.",
+			"auth": {
+				"oauth_preferred": "This provider usually requires OAuth sign-in (2FA/passkeys supported) or an app password. Direct password login may be blocked.",
+				"app_password_failed": "App-specific password authentication failed. Check your account email/username and regenerate the app password, then retry.",
+				"app_password_required": "This provider usually requires an app-specific password for IMAP/SMTP. Generate one in provider security settings and retry."
+			}
+		}
+	}
+}

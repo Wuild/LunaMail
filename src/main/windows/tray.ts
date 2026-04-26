@@ -1,6 +1,7 @@
 import {app, Menu, nativeImage, Tray} from 'electron';
 import path from 'node:path';
 import {APP_NAME} from '@llamamail/app/appConfig';
+import {__} from '@llamamail/app/i18n/main';
 
 type TrayControllerDeps = {
 	appName?: string;
@@ -93,48 +94,48 @@ function buildMenu() {
 
 	const contextMenu = Menu.buildFromTemplate([
 		{
-			label: `Show ${appName}`,
+			label: __('main.tray.menu.show_app', {appName}),
 			click: () => runAsync(() => deps.onShowApp()),
 		},
 		{
-			label: 'Compose Email',
+			label: __('main.tray.menu.compose_email'),
 			enabled: canUseMainWindowActions,
 			click: () => runAsync(() => deps.onCompose()),
 		},
 		{type: 'separator'},
 		{
-			label: 'Mail',
+			label: __('main.tray.menu.mail'),
 			enabled: canUseMainWindowActions,
 			click: () => runAsync(() => deps.onNavigate('/email')),
 		},
 		{
-			label: 'Contacts',
+			label: __('main.tray.menu.contacts'),
 			enabled: canUseMainWindowActions,
 			click: () => runAsync(() => deps.onNavigate('/contacts')),
 		},
 		{
-			label: 'Calendar',
+			label: __('main.tray.menu.calendar'),
 			enabled: canUseMainWindowActions,
 			click: () => runAsync(() => deps.onNavigate('/calendar')),
 		},
 		{
-			label: 'Cloud',
+			label: __('main.tray.menu.cloud'),
 			enabled: canUseMainWindowActions,
 			click: () => runAsync(() => deps.onNavigate('/cloud')),
 		},
 		{type: 'separator'},
 		{
-			label: 'Settings',
+			label: __('main.tray.menu.settings'),
 			enabled: canUseMainWindowActions,
 			click: () => runAsync(() => deps.onNavigate('/settings/application')),
 		},
 		{
-			label: 'About',
+			label: __('main.tray.menu.about'),
 			enabled: canUseMainWindowActions,
 			click: () => runAsync(() => deps.onNavigate('/about')),
 		},
 		{
-			label: 'Quit',
+			label: __('main.tray.menu.quit'),
 			click: () => runAsync(() => deps.onQuit()),
 		},
 	]);
@@ -144,7 +145,7 @@ function buildMenu() {
 
 function buildTrayTooltip(appName: string, unreadCount: number): string {
 	if (unreadCount <= 0) return appName;
-	return `${appName} (${unreadCount} unread)`;
+	return __('main.tray.tooltip.unread_count', {appName, count: unreadCount});
 }
 
 function buildTrayIcon(appIconPath: string | null) {

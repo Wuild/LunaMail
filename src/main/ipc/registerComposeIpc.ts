@@ -1,5 +1,6 @@
 import {ipcMain} from 'electron';
 import {parseOptionalPositiveInt, parsePositiveInt, parseRequiredObject} from './validation';
+import {__} from '@llamamail/app/i18n/main';
 
 type ComposeIpcDeps = {
 	appLogger: {debug: (...args: any[]) => void; info: (...args: any[]) => void};
@@ -68,7 +69,7 @@ export function registerComposeIpc(deps: ComposeIpcDeps): void {
 			accountId,
 			phase: 'queued',
 			progress: 10,
-			message: 'Queued email for background send...',
+			message: __('compose.background.queued_email_background_send'),
 			error: null,
 			timestamp: new Date().toISOString(),
 		});
@@ -81,7 +82,7 @@ export function registerComposeIpc(deps: ComposeIpcDeps): void {
 					accountId,
 					phase: 'sending',
 					progress: 70,
-					message: 'Sending email...',
+					message: __('compose.background.sending_email'),
 					error: null,
 					timestamp: new Date().toISOString(),
 				});
@@ -91,7 +92,7 @@ export function registerComposeIpc(deps: ComposeIpcDeps): void {
 					accountId,
 					phase: 'sent',
 					progress: 100,
-					message: 'Email sent successfully.',
+					message: __('compose.background.email_sent_successfully'),
 					error: null,
 					timestamp: new Date().toISOString(),
 				});
@@ -104,7 +105,7 @@ export function registerComposeIpc(deps: ComposeIpcDeps): void {
 					accountId,
 					phase: 'failed',
 					progress: 100,
-					message: 'Background send failed.',
+					message: __('compose.background.background_send_failed'),
 					error: errorMessage,
 					timestamp: new Date().toISOString(),
 				});

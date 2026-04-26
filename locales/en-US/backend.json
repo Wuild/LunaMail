@@ -1,0 +1,100 @@
+{
+	"compose": {
+		"background": {
+			"queued_email_background_send": "Queued email for background send...",
+			"sending_email": "Sending email...",
+			"email_sent_successfully": "Email sent successfully.",
+			"background_send_failed": "Background send failed."
+		}
+	},
+	"windows": {
+		"error": {
+			"invalid_route": "Invalid route"
+		},
+		"dialog": {
+			"select_attachments": "Select attachments"
+		}
+	},
+	"accounts": {
+		"error": {
+			"invalid_service": "Invalid service. Expected \"imap\" or \"smtp\".",
+			"invalid_mode": "Invalid mode. Expected \"connection\" or \"authentication\".",
+			"ancillary_worker_failed": "Ancillary sync worker failed",
+			"ancillary_worker_no_result": "Ancillary sync worker exited without result",
+			"ancillary_worker_exit_code": "Ancillary sync worker exited with code {{code}}"
+		},
+		"sync": {
+			"paused_for_account": "Sync paused for this account: {{reason}}. Update account settings or restart app.",
+			"unavailable": "Sync unavailable: {{message}}",
+			"paused_credentials": "Sync paused: {{message}}. Password or authentication may have changed. Update account settings or restart app.",
+			"dav_not_executed": "DAV sync was not executed.",
+			"email_not_requested": "Email sync was not requested.",
+			"email_disabled_for_account": "Email sync is disabled for this account.",
+			"contacts_not_executed": "Contacts sync was not executed.",
+			"microsoft_no_mailbox_sync_disabled": "Microsoft login succeeded, but this account has no Exchange mailbox. Sync was disabled for this account.",
+			"microsoft_no_mailbox_signin_succeeded": "Microsoft sign-in succeeded, but this account has no Exchange mailbox.",
+			"microsoft_email_sync_turned_off": "Email sync was turned off automatically: Microsoft sign-in succeeded, but this account has no Exchange mailbox.",
+			"contacts_not_requested": "Contacts sync was not requested.",
+			"contacts_disabled_for_account": "Contacts sync is disabled for this account.",
+			"calendar_not_executed": "Calendar sync was not executed.",
+			"calendar_not_requested": "Calendar sync was not requested.",
+			"calendar_disabled_for_account": "Calendar sync is disabled for this account.",
+			"files_not_implemented": "Files sync is not implemented."
+		}
+	},
+	"dav": {
+		"export_contacts": {
+			"title": "Export Contacts",
+			"filter_vcard": "vCard",
+			"filter_csv": "CSV"
+		},
+		"sync": {
+			"contacts_default_address_book": "Contacts",
+			"untitled_event": "Untitled Event",
+			"error": {
+				"runtime_dependencies_not_configured": "DAV sync runtime dependencies are not configured.",
+				"missing_preview_credentials": "Missing DAV preview credentials",
+				"oauth_not_supported_use_ancillary": "DAV sync does not support OAuth accounts. Use provider ancillary sync service instead.",
+				"contact_not_found": "Contact not found.",
+				"contact_source_read_only": "This contact source is read-only.",
+				"google_oauth_session_missing_calendar_update": "Google OAuth session missing for calendar update. Reconnect this account.",
+				"google_event_id_missing_sync_calendar": "Google event id is missing. Please sync calendar and try again.",
+				"google_oauth_session_missing_calendar_delete": "Google OAuth session missing for calendar deletion. Reconnect this account.",
+				"calendar_edit_oauth_provider_not_supported": "Calendar editing via {{provider}} OAuth is not supported yet.",
+				"calendar_event_not_found": "Calendar event not found.",
+				"calendar_source_read_only": "This calendar source is read-only.",
+				"oauth_dav_credentials_required": "Calendar and contacts sync via {{providerLabel}} OAuth is not supported yet. Use account/app password DAV credentials for now, or report this on GitHub: https://github.com/wuild/LlamaMail/issues",
+				"protocol_requires_user_password": "{{protocol}} sync requires username and password credentials.",
+				"well_known_endpoint_unavailable": "Well-known endpoint unavailable ({{status}})",
+				"dav_request_failed": "DAV {{method}} failed ({{status}}) for {{url}}",
+				"carddav_put_failed": "CardDAV PUT failed ({{status}}) for {{url}}",
+				"caldav_put_failed": "CalDAV PUT failed ({{status}}) for {{url}}",
+				"carddav_delete_failed": "CardDAV DELETE failed ({{status}}) for {{url}}",
+				"caldav_delete_failed": "CalDAV DELETE failed ({{status}}) for {{url}}",
+				"no_carddav_endpoint_for_account": "No CardDAV endpoint discovered for this account.",
+				"remote_carddav_contact_not_found_sync_contacts": "Could not locate remote CardDAV contact to update. Please sync contacts and try again.",
+				"event_start_required": "Event start date/time is required.",
+				"event_end_required": "Event end date/time is required.",
+				"event_end_after_start": "Event end must be after start.",
+				"no_caldav_endpoint_for_account": "No CalDAV endpoint discovered for this account.",
+				"remote_caldav_event_not_found_sync_calendar": "Could not locate remote CalDAV event to update. Please sync calendar and try again.",
+				"invalid_event_datetime": "Invalid event date/time."
+			}
+		},
+		"oauth_contacts": {
+			"error": {
+				"dependencies_not_configured": "OAuth contacts runtime dependencies are not configured.",
+				"adapter_not_found": "OAuth contacts adapter not found for provider: {{provider}}",
+				"google_contacts_permission_missing": "Google contacts permission missing. Reconnect this account and grant Contacts access.",
+				"provider_mismatch": "OAuth provider mismatch. Expected {{expectedProvider}}, got {{actualProvider}}.",
+				"oauth_access_token_missing": "OAuth access token missing. Reconnect this account.",
+				"microsoft_access_token_missing_after_refresh": "Microsoft Graph access token missing after refresh. Reconnect this account.",
+				"valid_email_required": "A valid email is required.",
+				"provider_contact_not_cached": "Provider contact was created remotely but could not be cached locally.",
+				"unsupported_source": "Unsupported OAuth contact source: {{source}}",
+				"session_missing_update": "OAuth session missing for provider contact update. Reconnect this account.",
+				"session_missing_delete": "OAuth session missing for provider contact delete. Reconnect this account."
+			}
+		}
+	}
+}

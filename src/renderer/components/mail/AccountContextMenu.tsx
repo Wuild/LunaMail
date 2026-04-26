@@ -3,6 +3,7 @@ import {FolderPlus, Settings} from '@llamamail/ui/icon';
 import type {PublicAccount} from '@preload';
 import ContextItem from './ContextItem';
 import {ContextMenu, ContextMenuSeparator} from '@llamamail/ui/contextmenu';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type CreateFolderState = {
 	accountId: number;
@@ -30,6 +31,7 @@ export default function AccountContextMenu({
 	onOpenCreateFolder,
 	onOpenAccountSettings,
 }: AccountContextMenuProps) {
+	const {t} = useI18n();
 	if (!accountMenu) return null;
 
 	return (
@@ -43,7 +45,7 @@ export default function AccountContextMenu({
 			onClick={(event) => event.stopPropagation()}
 		>
 			<ContextItem
-				label="Create Folder"
+				label={t('mail_components.context.create_folder')}
 				icon={<FolderPlus size={14} />}
 				onClick={() => {
 					onOpenCreateFolder({
@@ -57,7 +59,7 @@ export default function AccountContextMenu({
 			/>
 			<ContextMenuSeparator />
 			<ContextItem
-				label="Edit Account Settings"
+				label={t('mail_components.context.edit_account_settings')}
 				icon={<Settings size={14} />}
 				onClick={() => {
 					onOpenAccountSettings(accountMenu.account.id);

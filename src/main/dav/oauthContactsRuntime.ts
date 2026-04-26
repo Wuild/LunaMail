@@ -2,6 +2,7 @@ import type {OAuthProvider} from '@llamamail/app/ipcTypes';
 import type {ProviderContactsRuntime} from '@llamamail/app/providerRuntime';
 import {GoogleContactsProvider} from '@llamamail/providers/google/contacts';
 import {MicrosoftContactsProvider} from '@llamamail/providers/microsoft/contacts';
+import {__} from '@llamamail/app/i18n/main';
 import type {
 	ContactMutationPayload,
 	ContactRow,
@@ -46,7 +47,7 @@ type ProviderContactAdapter = {
 };
 
 const noopAsync = async () => {
-	throw new Error('OAuth contacts runtime dependencies are not configured.');
+	throw new Error(__('dav.oauth_contacts.error.dependencies_not_configured'));
 };
 
 let dependencies: OauthContactsDependencies = {
@@ -155,7 +156,7 @@ function extractChannels(primaryEmail: string, primaryPhone: string | null, note
 function getContactAdapterForProvider(provider: OAuthProvider): ProviderContactAdapter {
 	const adapter = PROVIDER_CONTACT_ADAPTERS[provider];
 	if (!adapter) {
-		throw new Error(`OAuth contacts adapter not found for provider: ${provider}`);
+		throw new Error(__('dav.oauth_contacts.error.adapter_not_found', {provider}));
 	}
 	return adapter;
 }
@@ -188,7 +189,7 @@ function isGoogleContactsScopeError(error: unknown): boolean {
 }
 
 function toGoogleContactsScopeError(): Error {
-	return new Error('Google contacts permission missing. Reconnect this account and grant Contacts access.');
+	return new Error(__('dav.oauth_contacts.error.google_contacts_permission_missing'));
 }
 
 export async function resolveOauthContactContext(
@@ -200,11 +201,16 @@ export async function resolveOauthContactContext(
 		return null;
 	}
 	if (expectedProvider && credentials.oauth_provider !== expectedProvider) {
-		throw new Error(`OAuth provider mismatch. Expected ${expectedProvider}, got ${credentials.oauth_provider}.`);
+		throw new Error(
+			__('dav.oauth_contacts.error.provider_mismatch', {
+				expectedProvider,
+				actualProvider: credentials.oauth_provider,
+			}),
+		);
 	}
 	let accessToken = String(credentials.oauth_session.accessToken || '').trim();
 	if (!accessToken) {
-		throw new Error('OAuth access token missing. Reconnect this account.');
+		throw new Error(__('dav.oauth_contacts.error.oauth_access_token_missing'));
 	}
 	if (credentials.oauth_provider === 'google' && !hasGoogleContactsWriteScope(credentials.oauth_session.scope)) {
 		throw toGoogleContactsScopeError();
@@ -216,7 +222,7 @@ export async function resolveOauthContactContext(
 		});
 		accessToken = String(refreshed.accessToken || '').trim();
 		if (!accessToken) {
-			throw new Error('Microsoft Graph access token missing after refresh. Reconnect this account.');
+			throw new Error(__('dav.oauth_contacts.error.microsoft_access_token_missing_after_refresh'));
 		}
 	}
 	return {
@@ -239,7 +245,7 @@ export async function createOauthContact(
 ): Promise<ContactRow> {
 	const adapter = getContactAdapterForProvider(context.provider);
 	const channels = extractChannels(payload.email, payload.phone ?? null, payload.note ?? null);
-	if (channels.emails.length === 0) throw new Error('A valid email is required.');
+	if (channels.emails.length === 0) throw new Error(__('dav.oauth_contacts.error.valid_email_required'));
 	const fullName = String(payload.fullName || '').trim() || channels.emails[0];
 	let sourceUid = '';
 	try {
@@ -281,17 +287,17 @@ export async function createOauthContact(
 	const row = dependencies
 		.listContacts(accountId, null, 5000)
 		.find((item) => item.source === adapter.source && item.source_uid === sourceUid && item.email === channels.emails[0]);
-	if (!row) throw new Error('Provider contact was created remotely but could not be cached locally.');
+	if (!row) throw new Error(__('dav.oauth_contacts.error.provider_contact_not_cached'));
 	return row;
 }
 
 export async function updateOauthContactForAccount(current: ContactRow, payload: ContactMutationPayload): Promise<void> {
 	const sourceProvider = providerFromContactSource(current.source);
 	if (!sourceProvider) {
-		throw new Error(`Unsupported OAuth contact source: ${current.source}`);
+		throw new Error(__('dav.oauth_contacts.error.unsupported_source', {source: current.source}));
 	}
 	const context = await resolveOauthContactContext(current.account_id, sourceProvider);
-	if (!context) throw new Error('OAuth session missing for provider contact update. Reconnect this account.');
+	if (!context) throw new Error(__('dav.oauth_contacts.error.session_missing_update'));
 	const adapter = getContactAdapterForProvider(context.provider);
 
 	const nextFullName = payload.fullName === undefined ? current.full_name : payload.fullName;
@@ -301,7 +307,7 @@ export async function updateOauthContactForAccount(current: ContactRow, payload:
 	const nextTitle = payload.title === undefined ? current.title : payload.title;
 	const nextNote = payload.note === undefined ? current.note : payload.note;
 	const channels = extractChannels(nextEmail || '', nextPhone ?? null, nextNote ?? null);
-	if (channels.emails.length === 0) throw new Error('A valid email is required.');
+	if (channels.emails.length === 0) throw new Error(__('dav.oauth_contacts.error.valid_email_required'));
 	try {
 		await adapter.update(context.accessToken, String(current.source_uid || '').trim(), {
 			fullName: String(nextFullName || '').trim() || channels.emails[0],
@@ -324,10 +330,10 @@ export async function updateOauthContactForAccount(current: ContactRow, payload:
 export async function deleteOauthContactForAccount(current: ContactRow): Promise<void> {
 	const sourceProvider = providerFromContactSource(current.source);
 	if (!sourceProvider) {
-		throw new Error(`Unsupported OAuth contact source: ${current.source}`);
+		throw new Error(__('dav.oauth_contacts.error.unsupported_source', {source: current.source}));
 	}
 	const context = await resolveOauthContactContext(current.account_id, sourceProvider);
-	if (!context) throw new Error('OAuth session missing for provider contact delete. Reconnect this account.');
+	if (!context) throw new Error(__('dav.oauth_contacts.error.session_missing_delete'));
 	const adapter = getContactAdapterForProvider(context.provider);
 	try {
 		await adapter.remove(context.accessToken, String(current.source_uid || '').trim());

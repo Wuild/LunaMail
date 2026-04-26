@@ -19,6 +19,7 @@ import {cn} from '@llamamail/ui/utils';
 import {Button} from '@llamamail/ui/button';
 import {FormInput} from '@llamamail/ui/form';
 import {DND_ITEM} from '@renderer/lib/dndTypes';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type MailTableColumnKey =
 	| 'subject'
@@ -141,6 +142,7 @@ function DraggableTableRow({
 	visibleTableColumns: MailTableColumnKey[];
 	renderTableCell: (message: MessageItem, column: MailTableColumnKey) => React.ReactNode;
 }) {
+	const {t} = useI18n();
 	const dragIds =
 		selectedMessageIds.length > 1 && selectedMessageIds.includes(message.id) ? selectedMessageIds : [message.id];
 	const [, dragRef, previewRef] = useDrag<MailMessageDragItemPreview, unknown, {isDragging: boolean}>(
@@ -150,7 +152,7 @@ function DraggableTableRow({
 				type: DND_ITEM.MAIL_MESSAGE,
 				accountId: message.account_id,
 				messageIds: dragIds,
-				subject: message.subject || '(No subject)',
+				subject: message.subject || t('mail_components.list.no_subject'),
 				from: message.from_name || message.from_address || '',
 			},
 		}),
@@ -213,6 +215,7 @@ export default function TopTableMailPane({
 	onTopListResizeStart,
 	isTableHeadMenuOpen,
 }: TopTableMailPaneProps) {
+	const {t} = useI18n();
 	const [draggingColumn, setDraggingColumn] = React.useState<MailTableColumnKey | null>(null);
 	const tableScrollRef = React.useRef<HTMLDivElement | null>(null);
 	const headerSensors = useSensors(useSensor(PointerSensor, {activationConstraint: {distance: 4}}));
@@ -270,7 +273,7 @@ export default function TopTableMailPane({
 								type="text"
 								readOnly
 								value=""
-								placeholder="Search mail"
+								placeholder={t('mail_components.list.search_mail')}
 								leftIcon={<Search size={14} className="ui-text-muted" />}
 								className="mail-list-search-input ui-text-secondary pr-14"
 								onClick={onOpenSearchModal}
@@ -278,7 +281,7 @@ export default function TopTableMailPane({
 									onOpenSearchModal();
 									event.currentTarget.blur();
 								}}
-								aria-label="Search mail"
+								aria-label={t('mail_components.list.search_mail')}
 							/>
 							<span className="ui-text-muted pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium uppercase tracking-wide">
 								Ctrl+F
@@ -290,21 +293,21 @@ export default function TopTableMailPane({
 					<div className="ui-border-default border-b px-2 py-2">
 						<div className="ui-border-default ui-surface-hover flex flex-wrap items-center gap-2 rounded-md border p-2">
 							<span className="ui-text-secondary text-xs font-medium">
-								{selectedMessageIds.length} selected
+								{t('mail_components.list.selected_count', {count: selectedMessageIds.length})}
 							</span>
 							<Button
 								type="button"
 								className="button-secondary rounded-md px-2 py-1 text-xs"
 								onClick={() => onBulkMarkRead(selectedMessageIds, 1)}
 							>
-								Mark read
+								{t('mail_components.list.mark_read')}
 							</Button>
 							<Button
 								type="button"
 								className="button-secondary rounded-md px-2 py-1 text-xs"
 								onClick={() => onBulkMarkRead(selectedMessageIds, 0)}
 							>
-								Mark unread
+								{t('mail_components.list.mark_unread')}
 							</Button>
 							<Button
 								type="button"
@@ -312,14 +315,14 @@ export default function TopTableMailPane({
 								className="rounded-md px-2 py-1 text-xs"
 								onClick={() => onBulkDelete(selectedMessageIds)}
 							>
-								Delete
+								{t('mail_components.common.delete')}
 							</Button>
 							<Button
 								type="button"
 								className="button-secondary rounded-md px-2 py-1 text-xs"
 								onClick={onClearMessageSelection}
 							>
-								Clear
+								{t('mail_components.common.clear')}
 							</Button>
 						</div>
 					</div>
@@ -336,7 +339,7 @@ export default function TopTableMailPane({
 					}}
 				>
 					{messages.length === 0 && (
-						<div className="ui-text-muted p-5 text-sm">No messages in this folder yet.</div>
+						<div className="ui-text-muted p-5 text-sm">{t('mail_components.table.no_messages')}</div>
 					)}
 					{messages.length > 0 && (
 						<DndContext
@@ -384,8 +387,8 @@ export default function TopTableMailPane({
 												<Button
 													type="button"
 													className="button-ghost inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors"
-													aria-label="Table column options"
-													title="Table column options"
+													aria-label={t('mail_components.table_columns.title')}
+													title={t('mail_components.table_columns.title')}
 													aria-haspopup="menu"
 													aria-expanded={isTableHeadMenuOpen ? 'true' : 'false'}
 													onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
@@ -427,7 +430,7 @@ export default function TopTableMailPane({
 						</DndContext>
 					)}
 					{loadingMoreMessages && messages.length > 0 && (
-						<div className="ui-text-muted px-5 py-3 text-center text-xs">Loading more messages...</div>
+						<div className="ui-text-muted px-5 py-3 text-center text-xs">{t('mail_components.table.loading_more')}</div>
 					)}
 					{hasMoreMessages && !loadingMoreMessages && messages.length > 0 && (
 						<div className="px-5 py-3 text-center">
@@ -438,7 +441,7 @@ export default function TopTableMailPane({
 								onClick={onLoadMoreMessages}
 								className="rounded-md px-3"
 							>
-								Load more
+								{t('mail_components.table.load_more')}
 							</Button>
 						</div>
 					)}

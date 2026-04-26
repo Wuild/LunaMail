@@ -26,6 +26,7 @@ import type {
 	SyncModuleKey,
 	UpsertMailFilterPayload,
 } from '@llamamail/app/ipcTypes';
+import type {I18nCatalogByNamespace, SupportedAppLocale} from '@llamamail/app/i18n/types';
 
 export type {
 	AppLanguage,
@@ -653,6 +654,11 @@ export interface DevShowNotificationResult {
 	hasTarget: boolean;
 }
 
+export interface I18nCatalogPayload {
+	locale: SupportedAppLocale;
+	catalog: I18nCatalogByNamespace;
+}
+
 const api = {
 	getAccounts: (): Promise<PublicAccount[]> => ipcRenderer.invoke('get-accounts'),
 	getProviderDriverCatalog: (): Promise<ProviderDriverCatalogItem[]> =>
@@ -886,6 +892,8 @@ const api = {
 	getMessageWindowTarget: (): Promise<number | null> => ipcRenderer.invoke('get-message-window-target'),
 	getAppSettings: (): Promise<AppSettings> => ipcRenderer.invoke('get-app-settings'),
 	getSystemLocale: (): Promise<string> => ipcRenderer.invoke('get-system-locale'),
+	getI18nCatalog: (locale?: string | null): Promise<I18nCatalogPayload> =>
+		ipcRenderer.invoke('get-i18n-catalog', locale ?? null),
 	updateAppSettings: (patch: AppSettingsPatch): Promise<AppSettings> =>
 		ipcRenderer.invoke('update-app-settings', patch),
 	pickComposeAttachments: (): Promise<PickedAttachment[]> => ipcRenderer.invoke('pick-compose-attachments'),

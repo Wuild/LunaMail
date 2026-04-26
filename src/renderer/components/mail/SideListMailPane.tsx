@@ -9,6 +9,7 @@ import {cn} from '@llamamail/ui/utils';
 import {Button} from '@llamamail/ui/button';
 import {FormInput} from '@llamamail/ui/form';
 import {DND_ITEM} from '@renderer/lib/dndTypes';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type MailMessageDragItem = {
 	type: typeof DND_ITEM.MAIL_MESSAGE;
@@ -73,6 +74,7 @@ function DraggableMessageRow({
 	getTagLabel: (tag: string | null) => string;
 	dateLocale?: string;
 }) {
+	const {t} = useI18n();
 	const senderDisplay = formatMessageSender(message);
 
 	const dragIds =
@@ -84,7 +86,7 @@ function DraggableMessageRow({
 				type: DND_ITEM.MAIL_MESSAGE,
 				accountId: message.account_id,
 				messageIds: dragIds,
-				subject: message.subject || '(No subject)',
+				subject: message.subject || t('mail_components.list.no_subject'),
 				from: formatMessageSender(message),
 			},
 		}),
@@ -126,11 +128,11 @@ function DraggableMessageRow({
 						{!message.is_read && (
 							<span
 								className="mail-list-unread-dot inline-flex h-2 w-2 shrink-0 rounded-full"
-								title="Unread"
-								aria-label="Unread"
+								title={t('mail_components.header.unread')}
+								aria-label={t('mail_components.header.unread')}
 							/>
 						)}
-						<span className="truncate">{message.subject || '(No subject)'}</span>
+						<span className="truncate">{message.subject || t('mail_components.list.no_subject')}</span>
 						{getThreadCount(message) > 1 && (
 							<span className="mail-list-thread-count inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none">
 								{getThreadCount(message)}
@@ -162,7 +164,7 @@ function DraggableMessageRow({
 						</div>
 						<span className="mail-list-meta ml-3 inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-xs">
 							{Boolean(message.is_flagged) && (
-								<span className="mail-list-starred inline-flex items-center" title="Starred">
+								<span className="mail-list-starred inline-flex items-center" title={t('mail_components.header.starred')}>
 									<Star size={12} className="fill-current" />
 								</span>
 							)}
@@ -200,6 +202,7 @@ export default function SideListMailPane({
 	getTagDotClass,
 	getTagLabel,
 }: SideListMailPaneProps) {
+	const {t} = useI18n();
 	const listScrollRef = React.useRef<HTMLDivElement | null>(null);
 
 	React.useEffect(() => {
@@ -226,7 +229,7 @@ export default function SideListMailPane({
 							type="text"
 							readOnly
 							value=""
-							placeholder="Search mail"
+							placeholder={t('mail_components.list.search_mail')}
 							leftIcon={<Search size={14} className="ui-text-muted" />}
 							className="mail-list-search-input pr-14"
 							onClick={onOpenSearchModal}
@@ -234,7 +237,7 @@ export default function SideListMailPane({
 								onOpenSearchModal();
 								event.currentTarget.blur();
 							}}
-							aria-label="Search mail"
+							aria-label={t('mail_components.list.search_mail')}
 						/>
 						<span className="mail-list-shortcut pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium uppercase tracking-wide">
 							Ctrl+F
@@ -245,7 +248,7 @@ export default function SideListMailPane({
 					<div className="mail-list-pane-header px-2 py-2">
 						<div className="mail-selection-toolbar flex flex-wrap items-center gap-2 rounded-md p-2">
 							<span className="ui-text-secondary text-xs font-medium">
-								{selectedMessageIds.length} selected
+								{t('mail_components.list.selected_count', {count: selectedMessageIds.length})}
 							</span>
 							<Button
 								type="button"
@@ -253,7 +256,7 @@ export default function SideListMailPane({
 								className="rounded-md px-2 py-1 text-xs"
 								onClick={() => onBulkMarkRead(selectedMessageIds, 1)}
 							>
-								Mark read
+								{t('mail_components.list.mark_read')}
 							</Button>
 							<Button
 								type="button"
@@ -261,7 +264,7 @@ export default function SideListMailPane({
 								className="rounded-md px-2 py-1 text-xs"
 								onClick={() => onBulkMarkRead(selectedMessageIds, 0)}
 							>
-								Mark unread
+								{t('mail_components.list.mark_unread')}
 							</Button>
 							<Button
 								type="button"
@@ -269,7 +272,7 @@ export default function SideListMailPane({
 								className="rounded-md px-2 py-1 text-xs"
 								onClick={() => onBulkDelete(selectedMessageIds)}
 							>
-								Delete
+								{t('mail_components.common.delete')}
 							</Button>
 							<Button
 								type="button"
@@ -277,7 +280,7 @@ export default function SideListMailPane({
 								className="rounded-md px-2 py-1 text-xs"
 								onClick={onClearMessageSelection}
 							>
-								Clear
+								{t('mail_components.common.clear')}
 							</Button>
 						</div>
 					</div>
@@ -294,7 +297,7 @@ export default function SideListMailPane({
 					}}
 				>
 					{messages.length === 0 && (
-						<div className="mail-list-empty p-5 text-sm">No messages in this folder yet.</div>
+						<div className="mail-list-empty p-5 text-sm">{t('mail_components.table.no_messages')}</div>
 					)}
 					{messages.map((message, messageIndex) => (
 						<DraggableMessageRow
@@ -315,7 +318,9 @@ export default function SideListMailPane({
 						/>
 					))}
 					{loadingMoreMessages && messages.length > 0 && (
-						<div className="mail-list-loading px-5 py-3 text-center text-xs">Loading more messages...</div>
+						<div className="mail-list-loading px-5 py-3 text-center text-xs">
+							{t('mail_components.table.loading_more')}
+						</div>
 					)}
 					{hasMoreMessages && !loadingMoreMessages && messages.length > 0 && (
 						<div className="px-5 py-3 text-center">
@@ -326,12 +331,12 @@ export default function SideListMailPane({
 								onClick={onLoadMoreMessages}
 								className="rounded-md px-3"
 							>
-								Load more
+								{t('mail_components.table.load_more')}
 							</Button>
 						</div>
 					)}
 					{!hasMoreMessages && messages.length > 0 && (
-						<div className="mail-list-end px-5 py-3 text-center text-xs">End of list</div>
+						<div className="mail-list-end px-5 py-3 text-center text-xs">{t('mail_components.table.end_of_list')}</div>
 					)}
 				</ScrollArea>
 				{!isCompactSideList && (

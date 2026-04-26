@@ -1,0 +1,204 @@
+{
+	"contacts_page": {
+		"status": {
+			"ready": "Contacts ready",
+			"saving_contact": "Saving contact...",
+			"contact_saved": "Contact saved.",
+			"contact_added": "{{name}} added",
+			"address_book_created": "Address book \"{{name}}\" created",
+			"export_cancelled": "Export cancelled",
+			"exported_contacts": "Exported {{count}} contacts",
+			"synced": "Contacts synced",
+			"saving": "Saving...",
+			"creating": "Creating...",
+			"exporting": "Exporting..."
+		},
+		"error": {
+			"enter_valid_email": "Enter at least one valid email address.",
+			"delete_local_only": "Only local address books can be deleted."
+		},
+		"confirm": {
+			"delete_contact": "Delete contact \"{{name}}\"?",
+			"delete_address_book": "Delete address book \"{{name}}\"?"
+		},
+		"placeholder": {
+			"contact": "Contact",
+			"no_name": "(No name)",
+			"full_name": "Jane Doe",
+			"email": "jane@domain.com",
+			"phone": "+46 70 123 45 67",
+			"organization": "Acme Inc.",
+			"title": "Sales Manager",
+			"address_book_name": "Personal"
+		},
+		"accounts": {
+			"title": "Accounts",
+			"sync_account": "Sync account",
+			"edit_account": "Edit account",
+			"add_account": "Add account"
+		},
+		"address_book": {
+			"all": "All address books",
+			"create": "Create address book",
+			"delete": "Delete address book",
+			"none": "No address book"
+		},
+		"contact": {
+			"add": "Add contact",
+			"view": "View contact",
+			"edit": "Edit contact",
+			"delete": "Delete contact",
+			"read_only": "This contact source is read-only",
+			"read_only_source": "Read-only source",
+			"extra_emails": " (+{{count}} more)"
+		},
+		"export": {
+			"title": "Export contacts",
+			"action": "Export",
+			"format": "Format",
+			"format_csv": "CSV (.csv)",
+			"format_vcard": "vCard (.vcf)",
+			"scope": "Scope",
+			"scope_selected": "Current book",
+			"scope_all": "All books"
+		},
+		"search": {
+			"placeholder": "Search contacts...",
+			"loading": "Loading contacts...",
+			"no_contacts": "No contacts found."
+		},
+		"modal": {
+			"add_contact": {
+				"title": "Add Contact",
+				"subtitle": "Create a contact for the selected account.",
+				"close_aria": "Close add contact modal"
+			},
+			"edit_contact": {
+				"title": "Edit Contact",
+				"close_aria": "Close edit contact modal"
+			},
+			"view_contact": {
+				"title": "View Contact"
+			},
+			"create_address_book": {
+				"title": "Create Address Book",
+				"subtitle": "Local address books can be used to organize manual contacts.",
+				"close_aria": "Close create address book modal"
+			},
+			"export_contacts": {
+				"title": "Export Contacts",
+				"close_aria": "Close export contacts modal"
+			}
+		},
+		"action": {
+			"close": "Close",
+			"cancel": "Cancel",
+			"save_contact": "Save Contact",
+			"save_changes": "Save changes",
+			"create": "Create",
+			"add": "Add",
+			"remove": "Remove"
+		},
+		"field": {
+			"full_name": "Full name",
+			"emails": "Emails",
+			"email": "Email",
+			"phone_numbers": "Phone numbers",
+			"phone": "Phone",
+			"organization": "Organization",
+			"title": "Title",
+			"address_book": "Address book",
+			"notes": "Notes",
+			"name": "Name"
+		}
+	},
+	"calendar_page": {
+		"status": {
+			"ready": "Calendar ready",
+			"synced": "Calendar synced",
+			"saving": "Saving...",
+			"deleting": "Deleting..."
+		},
+		"error": {
+			"invalid_start_end": "Please provide a valid start and end date/time.",
+			"shared_read_only": "Shared events are read-only in LunaMail."
+		},
+		"accounts": {
+			"title": "Accounts",
+			"sync_account": "Sync account",
+			"edit_account": "Edit account",
+			"add_account": "Add account"
+		},
+		"toolbar": {
+			"previous_month": "Previous month",
+			"previous_week": "Previous week",
+			"next_month": "Next month",
+			"next_week": "Next week",
+			"today": "Today",
+			"month": "Month",
+			"week": "Week",
+			"show_shared_events": "Show shared events",
+			"hide_shared_events": "Hide shared events",
+			"shared_hidden": "Shared hidden",
+			"hide_shared": "Hide shared",
+			"add_event": "Add event"
+		},
+		"weekday": {
+			"mon": "Mon",
+			"tue": "Tue",
+			"wed": "Wed",
+			"thu": "Thu",
+			"fri": "Fri",
+			"sat": "Sat",
+			"sun": "Sun"
+		},
+		"placeholder": {
+			"no_title": "(No title)",
+			"team_sync": "Team sync",
+			"conference_room": "Conference Room"
+		},
+		"more_events": "+{{count}} more",
+		"label": {
+			"time": "Time",
+			"owner": "Owner"
+		},
+		"context": {
+			"view_all_events": "View all events ({{count}})",
+			"new_event_on_day": "New event on this day"
+		},
+		"shared_read_only_hint": "Shared events are read-only (no edit or delete).",
+		"action": {
+			"edit": "Edit",
+			"delete": "Delete",
+			"close": "Close",
+			"cancel": "Cancel",
+			"save_changes": "Save Changes",
+			"save_event": "Save Event"
+		},
+		"day_modal": {
+			"events_on": "Events on {{day}}",
+			"no_events": "No events on this day."
+		},
+		"modal": {
+			"edit_event": {
+				"title": "Edit Event",
+				"close_aria": "Close edit event modal"
+			},
+			"add_event": {
+				"title": "Add Event",
+				"close_aria": "Close add event modal"
+			}
+		},
+		"field": {
+			"title": "Title",
+			"start": "Start",
+			"end": "End",
+			"location": "Location",
+			"description": "Description"
+		},
+		"delete_modal": {
+			"title": "Delete event?",
+			"message": "This will remove \"{{title}}\" from your calendar."
+		}
+	}
+}

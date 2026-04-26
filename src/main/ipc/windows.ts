@@ -6,6 +6,7 @@ import {getComposeDraft, openComposeWindow} from '@main/windows/composeWindow';
 import {getMessageWindowTargetId, openMessageWindow} from '@main/windows/messageWindow';
 import {openDebugWindow} from '@main/windows/debugWindow';
 import {openRouteWindow} from '@main/windows/routeWindow';
+import {__} from '@llamamail/app/i18n/main';
 
 const logger = createAppLogger('ipc:windows');
 
@@ -56,7 +57,7 @@ export function registerWindowIpc(options?: {onOpenAddAccountRoute?: () => void}
 	ipcMain.handle('open-route-window', async (_event, route: string) => {
 		const safeRoute = String(route || '').trim();
 		if (!safeRoute) {
-			throw new Error('Invalid route');
+			throw new Error(__('windows.error.invalid_route'));
 		}
 		logger.info('IPC open-route-window route=%s', safeRoute);
 		openRouteWindow(safeRoute);
@@ -72,7 +73,7 @@ export function registerWindowIpc(options?: {onOpenAddAccountRoute?: () => void}
 		logger.info('IPC pick-compose-attachments');
 		const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
 		const dialogOptions: OpenDialogOptions = {
-			title: 'Select attachments',
+			title: __('windows.dialog.select_attachments'),
 			properties: ['openFile', 'multiSelections'],
 		};
 		const result = parentWindow

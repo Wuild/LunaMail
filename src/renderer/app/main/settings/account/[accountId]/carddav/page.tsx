@@ -11,8 +11,10 @@ import {
 } from '@llamamail/app/settingsRules';
 import {ACCOUNT_CONTACTS_SYNC_INTERVAL_OPTIONS} from '@llamamail/app/settingsOptions';
 import type {UseAccountSettingsRouteResult} from '../useAccountSettingsRoute';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 export default function SettingsAccountCardDavPage() {
+	const {t} = useI18n();
 	const {editor, setEditor} = useOutletContext<UseAccountSettingsRouteResult>();
 	const [detectedUrl, setDetectedUrl] = useState<string | null>(null);
 	const [discovering, setDiscovering] = useState(false);
@@ -61,9 +63,9 @@ export default function SettingsAccountCardDavPage() {
 			<Card
 				header={
 					<div>
-						<h2 className="ui-text-primary text-base font-semibold">Contacts Module</h2>
+						<h2 className="ui-text-primary text-base font-semibold">{t('settings.account_contacts.module_title')}</h2>
 						<p className="mt-1 ui-text-muted text-sm">
-							Enable contacts sync and configure contacts credentials for this account.
+							{t('settings.account_contacts.module_description')}
 						</p>
 					</div>
 				}
@@ -71,8 +73,8 @@ export default function SettingsAccountCardDavPage() {
 				<div className="space-y-3">
 					<label className="ui-border-default flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-sm">
 						<div>
-							<span className="ui-text-secondary">Enable Contacts</span>
-							<p className="ui-text-muted mt-1 text-xs">Disable to pause CardDAV contact sync jobs.</p>
+							<span className="ui-text-secondary">{t('settings.account_contacts.enable_contacts')}</span>
+							<p className="ui-text-muted mt-1 text-xs">{t('settings.account_contacts.enable_contacts_description')}</p>
 						</div>
 						<FormCheckbox
 							checked={!!editor.sync_contacts}
@@ -84,7 +86,7 @@ export default function SettingsAccountCardDavPage() {
 						/>
 					</label>
 					<label className="block text-sm md:max-w-xs">
-						<Label>Contacts sync interval</Label>
+						<Label>{t('settings.account_contacts.sync_interval')}</Label>
 						<FormSelect
 							value={String(
 								normalizeAccountContactsSyncIntervalMinutes(
@@ -108,7 +110,9 @@ export default function SettingsAccountCardDavPage() {
 						>
 							{ACCOUNT_CONTACTS_SYNC_INTERVAL_OPTIONS.map((minutes) => (
 								<option key={minutes} value={minutes}>
-									Every {minutes} minute{minutes === 1 ? '' : 's'}
+									{minutes === 1
+										? t('settings.account_contacts.every_minute', {minutes})
+										: t('settings.account_contacts.every_minutes', {minutes})}
 								</option>
 							))}
 						</FormSelect>
@@ -119,7 +123,7 @@ export default function SettingsAccountCardDavPage() {
 			{isManagedOAuthProvider ? (
 				<Card>
 					<p className="ui-text-muted text-sm">
-						CardDAV endpoint and credentials are managed by your provider OAuth integration.
+						{t('settings.account_contacts.oauth_managed')}
 					</p>
 				</Card>
 			) : (
@@ -127,35 +131,40 @@ export default function SettingsAccountCardDavPage() {
 					header={
 						<div className="flex items-center justify-between gap-3">
 							<div>
-								<h3 className="ui-text-primary text-sm font-semibold">Contacts Connection</h3>
-								<p className="ui-text-muted mt-1 text-xs">Detected endpoint and override credentials.</p>
+								<h3 className="ui-text-primary text-sm font-semibold">{t('settings.account_contacts.connection_title')}</h3>
+								<p className="ui-text-muted mt-1 text-xs">{t('settings.account_contacts.connection_subtitle')}</p>
 							</div>
 							<Button type="button" variant="secondary" size="sm" onClick={() => void detectUrl()} disabled={discovering}>
-								{discovering ? 'Detecting...' : 'Detect URL'}
+								{discovering ? t('settings.account_contacts.detecting') : t('settings.account_contacts.detect_url')}
 							</Button>
 						</div>
 					}
 				>
 					<div className="space-y-3">
 						<label className="block text-sm">
-							<span className="ui-text-secondary mb-1 block font-medium">Detected URL</span>
-							<FormInput value={detectedUrl || ''} readOnly placeholder="Not detected yet" variant="subtle" />
+							<span className="ui-text-secondary mb-1 block font-medium">{t('settings.account_contacts.detected_url')}</span>
+							<FormInput
+								value={detectedUrl || ''}
+								readOnly
+								placeholder={t('settings.account_contacts.not_detected_yet')}
+								variant="subtle"
+							/>
 						</label>
 						<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 							<Field
-								label="CardDAV Username"
+								label={t('settings.account_contacts.carddav_username')}
 								value={editor.carddav_user || ''}
 								onChange={(value) => setEditor((prev) => (prev ? {...prev, carddav_user: value} : prev))}
-								placeholder="Defaults to account username"
+								placeholder={t('settings.account_contacts.defaults_to_account_username')}
 							/>
 							<Field
 								type="password"
-								label="CardDAV Password"
+								label={t('settings.account_contacts.carddav_password')}
 								value={editor.carddav_password || ''}
 								onChange={(value) =>
 									setEditor((prev) => (prev ? {...prev, carddav_password: value} : prev))
 								}
-								placeholder="Defaults to account password"
+								placeholder={t('settings.account_contacts.defaults_to_account_password')}
 							/>
 						</div>
 					</div>

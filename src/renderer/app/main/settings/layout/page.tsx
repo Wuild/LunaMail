@@ -7,23 +7,25 @@ import {APP_THEME_OPTIONS, MAIL_VIEW_OPTIONS} from '@llamamail/app/settingsOptio
 import {Container} from '@llamamail/ui/container';
 import {Card} from '@llamamail/ui';
 import {FormRadioGroup} from '@llamamail/ui/form';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 export default function SettingsLayoutPage() {
+	const {t} = useI18n();
 	const {appSettings: settings, setAppSettings: setSettings} = useIpcAppSettings(DEFAULT_APP_SETTINGS);
 	const [status, setStatus] = useState<string | null>(null);
 
 	async function applySettingsPatch(patch: Partial<AppSettings>): Promise<boolean> {
 		setSettings((prev: AppSettings) => ({...prev, ...patch}));
-		setStatus('Saving...');
+		setStatus(t('settings.status.saving'));
 		try {
 			const saved = await ipcClient.updateAppSettings(patch);
 			setSettings(saved);
-			setStatus('Settings saved.');
+			setStatus(t('settings.status.saved'));
 			return true;
 		} catch (e: any) {
 			const latest = await ipcClient.getAppSettings().catch(() => null);
 			if (latest) setSettings(latest);
-			setStatus(`Save failed: ${e?.message || String(e)}`);
+			setStatus(t('settings.status.save_failed', {error: e?.message || String(e)}));
 			return false;
 		}
 	}
@@ -34,8 +36,8 @@ export default function SettingsLayoutPage() {
 		if (!saved) return;
 		setStatus(
 			pendingValue === null
-				? 'Titlebar restart change cleared.'
-				: 'Titlebar change queued. Restart required to apply.',
+				? t('settings.layout.status.titlebar_restart_change_cleared')
+				: t('settings.layout.status.titlebar_change_queued'),
 		);
 	}
 
@@ -46,55 +48,65 @@ export default function SettingsLayoutPage() {
 
 	return (
 		<Container>
-			<Card title={'Theme'}>
+			<Card title={t('settings.layout.theme_title')}>
 				<div className="block text-sm">
 					<FormRadioGroup
-						aria-label="Theme"
+						aria-label={t('settings.layout.theme_aria')}
 						value={settings.theme}
 						options={APP_THEME_OPTIONS.map((option) => ({
 							value: option.value,
-							label: option.label,
+							label:
+								option.value === 'light'
+									? t('settings.layout.theme_light')
+									: option.value === 'dark'
+										? t('settings.layout.theme_dark')
+										: t('settings.layout.theme_system'),
 						}))}
 						onChange={(value) => void applySettingsPatch({theme: value as AppSettings['theme']})}
 					/>
 				</div>
 			</Card>
 
-			<Card title={'Titlebar'}>
+			<Card title={t('settings.layout.titlebar_title')}>
 				<div className="block text-sm">
 					<FormRadioGroup
-						aria-label="Titlebar mode"
+						aria-label={t('settings.layout.titlebar_aria')}
 						value={effectiveUseNativeTitleBar ? 'native' : 'custom'}
 						options={[
-							{value: 'custom', label: 'Custom titlebar'},
-							{value: 'native', label: 'Native titlebar'},
+							{value: 'custom', label: t('settings.layout.titlebar_custom')},
+							{value: 'native', label: t('settings.layout.titlebar_native')},
 						]}
 						onChange={(value) => void onTitlebarModeChange(value === 'native')}
 					/>
-					<p className="mt-2 ui-text-muted text-xs">Changing titlebar mode requires restarting the app.</p>
+					<p className="mt-2 ui-text-muted text-xs">{t('settings.layout.titlebar_restart_required')}</p>
 					{settings.pendingUseNativeTitleBar !== null && (
 						<p className="notice-warning mt-2 rounded px-2 py-1 text-xs">
-							Restart queued: will switch to {settings.pendingUseNativeTitleBar ? 'native' : 'custom'}{' '}
-							titlebar.
+							{t('settings.layout.titlebar_restart_queued', {
+								mode: settings.pendingUseNativeTitleBar
+									? t('settings.layout.titlebar_native_lower')
+									: t('settings.layout.titlebar_custom_lower'),
+							})}
 						</p>
 					)}
 				</div>
 			</Card>
 
-			<Card title={'Mail view'}>
+			<Card title={t('settings.layout.mail_view_title')}>
 				<div className="block text-sm">
 					<FormRadioGroup
-						aria-label="Mail view"
+						aria-label={t('settings.layout.mail_view_aria')}
 						value={settings.mailView}
 						options={MAIL_VIEW_OPTIONS.map((option) => ({
 							value: option.value,
-							label: option.label,
+							label:
+								option.value === 'side-list'
+									? t('onboarding.mail_layout_side_list')
+									: t('onboarding.mail_layout_top_table'),
 						}))}
 						onChange={(value) => void applySettingsPatch({mailView: value as AppSettings['mailView']})}
 					/>
 					<p className="mt-2 ui-text-muted text-xs">
-						Side List keeps folders and message list side-by-side. Top Table places a compact table above
-						message preview.
+						{t('settings.layout.mail_view_description')}
 					</p>
 				</div>
 			</Card>

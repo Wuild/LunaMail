@@ -16,8 +16,10 @@ import {
 	parseMailListSort,
 } from '@llamamail/app/settingsRules';
 import type {UseAccountSettingsRouteResult} from '../useAccountSettingsRoute';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 export default function SettingsAccountEmailPage() {
+	const {t} = useI18n();
 	const {editor, setEditor} = useOutletContext<UseAccountSettingsRouteResult>();
 	if (!editor) return null;
 
@@ -29,17 +31,17 @@ export default function SettingsAccountEmailPage() {
 			<Card
 				header={
 					<div>
-						<h2 className="ui-text-primary text-base font-semibold">Email Module</h2>
+						<h2 className="ui-text-primary text-base font-semibold">{t('settings.account_email.email_module_title')}</h2>
 						<p className="mt-1 ui-text-muted text-sm">
-							Enable mailbox sync for this account and configure IMAP/SMTP endpoints.
+							{t('settings.account_email.email_module_description')}
 						</p>
 					</div>
 				}
 			>
 				<label className="ui-border-default flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-sm">
 					<div>
-						<span className="ui-text-secondary">Enable Email</span>
-						<p className="ui-text-muted mt-1 text-xs">Disable to hide inbox and pause email sync jobs.</p>
+						<span className="ui-text-secondary">{t('settings.account_email.enable_email')}</span>
+						<p className="ui-text-muted mt-1 text-xs">{t('settings.account_email.enable_email_description')}</p>
 					</div>
 					<FormCheckbox
 						checked={!!editor.sync_emails}
@@ -53,22 +55,22 @@ export default function SettingsAccountEmailPage() {
 			<Card
 				header={
 					<div>
-						<h2 className="ui-text-primary text-base font-semibold">Inbox & Sync</h2>
+						<h2 className="ui-text-primary text-base font-semibold">{t('settings.account_email.inbox_sync_title')}</h2>
 						<p className="mt-1 ui-text-muted text-sm">
-							Control mailbox sync behavior and message list ordering.
+							{t('settings.account_email.inbox_sync_description')}
 						</p>
 					</div>
 				}
 			>
 				{!editor.sync_emails ? (
 					<p className="ui-text-muted text-sm">
-						Enable Email above to configure sync interval, history, and list ordering.
+						{t('settings.account_email.enable_email_above')}
 					</p>
 				) : (
 					<div className="space-y-4">
 						<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 							<label className="block text-sm">
-								<Label>Sync interval</Label>
+								<Label>{t('settings.account_email.sync_interval')}</Label>
 								<FormSelect
 									value={String(
 										normalizeAccountEmailSyncIntervalMinutes(
@@ -92,13 +94,15 @@ export default function SettingsAccountEmailPage() {
 								>
 									{ACCOUNT_EMAIL_SYNC_INTERVAL_OPTIONS.map((minutes) => (
 										<option key={minutes} value={minutes}>
-											Every {minutes} minute{minutes === 1 ? '' : 's'}
+											{minutes === 1
+												? t('settings.account_email.every_minute', {minutes})
+												: t('settings.account_email.every_minutes', {minutes})}
 										</option>
 									))}
 								</FormSelect>
 							</label>
 							<label className="block text-sm">
-								<Label>Sync history</Label>
+								<Label>{t('settings.account_email.sync_history')}</Label>
 								<FormSelect
 									value={String(
 										normalizeAccountEmailSyncLookbackMonths(
@@ -125,15 +129,17 @@ export default function SettingsAccountEmailPage() {
 								>
 									{ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTH_OPTIONS.map((months) => (
 										<option key={months} value={months}>
-											Last {months} month{months === 1 ? '' : 's'}
+											{months === 1
+												? t('settings.account_email.last_month', {months})
+												: t('settings.account_email.last_months', {months})}
 										</option>
 									))}
-									<option value="0">No limit</option>
+									<option value="0">{t('settings.account_email.no_limit')}</option>
 								</FormSelect>
 							</label>
 						</div>
 						<label className="block text-sm">
-							<Label>Message list order</Label>
+							<Label>{t('settings.account_email.message_list_order')}</Label>
 							<FormSelect
 								value={editor.email_list_sort || 'unread_then_arrived_desc'}
 								onChange={(event) =>
@@ -149,7 +155,9 @@ export default function SettingsAccountEmailPage() {
 							>
 								{MAIL_LIST_SORT_OPTIONS.map((option) => (
 									<option key={option.value} value={option.value}>
-										{option.label}
+										{option.value === 'unread_then_arrived_desc'
+											? t('settings.account_email.message_order_unread_first')
+											: t('settings.account_email.message_order_newest_first')}
 									</option>
 								))}
 							</FormSelect>
@@ -162,21 +170,23 @@ export default function SettingsAccountEmailPage() {
 				<Card
 					header={
 						<div>
-							<h2 className="ui-text-primary text-base font-semibold">Connection</h2>
+							<h2 className="ui-text-primary text-base font-semibold">{t('settings.account_email.connection_title')}</h2>
 							<p className="mt-1 ui-text-muted text-sm">
-								This account uses {editor.oauth_provider === 'microsoft' ? 'Microsoft' : 'Google'} OAuth.
+								{t('settings.account_email.connection_oauth_description', {
+									provider: editor.oauth_provider === 'microsoft' ? 'Microsoft' : 'Google',
+								})}
 							</p>
 						</div>
 					}
 				>
 					<p className="ui-text-muted text-sm">
-						Incoming and outgoing server credentials are managed by your provider.
+						{t('settings.account_email.connection_oauth_managed')}
 					</p>
 				</Card>
 			) : (
 				<>
 					<ServiceSettingsCard
-						title="IMAP Incoming"
+						title={t('settings.account_email.imap_incoming')}
 						host={editor.imap_host}
 						port={editor.imap_port}
 						security={editor.imap_secure ? 'ssl' : 'starttls'}
@@ -190,20 +200,20 @@ export default function SettingsAccountEmailPage() {
 					>
 						<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 							<Field
-								label="IMAP Username"
+								label={t('settings.account_email.imap_username')}
 								value={editor.imap_user || ''}
 								onChange={(v) => setEditor((p) => (p ? {...p, imap_user: v} : p))}
 							/>
 							<Field
 								type="password"
-								label="IMAP Password"
+								label={t('settings.account_email.imap_password')}
 								value={editor.imap_password || ''}
 								onChange={(v) => setEditor((p) => (p ? {...p, imap_password: v} : p))}
 							/>
 						</div>
 					</ServiceSettingsCard>
 					<ServiceSettingsCard
-						title="SMTP Outgoing"
+						title={t('settings.account_email.smtp_outgoing')}
 						host={editor.smtp_host}
 						port={editor.smtp_port}
 						security={editor.smtp_secure ? 'ssl' : 'starttls'}
@@ -217,13 +227,13 @@ export default function SettingsAccountEmailPage() {
 					>
 						<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 							<Field
-								label="SMTP Username"
+								label={t('settings.account_email.smtp_username')}
 								value={editor.smtp_user || ''}
 								onChange={(v) => setEditor((p) => (p ? {...p, smtp_user: v} : p))}
 							/>
 							<Field
 								type="password"
-								label="SMTP Password"
+								label={t('settings.account_email.smtp_password')}
 								value={editor.smtp_password || ''}
 								onChange={(v) => setEditor((p) => (p ? {...p, smtp_password: v} : p))}
 							/>

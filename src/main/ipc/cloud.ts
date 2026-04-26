@@ -35,6 +35,7 @@ import {syncCloudDav} from '@main/cloud/davSync';
 import {APP_NAME, APP_PROTOCOL} from '@llamamail/app/appConfig';
 import {appEventHandler, AppEvent} from '@llamamail/app/appEventHandler';
 import {confirmFileOpen, isRiskyFileOpenTarget} from '@main/security/fileOpenRisk';
+import {__} from '@llamamail/app/i18n/main';
 
 const logger = createMailDebugLogger('cloud', 'ipc:cloud');
 const ONEDRIVE_APP_ID = 'e063ebfa-cd51-47fd-8a97-6a73fe65f26c';
@@ -98,7 +99,7 @@ export function registerCloudIpc(): void {
 	ipcMain.handle('link-cloud-oauth', async (_event, provider: OAuthProvider, payload: LinkCloudOAuthPayload) => {
 		logger.info('IPC link-cloud-oauth provider=%s', provider);
 		if (provider !== 'google-drive' && provider !== 'onedrive') {
-			throw new Error('OAuth linking is only supported for Google Drive and OneDrive.');
+			throw new Error(__('cloud.error.oauth_linking_supported_providers'));
 		}
 		const rawClientId = String(payload?.clientId || '').trim();
 		const clientId = provider === 'onedrive' ? rawClientId || ONEDRIVE_APP_ID : rawClientId;
@@ -138,7 +139,7 @@ export function registerCloudIpc(): void {
 			logger.info('IPC relink-cloud-oauth accountId=%d', accountId);
 			const credentials = await getCloudAccountCredentials(accountId);
 			if (credentials.provider !== 'google-drive' && credentials.provider !== 'onedrive') {
-				throw new Error('OAuth relinking is only supported for Google Drive and OneDrive accounts.');
+				throw new Error(__('cloud.error.oauth_relinking_supported_providers'));
 			}
 			const provider: OAuthProvider = credentials.provider;
 			const persisted = parseCloudOAuthSecret(credentials.secret);
@@ -257,7 +258,7 @@ export function registerCloudIpc(): void {
 		const credentials = await getCloudAccountCredentials(accountId);
 		const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
 		const options: OpenDialogOptions = {
-			title: 'Upload files to cloud',
+			title: __('cloud.dialog.upload_title'),
 			properties: ['openFile', 'multiSelections'],
 		};
 		const pick = parentWindow
@@ -298,11 +299,11 @@ export function registerCloudIpc(): void {
 			);
 			const credentials = await getCloudAccountCredentials(accountId);
 			const downloaded = await downloadCloudItem(credentials, itemPathOrToken);
-			const safeName = sanitizeCloudFilename(downloaded.name || fallbackName || 'cloud-item');
+			const safeName = sanitizeCloudFilename(downloaded.name || fallbackName || __('cloud.default_item_name'));
 			const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
 			if (action === 'save') {
 				const saveDialogOptions = {
-					title: 'Save cloud file',
+					title: __('cloud.dialog.save_title'),
 					defaultPath: safeName,
 					showsTagField: false,
 				};
@@ -321,7 +322,7 @@ export function registerCloudIpc(): void {
 				return {ok: true as const, action: 'saved' as const, path: saveResult.filePath};
 			}
 			const isRisky = isRiskyFileOpenTarget(safeName, downloaded.mimeType, downloaded.content);
-			const approved = await confirmFileOpen(parentWindow, safeName, 'cloud file', isRisky);
+			const approved = await confirmFileOpen(parentWindow, safeName, __('cloud.file_type_label'), isRisky);
 			if (!approved) {
 				return {ok: false as const, action: 'cancelled' as const, path: ''};
 			}
@@ -344,7 +345,7 @@ export function registerCloudIpc(): void {
 			logger.info('IPC pick-cloud-attachment accountId=%d item=%s', accountId, String(itemPathOrToken || ''));
 			const credentials = await getCloudAccountCredentials(accountId);
 			const downloaded = await downloadCloudItem(credentials, itemPathOrToken);
-			const safeName = sanitizeCloudFilename(downloaded.name || fallbackName || 'cloud-attachment');
+			const safeName = sanitizeCloudFilename(downloaded.name || fallbackName || __('cloud.default_attachment_name'));
 			const targetPath = path.join(os.tmpdir(), `llamamail-cloud-attachment-${Date.now()}-${safeName}`);
 			await fs.writeFile(targetPath, downloaded.content);
 			return {
@@ -369,7 +370,7 @@ function sanitizeCloudFilename(value: string): string {
 	const cleaned = String(value || '')
 		.trim()
 		.replace(/[\\/:"*?<>|]+/g, '_');
-	if (!cleaned) return 'cloud-item';
+	if (!cleaned) return __('cloud.default_item_name');
 	return cleaned.slice(0, 180);
 }
 
@@ -461,7 +462,7 @@ async function linkGoogleDriveOAuth(clientId: string): Promise<LinkedOAuthAccoun
 			redirect_uri: callback.redirectUri,
 		}),
 	});
-	if (!tokenRes.ok) throw new Error(`Google OAuth token exchange failed (${tokenRes.status}).`);
+	if (!tokenRes.ok) throw new Error(__('cloud.error.google_token_exchange_failed', {status: tokenRes.status}));
 	const token = (await tokenReson()) as {
 		access_token?: string;
 		refresh_token?: string;
@@ -470,7 +471,7 @@ async function linkGoogleDriveOAuth(clientId: string): Promise<LinkedOAuthAccoun
 		scope?: string;
 	};
 	const accessToken = String(token.access_token || '').trim();
-	if (!accessToken) throw new Error('Google OAuth response did not include an access token.');
+	if (!accessToken) throw new Error(__('cloud.error.google_no_access_token'));
 	const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
 		headers: {Authorization: `Bearer ${accessToken}`},
 	});
@@ -523,7 +524,7 @@ async function linkOneDriveOAuth(clientId: string, tenantId: string): Promise<Li
 			scope: `offline_access openid profile email ${ONEDRIVE_SCOPES[0]}`,
 		}),
 	});
-	if (!tokenRes.ok) throw new Error(`OneDrive OAuth token exchange failed (${tokenRes.status}).`);
+	if (!tokenRes.ok) throw new Error(__('cloud.error.onedrive_token_exchange_failed', {status: tokenRes.status}));
 	const token = (await tokenReson()) as {
 		access_token?: string;
 		refresh_token?: string;
@@ -533,7 +534,7 @@ async function linkOneDriveOAuth(clientId: string, tenantId: string): Promise<Li
 		id_token?: string;
 	};
 	const accessToken = String(token.access_token || '').trim();
-	if (!accessToken) throw new Error('OneDrive OAuth response did not include an access token.');
+	if (!accessToken) throw new Error(__('cloud.error.onedrive_no_access_token'));
 	const idTokenClaims = parseJwtClaims(token.id_token);
 	const meRes = await fetch(`${ONEDRIVE_RESOURCE}/v1.0/me`, {
 		headers: {Authorization: `Bearer ${accessToken}`},
@@ -603,21 +604,21 @@ function createProtocolOAuthCallbackWaiter(
 		settled = true;
 		if (error) rejectCode(error);
 		else if (code) resolveCode(code);
-		else rejectCode(new Error('OAuth callback did not return a code.'));
+		else rejectCode(new Error(__('cloud.error.oauth_callback_no_code')));
 	};
 	const consumeUrl = (url: string) => {
 		const parsed = parseOAuthProtocolCallback(url, redirectUri);
 		if (!parsed) return false;
 		if (parsed.state !== state) {
-			finish(new Error('OAuth state mismatch.'));
+			finish(new Error(__('cloud.error.oauth_state_mismatch')));
 			return true;
 		}
 		if (parsed.error) {
-			finish(new Error(parsed.errorDescription || parsed.error || 'OAuth authorization failed.'));
+			finish(new Error(parsed.errorDescription || parsed.error || __('cloud.error.oauth_authorization_failed')));
 			return true;
 		}
 		if (!parsed.code) {
-			finish(new Error('OAuth callback did not include a code.'));
+			finish(new Error(__('cloud.error.oauth_callback_missing_code')));
 			return true;
 		}
 		finish(undefined, parsed.code);
@@ -636,7 +637,7 @@ function createProtocolOAuthCallbackWaiter(
 	}
 	const timeoutId = setTimeout(
 		() => {
-			finish(new Error('OAuth login timed out. Please try again.'));
+			finish(new Error(__('cloud.error.oauth_login_timed_out')));
 		},
 		3 * 60 * 1000,
 	);
@@ -710,13 +711,13 @@ async function createOAuthCallbackWaiter(state: string): Promise<{
 		settled = true;
 		if (error) rejectCode(error);
 		else if (code) resolveCode(code);
-		else rejectCode(new Error('OAuth callback did not return a code.'));
+		else rejectCode(new Error(__('cloud.error.oauth_callback_no_code')));
 	};
 	const server = createServer((req, res) => {
 		const requestUrl = new URL(req.url || '/', 'http://127.0.0.1');
 		if (requestUrl.pathname !== '/oauth/callback') {
 			res.statusCode = 404;
-			res.end('Not found');
+			res.end(__('cloud.http.not_found'));
 			return;
 		}
 		const callbackState = requestUrl.searchParams.get('state');
@@ -725,24 +726,24 @@ async function createOAuthCallbackWaiter(state: string): Promise<{
 		const callbackDescription = requestUrl.searchParams.get('error_description') || callbackError;
 		if (callbackState !== state) {
 			res.statusCode = 400;
-			res.end('State mismatch. You can close this tab.');
-			finish(new Error('OAuth state mismatch.'));
+			res.end(__('cloud.http.state_mismatch_close_tab'));
+			finish(new Error(__('cloud.error.oauth_state_mismatch')));
 			return;
 		}
 		if (callbackError) {
 			res.statusCode = 400;
-			res.end('Authentication failed. You can close this tab.');
-			finish(new Error(callbackDescription || 'OAuth authorization failed.'));
+			res.end(__('cloud.http.authentication_failed_close_tab'));
+			finish(new Error(callbackDescription || __('cloud.error.oauth_authorization_failed')));
 			return;
 		}
 		if (!callbackCode) {
 			res.statusCode = 400;
-			res.end('Missing authorization code. You can close this tab.');
-			finish(new Error('OAuth callback did not include a code.'));
+			res.end(__('cloud.http.missing_authorization_code_close_tab'));
+			finish(new Error(__('cloud.error.oauth_callback_missing_code')));
 			return;
 		}
 		res.statusCode = 200;
-		res.end(`${APP_NAME} account linked successfully. You can close this tab.`);
+		res.end(__('cloud.http.account_linked_close_tab', {app: APP_NAME}));
 		finish(undefined, callbackCode);
 	});
 	await new Promise<void>((resolve, reject) => {
@@ -752,12 +753,12 @@ async function createOAuthCallbackWaiter(state: string): Promise<{
 	const address = server.address();
 	if (!address || typeof address === 'string') {
 		server.close();
-		throw new Error('Could not start OAuth callback listener.');
+		throw new Error(__('cloud.error.oauth_listener_start_failed'));
 	}
 	const redirectUri = `http://127.0.0.1:${address.port}/oauth/callback`;
 	const timeoutId = setTimeout(
 		() => {
-			finish(new Error('OAuth login timed out. Please try again.'));
+			finish(new Error(__('cloud.error.oauth_login_timed_out')));
 		},
 		3 * 60 * 1000,
 	);

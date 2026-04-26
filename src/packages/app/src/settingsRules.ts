@@ -1,7 +1,7 @@
 import {DEFAULT_APP_SETTINGS} from './defaults';
 import type {AppLanguage, AppTheme, MailListSort, MailView, NavRailItemId} from './ipcTypes';
 
-export const APP_LANGUAGE_VALUES = ['system', 'en-US'] as const;
+export const APP_LANGUAGE_VALUES = ['system', 'en-US', 'sv-SE'] as const;
 export const APP_THEME_VALUES = ['system', 'light', 'dark'] as const;
 export const MAIL_VIEW_VALUES = ['side-list', 'top-table'] as const;
 export const MAIL_LIST_SORT_VALUES = ['arrived_desc', 'unread_then_arrived_desc'] as const;
@@ -105,7 +105,10 @@ export function normalizeAccountEmailSyncLookbackMonths(
 		if (!Number.isFinite(parsed)) return null;
 		const rounded = Math.round(parsed);
 		if (rounded <= 0) return null;
-		return Math.min(ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS_MAX, Math.max(ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS_MIN, rounded));
+		return Math.min(
+			ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS_MAX,
+			Math.max(ACCOUNT_EMAIL_SYNC_LOOKBACK_MONTHS_MIN, rounded),
+		);
 	};
 	const normalizedFallback = normalizeMonthsValue(fallback);
 	if (value === undefined) return normalizedFallback;

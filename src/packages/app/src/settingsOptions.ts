@@ -8,6 +8,7 @@ type LabeledOption<T extends string> = {
 export const APP_LANGUAGE_OPTIONS: ReadonlyArray<LabeledOption<AppLanguage>> = [
 	{value: 'system', label: 'System default'},
 	{value: 'en-US', label: 'English (US)'},
+	{value: 'sv-SE', label: 'Swedish (Sweden)'},
 ];
 
 export const APP_THEME_OPTIONS: ReadonlyArray<LabeledOption<AppTheme>> = [

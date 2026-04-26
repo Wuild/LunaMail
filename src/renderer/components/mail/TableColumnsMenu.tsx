@@ -1,6 +1,7 @@
 import React from 'react';
 import {cn} from '@llamamail/ui/utils';
 import {ContextMenu, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator} from '@llamamail/ui/contextmenu';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type TableColumnOption<TColumn extends string> = {
 	key: TColumn;
@@ -29,6 +30,7 @@ function TableColumnsMenuInner<TColumn extends string>(
 	}: TableColumnsMenuProps<TColumn>,
 	ref: React.ForwardedRef<HTMLDivElement>,
 ) {
+	const {t} = useI18n();
 	return (
 		<ContextMenu
 			ref={ref}
@@ -39,7 +41,7 @@ function TableColumnsMenuInner<TColumn extends string>(
 			onRequestClose={onClose}
 			onClick={(event) => event.stopPropagation()}
 		>
-			<ContextMenuLabel>Table Columns</ContextMenuLabel>
+			<ContextMenuLabel>{t('mail_components.table_columns.title')}</ContextMenuLabel>
 			{options.map((column) => {
 				const checked = selectedColumns.includes(column.key);
 				return (
@@ -61,7 +63,7 @@ function TableColumnsMenuInner<TColumn extends string>(
 			})}
 			<ContextMenuSeparator />
 			<ContextMenuItem type="button" onClick={onResetColumns}>
-				Reset Columns
+				{t('mail_components.table_columns.reset')}
 			</ContextMenuItem>
 		</ContextMenu>
 	);

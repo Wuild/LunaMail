@@ -15,6 +15,7 @@ import {Button} from '@llamamail/ui/button';
 import {ipcClient} from '@renderer/lib/ipcClient';
 import {cn} from '@llamamail/ui/utils';
 import type {Workspace} from '@renderer/lib/workspace';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type MainLayoutMenubarProps = {
 	canNavigateBack: boolean;
@@ -39,6 +40,7 @@ export default function MainLayoutMenubar({
 	onOpenCalendar,
 	onOpenContacts,
 }: MainLayoutMenubarProps) {
+	const {t} = useI18n();
 	return (
 		<div className="flex h-full items-center justify-between gap-3 px-4">
 			<div className="min-w-0 flex items-center gap-3">
@@ -47,8 +49,8 @@ export default function MainLayoutMenubar({
 						variant="ghost"
 						className="titlebar-nav-button h-9 w-9 rounded-md p-0 disabled:opacity-40"
 						onClick={() => onNavigateBack?.()}
-						title="Back"
-						aria-label="Back"
+						title={t('mail_components.titlebar.back')}
+						aria-label={t('mail_components.titlebar.back')}
 						disabled={!canNavigateBack}
 					>
 						<ChevronLeft size={16} />
@@ -57,8 +59,8 @@ export default function MainLayoutMenubar({
 						variant="ghost"
 						className="titlebar-nav-button h-9 w-9 rounded-md p-0 disabled:opacity-40"
 						onClick={() => onNavigateForward?.()}
-						title="Forward"
-						aria-label="Forward"
+						title={t('mail_components.titlebar.forward')}
+						aria-label={t('mail_components.titlebar.forward')}
 						disabled={!canNavigateForward}
 					>
 						<ChevronRight size={16} />
@@ -70,11 +72,11 @@ export default function MainLayoutMenubar({
 					variant="ghost"
 					className="titlebar-nav-button h-9 rounded-md px-3"
 					onClick={() => ipcClient.openComposeWindow()}
-					title="Compose"
-					aria-label="Compose"
+					title={t('mail_components.titlebar.compose')}
+					aria-label={t('mail_components.titlebar.compose')}
 				>
 					<PenSquare size={16} className="mr-2" />
-					<span className="text-sm font-medium">Compose</span>
+					<span className="text-sm font-medium">{t('mail_components.titlebar.compose')}</span>
 				</Button>
 				<Button
 					variant="ghost"
@@ -83,11 +85,11 @@ export default function MainLayoutMenubar({
 						activeWorkspace === 'calendar' && 'is-active',
 					)}
 					onClick={onOpenCalendar}
-					title="Open calendar"
-					aria-label="Open calendar"
+					title={t('mail_components.titlebar.open_calendar')}
+					aria-label={t('mail_components.titlebar.open_calendar')}
 				>
 					<CalendarDays size={16} className="mr-2" />
-					<span className="text-sm font-medium">Calendar</span>
+					<span className="text-sm font-medium">{t('mail_components.titlebar.calendar')}</span>
 				</Button>
 				<Button
 					variant="ghost"
@@ -96,11 +98,11 @@ export default function MainLayoutMenubar({
 						activeWorkspace === 'contacts' && 'is-active',
 					)}
 					onClick={onOpenContacts}
-					title="Open contacts"
-					aria-label="Open contacts"
+					title={t('mail_components.titlebar.open_contacts')}
+					aria-label={t('mail_components.titlebar.open_contacts')}
 				>
 					<Users size={16} className="mr-2" />
-					<span className="text-sm font-medium">Contacts</span>
+					<span className="text-sm font-medium">{t('mail_components.titlebar.contacts')}</span>
 				</Button>
 			</div>
 			<div className="flex items-center justify-end">
@@ -108,8 +110,8 @@ export default function MainLayoutMenubar({
 					variant="ghost"
 					className={cn('titlebar-nav-button mr-1 h-9 w-9 rounded-md p-0', searchModalOpen && 'is-active')}
 					onClick={onOpenSearch}
-					title="Search mail"
-					aria-label="Search mail"
+					title={t('mail_components.titlebar.search_mail')}
+					aria-label={t('mail_components.titlebar.search_mail')}
 				>
 					<Search size={15} />
 				</Button>
@@ -119,8 +121,8 @@ export default function MainLayoutMenubar({
 					onClick={() => {
 						window.location.hash = '/settings/application';
 					}}
-					title="App settings"
-					aria-label="App settings"
+					title={t('mail_components.titlebar.app_settings')}
+					aria-label={t('mail_components.titlebar.app_settings')}
 				>
 					<Settings size={17} />
 				</Button>
@@ -130,8 +132,8 @@ export default function MainLayoutMenubar({
 					onClick={() => {
 						window.location.hash = '/debug';
 					}}
-					title="Debug console"
-					aria-label="Debug console"
+					title={t('mail_components.titlebar.debug_console')}
+					aria-label={t('mail_components.titlebar.debug_console')}
 				>
 					<Bug size={17} />
 				</Button>
@@ -141,8 +143,8 @@ export default function MainLayoutMenubar({
 					onClick={() => {
 						window.location.hash = '/about';
 					}}
-					title="About"
-					aria-label="About"
+					title={t('mail_components.titlebar.about')}
+					aria-label={t('mail_components.titlebar.about')}
 				>
 					<CircleHelp size={17} />
 				</Button>

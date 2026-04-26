@@ -1,5 +1,6 @@
 import React from 'react';
 import {FormInput, FormSelect} from '@llamamail/ui/form';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 export type ServiceSecurityMode = 'ssl' | 'starttls' | 'none';
 type ControlVariant = 'default' | 'subtle';
@@ -41,12 +42,13 @@ export default function ServiceSettingsCard({
 	controlSize = 'md',
 	children,
 }: ServiceSettingsCardProps) {
+	const {t} = useI18n();
 	return (
 		<div className={`rounded-lg border p-4 ${toneClasses[tone]}`}>
 			<h3 className="ui-text-primary text-sm font-semibold">{title}</h3>
 			<div className="mt-3 grid grid-cols-1 gap-3">
 				<label className="block text-sm">
-					<span className="ui-text-secondary mb-1 block font-medium">Host</span>
+					<span className="ui-text-secondary mb-1 block font-medium">{t('settings.service.host')}</span>
 					<FormInput
 						type="text"
 						value={host}
@@ -57,7 +59,7 @@ export default function ServiceSettingsCard({
 				</label>
 				<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 					<label className="block text-sm">
-						<span className="ui-text-secondary mb-1 block font-medium">Port</span>
+						<span className="ui-text-secondary mb-1 block font-medium">{t('settings.service.port')}</span>
 						<FormInput
 							type="number"
 							value={String(port || 0)}
@@ -67,16 +69,16 @@ export default function ServiceSettingsCard({
 						/>
 					</label>
 					<label className="block text-sm">
-						<span className="ui-text-secondary mb-1 block font-medium">Security</span>
+						<span className="ui-text-secondary mb-1 block font-medium">{t('settings.service.security')}</span>
 						<FormSelect
 							value={security}
 							onChange={(event) => onSecurityChange(event.target.value as ServiceSecurityMode)}
 							variant={controlVariant}
 							size={controlSize}
 						>
-							<option value="ssl">SSL/TLS</option>
-							<option value="starttls">STARTTLS</option>
-							{allowNone && <option value="none">None</option>}
+							<option value="ssl">{t('settings.service.security_ssl')}</option>
+							<option value="starttls">{t('settings.service.security_starttls')}</option>
+							{allowNone && <option value="none">{t('settings.service.security_none')}</option>}
 						</FormSelect>
 					</label>
 				</div>

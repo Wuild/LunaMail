@@ -34,9 +34,11 @@ import {useSystemLocale} from '@renderer/hooks/ipc/useSystemLocale';
 import {DEFAULT_APP_SETTINGS} from '@llamamail/app/defaults';
 import {buildMessageIframeSrcDoc, formatMessageTagLabel} from '@renderer/app/main/email/mailPageHelpers';
 import {useApp} from '@renderer/app/AppContext';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 export default function MessageWindowPage() {
 	useAppTheme();
+	const {t} = useI18n();
 	const {setTitle} = useApp();
 	const {systemLocale} = useSystemLocale();
 	const [messageId, setMessageId] = useState<number | null>(null);
@@ -197,8 +199,8 @@ export default function MessageWindowPage() {
 	}, [messageId]);
 
 	useEffect(() => {
-		setTitle((message?.subject || '').trim() || 'Message');
-	}, [message?.subject, setTitle]);
+		setTitle((message?.subject || '').trim() || t('mail_components.header.message'));
+	}, [message?.subject, setTitle, t]);
 
 	function composeWithDraft(draft: {
 		to?: string | null;
@@ -218,7 +220,7 @@ export default function MessageWindowPage() {
 
 	function onReply(): void {
 		if (!message) return;
-		const subject = ensurePrefixedSubject(message.subject, 'Re:');
+		const subject = ensurePrefixedSubject(message.subject, t('mail_page.subject_prefix.reply'));
 		const quoteText = body?.text ?? htmlToText(body?.html);
 		const quoteHtml = buildReplyQuoteHtml(message, body?.html, quoteText, systemLocale);
 		const replyTo = inferReplyAddress(message);
@@ -239,7 +241,7 @@ export default function MessageWindowPage() {
 
 	function onReplyAll(): void {
 		if (!message) return;
-		const subject = ensurePrefixedSubject(message.subject, 'Re:');
+		const subject = ensurePrefixedSubject(message.subject, t('mail_page.subject_prefix.reply'));
 		const quoteText = body?.text ?? htmlToText(body?.html);
 		const quoteHtml = buildReplyQuoteHtml(message, body?.html, quoteText, systemLocale);
 		const replyTo = inferReplyAddress(message);
@@ -261,7 +263,7 @@ export default function MessageWindowPage() {
 
 	function onForward(): void {
 		if (!message) return;
-		const subject = ensurePrefixedSubject(message.subject, 'Fwd:');
+		const subject = ensurePrefixedSubject(message.subject, t('mail_page.subject_prefix.forward'));
 		const originalText = body?.text ?? htmlToText(body?.html);
 		const forwarded = buildForwardQuoteText(message, originalText, systemLocale);
 
@@ -279,7 +281,9 @@ export default function MessageWindowPage() {
 
 	function onDelete(): void {
 		if (!message) return;
-		const confirmed = window.confirm(`Delete email "${message.subject || '(No subject)'}"?`);
+		const confirmed = window.confirm(
+			t('mail_page.confirm.delete_email', {subject: message.subject || t('mail_page.placeholder.no_subject')}),
+		);
 		if (!confirmed) return;
 		window.close();
 		void ipcClient.deleteMessage(message.id).catch(() => undefined);
@@ -321,7 +325,7 @@ export default function MessageWindowPage() {
 			<div className="flex h-full min-h-0 flex-col">
 				<div
 					role="toolbar"
-					aria-label="Message actions"
+					aria-label={t('mail_page.action.message_actions')}
 					className="mail-menubar shrink-0 flex w-full flex-wrap items-center gap-1.5 px-3 py-2"
 				>
 					{!isDraftMessage && (
@@ -333,7 +337,7 @@ export default function MessageWindowPage() {
 								onClick={onReply}
 							>
 								<Reply size={14} />
-								<span>Reply</span>
+								<span>{t('mail_page.action.reply')}</span>
 							</Button>
 							{canReplyAll && (
 								<Button
@@ -343,7 +347,7 @@ export default function MessageWindowPage() {
 									onClick={onReplyAll}
 								>
 									<ReplyAll size={14} />
-									<span>Reply all</span>
+									<span>{t('mail_page.action.reply_all')}</span>
 								</Button>
 							)}
 							<Button
@@ -353,7 +357,7 @@ export default function MessageWindowPage() {
 								onClick={onForward}
 							>
 								<Forward size={14} />
-								<span>Forward</span>
+								<span>{t('mail_page.action.forward')}</span>
 							</Button>
 						</>
 					)}
@@ -364,7 +368,7 @@ export default function MessageWindowPage() {
 						onClick={onViewSource}
 					>
 						<FileText size={14} />
-						<span>View source</span>
+						<span>{t('mail_page.action.view_source')}</span>
 					</Button>
 					<span className="divider-default mx-1 h-6 w-px" />
 					<Button
@@ -374,13 +378,13 @@ export default function MessageWindowPage() {
 						onClick={onDelete}
 					>
 						<Trash2 size={14} />
-						<span>Delete</span>
+						<span>{t('mail_page.action.delete')}</span>
 					</Button>
 				</div>
 				{message && (
 					<MessageHeaderCard
 						message={message}
-						folderLabel="Message"
+						folderLabel={t('mail_components.header.message')}
 						attachmentsCount={attachments.length}
 						showMessageDetails={showMessageDetails}
 						onToggleMessageDetails={() => setShowMessageDetails((prev) => !prev)}
@@ -401,7 +405,7 @@ export default function MessageWindowPage() {
 
 				<MessageBodyPane
 					loading={loading}
-					loadingLabel="Loading message..."
+					loadingLabel={t('mail_page.placeholder.loading_message_body')}
 					iframeSrcDoc={iframeSrcDoc}
 					plainText={body?.text}
 					iframeTitle={`message-window-body-${message?.id || 'unknown'}`}
@@ -445,7 +449,7 @@ export default function MessageWindowPage() {
 								setAttachmentMenu(null);
 							}}
 						>
-							Open
+							{t('mail.attachment.open')}
 						</ContextMenuItem>
 						<ContextMenuItem
 							onClick={() => {
@@ -456,36 +460,36 @@ export default function MessageWindowPage() {
 								setAttachmentMenu(null);
 							}}
 						>
-							Save As...
+							{t('mail.attachment.save_as')}
 						</ContextMenuItem>
 					</ContextMenu>
 				)}
 				<Modal
 					open={showSourceModal}
 					onClose={() => setShowSourceModal(false)}
-					ariaLabel="Message source"
+					ariaLabel={t('mail_components.message_source.aria_label')}
 					backdropClassName="z-[1200] px-4 py-6"
 					contentClassName="overlay flex h-full max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl p-0"
 				>
 					<ModalHeader className="border-b ui-border-default px-4 py-3">
-						<h2 className="ui-text-primary text-sm font-semibold">Message source</h2>
+						<h2 className="ui-text-primary text-sm font-semibold">{t('mail_components.message_source.title')}</h2>
 						<Button
 							type="button"
 							variant="outline"
 							className="rounded-md px-2 py-1 text-xs"
 							onClick={() => setShowSourceModal(false)}
 						>
-							Close
+							{t('mail_components.common.close')}
 						</Button>
 					</ModalHeader>
 					<div className="ui-surface-content min-h-0 flex-1 overflow-auto p-3">
-						{sourceLoading && <p className="ui-text-muted text-sm">Loading message source...</p>}
+						{sourceLoading && <p className="ui-text-muted text-sm">{t('mail_components.message_source.loading')}</p>}
 						{!sourceLoading && sourceError && (
-							<p className="text-danger text-sm">Failed to load source: {sourceError}</p>
+							<p className="text-danger text-sm">{t('mail_components.message_source.failed', {error: sourceError})}</p>
 						)}
 						{!sourceLoading && !sourceError && (
 							<pre className="panel select-text whitespace-pre-wrap break-words rounded-md p-3 font-mono text-xs leading-5 ui-text-primary">
-								{messageSource || '(No source available)'}
+								{messageSource || t('mail_components.message_source.no_source')}
 							</pre>
 						)}
 					</div>

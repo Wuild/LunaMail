@@ -3,6 +3,7 @@ import {Button} from '@llamamail/ui/button';
 import {FormInput, FormSelect} from '@llamamail/ui/form';
 import {Modal, ModalBody, ModalFooter, ModalTitle} from '@llamamail/ui/modal';
 import {cn} from '@llamamail/ui/utils';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type Option = {
 	value: string;
@@ -45,21 +46,26 @@ export default function CreateFolderModal({
 	onTypeChange,
 	onColorChange,
 }: CreateFolderModalProps) {
+	const {t} = useI18n();
 	if (!state) return null;
 
 	return (
 		<Modal open onClose={onClose} contentClassName="max-w-md rounded-2xl p-5">
-			<ModalTitle className="text-lg">Create Folder</ModalTitle>
+			<ModalTitle className="text-lg">{t('mail_components.create_folder.title')}</ModalTitle>
 			<p className="ui-text-muted mt-1 text-xs">{accountLabel}</p>
 
 			<ModalBody className="space-y-3">
 				<label className="block text-sm">
-					<span className="ui-text-secondary mb-1 block font-medium">Folder path</span>
+					<span className="ui-text-secondary mb-1 block font-medium">
+						{t('mail_components.create_folder.folder_path')}
+					</span>
 					<FormInput value={state.folderPath} onChange={(event) => onFolderPathChange(event.target.value)} />
 				</label>
 
 				<label className="block text-sm">
-					<span className="ui-text-secondary mb-1 block font-medium">Folder type</span>
+					<span className="ui-text-secondary mb-1 block font-medium">
+						{t('mail_components.create_folder.folder_type')}
+					</span>
 					<FormSelect value={state.type} onChange={(event) => onTypeChange(event.target.value)}>
 						{typeOptions.map((option) => (
 							<option key={option.value} value={option.value}>
@@ -70,7 +76,9 @@ export default function CreateFolderModal({
 				</label>
 
 				<label className="block text-sm">
-					<span className="ui-text-secondary mb-1 block font-medium">Folder color</span>
+					<span className="ui-text-secondary mb-1 block font-medium">
+						{t('mail_components.create_folder.folder_color')}
+					</span>
 					<div className="swatch-grid grid grid-cols-4 gap-2 rounded-md p-2">
 						{colorOptions.map((option) => (
 							<Button
@@ -82,7 +90,7 @@ export default function CreateFolderModal({
 									state.color === option.value && 'is-selected',
 								)}
 								title={option.label}
-								aria-label={`Set folder color ${option.label}`}
+								aria-label={t('mail_components.create_folder.set_folder_color', {label: option.label})}
 							>
 								<span
 									className={cn(
@@ -101,10 +109,10 @@ export default function CreateFolderModal({
 
 			<ModalFooter className="mt-5">
 				<Button variant="outline" onClick={onClose} disabled={saving}>
-					Cancel
+					{t('mail_components.common.cancel')}
 				</Button>
 				<Button onClick={onCreate} disabled={saving}>
-					{saving ? 'Creating...' : 'Create'}
+					{saving ? t('mail_components.common.creating') : t('mail_components.common.create')}
 				</Button>
 			</ModalFooter>
 		</Modal>

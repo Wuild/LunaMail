@@ -8,6 +8,7 @@ import {APP_NAME} from '@llamamail/app/appConfig';
 import {useAutoUpdateState} from '@renderer/hooks/ipc/useAutoUpdateState';
 import {AppContextProvider} from '@renderer/app/AppContext';
 import MainNavRail from '@renderer/components/navigation/MainNavRail';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 type TitlebarOverrides = {
 	title?: string;
@@ -19,39 +20,42 @@ type TitlebarOverrides = {
 export default function AppLayout() {
 	const location = useLocation();
 	const navigate = useNavigate();
+	const {t} = useI18n();
 	const {autoUpdatePhase, autoUpdateMessage} = useAutoUpdateState();
 	const isWindowRoute = location.pathname.startsWith('/windows/');
 	const [titlebarOverrides, setTitlebarOverrides] = useState<TitlebarOverrides>({});
 
 	const defaultTitle = useMemo(() => {
 		const path = location.pathname || '/';
-		if (path.startsWith('/windows/compose')) return 'Compose Email';
-		if (path.startsWith('/windows/message')) return 'Message';
-		if (path.startsWith('/windows/add-account')) return 'Add Account';
-		if (path.startsWith('/windows/debug')) return 'Debug Console';
+		if (path.startsWith('/windows/compose')) return t('app.title.compose_email');
+		if (path.startsWith('/windows/message')) return t('app.title.message');
+		if (path.startsWith('/windows/add-account')) return t('app.title.add_account');
+		if (path.startsWith('/windows/debug')) return t('app.title.debug_console');
 		if (path.startsWith('/windows/splash')) return '';
-		if (path.startsWith('/onboarding')) return 'Onboarding';
-		if (path.startsWith('/contacts')) return 'Contacts';
-		if (path.startsWith('/calendar')) return 'Calendar';
-		if (path.startsWith('/cloud')) return 'Cloud';
-		if (path.startsWith('/settings')) return 'Settings';
-		if (path.startsWith('/debug')) return 'Debug';
-		if (path.startsWith('/about')) return 'About';
-		if (path.startsWith('/help')) return 'About';
-		return 'Mail';
-	}, [location.pathname]);
+		if (path.startsWith('/onboarding')) return t('app.title.onboarding');
+		if (path.startsWith('/contacts')) return t('app.title.contacts');
+		if (path.startsWith('/calendar')) return t('app.title.calendar');
+		if (path.startsWith('/cloud')) return t('app.title.cloud');
+		if (path.startsWith('/settings')) return t('app.title.settings');
+		if (path.startsWith('/debug')) return t('app.title.debug');
+		if (path.startsWith('/about')) return t('app.title.about');
+		if (path.startsWith('/help')) return t('app.title.about');
+		return t('app.title.mail');
+	}, [location.pathname, t]);
 	const hasDefaultUpdateIndicator =
 		!isWindowRoute &&
 		(autoUpdatePhase === 'available' || autoUpdatePhase === 'downloading' || autoUpdatePhase === 'downloaded');
 	const defaultUpdateIndicatorTitle =
-		autoUpdatePhase === 'downloaded' ? 'Update ready to install' : autoUpdateMessage || 'Update available';
+		autoUpdatePhase === 'downloaded'
+			? t('app.update.ready_to_install')
+			: autoUpdateMessage || t('app.update.available');
 	const defaultTitleActions = hasDefaultUpdateIndicator ? (
 		<Button
 			type="button"
 			className="titlebar-button-accent relative inline-flex h-7 w-7 items-center justify-center rounded"
 			onClick={() => navigate('/settings/application')}
 			title={defaultUpdateIndicatorTitle}
-			aria-label="Open update status"
+			aria-label={t('app.update.open_status')}
 		>
 			<Download size={13} />
 			<span className="titlebar-button-dot absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full" />

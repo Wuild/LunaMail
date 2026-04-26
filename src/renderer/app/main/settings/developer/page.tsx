@@ -10,8 +10,10 @@ import {Button} from '@llamamail/ui/button';
 import {FormCheckbox} from '@llamamail/ui/form';
 import {Modal} from '@llamamail/ui/modal';
 import {Container} from '@llamamail/ui/container';
+import {useI18n} from '@llamamail/app/i18n/renderer';
 
 export default function SettingsDeveloperPage() {
+	const {t} = useI18n();
 	const {appSettings: settings, setAppSettings: setSettings} = useIpcAppSettings(DEFAULT_APP_SETTINGS);
 	const {state: autoUpdateState, setState: setAutoUpdateState} = useAutoUpdateState();
 	const [developerStatus, setDeveloperStatus] = useState<string | null>(null);
@@ -26,16 +28,16 @@ export default function SettingsDeveloperPage() {
 
 	async function applySettingsPatch(patch: Partial<AppSettings>): Promise<boolean> {
 		setSettings((prev : AppSettings) => ({...prev, ...patch}));
-		setDeveloperStatus('Saving...');
+		setDeveloperStatus(t('settings.status.saving'));
 		try {
 			const saved = await ipcClient.updateAppSettings(patch);
 			setSettings(saved);
-			setDeveloperStatus('Settings saved.');
+			setDeveloperStatus(t('settings.status.saved'));
 			return true;
 		} catch (e: any) {
 			const latest = await ipcClient.getAppSettings().catch(() => null);
 			if (latest) setSettings(latest);
-			setDeveloperStatus(`Save failed: ${e?.message || String(e)}`);
+			setDeveloperStatus(t('settings.status.save_failed', {error: e?.message || String(e)}));
 			return false;
 		}
 	}
@@ -67,56 +69,60 @@ export default function SettingsDeveloperPage() {
 	}
 
 	async function onTriggerTestNotification() {
-		setDeveloperStatus('Sending test notification...');
+		setDeveloperStatus(t('settings.developer.status.sending_test_notification'));
 		try {
 			const result = await ipcClient.devShowNotification();
 			if (!result.supported) {
-				setDeveloperStatus('System notifications are not supported in this environment.');
+				setDeveloperStatus(t('settings.developer.status.notifications_not_supported'));
 				return;
 			}
 			setDeveloperStatus(
 				result.hasTarget
-					? 'Test notification sent for first account/folder/message.'
-					: 'Notification sent, but no message exists in first account/folder.',
+					? t('settings.developer.status.test_notification_sent_target')
+					: t('settings.developer.status.test_notification_sent_no_target'),
 			);
 		} catch (e: any) {
-			setDeveloperStatus(`Notification failed: ${e?.message || String(e)}`);
+			setDeveloperStatus(t('settings.developer.status.notification_failed', {error: e?.message || String(e)}));
 		}
 	}
 
 	async function onPlayNotificationSound() {
-		setDeveloperStatus('Playing notification sound...');
+		setDeveloperStatus(t('settings.developer.status.playing_notification_sound'));
 		try {
 			const result = await ipcClient.devPlayNotificationSound();
-			setDeveloperStatus(result.played ? 'Notification sound played.' : 'Could not play notification sound.');
+			setDeveloperStatus(
+				result.played
+					? t('settings.developer.status.notification_sound_played')
+					: t('settings.developer.status.notification_sound_failed'),
+			);
 		} catch (e: any) {
-			setDeveloperStatus(`Sound failed: ${e?.message || String(e)}`);
+			setDeveloperStatus(t('settings.developer.status.sound_failed', {error: e?.message || String(e)}));
 		}
 	}
 
 	async function onShowUpdaterWindow() {
-		setDeveloperStatus('Opening updater/startup view in main window...');
+		setDeveloperStatus(t('settings.developer.status.opening_updater_view'));
 		try {
 			const result = await ipcClient.devOpenUpdaterWindow();
 			if (result.opened) {
-				setDeveloperStatus('Updater/startup view opened in main window.');
+				setDeveloperStatus(t('settings.developer.status.updater_view_opened'));
 				return;
 			}
-			setDeveloperStatus('No app window available to open updater/startup view.');
+			setDeveloperStatus(t('settings.developer.status.no_app_window'));
 		} catch (e: any) {
-			setDeveloperStatus(`Failed to open updater/startup view: ${e?.message || String(e)}`);
+			setDeveloperStatus(t('settings.developer.status.open_updater_failed', {error: e?.message || String(e)}));
 		}
 	}
 
 	return (
 		<Container>
 			<section className="panel rounded-xl p-4">
-				<h2 className="ui-text-primary text-base font-semibold">Developer Settings</h2>
+				<h2 className="ui-text-primary text-base font-semibold">{t('settings.developer.title')}</h2>
 				<p className="mt-1 ui-text-muted text-sm">
-					Enable runtime diagnostics for in-app overlays and debug features.
+					{t('settings.developer.subtitle')}
 				</p>
 				<label className="ui-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
-					<span className="ui-text-secondary">Developer mode</span>
+					<span className="ui-text-secondary">{t('settings.developer.developer_mode')}</span>
 					<FormCheckbox
 						checked={settings.developerMode}
 						onChange={(e) => void applySettingsPatch({developerMode: e.target.checked})}
@@ -124,9 +130,9 @@ export default function SettingsDeveloperPage() {
 				</label>
 				<label className="ui-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 					<div className="pr-3">
-						<span className="ui-text-secondary">Show Debug in main nav</span>
+						<span className="ui-text-secondary">{t('settings.developer.show_debug_nav')}</span>
 						<p className="mt-1 ui-text-muted text-xs">
-							Adds or removes the Debug item from the left navigation rail.
+							{t('settings.developer.show_debug_nav_description')}
 						</p>
 					</div>
 					<FormCheckbox
@@ -137,9 +143,9 @@ export default function SettingsDeveloperPage() {
 				</label>
 				<label className="ui-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 					<div className="pr-3">
-						<span className="ui-text-secondary">Show route overlay</span>
+						<span className="ui-text-secondary">{t('settings.developer.show_route_overlay')}</span>
 						<p className="mt-1 ui-text-muted text-xs">
-							Displays current route hash in the bottom-right for navigation/debugging.
+							{t('settings.developer.show_route_overlay_description')}
 						</p>
 					</div>
 					<FormCheckbox
@@ -149,9 +155,9 @@ export default function SettingsDeveloperPage() {
 				</label>
 				<label className="ui-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 					<div className="pr-3">
-						<span className="ui-text-secondary">Show send notifications</span>
+						<span className="ui-text-secondary">{t('settings.developer.show_send_notifications')}</span>
 						<p className="mt-1 ui-text-muted text-xs">
-							Shows bottom-right progress cards for background email sending.
+							{t('settings.developer.show_send_notifications_description')}
 						</p>
 					</div>
 					<FormCheckbox
@@ -161,9 +167,9 @@ export default function SettingsDeveloperPage() {
 				</label>
 				<label className="ui-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 					<div className="pr-3">
-						<span className="ui-text-secondary">Show system failure notifications</span>
+						<span className="ui-text-secondary">{t('settings.developer.show_system_failures')}</span>
 						<p className="mt-1 ui-text-muted text-xs">
-							Shows bottom-right error cards for sync/authentication failures.
+							{t('settings.developer.show_system_failures_description')}
 						</p>
 					</div>
 					<FormCheckbox
@@ -175,9 +181,9 @@ export default function SettingsDeveloperPage() {
 				</label>
 				<label className="ui-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 					<div className="pr-3">
-						<span className="ui-text-secondary">Demo mode</span>
+						<span className="ui-text-secondary">{t('settings.developer.demo_mode')}</span>
 						<p className="mt-1 ui-text-muted text-xs">
-							Loads screenshot-friendly demo accounts and sample emails locally.
+							{t('settings.developer.demo_mode_description')}
 						</p>
 					</div>
 					<FormCheckbox
@@ -187,9 +193,9 @@ export default function SettingsDeveloperPage() {
 				</label>
 				<div className="ui-border-default mt-3 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm">
 					<div>
-						<p className="ui-text-secondary">Send notification preview</p>
+						<p className="ui-text-secondary">{t('settings.developer.send_notification_preview')}</p>
 						<p className="mt-0.5 ui-text-muted text-xs">
-							Show a mock background send notification for design/debug.
+							{t('settings.developer.send_notification_preview_description')}
 						</p>
 					</div>
 					<Button
@@ -197,18 +203,18 @@ export default function SettingsDeveloperPage() {
 						className="button-secondary rounded-md px-3 py-1.5 text-xs font-medium"
 						onClick={() => {
 							window.dispatchEvent(new CustomEvent('llamamail:preview-send-notification'));
-							setDeveloperStatus('Previewing send notification in main window.');
+							setDeveloperStatus(t('settings.developer.status.preview_send_notification'));
 						}}
 					>
-						Preview
+						{t('settings.developer.preview')}
 					</Button>
 				</div>
 			</section>
 
 			<section className="panel rounded-xl p-4">
-				<h2 className="ui-text-primary text-base font-semibold">Test Actions</h2>
+				<h2 className="ui-text-primary text-base font-semibold">{t('settings.developer.test_actions_title')}</h2>
 				<p className="mt-1 ui-text-muted text-sm">
-					Trigger desktop notifications, updater UI, and debugging tools.
+					{t('settings.developer.test_actions_subtitle')}
 				</p>
 				<div className="mt-4 flex flex-wrap items-center gap-2">
 					<Button
@@ -216,55 +222,55 @@ export default function SettingsDeveloperPage() {
 						className="button-secondary rounded-md px-3 py-2 text-sm"
 						onClick={() => {
 							window.dispatchEvent(new CustomEvent('llamamail:preview-sync-failure'));
-							setDeveloperStatus('Previewing sync failure notification in main window.');
+							setDeveloperStatus(t('settings.developer.status.preview_sync_failure'));
 						}}
 					>
-						Preview Sync Failure
+						{t('settings.developer.preview_sync_failure')}
 					</Button>
 					<Button
 						type="button"
 						className="button-secondary rounded-md px-3 py-2 text-sm"
 						onClick={() => {
 							window.dispatchEvent(new CustomEvent('llamamail:preview-auth-failure'));
-							setDeveloperStatus('Previewing authentication failure notification in main window.');
+							setDeveloperStatus(t('settings.developer.status.preview_auth_failure'));
 						}}
 					>
-						Preview Auth Failure
+						{t('settings.developer.preview_auth_failure')}
 					</Button>
 					<Button
 						type="button"
 						className="button-secondary rounded-md px-3 py-2 text-sm"
 						onClick={() => void onTriggerTestNotification()}
 					>
-						Test Notification
+						{t('settings.developer.test_notification')}
 					</Button>
 					<Button
 						type="button"
 						className="button-secondary rounded-md px-3 py-2 text-sm"
 						onClick={() => void onPlayNotificationSound()}
 					>
-						Play Notification Sound
+						{t('settings.developer.play_notification_sound')}
 					</Button>
 					<Button
 						type="button"
 						className="button-secondary rounded-md px-3 py-2 text-sm"
 						onClick={() => void onShowUpdaterWindow()}
 					>
-						Open Updater Window
+						{t('settings.developer.open_updater_window')}
 					</Button>
 					<Button
 						type="button"
 						className="button-secondary rounded-md px-3 py-2 text-sm"
 						onClick={() => ipcClient.openDevTools()}
 					>
-						Open DevTools
+						{t('settings.developer.open_devtools')}
 					</Button>
 					<Button
 						type="button"
 						className="button-secondary rounded-md px-3 py-2 text-sm"
 						onClick={() => setShowUpdaterModal(true)}
 					>
-						Updater Controls
+						{t('settings.developer.updater_controls')}
 					</Button>
 				</div>
 			</section>
@@ -272,26 +278,26 @@ export default function SettingsDeveloperPage() {
 			{showUpdaterModal && (
 				<Modal open onClose={() => setShowUpdaterModal(false)} contentClassName="max-w-xl p-0">
 					<header className="ui-border-default border-b px-5 py-4">
-						<h3 className="ui-text-primary text-base font-semibold">Updater Controls</h3>
+						<h3 className="ui-text-primary text-base font-semibold">{t('settings.developer.updater_controls')}</h3>
 						<p className="ui-text-muted mt-1 text-xs">
 							{autoUpdateState.message || describeUpdatePhase(autoUpdateState)}
 						</p>
 					</header>
 					<div className="space-y-3 px-5 py-4 text-sm">
 						<div className="flex items-center justify-between gap-3">
-							<span className="ui-text-secondary">Current version</span>
+							<span className="ui-text-secondary">{t('settings.developer.updater_current_version')}</span>
 							<span className="ui-text-primary font-medium">{autoUpdateState.currentVersion}</span>
 						</div>
 						<div className="flex items-center justify-between gap-3">
-							<span className="ui-text-secondary">Latest version</span>
+							<span className="ui-text-secondary">{t('settings.developer.updater_latest_version')}</span>
 							<span className="ui-text-primary font-medium">{autoUpdateState.latestVersion || '-'}</span>
 						</div>
 						<div className="flex items-center justify-between gap-3">
-							<span className="ui-text-secondary">Phase</span>
+							<span className="ui-text-secondary">{t('settings.developer.updater_phase')}</span>
 							<span className="ui-text-primary font-medium">{autoUpdateState.phase}</span>
 						</div>
 						<div className="flex items-center justify-between gap-3">
-							<span className="ui-text-secondary">Progress</span>
+							<span className="ui-text-secondary">{t('settings.developer.updater_progress')}</span>
 							<span className="ui-text-primary font-medium">
 								{autoUpdateState.percent !== null ? `${Math.round(autoUpdateState.percent)}%` : '-'}
 							</span>
@@ -304,7 +310,7 @@ export default function SettingsDeveloperPage() {
 							className="rounded-md px-3 py-2 text-sm"
 							onClick={() => setShowUpdaterModal(false)}
 						>
-							Close
+							{t('settings.developer.close')}
 						</Button>
 						{autoUpdateState.phase === 'downloaded' ? (
 							<Button
@@ -313,7 +319,7 @@ export default function SettingsDeveloperPage() {
 								className="rounded-md px-3 py-2 text-sm"
 								onClick={() => void onInstallUpdate()}
 							>
-								Restart to Update
+								{t('settings.application.restart_to_update')}
 							</Button>
 						) : autoUpdateState.phase === 'available' || autoUpdateState.phase === 'downloading' ? (
 							<Button
@@ -323,8 +329,10 @@ export default function SettingsDeveloperPage() {
 								disabled={updateActionBusy || autoUpdateState.phase === 'downloading'}
 							>
 								{autoUpdateState.phase === 'downloading'
-									? `Downloading${autoUpdateState.percent !== null ? ` ${Math.round(autoUpdateState.percent)}%` : '...'}`
-									: 'Download Update'}
+									? t('settings.application.downloading', {
+											suffix: autoUpdateState.percent !== null ? ` ${Math.round(autoUpdateState.percent)}%` : '...',
+										})
+									: t('settings.application.download_update')}
 							</Button>
 						) : (
 							<Button
@@ -333,7 +341,7 @@ export default function SettingsDeveloperPage() {
 								onClick={() => void onCheckForUpdates()}
 								disabled={updateActionBusy || !autoUpdateState.enabled}
 							>
-								Check for Updates
+								{t('settings.application.check_for_updates')}
 							</Button>
 						)}
 					</footer>

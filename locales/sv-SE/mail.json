@@ -1,0 +1,413 @@
+{
+	"compose": {
+		"window_title": "Skriv e-post",
+		"title": "Skriv",
+		"new_message": "Nytt meddelande",
+		"words_count": "{{count}} ord",
+		"draft_chip": "Utkast",
+		"close": "Stäng",
+		"send": "Skicka",
+		"attach": "Bifoga",
+		"remove": "Ta bort",
+		"cc_bcc": "Cc/Bcc",
+		"hide_cc_bcc": "Dölj Cc/Bcc",
+		"no_accounts": "Inga konton",
+		"dropzone_hint": "Släpp filer för att bifoga. Släpp i redigeraren för att infoga bilder inline.",
+		"field": {
+			"from": "Från",
+			"to": "Till",
+			"cc": "Cc",
+			"bcc": "Bcc",
+			"subject": "Ämne"
+		},
+		"placeholder": {
+			"recipient": "recipient@example.com",
+			"optional": "valfritt",
+			"subject": "Lägg till ämne",
+			"body": "Skriv ditt meddelande..."
+		},
+		"status": {
+			"sending": "Skickar...",
+			"sending_prefix": "Skickar",
+			"send_failed_prefix": "Skickning misslyckades:",
+			"draft_save_failed": "Kunde inte spara utkast: {{error}}",
+			"draft_saved": "Utkast sparat",
+			"queueing_send": "Köar skickning...",
+			"queue_send_failed": "Köad skickning misslyckades: {{error}}"
+		},
+		"error": {
+			"invalid_address": "Ogiltig adress: {{address}}",
+			"select_sender_first": "Välj ett avsändarkonto först.",
+			"at_least_one_recipient": "Minst en mottagare krävs."
+		},
+		"quoted": {
+			"included_notice": "Citerat meddelande inkluderas i detta svar/vidarebefordran.",
+			"preview": "Förhandsvisa citat",
+			"modal_aria": "Förhandsvisning av citerat meddelande",
+			"modal_title": "Förhandsvisning av citerat meddelande",
+			"iframe_title": "quoted-message-preview",
+			"no_content": "Inget citerat innehåll tillgängligt."
+		},
+		"recipient": {
+			"remove_aria": "Ta bort {{recipient}}"
+		},
+		"attachment": {
+			"default_name": "bilaga",
+			"remove": "Ta bort bilaga",
+			"remove_aria": "Ta bort {{filename}}"
+		},
+		"cloud": {
+			"add_file": "Lägg till fil från moln",
+			"modal_aria": "Lägg till fil från moln",
+			"modal_title": "Lägg till fil från moln",
+			"no_accounts": "Inga molnkonton",
+			"go_to_root": "Gå till rot",
+			"root": "Rot",
+			"up": "Upp",
+			"refresh": "Uppdatera",
+			"loading_files": "Laddar molnfiler...",
+			"add_account_hint": "Lägg till ett molnkonto under Moln för att bifoga filer.",
+			"no_files_in_folder": "Inga filer i denna mapp.",
+			"folder": "Mapp",
+			"table": {
+				"name": "Namn",
+				"type": "Typ",
+				"size": "Storlek",
+				"modified": "Ändrad",
+				"created": "Skapad",
+				"action": "Åtgärd"
+			},
+			"provider": {
+				"cloud": "Moln"
+			},
+			"status": {
+				"refreshing_files": "Uppdaterar molnfiler...",
+				"browser_failed": "Molnbläddrare misslyckades: {{error}}",
+				"load_accounts_failed": "Kunde inte läsa in molnkonton: {{error}}",
+				"attachment_failed": "Molnbilaga misslyckades: {{error}}"
+			}
+		}
+	},
+	"mail_page": {
+		"placeholder": {
+			"no_subject": "(Inget ämne)",
+			"message": "Meddelande",
+			"attachment": "Bilaga {{index}}",
+			"loading_message_body": "Laddar meddelandetext..."
+		},
+		"subject_prefix": {
+			"reply": "Re:",
+			"forward": "Fwd:"
+		},
+		"action": {
+			"message_actions": "Meddelandeåtgärder",
+			"back": "Tillbaka",
+			"reply": "Svara",
+			"reply_all": "Svara alla",
+			"forward": "Vidarebefordra",
+			"edit_draft": "Redigera utkast",
+			"view_source": "Visa källa",
+			"junk": "Skräppost",
+			"not_junk": "Inte skräppost",
+			"delete": "Ta bort",
+			"open": "Öppna",
+			"save": "Spara",
+			"save_as": "Spara som..."
+		},
+		"error": {
+			"select_account_first": "Välj ett konto först",
+			"folder_path_required": "Mappsökväg krävs",
+			"system_folders_not_deletable": "Systemmappar kan inte tas bort"
+		},
+		"confirm": {
+			"delete_email": "Ta bort e-post \"{{subject}}\"?",
+			"delete_folder": "Ta bort mapp \"{{folder}}\"?",
+			"delete_selected_emails": "Ta bort {{count}} markerade e-postmeddelanden?"
+		},
+		"status": {
+			"ready": "Redo",
+			"syncing_older_messages_background": "Synkar äldre meddelanden i bakgrunden...",
+			"syncing_older_messages": "Synkar äldre meddelanden...",
+			"syncing_move_server": "Synkar flytt till server...",
+			"move_synced": "Flytt synkad",
+			"move_failed": "Flytt misslyckades",
+			"prefixed_error": "{{prefix}}: {{error}}",
+			"no_junk_folder": "Ingen Skräppost-mapp hittades för detta konto.",
+			"no_inbox_folder": "Ingen Inkorg-mapp hittades för detta konto.",
+			"message_already_in_junk": "Meddelandet ligger redan i Skräppost.",
+			"message_not_in_junk": "Meddelandet ligger inte i Skräppost.",
+			"action_updated_locally_syncing": "{{action}} uppdaterades lokalt. Synkar server i bakgrunden...",
+			"action_synced": "{{action}} synkad",
+			"action_sync_failed": "{{action}}-synk misslyckades",
+			"deleted_local_syncing": "Tog bort {{count}} lokalt. Synkar server i bakgrunden...",
+			"delete_sync_failed": "Synk av borttagning misslyckades: {{error}}",
+			"attachment_failed": "Bilaga misslyckades: {{error}}",
+			"could_not_determine_sender": "Kunde inte avgöra avsändaradress för tillåtelselistan.",
+			"allowlist_update_failed": "Kunde inte uppdatera tillåtelselistan: {{error}}",
+			"folder_refreshed": "Mapp uppdaterad: {{folder}}",
+			"refreshing_folder": "Uppdaterar mapp {{folder}}...",
+			"folder_refresh_failed": "Mappuppdatering misslyckades: {{error}}",
+			"creating_folder": "Skapar mapp...",
+			"folder_created": "Mapp skapad: {{folder}}",
+			"create_folder_failed": "Skapa mapp misslyckades: {{error}}",
+			"reorder_failed": "Omsortering misslyckades: {{error}}",
+			"deleting_folder": "Tar bort mapp {{folder}}...",
+			"deleted_folder": "Borttagen mapp: {{folder}}",
+			"delete_folder_failed": "Ta bort mapp misslyckades: {{error}}",
+			"flag_updated_locally_syncing": "Flagga uppdaterad lokalt. Synkar server i bakgrunden...",
+			"flag_synced": "Flagga synkad",
+			"flag_sync_failed": "Flaggsynk misslyckades: {{error}}",
+			"tag_update_failed": "Tagguppdatering misslyckades: {{error}}",
+			"archived_locally_syncing": "Arkiverad lokalt. Synkar server i bakgrunden...",
+			"archive_synced": "Arkivering synkad",
+			"archive_sync_failed": "Arkiveringssynk misslyckades: {{error}}",
+			"moved_locally_syncing": "Flyttade {{count}} lokalt. Synkar server i bakgrunden...",
+			"move_sync_failed": "Flyttsynk misslyckades: {{error}}",
+			"folder_settings_saved": "Mappinställningar sparade",
+			"folder_settings_failed": "Mappinställningar misslyckades: {{error}}"
+		},
+		"notification": {
+			"attachment_action_title": "{{action}} bilaga",
+			"attachment_action_progress": "{{action}}ar {{name}}...",
+			"preparing_attachment": "Förbereder bilaga...",
+			"opening_file": "Öppnar fil...",
+			"saving_file": "Sparar fil...",
+			"attachment_opened": "{{name}} öppnad.",
+			"attachment_saved": "{{name}} sparad."
+		}
+	},
+	"mail_components": {
+		"common": {
+			"cancel": "Avbryt",
+			"close": "Stäng",
+			"save": "Spara",
+			"saving": "Sparar...",
+			"create": "Skapa",
+			"creating": "Skapar...",
+			"delete": "Ta bort",
+			"clear": "Rensa"
+		},
+		"titlebar": {
+			"back": "Tillbaka",
+			"forward": "Vidarebefordra",
+			"compose": "Skriv",
+			"open_calendar": "Öppna kalender",
+			"open_contacts": "Öppna kontakter",
+			"calendar": "Kalender",
+			"contacts": "Kontakter",
+			"search_mail": "Sök e-post",
+			"app_settings": "Appinställningar",
+			"debug_console": "Felsökningskonsol",
+			"about": "Om"
+		},
+		"badge": {
+			"unread_count": "{{count}} olästa"
+		},
+		"sidebar": {
+			"unread_in_account": "{{count}} olästa i konto",
+			"collapse_account_folders": "Fäll ihop kontomappar",
+			"expand_account_folders": "Expandera kontomappar",
+			"synchronizing_folders": "Synkar mappar..."
+		},
+		"table_column": {
+			"subject": "Ämne",
+			"from": "Från",
+			"to": "Till",
+			"recipient": "Mottagare",
+			"date": "Datum",
+			"read_status": "Lässtatus",
+			"starred": "Stjärnmarkerad",
+			"tag": "Tagg",
+			"account": "Konto",
+			"location": "Plats",
+			"size": "Storlek"
+		},
+		"drag_overlay": {
+			"moving_email": "Flyttar e-post",
+			"moving_emails": "Flyttar {{count}} e-postmeddelanden"
+		},
+		"folder_color": {
+			"default": "Standard",
+			"sky": "Himmel",
+			"emerald": "Smaragd",
+			"amber": "Bärnsten",
+			"rose": "Ros",
+			"violet": "Violett",
+			"cyan": "Cyan",
+			"lime": "Lime",
+			"indigo": "Indigo",
+			"slate": "Skiffer"
+		},
+		"folder_type": {
+			"auto_detect": "Identifiera automatiskt",
+			"inbox": "Inkorg",
+			"sent": "Skickat",
+			"drafts": "Utkast",
+			"archive": "Arkiv",
+			"junk": "Skräppost",
+			"trash": "Papperskorg"
+		},
+		"tag": {
+			"important": "Viktigt",
+			"work": "Arbete",
+			"personal": "Personligt",
+			"todo": "Att göra",
+			"later": "Senare"
+		},
+		"table_columns": {
+			"title": "Tabellkolumner",
+			"reset": "Återställ kolumner"
+		},
+		"create_folder": {
+			"title": "Skapa mapp",
+			"folder_path": "Mappsökväg",
+			"folder_path_required": "Mappsökväg krävs",
+			"folder_type": "Mapptyp",
+			"folder_color": "Mappfärg",
+			"set_folder_color": "Ange mappfärg {{label}}"
+		},
+		"edit_folder": {
+			"title": "Redigera mapp",
+			"close_aria": "Stäng redigera-mapp-modal",
+			"display_name": "Visningsnamn",
+			"folder_type": "Mapptyp",
+			"folder_color": "Mappfärg"
+		},
+		"message_source": {
+			"aria_label": "Meddelandekälla",
+			"title": "Meddelandekälla",
+			"loading": "Laddar meddelandekälla...",
+			"failed": "Kunde inte läsa källa: {{error}}",
+			"no_source": "(Ingen källa tillgänglig)"
+		},
+		"message_body": {
+			"loading": "Laddar meddelandetext...",
+			"empty_body": "Ingen meddelandetext tillgänglig för detta meddelande.",
+			"remote_blocked": "Fjärrinnehåll blockerat av integritetsskäl.",
+			"load_once": "Ladda en gång",
+			"always_allow_sender": "Tillåt alltid avsändare",
+			"attachment": "Bilaga",
+			"file": "FILE"
+		},
+		"context": {
+			"create_folder": "Skapa mapp",
+			"edit_account_settings": "Redigera kontoinställningar",
+			"open_in_new_window": "Öppna i nytt fönster",
+			"mark_as_unread": "Markera som oläst",
+			"mark_as_read": "Markera som läst",
+			"remove_star": "Ta bort stjärna",
+			"star_message": "Stjärnmarkera meddelande",
+			"tag": "Tagg",
+			"on": "På",
+			"clear_tag": "Rensa tagg",
+			"archive": "Arkivera",
+			"mark_as_not_junk": "Markera som inte skräppost",
+			"mark_as_junk": "Markera som skräppost",
+			"move_to": "Flytta till",
+			"open_folder": "Öppna mapp",
+			"edit_folder_settings": "Redigera mappinställningar",
+			"refresh_folder": "Uppdatera mapp",
+			"sync_account": "Synka konto",
+			"delete_folder": "Ta bort mapp"
+		},
+		"header": {
+			"no_recipients": "Inga mottagare ännu",
+			"unknown_sender": "Okänd avsändare",
+			"contact_exists": "Kontakt finns redan för {{email}}.",
+			"contact_added": "Lade till {{email}} i kontakter.",
+			"add_contact_failed": "Kunde inte lägga till kontakt: {{error}}",
+			"action_mark_read": "markera läst",
+			"action_star": "stjärnmarkera",
+			"filter_name": "Från {{email}} ({{action}})",
+			"filter_created": "Skapade regel för {{email}}: {{action}}.",
+			"create_filter_failed": "Kunde inte skapa regel: {{error}}",
+			"custom_filter_unavailable": "Anpassat filter är inte tillgängligt i denna vy.",
+			"message": "Meddelande",
+			"starred": "Stjärnmarkerad",
+			"read": "Läst",
+			"unread": "Oläst",
+			"attachments_count": "{{count}} bilagor",
+			"verify_sender": "Verifiera avsändare",
+			"no_subject": "(Inget ämne)",
+			"sender_actions": "Avsändaråtgärder",
+			"add_contact": "Lägg till kontakt",
+			"auto_read_sender": "Auto-läs avsändare",
+			"auto_star_sender": "Auto-stjärnmarkera avsändare",
+			"custom_filter": "Anpassat filter...",
+			"hide_message_details": "Dölj meddelandedetaljer",
+			"show_message_details": "Visa meddelandedetaljer",
+			"details_from_name": "Från namn",
+			"details_from_address": "Från adress",
+			"details_to": "Till",
+			"details_date": "Datum",
+			"details_message_id": "Message-ID",
+			"details_in_reply_to": "In-Reply-To",
+			"details_references": "Referenser",
+			"details_size": "Storlek",
+			"details_size_bytes": "{{size}} byte"
+		},
+		"list": {
+			"search_mail": "Sök e-post",
+			"selected_count": "{{count}} markerade",
+			"mark_read": "Markera som läst",
+			"mark_unread": "Markera som oläst",
+			"no_subject": "(Inget ämne)"
+		},
+		"search": {
+			"all_accounts": "Alla konton",
+			"placeholder": "Sök avsändare, ämne eller innehåll i alla konton...",
+			"clear_search": "Rensa sökning",
+			"searching_all_accounts": "Söker i alla konton och mappar",
+			"searching_account": "Söker i {{account}}",
+			"basic": "Enkel",
+			"advanced": "Avancerad",
+			"esc": "Esc",
+			"from_placeholder": "Från adress/namn",
+			"subject_placeholder": "Ämne",
+			"to_placeholder": "Till adress",
+			"all_folders": "Alla mappar",
+			"read_status_all": "Lässtatus: alla",
+			"read_only": "Skrivskyddad",
+			"unread_only": "Endast olästa",
+			"star_all": "Stjärna: alla",
+			"starred_only": "Endast stjärnmarkerade",
+			"unstarred_only": "Endast utan stjärna",
+			"any_date": "Valfritt datum",
+			"last_7_days": "Senaste 7 dagarna",
+			"last_30_days": "Senaste 30 dagarna",
+			"last_12_months": "Senaste 12 månaderna",
+			"min_size_kb": "Min storlek (KB)",
+			"max_size_kb": "Max storlek (KB)",
+			"reset": "Återställ",
+			"type_to_search": "Skriv för att söka e-post i alla konton.",
+			"searching": "Söker...",
+			"no_matches": "Inga matchande e-postmeddelanden hittades.",
+			"account_fallback": "Konto {{accountId}}",
+			"unknown_folder": "Okänd mapp"
+		},
+		"table": {
+			"no_messages": "Inga meddelanden i denna mapp ännu.",
+			"loading_more": "Laddar fler meddelanden...",
+			"load_more": "Ladda fler",
+			"end_of_list": "Slutet av listan"
+		}
+	},
+	"mail": {
+		"error": {
+			"invalid_field": "Ogiltig {{field}}",
+			"invalid_tag": "Ogiltig tagg",
+			"invalid_attachment_index": "Ogiltigt attachmentIndex",
+			"invalid_attachment_action": "Ogiltig bilageåtgärd",
+			"message_not_found": "Meddelande {{messageId}} hittades inte",
+			"no_archive_folder": "Ingen arkivmapp tillgänglig för detta konto."
+		},
+		"attachment": {
+			"title": "Bilaga",
+			"save_title": "Spara bilaga",
+			"choose_action_detail": "Välj hur du vill fortsätta med denna bilaga.",
+			"open": "Öppna",
+			"save_as": "Spara som...",
+			"cancel": "Avbryt"
+		}
+	}
+}
